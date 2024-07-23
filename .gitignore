@@ -1,0 +1,14 @@
+node_modules
+
+# local heroku environment variables 
+.env
+
+# Mac backups
+.DS_Store
+
+# emacs backups
+*~
+\#*#
+.#*
+
+config.js

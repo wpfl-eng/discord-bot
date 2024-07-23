@@ -1,0 +1,40 @@
+{
+  "name": "node-js-getting-started",
+  "type": "module",
+  "version": "0.2.1",
+  "description": "A sample Node.js app using Express 4",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.8.0",
+    "date-fns": "^2.29.2",
+    "discord.js": "^14.15.2",
+    "espn-fantasy-football-api": "git+https://github.com/aboorde/ESPN-Fantasy-Football-API.git",
+    "express": "^4.17.1",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.47.2",
+    "pg": "8.7.1"
+  },
+  "devDependencies": {
+    "dotenv": "^16.0.2",
+    "jest": "^29.6.2",
+    "nodemon": "^2.0.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heroku/node-js-getting-started"
+  },
+  "keywords": [
+    "node",
+    "heroku",
+    "express"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": "18.17.1"
+  }
+}
