@@ -1,0 +1,3 @@
+export const token = null; // Discord Private token
+export const clientId = null; // Discord clientId
+export const guildId = null;  // Discord channel guildId
