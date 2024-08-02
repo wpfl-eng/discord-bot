@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "url";
 
-// RUN THIS FILE MANUALLY WITH A CONFIG.JS TO IMPORT SLASH COMMANDS
+// Make sure your .env is setup
 // node deploy-commands.js
 // Need clientId, guildId, token
 // will look through /discordCommands/* as well as files directly in /discordCommands
