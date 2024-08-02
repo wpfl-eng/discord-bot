@@ -28,9 +28,26 @@ export async function execute(interaction) {
     });
     return;
   }
-  const roll = Math.floor(Math.random() * sides) + 1;
+
+  const rolls = Array.from(
+    { length: numberDice },
+    () => Math.floor(Math.random() * diceSides) + 1
+  );
+  const total = rolls.reduce((sum, roll) => sum + roll, 0);
+
+  const embed = new MessageEmbed()
+    .setColor("#0099ff")
+    .setTitle("🎲 Dice Roll 🎲")
+    .addFields(
+      { name: "Number of Dice", value: numberDice.toString(), inline: true },
+      { name: "Sides per Die", value: diceSides.toString(), inline: true },
+      { name: "Rolls", value: rolls.join(", "), inline: true },
+      { name: "Total", value: total.toString(), inline: true }
+    )
+    .setTimestamp();
+
   await interaction.reply({
-    content: `${numberDice}d${diceSides} => ${roll}`,
+    embeds: [embed],
     ephemeral: isHidden,
   });
 }
