@@ -4,7 +4,7 @@ export const data = new SlashCommandBuilder()
   .setName("roll")
   .setDescription("Roll a dice")
   .addIntegerOption((option) =>
-    option.setName("numberDice").setDescription("How many dice (default 1)")
+    option.setName("dice").setDescription("How many dice (default 1)")
   )
   .addIntegerOption((option) =>
     option
@@ -18,7 +18,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const diceSides = interaction.options.getInteger("sides");
-  const numberDice = interaction.options.getInteger("numberDice") || 1;
+  const numberDice = interaction.options.getInteger("dice") || 1;
   const isHidden = interaction.options.getBoolean("hidden") || false;
 
   if (diceSides < 1) {
