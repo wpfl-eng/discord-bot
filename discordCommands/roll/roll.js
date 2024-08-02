@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 
 export const data = new SlashCommandBuilder()
   .setName("roll")
@@ -35,15 +35,15 @@ export async function execute(interaction) {
   );
   const total = rolls.reduce((sum, roll) => sum + roll, 0);
 
-  const embed = new MessageEmbed()
+  const embed = new EmbedBuilder()
     .setColor("#0099ff")
     .setTitle("🎲 Dice Roll 🎲")
-    .addFields(
+    .addFields([
       { name: "Number of Dice", value: numberDice.toString(), inline: true },
       { name: "Sides per Die", value: diceSides.toString(), inline: true },
       { name: "Rolls", value: rolls.join(", "), inline: true },
-      { name: "Total", value: total.toString(), inline: true }
-    )
+      { name: "Total", value: total.toString(), inline: true },
+    ])
     .setTimestamp();
 
   await interaction.reply({
