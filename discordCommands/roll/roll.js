@@ -4,13 +4,13 @@ export const data = new SlashCommandBuilder()
   .setName("roll")
   .setDescription("Roll a dice")
   .addIntegerOption((option) =>
-    option.setName("dice").setDescription("How many dice (default 1)")
-  )
-  .addIntegerOption((option) =>
     option
       .setName("sides")
       .setDescription("Number of sides on die")
       .setRequired(true)
+  )
+  .addIntegerOption((option) =>
+    option.setName("dice").setDescription("How many dice (default 1)")
   )
   .addBooleanOption((option) =>
     option.setName("hidden").setDescription("is roll hidden (default public)")
