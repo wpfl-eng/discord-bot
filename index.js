@@ -2,7 +2,13 @@ import "dotenv/config";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
-import { Client, Collection, GatewayIntentBits, Events } from "discord.js";
+import {
+  Client,
+  Collection,
+  GatewayIntentBits,
+  Events,
+  ActivityType,
+} from "discord.js";
 import { fileURLToPath, pathToFileURL } from "url";
 
 // Create a new client instance
@@ -116,7 +122,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.on("ready", () => {
-  client.user.setActivity("Jaguars Highlights", { type: "WATCHING" });
+  client.user.setActivity("Jaguars Highlights", {
+    type: ActivityType.Watching,
+  });
 });
 
 const app = express();
