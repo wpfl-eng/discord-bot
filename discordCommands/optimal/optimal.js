@@ -20,6 +20,8 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  await interaction.deferReply();
+
   const year = interaction.options.getInteger("year") || 2023;
   const week = interaction.options.getInteger("week") || 17;
 
@@ -29,8 +31,6 @@ export async function execute(interaction) {
   }
 
   try {
-    await interaction.deferReply();
-
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -42,24 +42,7 @@ export async function execute(interaction) {
       return;
     }
 
-    const formattedData = data
-      .map((item) => {
-        const efficiency = (
-          (item.actualPointsFor / item.optimalPointsFor) *
-          100
-        ).toFixed(2);
-        const pointsLeftOnBench = (
-          item.optimalPointsFor - item.actualPointsFor
-        ).toFixed(2);
-        return (
-          `**${item.owner}**\n` +
-          `\`ACT:${item.actualPointsFor.toFixed(
-            2
-          )} OPT:${item.optimalPointsFor.toFixed(2)} ` +
-          `EFF:${efficiency}% BENCH:${pointsLeftOnBench}\``
-        );
-      })
-      .join("\n");
+    const formattedData = formatCoachingData(data);
 
     const title = week
       ? `Optimal Coaching Data for Year ${year}, Week ${week}`
@@ -73,3 +56,24 @@ export async function execute(interaction) {
     );
   }
 }
+
+const formatCoachingData = (data) => {
+  return data
+    .map(({ owner, actualPointsFor, optimalPointsFor }) => {
+      const actual = Number(actualPointsFor).toFixed(2);
+      const optimal = Number(optimalPointsFor).toFixed(2);
+      const efficiency = ((actualPointsFor / optimalPointsFor) * 100).toFixed(
+        2
+      );
+      const bench = (optimalPointsFor - actualPointsFor).toFixed(2);
+
+      return [
+        `**${owner}**`,
+        "```",
+        `ACT:${actual.padStart(7)} OPT:${optimal.padStart(7)}`,
+        `EFF:${efficiency.padStart(6)}% BENCH:${bench.padStart(7)}`,
+        "```",
+      ].join("\n");
+    })
+    .join("\n\n");
+};
