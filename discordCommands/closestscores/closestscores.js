@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from "discord.js";
 import pkg from "espn-fantasy-football-api/node.js";
 const { Client } = pkg;
 import { differenceInHours } from "date-fns";
-import { espnMembers } from "../constants/espnMembers.js";
+import { espnMembers } from "../../constants/espnMembers.js";
 
 export const data = new SlashCommandBuilder()
   .setName("closestscores")
