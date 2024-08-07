@@ -75,10 +75,12 @@ const formatCoachingData = (data) => {
       const bench = (optimalPointsFor - actualPointsFor).toFixed(2);
 
       return [
-        `**${index + 1}. ${owner}**`,
         "```",
-        `ACT:${actual.padStart(7)} OPT:${optimal.padStart(7)}`,
-        `EFF:${efficiency.padStart(6)}% BENCH:${bench.padStart(7)}`,
+        `**${index + 1}. ${owner}** > ACT:${actual.padStart(
+          7
+        )} OPT:${optimal.padStart(7)} EFF:${efficiency.padStart(
+          6
+        )}% BENCH:${bench.padStart(7)}`,
         "```",
       ].join("\n");
     })
