@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
-import { formatDistanceToNow, formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone } from "date-fns-tz";
+import { formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
 
 export const data = new SlashCommandBuilder()
