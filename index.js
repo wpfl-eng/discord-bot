@@ -18,7 +18,6 @@ const client = new Client({
 // When the client is ready, run this code (only once)
 client.once("ready", () => {
   console.log("Ready!");
-  client.user.setActivity("Jaguars Highlights", { type: "WATCHING" });
 });
 
 client.commands = new Collection();
@@ -114,6 +113,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     }
   }
+});
+
+client.on("ready", () => {
+  client.user.setActivity("Jaguars Highlights", { type: "WATCHING" });
 });
 
 const app = express();
