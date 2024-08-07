@@ -58,8 +58,15 @@ export async function execute(interaction) {
 }
 
 const formatCoachingData = (data) => {
-  return data
-    .map(({ owner, actualPointsFor, optimalPointsFor }) => {
+  // Sort the data by efficiency (highest to lowest)
+  const sortedData = data.sort((a, b) => {
+    const efficiencyA = a.actualPointsFor / a.optimalPointsFor;
+    const efficiencyB = b.actualPointsFor / b.optimalPointsFor;
+    return efficiencyB - efficiencyA;
+  });
+
+  return sortedData
+    .map(({ owner, actualPointsFor, optimalPointsFor }, index) => {
       const actual = Number(actualPointsFor).toFixed(2);
       const optimal = Number(optimalPointsFor).toFixed(2);
       const efficiency = ((actualPointsFor / optimalPointsFor) * 100).toFixed(
@@ -68,7 +75,7 @@ const formatCoachingData = (data) => {
       const bench = (optimalPointsFor - actualPointsFor).toFixed(2);
 
       return [
-        `**${owner}**`,
+        `**${index + 1}. ${owner}**`,
         "```",
         `ACT:${actual.padStart(7)} OPT:${optimal.padStart(7)}`,
         `EFF:${efficiency.padStart(6)}% BENCH:${bench.padStart(7)}`,
