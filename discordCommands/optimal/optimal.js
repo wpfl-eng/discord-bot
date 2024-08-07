@@ -80,7 +80,7 @@ const formatCoachingData = (data) => {
         `ACT:${actual.padStart(7)} OPT:${optimal.padStart(7)}`,
         `EFF:${efficiency.padStart(6)}% BENCH:${bench.padStart(7)}`,
         "```",
-      ].join("\n");
+      ].join("");
     })
-    .join("\n\n");
+    .join("");
 };
