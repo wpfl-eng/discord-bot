@@ -52,14 +52,14 @@ export async function execute(interaction) {
           item.optimalPointsFor - item.actualPointsFor
         ).toFixed(2);
         return (
-          `${item.owner}:\n` +
-          `  Actual: ${item.actualPointsFor.toFixed(2)}\n` +
-          `  Optimal: ${item.optimalPointsFor.toFixed(2)}\n` +
-          `  Efficiency: ${efficiency}%\n` +
-          `  Points Left on Bench: ${pointsLeftOnBench}`
+          `**${item.owner}**\n` +
+          `\`ACT:${item.actualPointsFor.toFixed(
+            2
+          )} OPT:${item.optimalPointsFor.toFixed(2)} ` +
+          `EFF:${efficiency}% BENCH:${pointsLeftOnBench}\``
         );
       })
-      .join("\n\n");
+      .join("\n");
 
     const title = week
       ? `Optimal Coaching Data for Year ${year}, Week ${week}`
