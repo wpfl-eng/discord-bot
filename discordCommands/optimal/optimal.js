@@ -76,7 +76,7 @@ const formatCoachingData = (data) => {
 
       return [
         "```",
-        `**${index + 1}. ${owner}** > ACT:${actual.padStart(
+        `${index + 1}. ${owner} > ACT:${actual.padStart(
           7
         )} OPT:${optimal.padStart(7)} EFF:${efficiency.padStart(
           6
