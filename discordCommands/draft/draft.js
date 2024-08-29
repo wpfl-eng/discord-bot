@@ -1,6 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { formatInTimeZone } from "date-fns-tz";
-import { formatDistanceToNow } from "date-fns";
+import { formatInTimeZone, intervalToDuration } from "date-fns-tz";
 import { enUS } from "date-fns/locale";
 
 export const data = new SlashCommandBuilder()
@@ -9,17 +8,23 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   // Define the draft time
-  const draftTime = new Date("2024-09-03T20:30:00-04:00"); // Date in EST
+  const draftTime = new Date("2024-09-03T20:00:00-04:00"); // Date in EST
   const draftTimeZone = "America/New_York";
 
   // Get the current time in the draft's time zone
   const now = new Date();
 
   // Calculate the time remaining
-  const timeRemaining = formatDistanceToNow(draftTime, {
-    addSuffix: true,
-    locale: enUS,
+  const duration = intervalToDuration({
+    start: now,
+    end: draftTime,
   });
+
+  // Format the time remaining into a string
+  const timeRemaining =
+    `${duration.days} day${duration.days !== 1 ? "s" : ""} ` +
+    `${duration.hours} hour${duration.hours !== 1 ? "s" : ""} ` +
+    `${duration.minutes} minute${duration.minutes !== 1 ? "s" : ""}`;
 
   // Format the draft time in a readable format
   const formattedDraftTime = formatInTimeZone(
