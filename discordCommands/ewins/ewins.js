@@ -10,7 +10,7 @@ export const data = new SlashCommandBuilder()
       .setName("year")
       .setDescription("Season year (default: current year)")
       .setMinValue(2010)
-      .setMaxValue(2023)
+      .setMaxValue(2024)
   )
   .addIntegerOption((option) =>
     option
