@@ -13,9 +13,9 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption((option) =>
     option
       .setName("seasonmin")
-      .setDescription("Minimum season year (default: 2015)")
+      .setDescription("Minimum season year (default: 2010)")
       .setRequired(false)
-      .setMinValue(2015)
+      .setMinValue(2010)
       .setMaxValue(2024)
   )
   .addIntegerOption((option) =>
@@ -23,7 +23,7 @@ export const data = new SlashCommandBuilder()
       .setName("seasonmax")
       .setDescription("Maximum season year (default: 2024)")
       .setRequired(false)
-      .setMinValue(2015)
+      .setMinValue(2010)
       .setMaxValue(2024)
   );
 
@@ -38,14 +38,14 @@ export async function execute(interaction) {
     // Handle edge cases and defaults
     if (!seasonMin && !seasonMax) {
       // Both empty: use full range
-      seasonMin = 2015;
+      seasonMin = 2010;
       seasonMax = 2024;
     } else if (seasonMin && !seasonMax) {
       // Only min provided: use min to 2024
       seasonMax = 2024;
     } else if (!seasonMin && seasonMax) {
-      // Only max provided: use 2015 to max
-      seasonMin = 2015;
+      // Only max provided: use 2010 to max
+      seasonMin = 2010;
     }
     
     // Swap if user put them backwards
@@ -119,6 +119,17 @@ function analyzeDraftTrends(draftData) {
         positionByRound: {},
         playerFrequency: {},
         seasonBreakdown: {},
+        auctionStats: {
+          totalSpent: 0,
+          avgValue: 0,
+          maxBid: 0,
+          minBid: Infinity,
+          valueByPosition: {},
+          bargains: [],
+          overpays: []
+        },
+        snakeDraftPicks: 0,
+        auctionDraftPicks: 0,
         totalPicks: 0,
         averagePosition: 0,
         earliestPick: Infinity,
@@ -181,6 +192,27 @@ function analyzeDraftTrends(draftData) {
     stats.averagePosition += pick.draftPosition;
     stats.earliestPick = Math.min(stats.earliestPick, pick.draftPosition);
     stats.latestPick = Math.max(stats.latestPick, pick.draftPosition);
+    
+    // Track auction values (2016 onwards)
+    if (pick.auctionValue && pick.auctionValue > 0 && pick.season >= 2016) {
+      stats.auctionDraftPicks++;
+      stats.auctionStats.totalSpent += pick.auctionValue;
+      stats.auctionStats.maxBid = Math.max(stats.auctionStats.maxBid, pick.auctionValue);
+      stats.auctionStats.minBid = Math.min(stats.auctionStats.minBid, pick.auctionValue);
+      
+      // Track value by position
+      if (!stats.auctionStats.valueByPosition[position]) {
+        stats.auctionStats.valueByPosition[position] = {
+          total: 0,
+          count: 0,
+          avg: 0
+        };
+      }
+      stats.auctionStats.valueByPosition[position].total += pick.auctionValue;
+      stats.auctionStats.valueByPosition[position].count++;
+    } else if (pick.season < 2016 || !pick.auctionValue) {
+      stats.snakeDraftPicks++;
+    }
   });
   
   // Calculate averages and find patterns
@@ -220,8 +252,68 @@ function analyzeDraftTrends(draftData) {
       seasonData.avgPosition = seasonData.avgPosition / seasonData.picks;
     });
     
-    // Calculate reach percentage (picks in top 24 positions)
-    stats.reachPercentage = (stats.picks.filter(p => p.draftPosition <= 24).length / stats.totalPicks) * 100;
+    // Calculate auction averages and find bargains/overpays
+    if (stats.auctionStats.totalSpent > 0) {
+      const auctionPicks = stats.picks.filter(p => p.auctionValue && p.auctionValue > 0);
+      stats.auctionStats.avgValue = stats.auctionStats.totalSpent / auctionPicks.length;
+      
+      // Calculate average by position
+      Object.keys(stats.auctionStats.valueByPosition).forEach(pos => {
+        const posData = stats.auctionStats.valueByPosition[pos];
+        posData.avg = posData.total / posData.count;
+      });
+      
+      // Find bargains and overpays based on position averages
+      auctionPicks.forEach(pick => {
+        const position = pick.playerNflPosition ? pick.playerNflPosition.trim() : "Unknown";
+        const posAvg = stats.auctionStats.valueByPosition[position]?.avg || stats.auctionStats.avgValue;
+        
+        // Bargain: paid less than 70% of position average
+        if (pick.auctionValue < posAvg * 0.7) {
+          stats.auctionStats.bargains.push({
+            player: pick.player,
+            value: pick.auctionValue,
+            position: position,
+            season: pick.season,
+            discount: ((1 - pick.auctionValue / posAvg) * 100).toFixed(0)
+          });
+        }
+        
+        // Overpay: paid more than 130% of position average
+        if (pick.auctionValue > posAvg * 1.3) {
+          stats.auctionStats.overpays.push({
+            player: pick.player,
+            value: pick.auctionValue,
+            position: position,
+            season: pick.season,
+            premium: ((pick.auctionValue / posAvg - 1) * 100).toFixed(0)
+          });
+        }
+      });
+      
+      // Sort bargains and overpays
+      stats.auctionStats.bargains.sort((a, b) => b.discount - a.discount);
+      stats.auctionStats.overpays.sort((a, b) => b.premium - a.premium);
+    }
+    
+    // Calculate different metrics based on draft type
+    if (stats.auctionDraftPicks > 0) {
+      // Calculate percentage of budget on top players (>$40)
+      const bigSpends = stats.picks.filter(p => p.auctionValue && p.auctionValue > 40 && p.season >= 2016).length;
+      stats.starsAndScrubsPercentage = (bigSpends / stats.auctionDraftPicks) * 100;
+      
+      // Calculate budget allocation by position
+      stats.budgetAllocation = {};
+      Object.entries(stats.auctionStats.valueByPosition).forEach(([pos, data]) => {
+        stats.budgetAllocation[pos] = ((data.total / stats.auctionStats.totalSpent) * 100).toFixed(1);
+      });
+    }
+    
+    if (stats.snakeDraftPicks > 0) {
+      // Calculate reach percentage for snake draft picks only
+      const snakePicks = stats.picks.filter(p => p.season < 2016 || !p.auctionValue);
+      stats.reachPercentage = (snakePicks.filter(p => p.draftPosition <= 24).length / stats.snakeDraftPicks) * 100;
+    }
   });
   
   return ownerStats;
@@ -246,7 +338,15 @@ function createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax) {
   const owner = Object.keys(analysis)[0];
   const stats = analysis[owner];
   
-  embed.description = `Analysis for **${owner}** (${stats.totalPicks} total picks)`;
+  let draftTypeBreakdown = [];
+  if (stats.snakeDraftPicks > 0) {
+    draftTypeBreakdown.push(`${stats.snakeDraftPicks} snake`);
+  }
+  if (stats.auctionDraftPicks > 0) {
+    draftTypeBreakdown.push(`${stats.auctionDraftPicks} auction`);
+  }
+  
+  embed.description = `Analysis for **${owner}** (${stats.totalPicks} total picks: ${draftTypeBreakdown.join(", ")})`;
   
   // Team preferences - show top 3
   if (stats.topTeams && stats.topTeams.length > 0) {
@@ -275,12 +375,41 @@ function createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax) {
     });
   }
   
-  // Draft position tendencies
-  embed.fields.push({
-    name: "📈 Draft Position Stats",
-    value: `Average: **${stats.averagePosition.toFixed(1)}**\nEarliest: **${stats.earliestPick}**\nLatest: **${stats.latestPick}**`,
-    inline: true
-  });
+  // Show relevant stats based on draft types present
+  if (stats.snakeDraftPicks > 0) {
+    // Calculate snake-only average position
+    const snakePicks = stats.picks.filter(p => p.season < 2016 || !p.auctionValue);
+    const snakeAvgPos = snakePicks.reduce((sum, p) => sum + p.draftPosition, 0) / snakePicks.length;
+    
+    embed.fields.push({
+      name: "🐍 Snake Draft Stats",
+      value: `Picks: **${stats.snakeDraftPicks}** (2010-2015)\nAvg Position: **${snakeAvgPos.toFixed(1)}**`,
+      inline: true
+    });
+  }
+  
+  if (stats.auctionDraftPicks > 0) {
+    embed.fields.push({
+      name: "💰 Auction Stats",
+      value: `Picks: **${stats.auctionDraftPicks}** (2016+)\nTotal Spent: **$${stats.auctionStats.totalSpent}**\nAvg Value: **$${stats.auctionStats.avgValue.toFixed(1)}**`,
+      inline: true
+    });
+    
+    // Budget allocation by position
+    const topAllocations = Object.entries(stats.budgetAllocation || {})
+      .sort(([,a], [,b]) => parseFloat(b) - parseFloat(a))
+      .slice(0, 3)
+      .map(([pos, pct]) => `${pos}: ${pct}%`)
+      .join("\n");
+    
+    if (topAllocations) {
+      embed.fields.push({
+        name: "📊 Budget Allocation",
+        value: topAllocations,
+        inline: true
+      });
+    }
+  }
   
   // Position by round breakdown
   let roundBreakdown = "";
@@ -334,6 +463,33 @@ function createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax) {
     });
   }
   
+  // Show bargains and overpays for auction drafts
+  if (stats.auctionStats.bargains && stats.auctionStats.bargains.length > 0) {
+    const bargainList = stats.auctionStats.bargains
+      .slice(0, 3)
+      .map(b => `**${b.player}** ($${b.value}) - ${b.discount}% off`)
+      .join("\n");
+    
+    embed.fields.push({
+      name: "💎 Best Bargains",
+      value: bargainList,
+      inline: true
+    });
+  }
+  
+  if (stats.auctionStats.overpays && stats.auctionStats.overpays.length > 0) {
+    const overpayList = stats.auctionStats.overpays
+      .slice(0, 3)
+      .map(o => `**${o.player}** ($${o.value}) - ${o.premium}% over`)
+      .join("\n");
+    
+    embed.fields.push({
+      name: "💸 Biggest Overpays",
+      value: overpayList,
+      inline: true
+    });
+  }
+  
   // Notable patterns
   let patterns = [];
   
@@ -359,11 +515,35 @@ function createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax) {
     patterns.push(`🚫 Zero-RB tendency (only ${((earlyRBs / totalEarly) * 100).toFixed(0)}% RBs early)`);
   }
   
-  // Check for reach tendencies
-  if (stats.reachPercentage > 40) {
-    patterns.push(`🎯 Aggressive drafter (${stats.reachPercentage.toFixed(0)}% picks in top 2 rounds)`);
-  } else if (stats.reachPercentage < 20) {
-    patterns.push(`💎 Value drafter (only ${stats.reachPercentage.toFixed(0)}% picks in top 2 rounds)`);
+  // Snake draft patterns (2010-2015)
+  if (stats.snakeDraftPicks > 0 && stats.reachPercentage !== undefined) {
+    if (stats.reachPercentage > 40) {
+      patterns.push(`🎯 Aggressive snake drafter (${stats.reachPercentage.toFixed(0)}% picks in top 2 rounds)`);
+    } else if (stats.reachPercentage < 20) {
+      patterns.push(`⏳ Patient snake drafter (only ${stats.reachPercentage.toFixed(0)}% picks in top 2 rounds)`);
+    }
+  }
+  
+  // Auction patterns (2016+)
+  if (stats.auctionDraftPicks > 0) {
+    // Stars and scrubs vs balanced
+    if (stats.starsAndScrubsPercentage > 30) {
+      patterns.push(`⭐ Stars & Scrubs auction strategy (${stats.starsAndScrubsPercentage.toFixed(0)}% on $40+ players)`);
+    } else if (stats.starsAndScrubsPercentage < 15) {
+      patterns.push(`⚖️ Balanced auction approach`);
+    }
+    
+    // Check for position-heavy spending
+    const topSpendPos = Object.entries(stats.budgetAllocation || {})
+      .sort(([,a], [,b]) => parseFloat(b) - parseFloat(a))[0];
+    if (topSpendPos && parseFloat(topSpendPos[1]) > 40) {
+      patterns.push(`💰 ${topSpendPos[0]}-heavy spender (${topSpendPos[1]}% of budget)`);
+    }
+    
+    // Value hunter
+    if (stats.auctionStats.bargains.length >= 5) {
+      patterns.push(`🔍 Bargain hunter (${stats.auctionStats.bargains.length} steals in auctions)`);
+    }
   }
   
   // Check for loyalty to specific players
