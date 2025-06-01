@@ -69,62 +69,116 @@ export async function execute(interaction) {
     
     const draftData = await response.json();
     
-    // Fetch player scores (only available from 2015+) to calculate actual value
+    // First analyze the data to see what players we need scores for
+    const analysis = analyzeDraftTrends(filteredData, {});
+    
+    // Get unique player names from auction drafts (2016+) for performance lookup
     let playerScores = {};
-    if (seasonMax >= 2015) {
-      // Only fetch scores for years where data is available (2015+)
-      const scoresMinYear = Math.max(seasonMin, 2015);
-      const scoresUrl = `https://wpflapi.azurewebsites.net/api/playerscores?seasonMin=${scoresMinYear}&seasonMax=${seasonMax}`;
-      const scoresResponse = await fetch(scoresUrl);
-      if (scoresResponse.ok) {
-        const scoresData = await scoresResponse.json();
-        
-        // Aggregate total points by player and season
-        scoresData.forEach(score => {
-          const key = `${score.player}_${score.season}`;
-          if (!playerScores[key]) {
-            playerScores[key] = {
-              player: score.player,
-              season: score.season,
-              totalPoints: 0,
-              gamesPlayed: 0
-            };
+    const auctionPicks = filteredData.filter(pick => 
+      pick.auctionValue && pick.auctionValue > 0 && pick.season >= 2015
+    );
+    
+    if (auctionPicks.length > 0 && seasonMax >= 2015) {
+      await interaction.editReply("Analyzing draft data and fetching player performance...");
+      
+      // Get unique players we need to look up
+      const uniquePlayers = [...new Set(auctionPicks.map(p => p.player))].filter(p => p);
+      
+      // Fetch in smaller batches by year to avoid timeout
+      const yearsToFetch = [];
+      for (let year = Math.max(seasonMin, 2015); year <= seasonMax; year++) {
+        if (auctionPicks.some(p => p.season === year)) {
+          yearsToFetch.push(year);
+        }
+      }
+      
+      // Process each year separately to avoid massive data load
+      for (const year of yearsToFetch) {
+        try {
+          const scoresUrl = `https://wpflapi.azurewebsites.net/api/playerscores?seasonMin=${year}&seasonMax=${year}`;
+          const scoresResponse = await fetch(scoresUrl, { timeout: 15000 });
+          
+          if (scoresResponse.ok) {
+            const scoresData = await scoresResponse.json();
+            
+            // Only process scores for players we actually drafted
+            scoresData.forEach(score => {
+              if (uniquePlayers.includes(score.player)) {
+                const key = `${score.player}_${score.season}`;
+                if (!playerScores[key]) {
+                  playerScores[key] = {
+                    player: score.player,
+                    season: score.season,
+                    totalPoints: 0,
+                    gamesPlayed: 0
+                  };
+                }
+                playerScores[key].totalPoints += score.points;
+                playerScores[key].gamesPlayed++;
+              }
+            });
           }
-          playerScores[key].totalPoints += score.points;
-          playerScores[key].gamesPlayed++;
-        });
+        } catch (error) {
+          console.error(`Failed to fetch scores for ${year}:`, error);
+          // Continue with other years even if one fails
+        }
       }
     }
     
-    // Filter by user name (exact match, case-insensitive)
-    const filteredData = draftData.filter(pick => 
-      pick.owner.toLowerCase() === userName.toLowerCase()
-    );
+    // Filter by user name (case-insensitive, handle variations)
+    const filteredData = draftData.filter(pick => {
+      // Handle case variations and common patterns
+      const pickOwner = pick.owner.toLowerCase().trim();
+      const searchName = userName.toLowerCase().trim();
+      
+      // Try exact match first
+      if (pickOwner === searchName) return true;
+      
+      // Try with different cases (e.g., "AJ Boorde" vs "aj boorde")
+      if (pickOwner.replace(/\s+/g, ' ') === searchName.replace(/\s+/g, ' ')) return true;
+      
+      // Try first + last name combinations
+      const pickParts = pickOwner.split(' ');
+      const searchParts = searchName.split(' ');
+      if (pickParts.length >= 2 && searchParts.length >= 2) {
+        if (pickParts[0] === searchParts[0] && pickParts[pickParts.length-1] === searchParts[searchParts.length-1]) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
     
     if (filteredData.length === 0) {
       // Try to find similar names for suggestions
       const allOwners = [...new Set(draftData.map(pick => pick.owner))];
+      const lowerUserName = userName.toLowerCase();
+      
+      // More flexible matching for suggestions
       const suggestions = allOwners
-        .filter(owner => 
-          owner.toLowerCase().includes(userName.toLowerCase()) || 
-          userName.toLowerCase().includes(owner.toLowerCase())
-        )
-        .slice(0, 3);
+        .filter(owner => {
+          const lowerOwner = owner.toLowerCase();
+          return lowerOwner.includes(lowerUserName) || 
+                 lowerUserName.includes(lowerOwner) ||
+                 lowerOwner.split(' ').some(part => lowerUserName.includes(part)) ||
+                 lowerUserName.split(' ').some(part => lowerOwner.includes(part));
+        })
+        .slice(0, 5);
       
       let replyMsg = `No draft data found for "${userName}"`;
       if (suggestions.length > 0) {
-        replyMsg += `\n\nDid you mean: ${suggestions.map(s => `**${s}**`).join(", ")}?`;
+        replyMsg += `\n\nDid you mean one of these?\n${suggestions.map(s => `• **${s}**`).join("\n")}?`;
       }
       
       await interaction.editReply(replyMsg);
       return;
     }
     
-    // Analyze the data
-    const analysis = analyzeDraftTrends(filteredData, playerScores);
+    // Re-analyze with performance data
+    const finalAnalysis = analyzeDraftTrends(filteredData, playerScores);
     
     // Format and send the response
-    const embed = createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax);
+    const embed = createDraftTrendsEmbed(finalAnalysis, userName, seasonMin, seasonMax);
     await interaction.editReply({ embeds: [embed] });
     
   } catch (error) {
