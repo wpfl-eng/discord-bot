@@ -69,6 +69,13 @@ export async function execute(interaction) {
     
     const draftData = await response.json();
     
+    // Ensure draftData is an array
+    if (!Array.isArray(draftData)) {
+      console.error("Draft data is not an array:", draftData);
+      await interaction.editReply("Failed to fetch draft data. Please try again.");
+      return;
+    }
+    
     // Filter by user name (case-insensitive, handle variations)
     const filteredData = draftData.filter(pick => {
       // Handle case variations and common patterns
@@ -117,7 +124,7 @@ export async function execute(interaction) {
       for (const year of yearsToFetch) {
         try {
           const scoresUrl = `https://wpflapi.azurewebsites.net/api/playerscores?seasonMin=${year}&seasonMax=${year}`;
-          const scoresResponse = await fetch(scoresUrl, { timeout: 15000 });
+          const scoresResponse = await fetch(scoresUrl);
           
           if (scoresResponse.ok) {
             const scoresData = await scoresResponse.json();
