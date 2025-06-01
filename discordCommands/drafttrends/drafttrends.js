@@ -69,8 +69,29 @@ export async function execute(interaction) {
     
     const draftData = await response.json();
     
-    // First analyze the data to see what players we need scores for
-    const analysis = analyzeDraftTrends(filteredData, {});
+    // Filter by user name (case-insensitive, handle variations)
+    const filteredData = draftData.filter(pick => {
+      // Handle case variations and common patterns
+      const pickOwner = pick.owner.toLowerCase().trim();
+      const searchName = userName.toLowerCase().trim();
+      
+      // Try exact match first
+      if (pickOwner === searchName) return true;
+      
+      // Try with different cases (e.g., "AJ Boorde" vs "aj boorde")
+      if (pickOwner.replace(/\s+/g, ' ') === searchName.replace(/\s+/g, ' ')) return true;
+      
+      // Try first + last name combinations
+      const pickParts = pickOwner.split(' ');
+      const searchParts = searchName.split(' ');
+      if (pickParts.length >= 2 && searchParts.length >= 2) {
+        if (pickParts[0] === searchParts[0] && pickParts[pickParts.length-1] === searchParts[searchParts.length-1]) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
     
     // Get unique player names from auction drafts (2016+) for performance lookup
     let playerScores = {};
@@ -125,30 +146,6 @@ export async function execute(interaction) {
       }
     }
     
-    // Filter by user name (case-insensitive, handle variations)
-    const filteredData = draftData.filter(pick => {
-      // Handle case variations and common patterns
-      const pickOwner = pick.owner.toLowerCase().trim();
-      const searchName = userName.toLowerCase().trim();
-      
-      // Try exact match first
-      if (pickOwner === searchName) return true;
-      
-      // Try with different cases (e.g., "AJ Boorde" vs "aj boorde")
-      if (pickOwner.replace(/\s+/g, ' ') === searchName.replace(/\s+/g, ' ')) return true;
-      
-      // Try first + last name combinations
-      const pickParts = pickOwner.split(' ');
-      const searchParts = searchName.split(' ');
-      if (pickParts.length >= 2 && searchParts.length >= 2) {
-        if (pickParts[0] === searchParts[0] && pickParts[pickParts.length-1] === searchParts[searchParts.length-1]) {
-          return true;
-        }
-      }
-      
-      return false;
-    });
-    
     if (filteredData.length === 0) {
       // Try to find similar names for suggestions
       const allOwners = [...new Set(draftData.map(pick => pick.owner))];
@@ -174,11 +171,11 @@ export async function execute(interaction) {
       return;
     }
     
-    // Re-analyze with performance data
-    const finalAnalysis = analyzeDraftTrends(filteredData, playerScores);
+    // Analyze the draft data with performance scores
+    const analysis = analyzeDraftTrends(filteredData, playerScores);
     
     // Format and send the response
-    const embed = createDraftTrendsEmbed(finalAnalysis, userName, seasonMin, seasonMax);
+    const embed = createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax);
     await interaction.editReply({ embeds: [embed] });
     
   } catch (error) {
@@ -347,6 +344,17 @@ function analyzeDraftTrends(draftData, playerScores) {
       const auctionPicks = stats.picks.filter(p => p.auctionValue && p.auctionValue > 0);
       stats.auctionStats.avgValue = stats.auctionStats.totalSpent / auctionPicks.length;
       
+      // Calculate average by position
+      Object.keys(stats.auctionStats.valueByPosition).forEach(pos => {
+        const posData = stats.auctionStats.valueByPosition[pos];
+        posData.avg = posData.total / posData.count;
+      });
+      
+      // Fix infinity value for minBid if no bids
+      if (stats.auctionStats.minBid === Infinity) {
+        stats.auctionStats.minBid = 0;
+      }
+      
       // Note: Performance data only available from 2015+
       // For 2010-2014, we'll show draft data without performance metrics
       
@@ -390,14 +398,14 @@ function analyzeDraftTrends(draftData, playerScores) {
         Object.entries(positionGroups).forEach(([pos, players]) => {
           const totalSpent = players.reduce((sum, p) => sum + p.pick.auctionValue, 0);
           const totalPoints = players.reduce((sum, p) => sum + p.totalPoints, 0);
-          const avgPointsPerDollar = totalPoints / totalSpent;
+          const posPointsPerDollar = totalPoints / totalSpent;
           
           stats.auctionStats.positionROI[pos] = {
             totalSpent: totalSpent,
             totalPoints: totalPoints.toFixed(1),
-            pointsPerDollar: avgPointsPerDollar.toFixed(2),
+            pointsPerDollar: posPointsPerDollar.toFixed(2),
             playerCount: players.length,
-            efficiency: ((avgPointsPerDollar / avgPointsPerDollar) * 100).toFixed(1)
+            efficiency: ((posPointsPerDollar / avgPointsPerDollar) * 100).toFixed(1)
           };
         });
         
