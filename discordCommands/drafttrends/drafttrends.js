@@ -195,17 +195,32 @@ export async function execute(interaction) {
     }
     
     try {
-      // Try sending just the first embed to test
-      console.log("[DRAFTTRENDS] Attempting to send first embed only...");
-      await interaction.editReply({ embeds: [embeds[0]] });
-      console.log("[DRAFTTRENDS] First embed sent successfully!");
+      // First, try a simple test embed
+      console.log("[DRAFTTRENDS] Testing with minimal embed...");
+      const testEmbed = new EmbedBuilder()
+        .setTitle(`Draft Analysis: ${stats.owner}`)
+        .setDescription("Testing embed functionality")
+        .setColor(0xFF6B35)
+        .addFields({
+          name: "Total Picks",
+          value: stats.total_picks.toString(),
+          inline: true
+        });
       
-      // If that works, try to send both in a follow-up
-      if (embeds.length > 1) {
-        console.log("[DRAFTTRENDS] Sending second embed as follow-up...");
-        await interaction.followUp({ embeds: [embeds[1]], ephemeral: true });
-        console.log("[DRAFTTRENDS] Second embed sent successfully!");
-      }
+      await interaction.editReply({ embeds: [testEmbed] });
+      console.log("[DRAFTTRENDS] Test embed sent successfully!");
+      
+      // If test works, wait a moment then try the real embed
+      console.log("[DRAFTTRENDS] Test passed, trying real embed...");
+      setTimeout(async () => {
+        try {
+          await interaction.editReply({ embeds: [embeds[0]] });
+          console.log("[DRAFTTRENDS] Real embed sent successfully!");
+        } catch (realError) {
+          console.error("[DRAFTTRENDS] Real embed failed:", realError);
+          // Keep the test embed if real one fails
+        }
+      }, 1000);
       
     } catch (sendError) {
       console.error("[DRAFTTRENDS] Error sending embeds:", sendError);
