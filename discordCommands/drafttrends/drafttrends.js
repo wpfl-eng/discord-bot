@@ -1,5 +1,12 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { sql } from "@vercel/postgres";
+import { 
+  DRAFT_CONSTANTS, 
+  truncateFieldValue, 
+  createField, 
+  validateSeasonRange,
+  getDraftArchetype
+} from "../../helpers/draftTrendsUtils.js";
 
 export const data = new SlashCommandBuilder()
   .setName("drafttrends")
@@ -13,56 +20,39 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption((option) =>
     option
       .setName("seasonmin")
-      .setDescription("Minimum season year (default: 2010)")
+      .setDescription(`Minimum season year (default: ${DRAFT_CONSTANTS.MIN_SEASON})`)
       .setRequired(false)
-      .setMinValue(2010)
-      .setMaxValue(2024)
+      .setMinValue(DRAFT_CONSTANTS.MIN_SEASON)
+      .setMaxValue(DRAFT_CONSTANTS.MAX_SEASON)
   )
   .addIntegerOption((option) =>
     option
       .setName("seasonmax")
-      .setDescription("Maximum season year (default: 2024)")
+      .setDescription(`Maximum season year (default: ${DRAFT_CONSTANTS.MAX_SEASON})`)
       .setRequired(false)
-      .setMinValue(2010)
-      .setMaxValue(2024)
+      .setMinValue(DRAFT_CONSTANTS.MIN_SEASON)
+      .setMaxValue(DRAFT_CONSTANTS.MAX_SEASON)
   );
 
 export async function execute(interaction) {
-  console.log("[DRAFTTRENDS] Command started");
-  
-  // Defer reply immediately to avoid timeout
+  // Defer IMMEDIATELY - we have 3 seconds to acknowledge
   try {
-    console.log("[DRAFTTRENDS] Attempting to defer reply...");
     await interaction.deferReply();
-    console.log("[DRAFTTRENDS] Reply deferred successfully");
   } catch (error) {
     console.error("[DRAFTTRENDS] Failed to defer reply:", error);
     return;
   }
+  
+  const timestamp = new Date().toISOString();
+  console.log(`[DRAFTTRENDS ${timestamp}] Command started and deferred`);
 
   try {
     const userName = interaction.options.getString("user");
-    let seasonMin = interaction.options.getInteger("seasonmin");
-    let seasonMax = interaction.options.getInteger("seasonmax");
+    const inputSeasonMin = interaction.options.getInteger("seasonmin");
+    const inputSeasonMax = interaction.options.getInteger("seasonmax");
+    
+    const { seasonMin, seasonMax } = validateSeasonRange(inputSeasonMin, inputSeasonMax);
     console.log(`[DRAFTTRENDS] User: ${userName}, Season: ${seasonMin}-${seasonMax}`);
-    
-    // Handle edge cases and defaults
-    if (!seasonMin && !seasonMax) {
-      // Both empty: use full range
-      seasonMin = 2010;
-      seasonMax = 2024;
-    } else if (seasonMin && !seasonMax) {
-      // Only min provided: use min to 2024
-      seasonMax = 2024;
-    } else if (!seasonMin && seasonMax) {
-      // Only max provided: use 2010 to max
-      seasonMin = 2010;
-    }
-    
-    // Swap if user put them backwards
-    if (seasonMin > seasonMax) {
-      [seasonMin, seasonMax] = [seasonMax, seasonMin];
-    }
     
     // First, check if we have precomputed data for this range
     let statsResult;
@@ -180,10 +170,6 @@ export async function execute(interaction) {
     }
     
     console.log("[DRAFTTRENDS] Sending embed response...");
-    console.log("[DRAFTTRENDS] Number of embeds:", embeds.length);
-    console.log("[DRAFTTRENDS] First embed title:", embeds[0]?.data?.title || "No title");
-    console.log("[DRAFTTRENDS] Second embed title:", embeds[1]?.data?.title || "No title");
-    
     try {
       await interaction.editReply({ embeds: embeds });
       console.log("[DRAFTTRENDS] Response sent successfully!");
@@ -342,22 +328,16 @@ function createEnhancedDraftTrendsEmbed(stats) {
   return [mainEmbed, predictionEmbed];
 }
 
+/**
+ * Generates a personality profile for a draft analyst
+ * @param {Object} stats - Owner statistics
+ * @returns {string} Formatted personality profile
+ */
 function generatePersonalityProfile(stats) {
   const profiles = [];
-  const complexStats = stats.complexStats || {};
   
-  // Determine primary archetype
-  if (stats.auction_max_bid > 65) {
-    profiles.push("**🦈 SHARK MENTALITY**");
-  } else if (stats.auction_avg_value < 12) {
-    profiles.push("**🦊 VALUE VULTURE**");
-  } else if (complexStats.draftTrends?.consistency > 80) {
-    profiles.push("**🎯 PRECISION DRAFTER**");
-  } else if (complexStats.repeatPlayers?.length > 5) {
-    profiles.push("**💘 LOYALTY LEGEND**");
-  } else {
-    profiles.push("**🎲 CHAOS AGENT**");
-  }
+  // Get primary archetype
+  profiles.push(getDraftArchetype(stats));
   
   // Add flavor text
   const totalYears = stats.season_max - stats.season_min + 1;
