@@ -194,20 +194,21 @@ export async function execute(interaction) {
       }
     }
     
-    // Try sending a simple embed using plain object like in the docs
-    console.log("[DRAFTTRENDS] Creating simple embed...");
-    const simpleEmbed = createSimpleEmbed(stats);
+    // Try text response first since embeds are hanging
+    console.log("[DRAFTTRENDS] Sending text response first...");
+    const textResponse = createTextResponse(stats);
+    await interaction.editReply({ content: textResponse });
+    console.log("[DRAFTTRENDS] Text response sent successfully!");
     
-    console.log("[DRAFTTRENDS] Simple embed object:", JSON.stringify(simpleEmbed, null, 2));
-    
+    // If text works, try to add embed as follow-up
+    console.log("[DRAFTTRENDS] Adding embed as follow-up...");
     try {
-      await interaction.editReply({ embeds: [simpleEmbed] });
-      console.log("[DRAFTTRENDS] Simple embed sent successfully!");
+      const simpleEmbed = createSimpleEmbed(stats);
+      await interaction.followUp({ embeds: [simpleEmbed], ephemeral: true });
+      console.log("[DRAFTTRENDS] Follow-up embed sent successfully!");
     } catch (embedError) {
-      console.error("[DRAFTTRENDS] Embed failed, trying text:", embedError);
-      const textResponse = createTextResponse(stats);
-      await interaction.editReply({ content: textResponse });
-      console.log("[DRAFTTRENDS] Text fallback sent successfully!");
+      console.error("[DRAFTTRENDS] Follow-up embed failed:", embedError);
+      // Text response already sent, so command still succeeds
     }
     
   } catch (error) {
@@ -416,9 +417,9 @@ function createTextResponse(stats) {
 }
 
 /**
- * Creates a simple embed using plain object format (like Discord.js docs)
+ * Creates a simple embed using EmbedBuilder
  * @param {Object} stats - Owner draft statistics
- * @returns {Object} Plain embed object
+ * @returns {EmbedBuilder} EmbedBuilder instance
  */
 function createSimpleEmbed(stats) {
   const complexStats = stats.complexStats || {};
@@ -429,6 +430,7 @@ function createSimpleEmbed(stats) {
     ? `(${stats.season_min})` 
     : `(${stats.season_min}-${stats.season_max})`;
   
+  // Collect all fields first
   const fields = [];
   
   // Basic stats field
@@ -484,16 +486,16 @@ function createSimpleEmbed(stats) {
     });
   }
   
-  return {
-    color: 0xFF6B35,
-    title: `🎯 ${stats.owner}'s Draft DNA ${seasonRange}`,
-    description: `${archetype}\n*${totalYears} years of draft dominance analyzed*`,
-    fields: fields,
-    timestamp: new Date().toISOString(),
-    footer: {
-      text: "WPFL Draft Intelligence™"
-    }
-  };
+  // Create embed with all fields at once
+  const embed = new EmbedBuilder()
+    .setColor(0xFF6B35)
+    .setTitle(`🎯 ${stats.owner}'s Draft DNA ${seasonRange}`)
+    .setDescription(`${archetype}\n*${totalYears} years of draft dominance analyzed*`)
+    .addFields(...fields)
+    .setTimestamp()
+    .setFooter({ text: "WPFL Draft Intelligence™" });
+  
+  return embed;
 }
 
 /**
