@@ -69,6 +69,33 @@ export async function execute(interaction) {
     
     const draftData = await response.json();
     
+    // Fetch player scores (only available from 2015+) to calculate actual value
+    let playerScores = {};
+    if (seasonMax >= 2015) {
+      // Only fetch scores for years where data is available (2015+)
+      const scoresMinYear = Math.max(seasonMin, 2015);
+      const scoresUrl = `https://wpflapi.azurewebsites.net/api/playerscores?seasonMin=${scoresMinYear}&seasonMax=${seasonMax}`;
+      const scoresResponse = await fetch(scoresUrl);
+      if (scoresResponse.ok) {
+        const scoresData = await scoresResponse.json();
+        
+        // Aggregate total points by player and season
+        scoresData.forEach(score => {
+          const key = `${score.player}_${score.season}`;
+          if (!playerScores[key]) {
+            playerScores[key] = {
+              player: score.player,
+              season: score.season,
+              totalPoints: 0,
+              gamesPlayed: 0
+            };
+          }
+          playerScores[key].totalPoints += score.points;
+          playerScores[key].gamesPlayed++;
+        });
+      }
+    }
+    
     // Filter by user name (exact match, case-insensitive)
     const filteredData = draftData.filter(pick => 
       pick.owner.toLowerCase() === userName.toLowerCase()
@@ -94,7 +121,7 @@ export async function execute(interaction) {
     }
     
     // Analyze the data
-    const analysis = analyzeDraftTrends(filteredData);
+    const analysis = analyzeDraftTrends(filteredData, playerScores);
     
     // Format and send the response
     const embed = createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax);
@@ -106,7 +133,7 @@ export async function execute(interaction) {
   }
 }
 
-function analyzeDraftTrends(draftData) {
+function analyzeDraftTrends(draftData, playerScores) {
   const ownerStats = {};
   
   // Group by owner
@@ -126,14 +153,23 @@ function analyzeDraftTrends(draftData) {
           minBid: Infinity,
           valueByPosition: {},
           bargains: [],
-          overpays: []
+          overpays: [],
+          positionROI: {},
+          overallROI: 0,
+          bustRate: 0,
+          hitRate: 0
         },
         snakeDraftPicks: 0,
         auctionDraftPicks: 0,
         totalPicks: 0,
         averagePosition: 0,
         earliestPick: Infinity,
-        latestPick: 0
+        latestPick: 0,
+        draftEfficiency: {
+          totalPossiblePoints: 0,
+          actualPoints: 0,
+          efficiencyRate: 0
+        }
       };
     }
     
@@ -252,48 +288,127 @@ function analyzeDraftTrends(draftData) {
       seasonData.avgPosition = seasonData.avgPosition / seasonData.picks;
     });
     
-    // Calculate auction averages and find bargains/overpays
+    // Calculate auction averages and find bargains/overpays based on actual performance
     if (stats.auctionStats.totalSpent > 0) {
       const auctionPicks = stats.picks.filter(p => p.auctionValue && p.auctionValue > 0);
       stats.auctionStats.avgValue = stats.auctionStats.totalSpent / auctionPicks.length;
       
-      // Calculate average by position
-      Object.keys(stats.auctionStats.valueByPosition).forEach(pos => {
-        const posData = stats.auctionStats.valueByPosition[pos];
-        posData.avg = posData.total / posData.count;
-      });
+      // Note: Performance data only available from 2015+
+      // For 2010-2014, we'll show draft data without performance metrics
       
-      // Find bargains and overpays based on position averages
+      // Calculate value based on actual performance
+      const performanceValues = [];
+      
       auctionPicks.forEach(pick => {
-        const position = pick.playerNflPosition ? pick.playerNflPosition.trim() : "Unknown";
-        const posAvg = stats.auctionStats.valueByPosition[position]?.avg || stats.auctionStats.avgValue;
-        
-        // Bargain: paid less than 70% of position average
-        if (pick.auctionValue < posAvg * 0.7) {
-          stats.auctionStats.bargains.push({
-            player: pick.player,
-            value: pick.auctionValue,
-            position: position,
-            season: pick.season,
-            discount: ((1 - pick.auctionValue / posAvg) * 100).toFixed(0)
-          });
-        }
-        
-        // Overpay: paid more than 130% of position average
-        if (pick.auctionValue > posAvg * 1.3) {
-          stats.auctionStats.overpays.push({
-            player: pick.player,
-            value: pick.auctionValue,
-            position: position,
-            season: pick.season,
-            premium: ((pick.auctionValue / posAvg - 1) * 100).toFixed(0)
-          });
+        // Only calculate performance for years where data exists (2015+)
+        if (pick.season >= 2015) {
+          const playerKey = `${pick.player}_${pick.season}`;
+          const performance = playerScores[playerKey];
+          
+          if (performance && performance.totalPoints > 0) {
+            const pointsPerDollar = performance.totalPoints / pick.auctionValue;
+            performanceValues.push({
+              pick: pick,
+              totalPoints: performance.totalPoints,
+              gamesPlayed: performance.gamesPlayed,
+              pointsPerDollar: pointsPerDollar,
+              pointsPerGame: performance.totalPoints / performance.gamesPlayed
+            });
+          }
         }
       });
       
-      // Sort bargains and overpays
-      stats.auctionStats.bargains.sort((a, b) => b.discount - a.discount);
-      stats.auctionStats.overpays.sort((a, b) => b.premium - a.premium);
+      // Calculate league average points per dollar for the seasons in question
+      if (performanceValues.length > 0) {
+        const avgPointsPerDollar = performanceValues.reduce((sum, pv) => sum + pv.pointsPerDollar, 0) / performanceValues.length;
+        
+        // Calculate ROI by position
+        const positionGroups = {};
+        performanceValues.forEach(pv => {
+          const pos = pv.pick.playerNflPosition?.trim() || "Unknown";
+          if (!positionGroups[pos]) {
+            positionGroups[pos] = [];
+          }
+          positionGroups[pos].push(pv);
+        });
+        
+        // Calculate position-specific ROI
+        Object.entries(positionGroups).forEach(([pos, players]) => {
+          const totalSpent = players.reduce((sum, p) => sum + p.pick.auctionValue, 0);
+          const totalPoints = players.reduce((sum, p) => sum + p.totalPoints, 0);
+          const avgPointsPerDollar = totalPoints / totalSpent;
+          
+          stats.auctionStats.positionROI[pos] = {
+            totalSpent: totalSpent,
+            totalPoints: totalPoints.toFixed(1),
+            pointsPerDollar: avgPointsPerDollar.toFixed(2),
+            playerCount: players.length,
+            efficiency: ((avgPointsPerDollar / avgPointsPerDollar) * 100).toFixed(1)
+          };
+        });
+        
+        // Calculate overall ROI
+        const totalInvestment = performanceValues.reduce((sum, pv) => sum + pv.pick.auctionValue, 0);
+        const totalReturn = performanceValues.reduce((sum, pv) => sum + pv.totalPoints, 0);
+        stats.auctionStats.overallROI = (totalReturn / totalInvestment).toFixed(2);
+        
+        // Calculate bust rate (players who returned < 50 points per $10 spent)
+        const busts = performanceValues.filter(pv => pv.totalPoints < (pv.pick.auctionValue * 5));
+        stats.auctionStats.bustRate = ((busts.length / performanceValues.length) * 100).toFixed(1);
+        
+        // Calculate hit rate (players who exceeded expected value)
+        const hits = performanceValues.filter(pv => pv.pointsPerDollar > avgPointsPerDollar);
+        stats.auctionStats.hitRate = ((hits.length / performanceValues.length) * 100).toFixed(1);
+        
+        // Find bargains (great value: > 150% of average points per dollar)
+        stats.auctionStats.bargains = performanceValues
+          .filter(pv => pv.pointsPerDollar > avgPointsPerDollar * 1.5)
+          .map(pv => ({
+            player: pv.pick.player,
+            value: pv.pick.auctionValue,
+            position: pv.pick.playerNflPosition?.trim() || "Unknown",
+            season: pv.pick.season,
+            totalPoints: pv.totalPoints.toFixed(1),
+            pointsPerDollar: pv.pointsPerDollar.toFixed(2),
+            valueRating: ((pv.pointsPerDollar / avgPointsPerDollar - 1) * 100).toFixed(0)
+          }))
+          .sort((a, b) => b.pointsPerDollar - a.pointsPerDollar);
+        
+        // Find overpays (poor value: < 70% of average points per dollar)
+        stats.auctionStats.overpays = performanceValues
+          .filter(pv => pv.pointsPerDollar < avgPointsPerDollar * 0.7)
+          .map(pv => ({
+            player: pv.pick.player,
+            value: pv.pick.auctionValue,
+            position: pv.pick.playerNflPosition?.trim() || "Unknown",
+            season: pv.pick.season,
+            totalPoints: pv.totalPoints.toFixed(1),
+            pointsPerDollar: pv.pointsPerDollar.toFixed(2),
+            valueRating: ((1 - pv.pointsPerDollar / avgPointsPerDollar) * 100).toFixed(0)
+          }))
+          .sort((a, b) => a.pointsPerDollar - b.pointsPerDollar);
+          
+        // Track spending efficiency over time
+        const yearlyEfficiency = {};
+        performanceValues.forEach(pv => {
+          if (!yearlyEfficiency[pv.pick.season]) {
+            yearlyEfficiency[pv.pick.season] = {
+              totalSpent: 0,
+              totalPoints: 0,
+              picks: 0
+            };
+          }
+          yearlyEfficiency[pv.pick.season].totalSpent += pv.pick.auctionValue;
+          yearlyEfficiency[pv.pick.season].totalPoints += pv.totalPoints;
+          yearlyEfficiency[pv.pick.season].picks++;
+        });
+        
+        stats.yearlyEfficiency = Object.entries(yearlyEfficiency).map(([year, data]) => ({
+          year,
+          pointsPerDollar: (data.totalPoints / data.totalSpent).toFixed(2),
+          avgSpend: (data.totalSpent / data.picks).toFixed(0)
+        })).sort((a, b) => a.year - b.year);
+      }
     }
     
     // Calculate different metrics based on draft type
@@ -348,6 +463,11 @@ function createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax) {
   
   embed.description = `Analysis for **${owner}** (${stats.totalPicks} total picks: ${draftTypeBreakdown.join(", ")})`;
   
+  // Add note if analyzing years without performance data
+  if (seasonMin < 2015) {
+    embed.description += `\n⚠️ *Performance metrics only available for 2015+*`;
+  }
+  
   // Team preferences - show top 3
   if (stats.topTeams && stats.topTeams.length > 0) {
     const teamList = stats.topTeams
@@ -395,17 +515,26 @@ function createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax) {
       inline: true
     });
     
-    // Budget allocation by position
-    const topAllocations = Object.entries(stats.budgetAllocation || {})
-      .sort(([,a], [,b]) => parseFloat(b) - parseFloat(a))
-      .slice(0, 3)
-      .map(([pos, pct]) => `${pos}: ${pct}%`)
-      .join("\n");
-    
-    if (topAllocations) {
+    // ROI and Success Metrics
+    if (stats.auctionStats.overallROI) {
       embed.fields.push({
-        name: "📊 Budget Allocation",
-        value: topAllocations,
+        name: "📈 Draft Performance",
+        value: `ROI: **${stats.auctionStats.overallROI} pts/$**\nHit Rate: **${stats.auctionStats.hitRate}%**\nBust Rate: **${stats.auctionStats.bustRate}%**`,
+        inline: true
+      });
+    }
+    
+    // Position ROI Analysis
+    if (Object.keys(stats.auctionStats.positionROI).length > 0) {
+      const positionROIList = Object.entries(stats.auctionStats.positionROI)
+        .sort(([,a], [,b]) => parseFloat(b.pointsPerDollar) - parseFloat(a.pointsPerDollar))
+        .slice(0, 3)
+        .map(([pos, data]) => `${pos}: ${data.pointsPerDollar} pts/$ ($${data.totalSpent})`)
+        .join("\n");
+        
+      embed.fields.push({
+        name: "💎 Best Position Values",
+        value: positionROIList,
         inline: true
       });
     }
@@ -463,15 +592,28 @@ function createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax) {
     });
   }
   
+  // Show efficiency trend over years
+  if (stats.yearlyEfficiency && stats.yearlyEfficiency.length > 1) {
+    const trendList = stats.yearlyEfficiency
+      .map(y => `**${y.year}**: ${y.pointsPerDollar} pts/$ (avg $${y.avgSpend})`)
+      .join("\n");
+      
+    embed.fields.push({
+      name: "📊 Efficiency Trend",
+      value: trendList,
+      inline: false
+    });
+  }
+  
   // Show bargains and overpays for auction drafts
   if (stats.auctionStats.bargains && stats.auctionStats.bargains.length > 0) {
     const bargainList = stats.auctionStats.bargains
       .slice(0, 3)
-      .map(b => `**${b.player}** ($${b.value}) - ${b.discount}% off`)
-      .join("\n");
+      .map(b => `**${b.player}** (${b.season})\n$${b.value} → ${b.totalPoints}pts\n${b.pointsPerDollar} pts/$`)
+      .join("\n\n");
     
     embed.fields.push({
-      name: "💎 Best Bargains",
+      name: "💎 Best Value Picks",
       value: bargainList,
       inline: true
     });
@@ -480,11 +622,11 @@ function createDraftTrendsEmbed(analysis, userName, seasonMin, seasonMax) {
   if (stats.auctionStats.overpays && stats.auctionStats.overpays.length > 0) {
     const overpayList = stats.auctionStats.overpays
       .slice(0, 3)
-      .map(o => `**${o.player}** ($${o.value}) - ${o.premium}% over`)
-      .join("\n");
+      .map(o => `**${o.player}** (${o.season})\n$${o.value} → ${o.totalPoints}pts\n${o.pointsPerDollar} pts/$`)
+      .join("\n\n");
     
     embed.fields.push({
-      name: "💸 Biggest Overpays",
+      name: "💸 Worst Value Picks",
       value: overpayList,
       inline: true
     });
