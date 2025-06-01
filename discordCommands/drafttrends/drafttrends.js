@@ -28,11 +28,15 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  console.log("[DRAFTTRENDS] Command started");
+  
   // Defer reply immediately to avoid timeout
   try {
+    console.log("[DRAFTTRENDS] Attempting to defer reply...");
     await interaction.deferReply();
+    console.log("[DRAFTTRENDS] Reply deferred successfully");
   } catch (error) {
-    console.error("Failed to defer reply:", error);
+    console.error("[DRAFTTRENDS] Failed to defer reply:", error);
     return;
   }
 
@@ -40,6 +44,7 @@ export async function execute(interaction) {
     const userName = interaction.options.getString("user");
     let seasonMin = interaction.options.getInteger("seasonmin");
     let seasonMax = interaction.options.getInteger("seasonmax");
+    console.log(`[DRAFTTRENDS] User: ${userName}, Season: ${seasonMin}-${seasonMax}`);
     
     // Handle edge cases and defaults
     if (!seasonMin && !seasonMax) {
@@ -62,6 +67,7 @@ export async function execute(interaction) {
     // First, check if we have precomputed data for this range
     let statsResult;
     try {
+      console.log("[DRAFTTRENDS] Querying database for precomputed stats...");
       statsResult = await sql`
         SELECT * FROM owner_draft_stats 
         WHERE LOWER(owner) = LOWER(${userName})
@@ -69,16 +75,19 @@ export async function execute(interaction) {
         AND season_max = ${seasonMax}
         ORDER BY computed_at DESC
         LIMIT 1`;
+      console.log(`[DRAFTTRENDS] Query returned ${statsResult.rows.length} rows`);
     } catch (dbError) {
-      console.error("Database query error:", dbError);
+      console.error("[DRAFTTRENDS] Database query error:", dbError);
       await interaction.editReply("Database connection error. Please try again later.");
       return;
     }
     
     if (statsResult.rows.length === 0) {
+      console.log("[DRAFTTRENDS] No data for specific range, checking full range...");
       // Check if we have data for the full range as a fallback
       let fullRangeResult;
       try {
+        console.log("[DRAFTTRENDS] Querying for full range (2010-2024)...");
         fullRangeResult = await sql`
           SELECT * FROM owner_draft_stats 
           WHERE LOWER(owner) = LOWER(${userName})
@@ -86,21 +95,25 @@ export async function execute(interaction) {
           AND season_max = 2024
           ORDER BY computed_at DESC
           LIMIT 1`;
+        console.log(`[DRAFTTRENDS] Full range query returned ${fullRangeResult.rows.length} rows`);
       } catch (dbError) {
-        console.error("Database query error (full range):", dbError);
+        console.error("[DRAFTTRENDS] Database query error (full range):", dbError);
         await interaction.editReply("Database connection error. Please try again later.");
         return;
       }
       
       if (fullRangeResult.rows.length === 0) {
+        console.log("[DRAFTTRENDS] No data found for user, getting owner list for suggestions...");
         // Try to find similar names for suggestions
         let ownersResult;
         try {
+          console.log("[DRAFTTRENDS] Querying all owners...");
           ownersResult = await sql`
             SELECT DISTINCT owner FROM owner_draft_stats
             ORDER BY owner`;
+          console.log(`[DRAFTTRENDS] Found ${ownersResult.rows.length} total owners`);
         } catch (dbError) {
-          console.error("Database query error (owners):", dbError);
+          console.error("[DRAFTTRENDS] Database query error (owners):", dbError);
           await interaction.editReply("Database connection error. Please try again later.");
           return;
         }
@@ -124,7 +137,9 @@ export async function execute(interaction) {
           replyMsg += `\n\n**Did you mean one of these?**\n${suggestions.map(s => `• ${s}`).join("\n")}`;
         }
         
+        console.log("[DRAFTTRENDS] Sending no data found message...");
         await interaction.editReply(replyMsg);
+        console.log("[DRAFTTRENDS] Message sent, returning");
         return;
       }
       
@@ -133,36 +148,57 @@ export async function execute(interaction) {
     }
     
     const stats = statsResult.rows[0];
+    console.log("[DRAFTTRENDS] Got stats for:", stats.owner);
+    console.log("[DRAFTTRENDS] Stats object keys:", Object.keys(stats));
     
     // Parse the JSON stats
     if (stats.stats_json) {
-      stats.complexStats = JSON.parse(stats.stats_json);
+      console.log("[DRAFTTRENDS] Parsing JSON stats...");
+      try {
+        stats.complexStats = JSON.parse(stats.stats_json);
+        console.log("[DRAFTTRENDS] JSON parsed successfully");
+      } catch (parseError) {
+        console.error("[DRAFTTRENDS] Failed to parse JSON:", parseError);
+        stats.complexStats = {};
+      }
+    } else {
+      console.log("[DRAFTTRENDS] No JSON stats found");
     }
     
     // Format and send the response with enhanced embed
     let embeds;
     try {
+      console.log("[DRAFTTRENDS] Creating enhanced embed...");
       embeds = createEnhancedDraftTrendsEmbed(stats);
+      console.log(`[DRAFTTRENDS] Created ${embeds.length} embeds`);
     } catch (embedError) {
-      console.error("Error creating embed:", embedError);
+      console.error("[DRAFTTRENDS] Error creating embed:", embedError);
+      console.error("[DRAFTTRENDS] Stack trace:", embedError.stack);
       // Fall back to simple response
       await interaction.editReply(`Draft analysis for **${stats.owner}**: ${stats.total_picks} total picks (${stats.snake_picks} snake, ${stats.auction_picks} auction)`);
       return;
     }
     
+    console.log("[DRAFTTRENDS] Sending embed response...");
     await interaction.editReply({ embeds: embeds });
+    console.log("[DRAFTTRENDS] Response sent successfully!");
     
   } catch (error) {
-    console.error("Error in drafttrends command:", error);
+    console.error("[DRAFTTRENDS] Error in command:", error);
+    console.error("[DRAFTTRENDS] Stack trace:", error.stack);
     try {
       await interaction.editReply("An error occurred while analyzing draft trends. Make sure the precomputation script has been run: `node precompute-draft-trends.js`");
     } catch (replyError) {
-      console.error("Failed to send error message:", replyError);
+      console.error("[DRAFTTRENDS] Failed to send error message:", replyError);
     }
   }
 }
 
 function createEnhancedDraftTrendsEmbed(stats) {
+  console.log("[EMBED] Starting embed creation");
+  console.log("[EMBED] Stats owner:", stats.owner);
+  console.log("[EMBED] Season range:", stats.season_min, "-", stats.season_max);
+  
   const seasonRange = stats.season_min === stats.season_max 
     ? `(${stats.season_min})` 
     : `(${stats.season_min}-${stats.season_max})`;
@@ -177,6 +213,7 @@ function createEnhancedDraftTrendsEmbed(stats) {
       text: "WPFL Draft Intelligence™"
     }
   };
+  console.log("[EMBED] Main embed created");
   
   const complexStats = stats.complexStats || {};
   
@@ -293,6 +330,7 @@ function createEnhancedDraftTrendsEmbed(stats) {
     inline: false
   });
   
+  console.log("[EMBED] Returning embeds array");
   return [mainEmbed, predictionEmbed];
 }
 
@@ -456,6 +494,7 @@ function getPositionArchitecture(complexStats) {
 }
 
 function generateBoldPredictions(stats, complexStats) {
+  console.log("[PREDICTIONS] Generating predictions...");
   const predictions = [];
   
   // Team-based prediction
@@ -493,6 +532,7 @@ function generateBoldPredictions(stats, complexStats) {
     predictions.push(`Will find this year's league winner in rounds 7-10`);
   }
   
+  console.log(`[PREDICTIONS] Generated ${predictions.length} predictions`);
   return predictions.slice(0, 4);
 }
 
