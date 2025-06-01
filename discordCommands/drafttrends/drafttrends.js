@@ -194,48 +194,11 @@ export async function execute(interaction) {
       }
     }
     
-    try {
-      // First, try a simple test embed
-      console.log("[DRAFTTRENDS] Testing with minimal embed...");
-      const testEmbed = new EmbedBuilder()
-        .setTitle(`Draft Analysis: ${stats.owner}`)
-        .setDescription("Testing embed functionality")
-        .setColor(0xFF6B35)
-        .addFields({
-          name: "Total Picks",
-          value: stats.total_picks.toString(),
-          inline: true
-        });
-      
-      await interaction.editReply({ embeds: [testEmbed] });
-      console.log("[DRAFTTRENDS] Test embed sent successfully!");
-      
-      // If test works, wait a moment then try the real embed
-      console.log("[DRAFTTRENDS] Test passed, trying real embed...");
-      setTimeout(async () => {
-        try {
-          await interaction.editReply({ embeds: [embeds[0]] });
-          console.log("[DRAFTTRENDS] Real embed sent successfully!");
-        } catch (realError) {
-          console.error("[DRAFTTRENDS] Real embed failed:", realError);
-          // Keep the test embed if real one fails
-        }
-      }, 1000);
-      
-    } catch (sendError) {
-      console.error("[DRAFTTRENDS] Error sending embeds:", sendError);
-      console.error("[DRAFTTRENDS] Error details:", sendError.message);
-      
-      // Try sending a simple fallback message
-      try {
-        console.log("[DRAFTTRENDS] Trying fallback message...");
-        await interaction.editReply(`Draft analysis for **${stats.owner}**: ${stats.total_picks} total picks (${stats.snake_picks} snake, ${stats.auction_picks} auction)`);
-        console.log("[DRAFTTRENDS] Sent fallback message");
-      } catch (fallbackError) {
-        console.error("[DRAFTTRENDS] Fallback also failed:", fallbackError);
-        throw fallbackError;
-      }
-    }
+    // For now, send a simple text response like trophies does
+    console.log("[DRAFTTRENDS] Sending text response...");
+    const textResponse = createTextResponse(stats);
+    await interaction.editReply({ content: textResponse });
+    console.log("[DRAFTTRENDS] Text response sent successfully!");
     
   } catch (error) {
     console.error("[DRAFTTRENDS] Error in command:", error);
@@ -383,7 +346,63 @@ function createEnhancedDraftTrendsEmbed(stats) {
   });
   
   console.log("[EMBED] Returning embeds array");
+  
+  // Log the complete embed structures for debugging
+  console.log("[EMBED] Main embed JSON:", JSON.stringify(mainEmbed.toJSON(), null, 2));
+  console.log("[EMBED] Prediction embed JSON:", JSON.stringify(predictionEmbed.toJSON(), null, 2));
+  
   return [mainEmbed, predictionEmbed];
+}
+
+/**
+ * Creates a simple text response for draft trends
+ * @param {Object} stats - Owner draft statistics
+ * @returns {string} Formatted text response
+ */
+function createTextResponse(stats) {
+  const complexStats = stats.complexStats || {};
+  const archetype = getDraftArchetype(stats);
+  const totalYears = stats.season_max - stats.season_min + 1;
+  
+  let response = `🎯 **${stats.owner}'s Draft DNA (${stats.season_min}-${stats.season_max})**\n\n`;
+  response += `${archetype}\n`;
+  response += `*${totalYears} years of draft dominance analyzed*\n\n`;
+  
+  response += `**📊 Key Stats:**\n`;
+  response += `• Total Picks: ${stats.total_picks} (${stats.snake_picks} snake, ${stats.auction_picks} auction)\n`;
+  
+  if (stats.auction_max_bid) {
+    response += `• Biggest Auction Bid: $${stats.auction_max_bid}\n`;
+  }
+  
+  if (stats.auction_avg_value) {
+    response += `• Average Auction Value: $${stats.auction_avg_value.toFixed(1)}\n`;
+  }
+  
+  if (stats.auction_roi) {
+    response += `• ROI: ${stats.auction_roi} points per dollar\n`;
+  }
+  
+  // Add top team if available
+  if (complexStats.topTeams && complexStats.topTeams.length > 0) {
+    const topTeam = complexStats.topTeams[0];
+    response += `• Favorite Team: ${topTeam.team} (${topTeam.count} picks, ${topTeam.percentage}%)\n`;
+  }
+  
+  // Add favorite position if available
+  if (complexStats.favoritePosition) {
+    response += `• Favorite Position: ${complexStats.favoritePosition.position} (${complexStats.favoritePosition.percentage}%)\n`;
+  }
+  
+  // Add some loyalty info
+  if (complexStats.repeatPlayers && complexStats.repeatPlayers.length > 0) {
+    response += `\n**💝 Loyalty:**\n`;
+    complexStats.repeatPlayers.slice(0, 3).forEach(player => {
+      response += `• ${player.player} (drafted ${player.count}x)\n`;
+    });
+  }
+  
+  return response.trim();
 }
 
 /**
