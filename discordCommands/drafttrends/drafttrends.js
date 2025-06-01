@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import { sql } from "@vercel/postgres";
 
 export const data = new SlashCommandBuilder()
@@ -180,8 +180,18 @@ export async function execute(interaction) {
     }
     
     console.log("[DRAFTTRENDS] Sending embed response...");
-    await interaction.editReply({ embeds: embeds });
-    console.log("[DRAFTTRENDS] Response sent successfully!");
+    console.log("[DRAFTTRENDS] Number of embeds:", embeds.length);
+    console.log("[DRAFTTRENDS] First embed title:", embeds[0]?.data?.title || "No title");
+    console.log("[DRAFTTRENDS] Second embed title:", embeds[1]?.data?.title || "No title");
+    
+    try {
+      await interaction.editReply({ embeds: embeds });
+      console.log("[DRAFTTRENDS] Response sent successfully!");
+    } catch (sendError) {
+      console.error("[DRAFTTRENDS] Error sending embeds:", sendError);
+      console.error("[DRAFTTRENDS] Error details:", sendError.message);
+      throw sendError;
+    }
     
   } catch (error) {
     console.error("[DRAFTTRENDS] Error in command:", error);
@@ -194,6 +204,11 @@ export async function execute(interaction) {
   }
 }
 
+function truncateFieldValue(value, maxLength = 1024) {
+  if (value.length <= maxLength) return value;
+  return value.substring(0, maxLength - 3) + "...";
+}
+
 function createEnhancedDraftTrendsEmbed(stats) {
   console.log("[EMBED] Starting embed creation");
   console.log("[EMBED] Stats owner:", stats.owner);
@@ -203,39 +218,36 @@ function createEnhancedDraftTrendsEmbed(stats) {
     ? `(${stats.season_min})` 
     : `(${stats.season_min}-${stats.season_max})`;
     
-  const mainEmbed = {
-    title: `🎯 ${stats.owner}'s Draft DNA ${seasonRange}`,
-    color: 0xFF6B35,
-    description: generatePersonalityProfile(stats),
-    fields: [],
-    timestamp: new Date(),
-    footer: {
-      text: "WPFL Draft Intelligence™"
-    }
-  };
+  const mainEmbed = new EmbedBuilder()
+    .setTitle(`🎯 ${stats.owner}'s Draft DNA ${seasonRange}`)
+    .setColor(0xFF6B35)
+    .setDescription(truncateFieldValue(generatePersonalityProfile(stats), 4096))
+    .setTimestamp()
+    .setFooter({ text: "WPFL Draft Intelligence™" });
+  
   console.log("[EMBED] Main embed created");
   
   const complexStats = stats.complexStats || {};
   
   // Power Rankings Section
   const powerMetrics = calculatePowerMetrics(stats, complexStats);
-  mainEmbed.fields.push({
+  mainEmbed.addFields({
     name: "⚡ Power Metrics",
-    value: [
+    value: truncateFieldValue([
       `**Draft IQ**: ${powerMetrics.draftIQ}/100`,
       `**Consistency**: ${complexStats.draftTrends?.consistency || 'N/A'}/100`,
       `**Risk Tolerance**: ${powerMetrics.riskScore}/100`,
       `**Value Hunter**: ${complexStats.draftTrends?.valueHunting || 0}/100`
-    ].join("\n"),
+    ].join("\n")),
     inline: true
   });
   
   // Signature Moves
   const signatureMoves = getSignatureMoves(stats, complexStats);
   if (signatureMoves.length > 0) {
-    mainEmbed.fields.push({
+    mainEmbed.addFields({
       name: "🎨 Signature Moves",
-      value: signatureMoves.map(move => `• ${move}`).join("\n"),
+      value: truncateFieldValue(signatureMoves.map(move => `• ${move}`).join("\n")),
       inline: true
     });
   }
@@ -243,9 +255,9 @@ function createEnhancedDraftTrendsEmbed(stats) {
   // Elite Stats (Things they're top 3 in)
   const eliteStats = getEliteStats(stats, complexStats);
   if (eliteStats.length > 0) {
-    mainEmbed.fields.push({
+    mainEmbed.addFields({
       name: "🏆 Elite Traits",
-      value: eliteStats.map(stat => `• ${stat}`).join("\n"),
+      value: truncateFieldValue(eliteStats.map(stat => `• ${stat}`).join("\n")),
       inline: false
     });
   }
@@ -260,9 +272,9 @@ function createEnhancedDraftTrendsEmbed(stats) {
       })
       .join("\n");
     
-    mainEmbed.fields.push({
+    mainEmbed.addFields({
       name: "🧬 Team DNA",
-      value: teamDNA,
+      value: truncateFieldValue(teamDNA),
       inline: true
     });
   }
@@ -270,9 +282,9 @@ function createEnhancedDraftTrendsEmbed(stats) {
   // Position Architecture
   const positionArchitecture = getPositionArchitecture(complexStats);
   if (positionArchitecture) {
-    mainEmbed.fields.push({
+    mainEmbed.addFields({
       name: "🏗️ Draft Architecture",
-      value: positionArchitecture,
+      value: truncateFieldValue(positionArchitecture),
       inline: true
     });
   }
@@ -287,46 +299,42 @@ function createEnhancedDraftTrendsEmbed(stats) {
       })
       .join("\n");
     
-    mainEmbed.fields.push({
+    mainEmbed.addFields({
       name: "💝 Ride or Die Players",
-      value: loyaltyStars,
+      value: truncateFieldValue(loyaltyStars),
       inline: false
     });
   }
   
   // Create second embed for predictions
-  const predictionEmbed = {
-    title: `🔮 2025 Draft Predictions for ${stats.owner}`,
-    color: 0x9D4EDD,
-    fields: [],
-    footer: {
-      text: "Powered by WPFL Predictive Analytics"
-    }
-  };
+  const predictionEmbed = new EmbedBuilder()
+    .setTitle(`🔮 2025 Draft Predictions for ${stats.owner}`)
+    .setColor(0x9D4EDD)
+    .setFooter({ text: "Powered by WPFL Predictive Analytics" });
   
   // Bold Predictions
   const predictions = generateBoldPredictions(stats, complexStats);
-  predictionEmbed.fields.push({
+  predictionEmbed.addFields({
     name: "🎯 Bold Predictions",
-    value: predictions.map((pred, idx) => `**${idx + 1}.** ${pred}`).join("\n\n"),
+    value: truncateFieldValue(predictions.map((pred, idx) => `**${idx + 1}.** ${pred}`).join("\n\n")),
     inline: false
   });
   
   // Sleeper Alerts
   const sleeperAlerts = generateSleeperAlerts(stats, complexStats);
   if (sleeperAlerts.length > 0) {
-    predictionEmbed.fields.push({
+    predictionEmbed.addFields({
       name: "😴 Sleeper Alerts",
-      value: sleeperAlerts.join("\n"),
+      value: truncateFieldValue(sleeperAlerts.join("\n")),
       inline: false
     });
   }
   
   // Strategic Recommendations
   const recommendations = generateStrategicRecommendations(stats, complexStats);
-  predictionEmbed.fields.push({
+  predictionEmbed.addFields({
     name: "📊 Strategic Edge",
-    value: recommendations.join("\n"),
+    value: truncateFieldValue(recommendations.join("\n")),
     inline: false
   });
   
