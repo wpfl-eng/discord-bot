@@ -28,7 +28,13 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  await interaction.deferReply();
+  // Defer reply immediately to avoid timeout
+  try {
+    await interaction.deferReply();
+  } catch (error) {
+    console.error("Failed to defer reply:", error);
+    return;
+  }
 
   try {
     const userName = interaction.options.getString("user");
@@ -54,29 +60,50 @@ export async function execute(interaction) {
     }
     
     // First, check if we have precomputed data for this range
-    const statsResult = await sql`
-      SELECT * FROM owner_draft_stats 
-      WHERE LOWER(owner) = LOWER(${userName})
-      AND season_min = ${seasonMin}
-      AND season_max = ${seasonMax}
-      ORDER BY computed_at DESC
-      LIMIT 1`;
+    let statsResult;
+    try {
+      statsResult = await sql`
+        SELECT * FROM owner_draft_stats 
+        WHERE LOWER(owner) = LOWER(${userName})
+        AND season_min = ${seasonMin}
+        AND season_max = ${seasonMax}
+        ORDER BY computed_at DESC
+        LIMIT 1`;
+    } catch (dbError) {
+      console.error("Database query error:", dbError);
+      await interaction.editReply("Database connection error. Please try again later.");
+      return;
+    }
     
     if (statsResult.rows.length === 0) {
       // Check if we have data for the full range as a fallback
-      const fullRangeResult = await sql`
-        SELECT * FROM owner_draft_stats 
-        WHERE LOWER(owner) = LOWER(${userName})
-        AND season_min = 2010
-        AND season_max = 2024
-        ORDER BY computed_at DESC
-        LIMIT 1`;
+      let fullRangeResult;
+      try {
+        fullRangeResult = await sql`
+          SELECT * FROM owner_draft_stats 
+          WHERE LOWER(owner) = LOWER(${userName})
+          AND season_min = 2010
+          AND season_max = 2024
+          ORDER BY computed_at DESC
+          LIMIT 1`;
+      } catch (dbError) {
+        console.error("Database query error (full range):", dbError);
+        await interaction.editReply("Database connection error. Please try again later.");
+        return;
+      }
       
       if (fullRangeResult.rows.length === 0) {
         // Try to find similar names for suggestions
-        const ownersResult = await sql`
-          SELECT DISTINCT owner FROM owner_draft_stats
-          ORDER BY owner`;
+        let ownersResult;
+        try {
+          ownersResult = await sql`
+            SELECT DISTINCT owner FROM owner_draft_stats
+            ORDER BY owner`;
+        } catch (dbError) {
+          console.error("Database query error (owners):", dbError);
+          await interaction.editReply("Database connection error. Please try again later.");
+          return;
+        }
         
         const allOwners = ownersResult.rows.map(row => row.owner);
         const lowerUserName = userName.toLowerCase();
@@ -102,7 +129,6 @@ export async function execute(interaction) {
       }
       
       // Use full range data but note it in the response
-      await interaction.editReply(`No precomputed data for ${seasonMin}-${seasonMax}. Using cached data for 2010-2024...`);
       statsResult.rows = fullRangeResult.rows;
     }
     
@@ -114,12 +140,25 @@ export async function execute(interaction) {
     }
     
     // Format and send the response with enhanced embed
-    const embeds = createEnhancedDraftTrendsEmbed(stats);
+    let embeds;
+    try {
+      embeds = createEnhancedDraftTrendsEmbed(stats);
+    } catch (embedError) {
+      console.error("Error creating embed:", embedError);
+      // Fall back to simple response
+      await interaction.editReply(`Draft analysis for **${stats.owner}**: ${stats.total_picks} total picks (${stats.snake_picks} snake, ${stats.auction_picks} auction)`);
+      return;
+    }
+    
     await interaction.editReply({ embeds: embeds });
     
   } catch (error) {
     console.error("Error in drafttrends command:", error);
-    await interaction.editReply("An error occurred while analyzing draft trends. Make sure the precomputation script has been run: `node precompute-draft-trends.js`");
+    try {
+      await interaction.editReply("An error occurred while analyzing draft trends. Make sure the precomputation script has been run: `node precompute-draft-trends.js`");
+    } catch (replyError) {
+      console.error("Failed to send error message:", replyError);
+    }
   }
 }
 
