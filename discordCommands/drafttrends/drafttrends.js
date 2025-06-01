@@ -194,11 +194,21 @@ export async function execute(interaction) {
       }
     }
     
-    // For now, send a simple text response like trophies does
-    console.log("[DRAFTTRENDS] Sending text response...");
-    const textResponse = createTextResponse(stats);
-    await interaction.editReply({ content: textResponse });
-    console.log("[DRAFTTRENDS] Text response sent successfully!");
+    // Try sending a simple embed using plain object like in the docs
+    console.log("[DRAFTTRENDS] Creating simple embed...");
+    const simpleEmbed = createSimpleEmbed(stats);
+    
+    console.log("[DRAFTTRENDS] Simple embed object:", JSON.stringify(simpleEmbed, null, 2));
+    
+    try {
+      await interaction.editReply({ embeds: [simpleEmbed] });
+      console.log("[DRAFTTRENDS] Simple embed sent successfully!");
+    } catch (embedError) {
+      console.error("[DRAFTTRENDS] Embed failed, trying text:", embedError);
+      const textResponse = createTextResponse(stats);
+      await interaction.editReply({ content: textResponse });
+      console.log("[DRAFTTRENDS] Text fallback sent successfully!");
+    }
     
   } catch (error) {
     console.error("[DRAFTTRENDS] Error in command:", error);
@@ -375,7 +385,7 @@ function createTextResponse(stats) {
     response += `• Biggest Auction Bid: $${stats.auction_max_bid}\n`;
   }
   
-  if (stats.auction_avg_value) {
+  if (stats.auction_avg_value && typeof stats.auction_avg_value === 'number') {
     response += `• Average Auction Value: $${stats.auction_avg_value.toFixed(1)}\n`;
   }
   
@@ -403,6 +413,87 @@ function createTextResponse(stats) {
   }
   
   return response.trim();
+}
+
+/**
+ * Creates a simple embed using plain object format (like Discord.js docs)
+ * @param {Object} stats - Owner draft statistics
+ * @returns {Object} Plain embed object
+ */
+function createSimpleEmbed(stats) {
+  const complexStats = stats.complexStats || {};
+  const archetype = getDraftArchetype(stats);
+  const totalYears = stats.season_max - stats.season_min + 1;
+  
+  const seasonRange = stats.season_min === stats.season_max 
+    ? `(${stats.season_min})` 
+    : `(${stats.season_min}-${stats.season_max})`;
+  
+  const fields = [];
+  
+  // Basic stats field
+  fields.push({
+    name: "📊 Draft Summary",
+    value: `Total Picks: ${stats.total_picks}\nSnake: ${stats.snake_picks} | Auction: ${stats.auction_picks}`,
+    inline: true
+  });
+  
+  // Auction stats if available
+  if (stats.auction_max_bid) {
+    const avgValue = typeof stats.auction_avg_value === 'number' 
+      ? stats.auction_avg_value.toFixed(1) 
+      : 'N/A';
+    
+    fields.push({
+      name: "💸 Auction Stats",
+      value: `Max Bid: $${stats.auction_max_bid}\nAvg Value: $${avgValue}`,
+      inline: true
+    });
+  }
+  
+  // Team preference
+  if (complexStats.topTeams && complexStats.topTeams.length > 0) {
+    const topTeam = complexStats.topTeams[0];
+    fields.push({
+      name: "🏈 Team DNA",
+      value: `${topTeam.team}: ${topTeam.count} picks (${topTeam.percentage}%)`,
+      inline: true
+    });
+  }
+  
+  // Position preference
+  if (complexStats.favoritePosition) {
+    fields.push({
+      name: "🎯 Position Focus",
+      value: `${complexStats.favoritePosition.position}: ${complexStats.favoritePosition.percentage}%`,
+      inline: true
+    });
+  }
+  
+  // Loyalty section
+  if (complexStats.repeatPlayers && complexStats.repeatPlayers.length > 0) {
+    const loyaltyText = complexStats.repeatPlayers
+      .slice(0, 3)
+      .map(p => `${p.player} (${p.count}x)`)
+      .join('\n');
+    
+    fields.push({
+      name: "💝 Loyalty Players",
+      value: loyaltyText,
+      inline: false
+    });
+  }
+  
+  return {
+    color: 0xFF6B35,
+    title: `🎯 ${stats.owner}'s Draft DNA ${seasonRange}`,
+    description: `${archetype}\n*${totalYears} years of draft dominance analyzed*`,
+    fields: fields,
+    timestamp: new Date().toISOString(),
+    footer: {
+      text: "WPFL Draft Intelligence™"
+    }
+  };
 }
 
 /**
