@@ -87,21 +87,6 @@ export function truncateFieldValue(value, maxLength = DRAFT_CONSTANTS.MAX_FIELD_
   return value.substring(0, maxLength - 3) + "...";
 }
 
-/**
- * Creates a formatted field object for Discord embeds
- * @param {string} name - Field name
- * @param {string|string[]} value - Field value or array of values
- * @param {boolean} inline - Whether field should be inline
- * @returns {Object} Field object
- */
-export function createField(name, value, inline = true) {
-  const formattedValue = Array.isArray(value) ? value.join("\n") : value;
-  return {
-    name,
-    value: truncateFieldValue(formattedValue),
-    inline
-  };
-}
 
 /**
  * Formats a percentage with specified decimals

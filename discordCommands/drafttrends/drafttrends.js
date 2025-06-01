@@ -3,7 +3,6 @@ import { sql } from "@vercel/postgres";
 import { 
   DRAFT_CONSTANTS, 
   truncateFieldValue, 
-  createField, 
   validateSeasonRange,
   getDraftArchetype
 } from "../../helpers/draftTrendsUtils.js";
@@ -34,6 +33,10 @@ export const data = new SlashCommandBuilder()
       .setMaxValue(DRAFT_CONSTANTS.MAX_SEASON)
   );
 
+/**
+ * Executes the draft trends command
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction - Discord interaction
+ */
 export async function execute(interaction) {
   // Defer IMMEDIATELY - we have 3 seconds to acknowledge
   try {
@@ -190,11 +193,11 @@ export async function execute(interaction) {
   }
 }
 
-function truncateFieldValue(value, maxLength = 1024) {
-  if (value.length <= maxLength) return value;
-  return value.substring(0, maxLength - 3) + "...";
-}
-
+/**
+ * Creates enhanced embed for draft trends analysis
+ * @param {Object} stats - Owner draft statistics
+ * @returns {Array<EmbedBuilder>} Array containing main and prediction embeds
+ */
 function createEnhancedDraftTrendsEmbed(stats) {
   console.log("[EMBED] Starting embed creation");
   console.log("[EMBED] Stats owner:", stats.owner);
@@ -346,6 +349,12 @@ function generatePersonalityProfile(stats) {
   return profiles.join("\n");
 }
 
+/**
+ * Calculates power metrics for draft analysis
+ * @param {Object} stats - Basic owner statistics
+ * @param {Object} complexStats - Complex statistics object
+ * @returns {Object} Power metrics including draftIQ and riskScore
+ */
 function calculatePowerMetrics(stats, complexStats) {
   let draftIQ = 50; // Base score
   
@@ -481,6 +490,12 @@ function getPositionArchitecture(complexStats) {
   return architecture.join("\n");
 }
 
+/**
+ * Generates bold predictions for future drafts
+ * @param {Object} stats - Owner statistics
+ * @param {Object} complexStats - Complex statistics object
+ * @returns {Array<string>} Array of prediction strings
+ */
 function generateBoldPredictions(stats, complexStats) {
   console.log("[PREDICTIONS] Generating predictions...");
   const predictions = [];
