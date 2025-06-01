@@ -41,7 +41,7 @@ export async function execute(interaction) {
   try {
     await sql`INSERT INTO Bets (BettorOne, BettorTwo, Description, Amount) VALUES (${bettor}, ${betee}, ${description}, ${amountWagered})`;
     await interaction.editReply({ content: "Bet Added Successfully" });
-  } catch (e) {
+  } catch (error) {
     console.error("betcreate command error: ", error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,

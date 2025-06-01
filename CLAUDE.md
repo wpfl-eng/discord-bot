@@ -50,6 +50,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+### Draft Trends Precomputation
+The drafttrends command requires precomputed data. Run this after drafts or weekly during season:
+```bash
+node precompute-draft-trends.js
+# Or with custom date range:
+node precompute-draft-trends.js 2020 2024
+```
 
 ### Discord Command Deployment
 After adding or modifying slash commands, deploy them to Discord:
