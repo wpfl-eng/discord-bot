@@ -32,15 +32,99 @@ Creates a "DNA strand" visualization showing:
 ```
 **Implementation**: Already built! Just needs visualization
 
-### 3. `/cursed` - Statistical Nightmares
+### 3. `/cursed` - Statistical Nightmares Personalized
 **Score: 8.6** | WOW: 9 | Cool: 10 | Valid: 8 | Effort: 8
+
+**Command Usage**: `/cursed user:Nixon Ball seasonmin:2018 seasonmax:2024`
+
+**Dynamic Response Example**:
 ```
-"🔮 THE CURSE OF NIXON BALL:
-- Lost 5 games by <3 points in 2019
-- Faced highest Points Against for 3 straight years
-- 0-7 when opponent's kicker scores 15+"
+🔮 THE CURSE OF NIXON BALL (2018-2024)
+
+😱 HEARTBREAK STATISTICS:
+• Lost 8 games by <5 points (most in league)
+• 2-11 record in games decided by <3 points
+• Worst bad beat: Lost by 0.4 after opponent's DEF scored 23 (Week 14, 2021)
+
+⚡ WHEN IT RAINS, IT POURS:
+• Faced highest Points Against in 2019, 2021, 2023
+• 14 weeks where 3+ starters scored <5 points
+• Record when projected to win by 20+: 3-4 (worst in league)
+
+🎯 SPECIFIC CURSES:
+• The "Monday Night Massacre": 0-7 when opponent has MNF player left
+• The "Kicker Curse": 0-9 when opponent's K scores 15+
+• The "Backup QB Special": Lost 5 games to opponents starting backup QBs
+• The "Week 13 Wormhole": 1-6 all-time in Week 13
+
+💔 SOUL-CRUSHING PATTERNS:
+• 6 times eliminated from playoffs in final week
+• Average margin in playoff losses: 3.2 points
+• Most bench points in losses: 187.3 (would've won by 40)
+
+🔥 THE ULTIMATE CURSE:
+"Nixon's Law": The more you need the win, the weirder the loss
+- Win % in must-win games: 28.6%
+- Win % in meaningless games: 71.4%
 ```
-**Implementation**: Query matchup data for heartbreaking patterns
+
+**Different User Example** - `/cursed user:AJ Boorde seasonmin:2020 seasonmax:2024`:
+```
+🔮 THE CURSE OF AJ BOORDE (2020-2024)
+
+😱 HEARTBREAK STATISTICS:
+• 5-1 record in games decided by <3 points (luckiest in league)
+• Only 2 losses by <5 points in 5 years
+• Worst bad beat: Lost championship by 1.8 after stat correction (2022)
+
+⚡ THE CHAMPION'S CURSE:
+• Won regular season 3x, only 1 championship
+• Playoff record after bye: 2-3 (worst among bye recipients)
+• Average playoff loss margin: 22.4 points (get blown out)
+
+🎯 SPECIFIC CURSES:
+• The "Trap Game Special": 3-7 vs teams under .400
+• The "Division Curse": 12-18 vs division rivals
+• The "Prime Time Choke": 2-6 when all eyes watching (MNF/SNF heavy)
+• The "Week 1 Hangover": 1-4 in season openers
+
+💔 PATTERNS OF PAIN:
+• Led at halftime in 89% of losses (most in league)
+• 4 losses when scoring 130+ points
+• Record when favored by 30+: 5-2 (only losses in league)
+
+🔥 THE ULTIMATE CURSE:
+"AJ's Paradox": The better your team looks on paper, the worse the playoff exit
+- Regular season win %: 68.8%
+- Playoff win %: 40.0%
+```
+
+**Implementation Details**:
+```javascript
+// Core data queries needed:
+1. fantasyMatchupWinners API - Get all games for margin analysis
+2. playerscores API - For specific player performance patterns
+3. Custom calculations:
+   - Games by margin buckets (<3, <5, <10)
+   - Opponent position scoring patterns
+   - Week-specific performance
+   - Situational records (must-win, playoffs, etc.)
+   - Bench points in losses
+   
+// Key features:
+- Fully dynamic based on user selection
+- Different curse categories per user
+- Season range flexibility
+- Mix of heartbreak stats + funny patterns
+- Memorable "Ultimate Curse" summary
+```
+
+**Why This Works**:
+- Uses real data but presents it in entertaining way
+- Each user gets completely different curses based on their history
+- Highlights genuinely surprising/painful patterns
+- Mix of legitimate analysis and superstitious fun
+- Season range option lets users explore different eras
 
 ### 4. `/rivalry` - Head-to-Head Deep Dive
 **Score: 8.4** | WOW: 8 | Cool: 9 | Valid: 10 | Effort: 7

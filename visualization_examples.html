@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPFL Data Visualization Examples</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #555;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 20px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+        }
+        .insight {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .insight h3 {
+            margin-top: 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>WPFL Historical Data Visualizations</h1>
+    
+    <div class="container">
+        <h2>1. All-Time Points Leaders</h2>
+        <div class="chart-container">
+            <canvas id="leaderboardChart"></canvas>
+        </div>
+        <div class="insight">
+            <h3>Key Insight</h3>
+            <p>The top 4 owners are separated by less than 1,100 points despite playing 700+ games. This incredible parity shows the competitive balance of the league.</p>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="container">
+            <h2>2. Games Played vs Average Points</h2>
+            <div class="chart-container">
+                <canvas id="scatterChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="container">
+            <h2>3. Total Points Distribution</h2>
+            <div class="chart-container">
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>4. Performance Tiers</h2>
+        <div class="chart-container">
+            <canvas id="radarChart"></canvas>
+        </div>
+        <div class="insight">
+            <h3>Tier Analysis</h3>
+            <ul>
+                <li><strong>Elite Tier:</strong> Mike S, Adler, Nixon, AJ (23,600+ points)</li>
+                <li><strong>Contender Tier:</strong> Forrest, Todd, Jimmy, Dave (23,000-23,600)</li>
+                <li><strong>Veteran Tier:</strong> Neill, Ryan, Doug (20,500-22,800)</li>
+                <li><strong>Limited Participation:</strong> Hoyle, Rick, Mims (fewer games)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>5. Suggested Advanced Visualizations</h2>
+        <div class="insight">
+            <h3>Interactive Dashboard Components</h3>
+            <ol>
+                <li><strong>Career Timeline:</strong> Interactive line chart showing cumulative points over seasons with hover details</li>
+                <li><strong>Head-to-Head Matrix:</strong> Heatmap grid showing all-time records between each pair of owners</li>
+                <li><strong>Weekly Performance Distribution:</strong> Violin plots showing scoring consistency</li>
+                <li><strong>Championship Belt Tracker:</strong> Visual timeline of who held the championship each year</li>
+                <li><strong>Rivalry Intensity Map:</strong> Network diagram showing strongest rivalries based on close games</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Data from our analysis
+        const owners = ["Mike S", "Adler", "Nixon", "AJ", "Forrest", "Todd", "Jimmy", "Dave", "Neill", "Ryan", "Doug", "Hoyle", "Rick", "Mims"];
+        const totalPoints = [24712.34, 24394.91, 23935.67, 23626.73, 23582.67, 23538.42, 23320.47, 23073.78, 22735.15, 22555.56, 20936.12, 17423.40, 10588.22, 8470.64];
+        const gamesPlayed = [778, 778, 778, 778, 778, 778, 778, 778, 778, 778, 658, 548, 333, 266];
+        const avgPoints = totalPoints.map((pts, i) => (pts / gamesPlayed[i]).toFixed(2));
+
+        // 1. Horizontal Bar Chart - All-Time Points Leaders
+        const ctx1 = document.getElementById('leaderboardChart').getContext('2d');
+        new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: owners,
+                datasets: [{
+                    label: 'Total Career Points',
+                    data: totalPoints,
+                    backgroundColor: owners.map((_, i) => {
+                        if (i < 4) return 'rgba(255, 99, 132, 0.8)';  // Top 4 in red
+                        if (i < 8) return 'rgba(54, 162, 235, 0.8)';  // Next 4 in blue
+                        return 'rgba(201, 203, 207, 0.8)';            // Others in gray
+                    }),
+                    borderColor: 'rgba(0, 0, 0, 0.1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Career Points Leaderboard'
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Scatter Plot - Games vs Average
+        const ctx2 = document.getElementById('scatterChart').getContext('2d');
+        new Chart(ctx2, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Owners',
+                    data: owners.map((owner, i) => ({
+                        x: gamesPlayed[i],
+                        y: parseFloat(avgPoints[i]),
+                        label: owner
+                    })),
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    pointRadius: 8,
+                    pointHoverRadius: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Experience vs Performance'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const point = context.raw;
+                                return `${point.label}: ${point.x} games, ${point.y} avg`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Games Played'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Average Points per Game'
+                        },
+                        min: 28,
+                        max: 33
+                    }
+                }
+            }
+        });
+
+        // 3. Pie Chart - Points Share
+        const ctx3 = document.getElementById('pieChart').getContext('2d');
+        new Chart(ctx3, {
+            type: 'doughnut',
+            data: {
+                labels: owners.slice(0, 8),  // Top 8 only for clarity
+                datasets: [{
+                    data: totalPoints.slice(0, 8),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)',
+                        'rgba(199, 199, 199, 0.8)',
+                        'rgba(83, 102, 255, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Share of Total Points (Top 8)'
+                    },
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+
+        // 4. Radar Chart - Performance Profiles (Top 5)
+        const ctx4 = document.getElementById('radarChart').getContext('2d');
+        new Chart(ctx4, {
+            type: 'radar',
+            data: {
+                labels: ['Total Points', 'Games Played', 'Avg Points', 'Consistency', 'Elite Seasons'],
+                datasets: owners.slice(0, 5).map((owner, i) => ({
+                    label: owner,
+                    data: [
+                        (totalPoints[i] / 25000) * 100,  // Normalized to 100
+                        (gamesPlayed[i] / 800) * 100,
+                        ((parseFloat(avgPoints[i]) - 28) / 5) * 100,
+                        85 - (i * 5),  // Mock consistency score
+                        90 - (i * 10)  // Mock elite seasons
+                    ],
+                    fill: true,
+                    backgroundColor: `rgba(${255 - i * 40}, ${99 + i * 30}, ${132 + i * 20}, 0.2)`,
+                    borderColor: `rgba(${255 - i * 40}, ${99 + i * 30}, ${132 + i * 20}, 1)`,
+                    pointBackgroundColor: `rgba(${255 - i * 40}, ${99 + i * 30}, ${132 + i * 20}, 1)`,
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: `rgba(${255 - i * 40}, ${99 + i * 30}, ${132 + i * 20}, 1)`
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Multi-Dimensional Performance (Top 5)'
+                    }
+                },
+                elements: {
+                    line: {
+                        borderWidth: 3
+                    }
+                },
+                scales: {
+                    r: {
+                        angleLines: {
+                            display: true
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 100
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

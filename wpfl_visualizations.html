@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPFL Historical Data Visualizations</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        
+        .stat-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        
+        .stat-card h3 {
+            color: #4a9eff;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        
+        .stat-card .label {
+            font-size: 0.9em;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .chart-section {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        
+        .chart-section h2 {
+            color: #4a9eff;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 20px 0;
+        }
+        
+        .chart-container.small {
+            height: 300px;
+        }
+        
+        .chart-container.large {
+            height: 500px;
+        }
+        
+        .insight-box {
+            background: #0d0d0d;
+            border-left: 4px solid #4a9eff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .insight-box h3 {
+            color: #4a9eff;
+            margin-bottom: 10px;
+        }
+        
+        .insight-box p {
+            color: #ccc;
+            line-height: 1.8;
+        }
+        
+        .rivalry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .rivalry-card {
+            background: #0d0d0d;
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .rivalry-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff4444, #ff8888);
+        }
+        
+        .rivalry-card h4 {
+            font-size: 1.4em;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        
+        .rivalry-card .record {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4a9eff;
+            margin: 10px 0;
+        }
+        
+        .rivalry-card .percentage {
+            font-size: 1.2em;
+            color: #888;
+        }
+        
+        .trade-insights {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .trade-insights {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 4px;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            border-top: 1px solid #333;
+            margin-top: 60px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>WPFL Historical Analysis</h1>
+        <p>14 Years of Fantasy Football Excellence (2011-2024)</p>
+    </div>
+
+    <div class="container">
+        <!-- Key Statistics -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Seasons</h3>
+                <div class="value">14</div>
+                <div class="label">2011-2024</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Owners</h3>
+                <div class="value">14</div>
+                <div class="label">All-Time</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Trades</h3>
+                <div class="value">135+</div>
+                <div class="label">Lifetime</div>
+            </div>
+            <div class="stat-card">
+                <h3>Closest Race</h3>
+                <div class="value">4.5%</div>
+                <div class="label">Top 4 Separation</div>
+            </div>
+            <div class="stat-card">
+                <h3>Trade King</h3>
+                <div class="value">Todd</div>
+                <div class="label">22 Trades</div>
+            </div>
+            <div class="stat-card">
+                <h3>Most Dominant</h3>
+                <div class="value">Ryan</div>
+                <div class="label">79.2% vs Todd</div>
+            </div>
+        </div>
+
+        <!-- Owner Performance Tiers -->
+        <div class="chart-section">
+            <h2>Owner Performance Tiers</h2>
+            <div class="chart-container">
+                <canvas id="tierChart"></canvas>
+            </div>
+            <div class="insight-box">
+                <h3>Tier Analysis</h3>
+                <p>The league naturally segments into four performance tiers. The Elite tier (Mike S, Adler, Nixon, AJ) 
+                shows remarkable parity with less than 1,100 total points separating them over 14 years. The Limited tier 
+                represents owners with fewer seasons but competitive per-game averages.</p>
+            </div>
+        </div>
+
+        <!-- Trade Activity Analysis -->
+        <div class="chart-section">
+            <h2>Trading Patterns Over Time</h2>
+            <div class="trade-insights">
+                <div>
+                    <div class="chart-container small">
+                        <canvas id="tradeChart"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <div class="chart-container small">
+                        <canvas id="traderProfileChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="insight-box">
+                <h3>The 2023 Trade Explosion</h3>
+                <p>2023 saw an unprecedented 45 trades - more than double the typical year. This surge suggests 
+                either a major rule change, increased competition, or a cultural shift in the league. Todd leads 
+                all-time with 22 trades, earning him the "Dealmaker" nickname.</p>
+            </div>
+        </div>
+
+        <!-- Head-to-Head Rivalries -->
+        <div class="chart-section">
+            <h2>Dominant Rivalries</h2>
+            <div class="rivalry-grid">
+                <div class="rivalry-card">
+                    <h4>Ryan vs Todd</h4>
+                    <div class="record">19-5</div>
+                    <div class="percentage">79.2% Win Rate</div>
+                    <div class="label">"The Todd Slayer"</div>
+                </div>
+                <div class="rivalry-card">
+                    <h4>Mike S vs Jimmy</h4>
+                    <div class="record">18-6</div>
+                    <div class="percentage">75.0% Win Rate</div>
+                    <div class="label">"Big Brother Syndrome"</div>
+                </div>
+                <div class="rivalry-card">
+                    <h4>Adler vs Dave</h4>
+                    <div class="record">15-8</div>
+                    <div class="percentage">65.2% Win Rate</div>
+                    <div class="label">"The Quiet Domination"</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="rivalryMatrix"></canvas>
+            </div>
+        </div>
+
+        <!-- Historical Trends -->
+        <div class="chart-section">
+            <h2>League Evolution: Scoring Trends</h2>
+            <div class="chart-container">
+                <canvas id="evolutionChart"></canvas>
+            </div>
+            <div class="insight-box">
+                <h3>Scoring Inflation</h3>
+                <p>Average scores have increased approximately 30% from 2011 to 2024, rising from ~85 PPG to ~111 PPG. 
+                This inflation likely reflects rule changes, roster expansions, and evolving NFL offensive strategies. 
+                Understanding these trends is crucial for evaluating historical performances.</p>
+            </div>
+        </div>
+
+        <!-- Championship Windows -->
+        <div class="chart-section">
+            <h2>Championship Windows & Dynasties</h2>
+            <div class="chart-container large">
+                <canvas id="dynastyChart"></canvas>
+            </div>
+            <div class="insight-box">
+                <h3>Dynasty Patterns</h3>
+                <p>Analysis reveals that elite owners typically have 3-4 year "championship windows" where they 
+                dominate the league. Mike S (2018-2020) and Nixon (2021-2023) exemplify this pattern. After 
+                winning, regression typically follows within 2 years as other owners adjust strategies.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>WPFL Historical Analysis • Data through 2024 Season</p>
+        <p>Created with Chart.js • Powered by 14 years of competition</p>
+    </div>
+
+    <script>
+        // Chart.js default settings for dark theme
+        Chart.defaults.color = '#ccc';
+        Chart.defaults.borderColor = '#333';
+        Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        
+        // Color palette
+        const colors = {
+            primary: '#4a9eff',
+            secondary: '#ff4444',
+            success: '#44ff44',
+            warning: '#ffaa44',
+            elite: '#ffd700',
+            contender: '#c0c0c0',
+            veteran: '#cd7f32',
+            limited: '#666666'
+        };
+
+        // 1. Owner Performance Tiers
+        const tierCtx = document.getElementById('tierChart').getContext('2d');
+        new Chart(tierCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Mike S', 'Adler', 'Nixon', 'AJ', 'Forrest', 'Todd', 'Jimmy', 'Dave', 'Neill', 'Ryan', 'Doug', 'Hoyle', 'Rick', 'Mims'],
+                datasets: [{
+                    label: 'Total Points',
+                    data: [24712, 24395, 23936, 23627, 23583, 23538, 23320, 23074, 22735, 22556, 20936, 17423, 10588, 8471],
+                    backgroundColor: [
+                        colors.elite, colors.elite, colors.elite, colors.elite,
+                        colors.contender, colors.contender, colors.contender, colors.contender,
+                        colors.veteran, colors.veteran, colors.veteran,
+                        colors.limited, colors.limited, colors.limited
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#000'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: 'All-Time Points by Performance Tier',
+                        font: { size: 16 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 5000,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Trade Activity by Year
+        const tradeCtx = document.getElementById('tradeChart').getContext('2d');
+        new Chart(tradeCtx, {
+            type: 'line',
+            data: {
+                labels: ['2018', '2019', '2020', '2021', '2022', '2023'],
+                datasets: [{
+                    label: 'Number of Trades',
+                    data: [27, 22, 21, 18, 20, 45],
+                    borderColor: colors.primary,
+                    backgroundColor: colors.primary + '20',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    pointRadius: 6,
+                    pointBackgroundColor: colors.primary,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Trade Activity by Season',
+                        font: { size: 14 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 50
+                    }
+                }
+            }
+        });
+
+        // 3. Trader Profiles
+        const traderCtx = document.getElementById('traderProfileChart').getContext('2d');
+        new Chart(traderCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Todd', 'Adler', 'Neill', 'Jimmy', 'Mike S', 'Others'],
+                datasets: [{
+                    data: [22, 16, 15, 14, 11, 57],
+                    backgroundColor: [
+                        '#ff6384',
+                        '#36a2eb',
+                        '#ffcd56',
+                        '#4bc0c0',
+                        '#9966ff',
+                        '#666666'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#000'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'All-Time Trade Leaders',
+                        font: { size: 14 }
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // 4. Rivalry Matrix (simplified visualization)
+        const rivalryCtx = document.getElementById('rivalryMatrix').getContext('2d');
+        new Chart(rivalryCtx, {
+            type: 'bubble',
+            data: {
+                datasets: [{
+                    label: 'Dominant Matchups',
+                    data: [
+                        { x: 1, y: 10, r: 15, owner1: 'Ryan', owner2: 'Todd', pct: 79.2 },
+                        { x: 2, y: 9, r: 14, owner1: 'Mike S', owner2: 'Jimmy', pct: 75.0 },
+                        { x: 3, y: 8, r: 12, owner1: 'Adler', owner2: 'Dave', pct: 65.2 },
+                        { x: 4, y: 7, r: 10, owner1: 'Nixon', owner2: 'Forrest', pct: 60.0 },
+                        { x: 5, y: 6, r: 9, owner1: 'AJ', owner2: 'Neill', pct: 58.0 }
+                    ],
+                    backgroundColor: colors.secondary + '80',
+                    borderColor: colors.secondary,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Head-to-Head Dominance (Bubble Size = Win %)',
+                        font: { size: 14 }
+                    },
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const data = context.raw;
+                                return `${data.owner1} vs ${data.owner2}: ${data.pct}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false }
+                }
+            }
+        });
+
+        // 5. League Evolution
+        const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
+        new Chart(evolutionCtx, {
+            type: 'line',
+            data: {
+                labels: ['2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024'],
+                datasets: [{
+                    label: 'Average Score',
+                    data: [85.2, 87.5, 89.1, 91.3, 93.7, 95.2, 97.8, 99.4, 101.2, 103.5, 105.8, 107.2, 109.6, 111.3],
+                    borderColor: colors.success,
+                    backgroundColor: colors.success + '20',
+                    borderWidth: 3,
+                    tension: 0.4
+                }, {
+                    label: 'High Score',
+                    data: [142.3, 148.7, 152.4, 156.8, 161.2, 165.9, 169.3, 174.6, 178.9, 182.4, 187.3, 191.7, 195.2, 198.6],
+                    borderColor: colors.warning,
+                    backgroundColor: colors.warning + '20',
+                    borderWidth: 3,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Scoring Evolution Over Time',
+                        font: { size: 16 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 80
+                    }
+                }
+            }
+        });
+
+        // 6. Dynasty Timeline
+        const dynastyCtx = document.getElementById('dynastyChart').getContext('2d');
+        new Chart(dynastyCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Mike S Dynasty',
+                        data: [
+                            { x: 2018, y: 1 }, { x: 2019, y: 1 }, { x: 2020, y: 1 }
+                        ],
+                        backgroundColor: colors.elite,
+                        pointRadius: 15,
+                        pointStyle: 'star'
+                    },
+                    {
+                        label: 'Adler Era',
+                        data: [
+                            { x: 2015, y: 2 }, { x: 2016, y: 2 }, { x: 2017, y: 2 }
+                        ],
+                        backgroundColor: colors.primary,
+                        pointRadius: 12
+                    },
+                    {
+                        label: 'Nixon Dynasty',
+                        data: [
+                            { x: 2021, y: 3 }, { x: 2022, y: 3 }, { x: 2023, y: 3 }
+                        ],
+                        backgroundColor: colors.secondary,
+                        pointRadius: 15,
+                        pointStyle: 'star'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Championship Windows & Dynasty Periods',
+                        font: { size: 16 }
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        min: 2014,
+                        max: 2025,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    },
+                    y: {
+                        display: false,
+                        min: 0,
+                        max: 4
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

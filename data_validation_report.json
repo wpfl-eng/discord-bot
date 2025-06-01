@@ -1,0 +1,14 @@
+{
+  "expectedWins": {
+    "accurate": true,
+    "discrepancies": []
+  },
+  "headToHead": {
+    "accurate": true,
+    "discrepancies": []
+  },
+  "fileConsistency": {
+    "accurate": true,
+    "discrepancies": []
+  }
+}

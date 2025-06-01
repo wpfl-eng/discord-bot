@@ -1,0 +1,1414 @@
+{
+  "metadata": {
+    "generated": "2025-06-01T19:58:23.737Z",
+    "dataSource": "Validated Excel + Live API",
+    "refreshable": true
+  },
+  "ownerPerformance": {
+    "allTimeRankings": [
+      {
+        "rank": 1,
+        "owner": "Mike Simpson",
+        "actualWins": 77,
+        "expectedWins": 77.24,
+        "luckFactor": -0.23999999999999488,
+        "efficiency": "99.7"
+      },
+      {
+        "rank": 2,
+        "owner": "Forrest Britton",
+        "actualWins": 76,
+        "expectedWins": 70.89,
+        "luckFactor": 5.109999999999999,
+        "efficiency": "107.2"
+      },
+      {
+        "rank": 3,
+        "owner": "David Adler",
+        "actualWins": 75,
+        "expectedWins": 72.67,
+        "luckFactor": 2.3299999999999983,
+        "efficiency": "103.2"
+      },
+      {
+        "rank": 4,
+        "owner": "Neill Bullock",
+        "actualWins": 73,
+        "expectedWins": 75.21,
+        "luckFactor": -2.2099999999999937,
+        "efficiency": "97.1"
+      },
+      {
+        "rank": 5,
+        "owner": "Todd Ellis",
+        "actualWins": 72,
+        "expectedWins": 68.71,
+        "luckFactor": 3.2900000000000063,
+        "efficiency": "104.8"
+      },
+      {
+        "rank": 6,
+        "owner": "David Evans",
+        "actualWins": 71,
+        "expectedWins": 69.48,
+        "luckFactor": 1.519999999999996,
+        "efficiency": "102.2"
+      },
+      {
+        "rank": 7,
+        "owner": "Doug Black",
+        "actualWins": 70,
+        "expectedWins": 73.07,
+        "luckFactor": -3.069999999999993,
+        "efficiency": "95.8"
+      },
+      {
+        "rank": 8,
+        "owner": "Michael Hoyle",
+        "actualWins": 70,
+        "expectedWins": 67.59,
+        "luckFactor": 2.4099999999999966,
+        "efficiency": "103.6"
+      },
+      {
+        "rank": 9,
+        "owner": "Nixon Ball",
+        "actualWins": 67,
+        "expectedWins": 68.52,
+        "luckFactor": -1.519999999999996,
+        "efficiency": "97.8"
+      },
+      {
+        "rank": 10,
+        "owner": "AJ Boorde",
+        "actualWins": 62,
+        "expectedWins": 61.98,
+        "luckFactor": 0.020000000000003126,
+        "efficiency": "100.0"
+      },
+      {
+        "rank": 11,
+        "owner": "Ryan Salchert",
+        "actualWins": 59,
+        "expectedWins": 58.04,
+        "luckFactor": 0.9600000000000009,
+        "efficiency": "101.7"
+      },
+      {
+        "rank": 12,
+        "owner": "Jimmy Simpson",
+        "actualWins": 58,
+        "expectedWins": 65.16,
+        "luckFactor": -7.159999999999997,
+        "efficiency": "89.0"
+      },
+      {
+        "rank": 13,
+        "owner": "Jonathan Mims",
+        "actualWins": 45,
+        "expectedWins": 40.36,
+        "luckFactor": 4.640000000000001,
+        "efficiency": "111.5"
+      },
+      {
+        "rank": 14,
+        "owner": "Rick Kocher",
+        "actualWins": 39,
+        "expectedWins": 42.46,
+        "luckFactor": -3.460000000000001,
+        "efficiency": "91.9"
+      }
+    ],
+    "tiers": {
+      "elite": [
+        {
+          "rank": 1,
+          "owner": "Mike Simpson",
+          "actualWins": 77,
+          "expectedWins": 77.24,
+          "luckFactor": -0.23999999999999488,
+          "efficiency": "99.7"
+        },
+        {
+          "rank": 2,
+          "owner": "Forrest Britton",
+          "actualWins": 76,
+          "expectedWins": 70.89,
+          "luckFactor": 5.109999999999999,
+          "efficiency": "107.2"
+        },
+        {
+          "rank": 3,
+          "owner": "David Adler",
+          "actualWins": 75,
+          "expectedWins": 72.67,
+          "luckFactor": 2.3299999999999983,
+          "efficiency": "103.2"
+        }
+      ],
+      "contenders": [
+        {
+          "rank": 4,
+          "owner": "Neill Bullock",
+          "actualWins": 73,
+          "expectedWins": 75.21,
+          "luckFactor": -2.2099999999999937,
+          "efficiency": "97.1"
+        },
+        {
+          "rank": 5,
+          "owner": "Todd Ellis",
+          "actualWins": 72,
+          "expectedWins": 68.71,
+          "luckFactor": 3.2900000000000063,
+          "efficiency": "104.8"
+        },
+        {
+          "rank": 6,
+          "owner": "David Evans",
+          "actualWins": 71,
+          "expectedWins": 69.48,
+          "luckFactor": 1.519999999999996,
+          "efficiency": "102.2"
+        },
+        {
+          "rank": 7,
+          "owner": "Doug Black",
+          "actualWins": 70,
+          "expectedWins": 73.07,
+          "luckFactor": -3.069999999999993,
+          "efficiency": "95.8"
+        },
+        {
+          "rank": 8,
+          "owner": "Michael Hoyle",
+          "actualWins": 70,
+          "expectedWins": 67.59,
+          "luckFactor": 2.4099999999999966,
+          "efficiency": "103.6"
+        }
+      ],
+      "rebuilding": [
+        {
+          "rank": 9,
+          "owner": "Nixon Ball",
+          "actualWins": 67,
+          "expectedWins": 68.52,
+          "luckFactor": -1.519999999999996,
+          "efficiency": "97.8"
+        },
+        {
+          "rank": 10,
+          "owner": "AJ Boorde",
+          "actualWins": 62,
+          "expectedWins": 61.98,
+          "luckFactor": 0.020000000000003126,
+          "efficiency": "100.0"
+        },
+        {
+          "rank": 11,
+          "owner": "Ryan Salchert",
+          "actualWins": 59,
+          "expectedWins": 58.04,
+          "luckFactor": 0.9600000000000009,
+          "efficiency": "101.7"
+        }
+      ],
+      "volatile": [
+        {
+          "rank": 12,
+          "owner": "Jimmy Simpson",
+          "actualWins": 58,
+          "expectedWins": 65.16,
+          "luckFactor": -7.159999999999997,
+          "efficiency": "89.0"
+        },
+        {
+          "rank": 13,
+          "owner": "Jonathan Mims",
+          "actualWins": 45,
+          "expectedWins": 40.36,
+          "luckFactor": 4.640000000000001,
+          "efficiency": "111.5"
+        },
+        {
+          "rank": 14,
+          "owner": "Rick Kocher",
+          "actualWins": 39,
+          "expectedWins": 42.46,
+          "luckFactor": -3.460000000000001,
+          "efficiency": "91.9"
+        }
+      ]
+    },
+    "insights": [
+      "Mike Simpson leads with 77 wins (99.7% efficiency)",
+      "Forrest Britton is the luckiest (+5.1 wins above expected)",
+      "Jimmy Simpson is the unluckiest (-7.2 wins below expected)",
+      "Elite tier maintains clear separation with 4 win gap"
+    ]
+  },
+  "luckAnalysis": {
+    "luckiestOwners": [
+      {
+        "owner": "Forrest Britton",
+        "luckFactor": 5.109999999999999,
+        "accuracy": 5.109999999999999
+      },
+      {
+        "owner": "Jonathan Mims",
+        "luckFactor": 4.640000000000001,
+        "accuracy": 4.640000000000001
+      },
+      {
+        "owner": "Todd Ellis",
+        "luckFactor": 3.2900000000000063,
+        "accuracy": 3.2900000000000063
+      }
+    ],
+    "unluckiestOwners": [
+      {
+        "owner": "Jimmy Simpson",
+        "luckFactor": -7.159999999999997,
+        "accuracy": 7.159999999999997
+      },
+      {
+        "owner": "Rick Kocher",
+        "luckFactor": -3.460000000000001,
+        "accuracy": 3.460000000000001
+      },
+      {
+        "owner": "Doug Black",
+        "luckFactor": -3.069999999999993,
+        "accuracy": 3.069999999999993
+      }
+    ],
+    "mostAccurate": [
+      {
+        "owner": "AJ Boorde",
+        "luckFactor": 0.020000000000003126,
+        "accuracy": 0.020000000000003126
+      },
+      {
+        "owner": "Mike Simpson",
+        "luckFactor": -0.23999999999999488,
+        "accuracy": 0.23999999999999488
+      },
+      {
+        "owner": "Ryan Salchert",
+        "luckFactor": 0.9600000000000009,
+        "accuracy": 0.9600000000000009
+      }
+    ],
+    "insights": [
+      "League average luck factor: ±2.7 wins",
+      "AJ Boorde performs closest to expectations (0.0 variance)",
+      "Luck range: 5.1 to -7.2 (12.3 win spread)"
+    ]
+  },
+  "dominancePatterns": {
+    "dominantPairs": [
+      {
+        "dominator": "Michael Hoyle",
+        "victim": "David Evans",
+        "record": "5-0",
+        "winPct": "100.0",
+        "games": 5
+      },
+      {
+        "dominator": "AJ Boorde",
+        "victim": "Nixon Ball",
+        "record": "5-1",
+        "winPct": "83.3",
+        "games": 6
+      },
+      {
+        "dominator": "Nixon Ball",
+        "victim": "Jimmy Simpson",
+        "record": "5-1",
+        "winPct": "83.3",
+        "games": 6
+      },
+      {
+        "dominator": "Forrest Britton",
+        "victim": "Nixon Ball",
+        "record": "5-1",
+        "winPct": "83.3",
+        "games": 6
+      },
+      {
+        "dominator": "Forrest Britton",
+        "victim": "Mike Simpson",
+        "record": "5-1",
+        "winPct": "83.3",
+        "games": 6
+      },
+      {
+        "dominator": "Neill Bullock",
+        "victim": "Ryan Salchert",
+        "record": "5-1",
+        "winPct": "83.3",
+        "games": 6
+      },
+      {
+        "dominator": "Jonathan Mims",
+        "victim": "Todd Ellis",
+        "record": "5-1",
+        "winPct": "83.3",
+        "games": 6
+      },
+      {
+        "dominator": "Jonathan Mims",
+        "victim": "David Evans",
+        "record": "5-1",
+        "winPct": "83.3",
+        "games": 6
+      },
+      {
+        "dominator": "David Adler",
+        "victim": "Ryan Salchert",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Nixon Ball",
+        "victim": "Neill Bullock",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Nixon Ball",
+        "victim": "Michael Hoyle",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Nixon Ball",
+        "victim": "Jonathan Mims",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Forrest Britton",
+        "victim": "David Adler",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Forrest Britton",
+        "victim": "Doug Black",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Forrest Britton",
+        "victim": "Rick Kocher",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Todd Ellis",
+        "victim": "Jimmy Simpson",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "David Evans",
+        "victim": "Nixon Ball",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "David Evans",
+        "victim": "Todd Ellis",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Neill Bullock",
+        "victim": "Rick Kocher",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Doug Black",
+        "victim": "Nixon Ball",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Doug Black",
+        "victim": "Michael Hoyle",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Michael Hoyle",
+        "victim": "Rick Kocher",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Jonathan Mims",
+        "victim": "AJ Boorde",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Jonathan Mims",
+        "victim": "Jimmy Simpson",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Jonathan Mims",
+        "victim": "Neill Bullock",
+        "record": "4-1",
+        "winPct": "80.0",
+        "games": 5
+      },
+      {
+        "dominator": "Forrest Britton",
+        "victim": "AJ Boorde",
+        "record": "6-2",
+        "winPct": "75.0",
+        "games": 8
+      },
+      {
+        "dominator": "David Adler",
+        "victim": "David Evans",
+        "record": "5-2",
+        "winPct": "71.4",
+        "games": 7
+      },
+      {
+        "dominator": "Todd Ellis",
+        "victim": "Michael Hoyle",
+        "record": "5-2",
+        "winPct": "71.4",
+        "games": 7
+      }
+    ],
+    "competitiveRivalries": [
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "Doug Black",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "David Adler",
+        "owner2": "Mike Simpson",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "David Adler",
+        "owner2": "Neill Bullock",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Nixon Ball",
+        "owner2": "Ryan Salchert",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "David Adler",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Forrest Britton",
+        "owner2": "David Evans",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Todd Ellis",
+        "owner2": "Ryan Salchert",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Jimmy Simpson",
+        "owner2": "Doug Black",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "David Evans",
+        "owner2": "Forrest Britton",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "David Evans",
+        "owner2": "Rick Kocher",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Neill Bullock",
+        "owner2": "David Adler",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Neill Bullock",
+        "owner2": "Doug Black",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Ryan Salchert",
+        "owner2": "Nixon Ball",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Ryan Salchert",
+        "owner2": "Todd Ellis",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "AJ Boorde",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "Jimmy Simpson",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "Neill Bullock",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "Jonathan Mims",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Rick Kocher",
+        "owner2": "David Evans",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Rick Kocher",
+        "owner2": "Jonathan Mims",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Jonathan Mims",
+        "owner2": "Doug Black",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Jonathan Mims",
+        "owner2": "Rick Kocher",
+        "record": "3-3",
+        "competitiveness": "50.0",
+        "games": 6
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "Michael Hoyle",
+        "record": "3-4",
+        "competitiveness": "42.9",
+        "games": 7
+      },
+      {
+        "owner1": "Jimmy Simpson",
+        "owner2": "Neill Bullock",
+        "record": "3-4",
+        "competitiveness": "42.9",
+        "games": 7
+      },
+      {
+        "owner1": "Neill Bullock",
+        "owner2": "Jimmy Simpson",
+        "record": "4-3",
+        "competitiveness": "42.9",
+        "games": 7
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "Rick Kocher",
+        "record": "3-4",
+        "competitiveness": "42.9",
+        "games": 7
+      },
+      {
+        "owner1": "Michael Hoyle",
+        "owner2": "Mike Simpson",
+        "record": "4-3",
+        "competitiveness": "42.9",
+        "games": 7
+      },
+      {
+        "owner1": "Michael Hoyle",
+        "owner2": "Jonathan Mims",
+        "record": "4-3",
+        "competitiveness": "42.9",
+        "games": 7
+      },
+      {
+        "owner1": "Rick Kocher",
+        "owner2": "Doug Black",
+        "record": "4-3",
+        "competitiveness": "42.9",
+        "games": 7
+      },
+      {
+        "owner1": "Jonathan Mims",
+        "owner2": "Michael Hoyle",
+        "record": "3-4",
+        "competitiveness": "42.9",
+        "games": 7
+      },
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "David Adler",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "Mike Simpson",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "Todd Ellis",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "Jimmy Simpson",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "David Evans",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "Neill Bullock",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "Ryan Salchert",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "AJ Boorde",
+        "owner2": "Rick Kocher",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Adler",
+        "owner2": "AJ Boorde",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Adler",
+        "owner2": "Nixon Ball",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Adler",
+        "owner2": "Todd Ellis",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Adler",
+        "owner2": "Doug Black",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Adler",
+        "owner2": "Michael Hoyle",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Nixon Ball",
+        "owner2": "David Adler",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Nixon Ball",
+        "owner2": "Rick Kocher",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "AJ Boorde",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "Todd Ellis",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "Jimmy Simpson",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "David Evans",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "Ryan Salchert",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "Doug Black",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Mike Simpson",
+        "owner2": "Jonathan Mims",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Forrest Britton",
+        "owner2": "Jimmy Simpson",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Forrest Britton",
+        "owner2": "Neill Bullock",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Forrest Britton",
+        "owner2": "Ryan Salchert",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Forrest Britton",
+        "owner2": "Michael Hoyle",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Forrest Britton",
+        "owner2": "Jonathan Mims",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Todd Ellis",
+        "owner2": "AJ Boorde",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Todd Ellis",
+        "owner2": "David Adler",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Todd Ellis",
+        "owner2": "Mike Simpson",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Todd Ellis",
+        "owner2": "Doug Black",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Todd Ellis",
+        "owner2": "Rick Kocher",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Jimmy Simpson",
+        "owner2": "AJ Boorde",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Jimmy Simpson",
+        "owner2": "Mike Simpson",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Jimmy Simpson",
+        "owner2": "Forrest Britton",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Jimmy Simpson",
+        "owner2": "Michael Hoyle",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Jimmy Simpson",
+        "owner2": "Rick Kocher",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Evans",
+        "owner2": "AJ Boorde",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Evans",
+        "owner2": "Mike Simpson",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Evans",
+        "owner2": "Neill Bullock",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "David Evans",
+        "owner2": "Doug Black",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Neill Bullock",
+        "owner2": "AJ Boorde",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Neill Bullock",
+        "owner2": "Forrest Britton",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Neill Bullock",
+        "owner2": "David Evans",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Neill Bullock",
+        "owner2": "Michael Hoyle",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Ryan Salchert",
+        "owner2": "AJ Boorde",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Ryan Salchert",
+        "owner2": "Mike Simpson",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Ryan Salchert",
+        "owner2": "Forrest Britton",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Ryan Salchert",
+        "owner2": "Michael Hoyle",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Ryan Salchert",
+        "owner2": "Jonathan Mims",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "David Adler",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "Mike Simpson",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "Todd Ellis",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Doug Black",
+        "owner2": "David Evans",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Michael Hoyle",
+        "owner2": "David Adler",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Michael Hoyle",
+        "owner2": "Forrest Britton",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Michael Hoyle",
+        "owner2": "Jimmy Simpson",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Michael Hoyle",
+        "owner2": "Neill Bullock",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Michael Hoyle",
+        "owner2": "Ryan Salchert",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Rick Kocher",
+        "owner2": "AJ Boorde",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Rick Kocher",
+        "owner2": "Nixon Ball",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Rick Kocher",
+        "owner2": "Todd Ellis",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Rick Kocher",
+        "owner2": "Jimmy Simpson",
+        "record": "2-3",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Jonathan Mims",
+        "owner2": "Mike Simpson",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Jonathan Mims",
+        "owner2": "Forrest Britton",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      },
+      {
+        "owner1": "Jonathan Mims",
+        "owner2": "Ryan Salchert",
+        "record": "3-2",
+        "competitiveness": "40.0",
+        "games": 5
+      }
+    ],
+    "insights": [
+      "Michael Hoyle dominates David Evans (5-0, 100.0%)",
+      "Most competitive rivalry: AJ Boorde vs Doug Black (50.0% balance)"
+    ]
+  },
+  "tradeInsights": {
+    "mostActiveTraders": [
+      {
+        "trader": "Todd Ellis",
+        "trades": 22
+      },
+      {
+        "trader": "David Adler",
+        "trades": 16
+      },
+      {
+        "trader": "Neill Bullock",
+        "trades": 15
+      },
+      {
+        "trader": "Jimmy Simpson",
+        "trades": 14
+      },
+      {
+        "trader": "Mike Simpson",
+        "trades": 11
+      }
+    ],
+    "tradeSpikes": [
+      {
+        "year": "2023",
+        "trades": 45
+      },
+      {
+        "year": "2018",
+        "trades": 27
+      },
+      {
+        "year": "2019",
+        "trades": 22
+      },
+      {
+        "year": "2020",
+        "trades": 21
+      },
+      {
+        "year": "2022",
+        "trades": 20
+      }
+    ],
+    "hottestAssets": [
+      {
+        "player": "Tyler Lockett",
+        "trades": 5
+      },
+      {
+        "player": "Amari Cooper",
+        "trades": 4
+      },
+      {
+        "player": "Emmanuel Sanders",
+        "trades": 3
+      }
+    ],
+    "insights": [
+      "Todd Ellis leads trading with 22 career deals",
+      "2023 was the biggest trade year with 45 transactions",
+      "Tyler Lockett is the most traded asset (5 times)",
+      "Trade activity varies dramatically by year (45 to 20 range)"
+    ]
+  },
+  "predictions": {
+    "championshipOdds": [
+      {
+        "owner": "Jonathan Mims",
+        "odds": "111.5",
+        "expectedNextSeason": "41.8",
+        "trend": "regression likely"
+      },
+      {
+        "owner": "Forrest Britton",
+        "odds": "107.2",
+        "expectedNextSeason": "72.4",
+        "trend": "regression likely"
+      },
+      {
+        "owner": "Todd Ellis",
+        "odds": "104.8",
+        "expectedNextSeason": "69.7",
+        "trend": "regression likely"
+      },
+      {
+        "owner": "Michael Hoyle",
+        "odds": "103.6",
+        "expectedNextSeason": "68.3",
+        "trend": "regression likely"
+      },
+      {
+        "owner": "David Adler",
+        "odds": "103.2",
+        "expectedNextSeason": "73.4",
+        "trend": "regression likely"
+      },
+      {
+        "owner": "David Evans",
+        "odds": "102.2",
+        "expectedNextSeason": "69.9",
+        "trend": "stable"
+      },
+      {
+        "owner": "Ryan Salchert",
+        "odds": "101.7",
+        "expectedNextSeason": "58.3",
+        "trend": "stable"
+      },
+      {
+        "owner": "AJ Boorde",
+        "odds": "100.0",
+        "expectedNextSeason": "62.0",
+        "trend": "stable"
+      },
+      {
+        "owner": "Mike Simpson",
+        "odds": "99.7",
+        "expectedNextSeason": "77.2",
+        "trend": "stable"
+      },
+      {
+        "owner": "Nixon Ball",
+        "odds": "97.8",
+        "expectedNextSeason": "68.1",
+        "trend": "stable"
+      },
+      {
+        "owner": "Neill Bullock",
+        "odds": "97.1",
+        "expectedNextSeason": "74.5",
+        "trend": "bounce back expected"
+      },
+      {
+        "owner": "Doug Black",
+        "odds": "95.8",
+        "expectedNextSeason": "72.1",
+        "trend": "bounce back expected"
+      },
+      {
+        "owner": "Rick Kocher",
+        "odds": "91.9",
+        "expectedNextSeason": "41.4",
+        "trend": "bounce back expected"
+      },
+      {
+        "owner": "Jimmy Simpson",
+        "odds": "89.0",
+        "expectedNextSeason": "63.0",
+        "trend": "bounce back expected"
+      }
+    ],
+    "tradeTargets": [],
+    "regressionCandidates": [
+      {
+        "owner": "Forrest Britton",
+        "reason": "5.1 wins above expected suggests regression"
+      },
+      {
+        "owner": "Jonathan Mims",
+        "reason": "4.6 wins above expected suggests regression"
+      },
+      {
+        "owner": "Todd Ellis",
+        "reason": "3.3 wins above expected suggests regression"
+      }
+    ],
+    "insights": [
+      "Jonathan Mims has highest championship odds (111.5% efficiency)",
+      "3 owners due for regression based on luck factors",
+      "Expected wins model suggests league parity will continue"
+    ]
+  },
+  "recommendations": {
+    "forCommissioner": [
+      "Monitor trade activity in 2024 - if it drops below 30, consider incentives",
+      "Schedule rivalry weeks for highly dominant matchups",
+      "Consider implementing luck-based tiebreakers for close standings"
+    ],
+    "forOwners": {
+      "AJ Boorde": [],
+      "David Adler": [
+        "Maintain core roster - avoid unnecessary moves"
+      ],
+      "David Evans": [
+        "Maintain core roster - avoid unnecessary moves"
+      ],
+      "Doug Black": [
+        "Due for positive regression - stay patient and consistent"
+      ],
+      "Forrest Britton": [
+        "Prepare for regression - focus on sustainable improvement",
+        "Maintain core roster - avoid unnecessary moves"
+      ],
+      "Jimmy Simpson": [
+        "Due for positive regression - stay patient and consistent"
+      ],
+      "Jonathan Mims": [
+        "Prepare for regression - focus on sustainable improvement",
+        "Consider more aggressive trading to improve quickly"
+      ],
+      "Michael Hoyle": [],
+      "Mike Simpson": [
+        "Maintain core roster - avoid unnecessary moves"
+      ],
+      "Neill Bullock": [
+        "Maintain core roster - avoid unnecessary moves"
+      ],
+      "Nixon Ball": [],
+      "Rick Kocher": [
+        "Due for positive regression - stay patient and consistent",
+        "Consider more aggressive trading to improve quickly"
+      ],
+      "Ryan Salchert": [],
+      "Todd Ellis": [
+        "Prepare for regression - focus on sustainable improvement",
+        "Maintain core roster - avoid unnecessary moves"
+      ]
+    },
+    "forLeague": [
+      "League shows excellent competitive balance",
+      "Trading activity drives engagement - encourage dealmaking",
+      "Expected wins model validates fair scheduling and scoring"
+    ],
+    "insights": []
+  }
+}

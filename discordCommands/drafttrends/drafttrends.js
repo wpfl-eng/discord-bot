@@ -158,57 +158,29 @@ export async function execute(interaction) {
       console.log("[DRAFTTRENDS] No JSON stats found");
     }
     
-    // Format and send the response with enhanced embed
-    let embeds;
+    // Create the enhanced embeds
+    console.log("[DRAFTTRENDS] Creating enhanced embeds...");
+    const embeds = createEnhancedDraftTrendsEmbed(stats);
+    
     try {
-      console.log("[DRAFTTRENDS] Creating enhanced embed...");
-      embeds = createEnhancedDraftTrendsEmbed(stats);
-      console.log(`[DRAFTTRENDS] Created ${embeds.length} embeds`);
+      await interaction.editReply({ embeds: embeds });
+      console.log("[DRAFTTRENDS] Enhanced embeds sent successfully!");
     } catch (embedError) {
-      console.error("[DRAFTTRENDS] Error creating embed:", embedError);
-      console.error("[DRAFTTRENDS] Stack trace:", embedError.stack);
-      // Fall back to simple response
-      await interaction.editReply(`Draft analysis for **${stats.owner}**: ${stats.total_picks} total picks (${stats.snake_picks} snake, ${stats.auction_picks} auction)`);
-      return;
-    }
-    
-    console.log("[DRAFTTRENDS] Sending embed response...");
-    
-    // Validate embeds before sending
-    for (let i = 0; i < embeds.length; i++) {
-      const embed = embeds[i];
-      console.log(`[DRAFTTRENDS] Embed ${i + 1}: ${embed.data.fields?.length || 0} fields`);
+      console.error("[DRAFTTRENDS] Enhanced embeds failed, trying simple embed:", embedError);
       
-      // Check field sizes
-      if (embed.data.fields) {
-        embed.data.fields.forEach((field, idx) => {
-          if (field.value.length > 1024) {
-            console.warn(`[DRAFTTRENDS] Field ${idx} "${field.name}" too long: ${field.value.length} chars`);
-          }
-        });
+      // Fallback to simple embed
+      try {
+        const simpleEmbed = createSimpleEmbed(stats);
+        await interaction.editReply({ embeds: [simpleEmbed] });
+        console.log("[DRAFTTRENDS] Simple embed fallback sent successfully!");
+      } catch (simpleError) {
+        console.error("[DRAFTTRENDS] Simple embed also failed, using text:", simpleError);
+        
+        // Final fallback to text
+        const textResponse = createTextResponse(stats);
+        await interaction.editReply({ content: textResponse });
+        console.log("[DRAFTTRENDS] Text fallback sent successfully!");
       }
-      
-      // Check description size
-      if (embed.data.description && embed.data.description.length > 4096) {
-        console.warn(`[DRAFTTRENDS] Description too long: ${embed.data.description.length} chars`);
-      }
-    }
-    
-    // Try text response first since embeds are hanging
-    console.log("[DRAFTTRENDS] Sending text response first...");
-    const textResponse = createTextResponse(stats);
-    await interaction.editReply({ content: textResponse });
-    console.log("[DRAFTTRENDS] Text response sent successfully!");
-    
-    // If text works, try to add embed as follow-up
-    console.log("[DRAFTTRENDS] Adding embed as follow-up...");
-    try {
-      const simpleEmbed = createSimpleEmbed(stats);
-      await interaction.followUp({ embeds: [simpleEmbed], ephemeral: true });
-      console.log("[DRAFTTRENDS] Follow-up embed sent successfully!");
-    } catch (embedError) {
-      console.error("[DRAFTTRENDS] Follow-up embed failed:", embedError);
-      // Text response already sent, so command still succeeds
     }
     
   } catch (error) {
@@ -223,39 +195,31 @@ export async function execute(interaction) {
 }
 
 /**
- * Creates enhanced embed for draft trends analysis
+ * Creates enhanced embeds for draft trends analysis
  * @param {Object} stats - Owner draft statistics
  * @returns {Array<EmbedBuilder>} Array containing main and prediction embeds
  */
 function createEnhancedDraftTrendsEmbed(stats) {
-  console.log("[EMBED] Starting embed creation");
-  console.log("[EMBED] Stats owner:", stats.owner);
-  console.log("[EMBED] Season range:", stats.season_min, "-", stats.season_max);
-  
+  const complexStats = stats.complexStats || {};
   const seasonRange = stats.season_min === stats.season_max 
     ? `(${stats.season_min})` 
     : `(${stats.season_min}-${stats.season_max})`;
-    
-  const mainEmbed = new EmbedBuilder()
-    .setTitle(`🎯 ${stats.owner}'s Draft DNA ${seasonRange}`)
-    .setColor(0xFF6B35)
-    .setDescription(truncateFieldValue(generatePersonalityProfile(stats), 4096))
-    .setTimestamp()
-    .setFooter({ text: "WPFL Draft Intelligence™" });
+
+  // Collect main embed fields
+  const mainFields = [];
   
-  console.log("[EMBED] Main embed created");
-  
-  const complexStats = stats.complexStats || {};
-  
-  // Power Rankings Section
+  // Power Metrics
   const powerMetrics = calculatePowerMetrics(stats, complexStats);
-  mainEmbed.addFields({
+  const consistency = calculateConsistency(stats, complexStats);
+  const valueHunting = calculateValueHunting(stats, complexStats);
+  
+  mainFields.push({
     name: "⚡ Power Metrics",
     value: truncateFieldValue([
       `**Draft IQ**: ${powerMetrics.draftIQ}/100`,
-      `**Consistency**: ${complexStats.draftTrends?.consistency || 'N/A'}/100`,
+      `**Consistency**: ${consistency}/100`,
       `**Risk Tolerance**: ${powerMetrics.riskScore}/100`,
-      `**Value Hunter**: ${complexStats.draftTrends?.valueHunting || 0}/100`
+      `**Value Hunter**: ${valueHunting}/100`
     ].join("\n")),
     inline: true
   });
@@ -263,17 +227,17 @@ function createEnhancedDraftTrendsEmbed(stats) {
   // Signature Moves
   const signatureMoves = getSignatureMoves(stats, complexStats);
   if (signatureMoves.length > 0) {
-    mainEmbed.addFields({
+    mainFields.push({
       name: "🎨 Signature Moves",
       value: truncateFieldValue(signatureMoves.map(move => `• ${move}`).join("\n")),
       inline: true
     });
   }
   
-  // Elite Stats (Things they're top 3 in)
+  // Elite Stats
   const eliteStats = getEliteStats(stats, complexStats);
   if (eliteStats.length > 0) {
-    mainEmbed.addFields({
+    mainFields.push({
       name: "🏆 Elite Traits",
       value: truncateFieldValue(eliteStats.map(stat => `• ${stat}`).join("\n")),
       inline: false
@@ -290,7 +254,7 @@ function createEnhancedDraftTrendsEmbed(stats) {
       })
       .join("\n");
     
-    mainEmbed.addFields({
+    mainFields.push({
       name: "🧬 Team DNA",
       value: truncateFieldValue(teamDNA),
       inline: true
@@ -300,14 +264,14 @@ function createEnhancedDraftTrendsEmbed(stats) {
   // Position Architecture
   const positionArchitecture = getPositionArchitecture(complexStats);
   if (positionArchitecture) {
-    mainEmbed.addFields({
+    mainFields.push({
       name: "🏗️ Draft Architecture",
       value: truncateFieldValue(positionArchitecture),
       inline: true
     });
   }
   
-  // Loyalty Index
+  // Loyalty Players
   if (complexStats.repeatPlayers && complexStats.repeatPlayers.length > 0) {
     const loyaltyStars = complexStats.repeatPlayers
       .slice(0, 3)
@@ -317,22 +281,28 @@ function createEnhancedDraftTrendsEmbed(stats) {
       })
       .join("\n");
     
-    mainEmbed.addFields({
+    mainFields.push({
       name: "💝 Ride or Die Players",
       value: truncateFieldValue(loyaltyStars),
       inline: false
     });
   }
-  
-  // Create second embed for predictions
-  const predictionEmbed = new EmbedBuilder()
-    .setTitle(`🔮 2025 Draft Predictions for ${stats.owner}`)
-    .setColor(0x9D4EDD)
-    .setFooter({ text: "Powered by WPFL Predictive Analytics" });
+
+  // Create main embed
+  const mainEmbed = new EmbedBuilder()
+    .setColor(0xFF6B35)
+    .setTitle(`🎯 ${stats.owner}'s Draft DNA ${seasonRange}`)
+    .setDescription(truncateFieldValue(generatePersonalityProfile(stats), 4096))
+    .addFields(...mainFields)
+    .setTimestamp()
+    .setFooter({ text: "WPFL Draft Intelligence™" });
+
+  // Collect prediction embed fields
+  const predictionFields = [];
   
   // Bold Predictions
   const predictions = generateBoldPredictions(stats, complexStats);
-  predictionEmbed.addFields({
+  predictionFields.push({
     name: "🎯 Bold Predictions",
     value: truncateFieldValue(predictions.map((pred, idx) => `**${idx + 1}.** ${pred}`).join("\n\n")),
     inline: false
@@ -341,7 +311,7 @@ function createEnhancedDraftTrendsEmbed(stats) {
   // Sleeper Alerts
   const sleeperAlerts = generateSleeperAlerts(stats, complexStats);
   if (sleeperAlerts.length > 0) {
-    predictionEmbed.addFields({
+    predictionFields.push({
       name: "😴 Sleeper Alerts",
       value: truncateFieldValue(sleeperAlerts.join("\n")),
       inline: false
@@ -350,17 +320,18 @@ function createEnhancedDraftTrendsEmbed(stats) {
   
   // Strategic Recommendations
   const recommendations = generateStrategicRecommendations(stats, complexStats);
-  predictionEmbed.addFields({
+  predictionFields.push({
     name: "📊 Strategic Edge",
     value: truncateFieldValue(recommendations.join("\n")),
     inline: false
   });
-  
-  console.log("[EMBED] Returning embeds array");
-  
-  // Log the complete embed structures for debugging
-  console.log("[EMBED] Main embed JSON:", JSON.stringify(mainEmbed.toJSON(), null, 2));
-  console.log("[EMBED] Prediction embed JSON:", JSON.stringify(predictionEmbed.toJSON(), null, 2));
+
+  // Create prediction embed
+  const predictionEmbed = new EmbedBuilder()
+    .setColor(0x9D4EDD)
+    .setTitle(`🔮 2025 Draft Predictions for ${stats.owner}`)
+    .addFields(...predictionFields)
+    .setFooter({ text: "Powered by WPFL Predictive Analytics" });
   
   return [mainEmbed, predictionEmbed];
 }
@@ -517,6 +488,112 @@ function generatePersonalityProfile(stats) {
 }
 
 /**
+ * Calculates consistency metric based on draft patterns
+ * @param {Object} stats - Basic owner statistics
+ * @param {Object} complexStats - Complex statistics object
+ * @returns {number} Consistency score 0-100
+ */
+function calculateConsistency(stats, complexStats) {
+  let consistency = 50; // Base score
+  
+  // Position consistency - if they heavily favor one position
+  if (complexStats.favoritePosition) {
+    const percentage = parseFloat(complexStats.favoritePosition.percentage);
+    if (percentage > 40) consistency += 20;
+    else if (percentage > 30) consistency += 10;
+  }
+  
+  // Team loyalty consistency
+  if (complexStats.topTeams && complexStats.topTeams.length > 0) {
+    const topTeamPercentage = parseFloat(complexStats.topTeams[0].percentage);
+    if (topTeamPercentage > 15) consistency += 15;
+    else if (topTeamPercentage > 10) consistency += 10;
+  }
+  
+  // Repeat player consistency
+  if (complexStats.repeatPlayers && complexStats.repeatPlayers.length > 0) {
+    const repeatCount = complexStats.repeatPlayers.filter(p => p.count >= 3).length;
+    if (repeatCount >= 3) consistency += 15;
+    else if (repeatCount >= 2) consistency += 10;
+    else if (repeatCount >= 1) consistency += 5;
+  }
+  
+  // Draft position consistency (lower variance = more consistent)
+  if (stats.avg_draft_position && stats.earliest_pick && stats.latest_pick) {
+    const range = stats.latest_pick - stats.earliest_pick;
+    const avgPick = parseFloat(stats.avg_draft_position);
+    const variance = range / avgPick;
+    if (variance < 2) consistency += 10;
+    else if (variance < 3) consistency += 5;
+  }
+  
+  return Math.min(100, Math.max(0, consistency));
+}
+
+/**
+ * Calculates value hunting metric
+ * @param {Object} stats - Basic owner statistics
+ * @param {Object} complexStats - Complex statistics object
+ * @returns {number} Value hunting score 0-100
+ */
+function calculateValueHunting(stats, complexStats) {
+  let valueScore = 20; // Base score
+  
+  // Low average value = value hunter
+  if (stats.auction_avg_value) {
+    const avgValue = typeof stats.auction_avg_value === 'number' 
+      ? stats.auction_avg_value 
+      : parseFloat(stats.auction_avg_value);
+    
+    if (!isNaN(avgValue)) {
+      if (avgValue < 10) valueScore += 40;
+      else if (avgValue < 15) valueScore += 30;
+      else if (avgValue < 20) valueScore += 20;
+      else if (avgValue > 25) valueScore -= 10; // Penalty for high spenders
+    }
+  }
+  
+  // High ROI = value hunter
+  if (stats.auction_roi) {
+    const roi = parseFloat(stats.auction_roi);
+    if (!isNaN(roi)) {
+      if (roi > 12) valueScore += 30;
+      else if (roi > 10) valueScore += 20;
+      else if (roi > 8) valueScore += 10;
+    }
+  }
+  
+  // Low max bid relative to average = value hunter
+  if (stats.auction_max_bid && stats.auction_avg_value) {
+    const maxBid = parseFloat(stats.auction_max_bid);
+    const avgValue = typeof stats.auction_avg_value === 'number' 
+      ? stats.auction_avg_value 
+      : parseFloat(stats.auction_avg_value);
+    
+    if (!isNaN(maxBid) && !isNaN(avgValue) && avgValue > 0) {
+      const ratio = maxBid / avgValue;
+      if (ratio < 3) valueScore += 20;  // Doesn't splurge much
+      else if (ratio < 4) valueScore += 10;
+      else if (ratio > 5) valueScore -= 10; // Big spender penalty
+    }
+  }
+  
+  // High hit rate with low spend = value hunter
+  if (stats.auction_hit_rate && stats.auction_avg_value) {
+    const hitRate = parseFloat(stats.auction_hit_rate);
+    const avgValue = typeof stats.auction_avg_value === 'number' 
+      ? stats.auction_avg_value 
+      : parseFloat(stats.auction_avg_value);
+    
+    if (!isNaN(hitRate) && !isNaN(avgValue) && hitRate > 50 && avgValue < 20) {
+      valueScore += 10;
+    }
+  }
+  
+  return Math.min(100, Math.max(0, Math.round(valueScore)));
+}
+
+/**
  * Calculates power metrics for draft analysis
  * @param {Object} stats - Basic owner statistics
  * @param {Object} complexStats - Complex statistics object
@@ -664,45 +741,55 @@ function getPositionArchitecture(complexStats) {
  * @returns {Array<string>} Array of prediction strings
  */
 function generateBoldPredictions(stats, complexStats) {
-  console.log("[PREDICTIONS] Generating predictions...");
   const predictions = [];
   
-  // Team-based prediction
-  if (complexStats.topTeams?.[0]) {
-    const team = complexStats.topTeams[0].team;
-    predictions.push(`Will draft at least 2 ${team} players, including one in the first 4 rounds`);
-  }
-  
-  // Position-based prediction
-  if (complexStats.favoritePosition) {
-    const pos = complexStats.favoritePosition.position;
-    const percentage = parseFloat(complexStats.favoritePosition.percentage);
-    if (percentage > 30) {
-      predictions.push(`${pos} picks will account for ${Math.round(percentage * 1.1)}% of their draft (up from ${percentage}%)`);
+  // Timing-based prediction
+  if (stats.avg_draft_position) {
+    const avgPick = parseFloat(stats.avg_draft_position);
+    if (avgPick < 30) {
+      predictions.push(`Early drafter alert: They'll grab their QB/TE by round 5, leaving value at RB/WR`);
+    } else if (avgPick > 70) {
+      predictions.push(`Late round specialist: Expect them to corner the market on a specific position after round 10`);
     }
   }
   
-  // Spending prediction for auction
-  if (stats.auction_max_bid > 60) {
-    predictions.push(`Will spend $${Math.round(stats.auction_max_bid * 0.9)}-${Math.round(stats.auction_max_bid * 1.1)} on their top player`);
-  } else if (stats.auction_avg_value < 15) {
-    predictions.push(`No player will cost more than $${Math.round(stats.auction_max_bid * 1.2)} - value hunting mode activated`);
+  // Budget allocation prediction for auction
+  if (stats.auction_max_bid && stats.auction_avg_value) {
+    const maxBid = parseFloat(stats.auction_max_bid);
+    const totalSpent = parseFloat(stats.auction_total_spent);
+    const picks = stats.auction_picks;
+    
+    if (picks > 0) {
+      const budgetPerPick = totalSpent / picks;
+      predictions.push(`First 3 picks will consume $${Math.round(budgetPerPick * 4.5)} of their $200 budget`);
+    }
   }
   
-  // Loyalty prediction
-  const topRepeat = complexStats.repeatPlayers?.[0];
-  if (topRepeat && topRepeat.count >= 3) {
-    predictions.push(`If available, there's a 90% chance they draft a player with the last name "${topRepeat.player.split(' ').pop()}"`);
+  // Weakness exploitation
+  const positions = complexStats.positionFrequency || {};
+  const lowPositions = Object.entries(positions)
+    .filter(([pos, count]) => count < stats.total_picks * 0.1 && ['QB', 'TE', 'WR'].includes(pos))
+    .map(([pos]) => pos);
+  
+  if (lowPositions.length > 0) {
+    predictions.push(`${lowPositions[0]} is their blind spot - they'll panic reach when the run starts`);
   }
   
-  // Wild card prediction based on patterns
-  if (complexStats.draftTrends?.reachRate > 30) {
-    predictions.push(`Will "reach" for their guy at least twice, ignoring ADP rankings`);
-  } else {
-    predictions.push(`Will find this year's league winner in rounds 7-10`);
+  // Pattern break prediction
+  if (complexStats.repeatPlayers && complexStats.repeatPlayers.length > 5) {
+    predictions.push(`Creature of habit: Will draft 3+ players from their "comfort list" regardless of value`);
+  } else if (complexStats.topTeams && complexStats.topTeams.length > 0) {
+    const topTeam = complexStats.topTeams[0];
+    if (parseFloat(topTeam.percentage) > 15) {
+      predictions.push(`${topTeam.team} homer warning: Will reach 10+ spots for their ${topTeam.team} sleeper`);
+    }
   }
   
-  console.log(`[PREDICTIONS] Generated ${predictions.length} predictions`);
+  // Auction behavior prediction
+  if (stats.auction_bust_rate && parseFloat(stats.auction_bust_rate) > 35) {
+    predictions.push(`Nomination strategy: Nominate their favorite positions early - they'll overbid when nervous`);
+  }
+  
   return predictions.slice(0, 4);
 }
 
@@ -731,25 +818,53 @@ function generateSleeperAlerts(stats, complexStats) {
 function generateStrategicRecommendations(stats, complexStats) {
   const recommendations = [];
   
-  // Exploit their tendencies
-  if (complexStats.favoritePosition?.position === "RB" && parseFloat(complexStats.favoritePosition.percentage) > 35) {
-    recommendations.push(`🎣 **Bait Strategy**: Let them overspend on RBs while you grab elite WRs`);
+  // Auction-specific strategies
+  if (stats.auction_picks > 0) {
+    const avgValue = parseFloat(stats.auction_avg_value) || 15;
+    const maxBid = parseFloat(stats.auction_max_bid) || 50;
+    
+    if (maxBid > 65) {
+      recommendations.push(`💸 **Big Spender Alert**: Nominate studs early - they'll blow 40% of budget in first 3 picks`);
+    } else if (avgValue < 15) {
+      recommendations.push(`⏰ **Value Vulture**: They wait for deals - bid up the $8-15 players to drain their budget`);
+    }
   }
   
-  // Counter their strengths
-  if (stats.auction_roi && parseFloat(stats.auction_roi) > 10) {
-    recommendations.push(`⚔️ **Counter**: Bid up their value targets by $3-5 to disrupt their strategy`);
+  // Position-based counter strategies
+  const favPos = complexStats.favoritePosition?.position;
+  const favPct = parseFloat(complexStats.favoritePosition?.percentage || 0);
+  
+  if (favPos && favPct > 30) {
+    const counterMap = {
+      'RB': `🎯 **RB Addict Counter**: Let them hoard RBs - grab 3 top-10 WRs and stream RBs`,
+      'WR': `🏃 **WR Heavy Counter**: Lock up 2 elite RBs early while they chase receivers`,
+      'QB': `📉 **QB Reach Alert**: They'll grab QB rounds 3-5 - wait and grab 2 in rounds 10+`,
+      'TE': `🎪 **TE Premium**: They value TE - either grab Kelce/Andrews or punt completely`
+    };
+    
+    if (counterMap[favPos]) {
+      recommendations.push(counterMap[favPos]);
+    }
   }
   
-  // Trading opportunities
-  if (complexStats.topTeams?.[0]) {
-    recommendations.push(`💰 **Trade Bait**: Stock ${complexStats.topTeams[0].team} players for future trades`);
+  // Draft behavior exploits
+  if (stats.avg_draft_position) {
+    const avgPick = parseFloat(stats.avg_draft_position);
+    if (avgPick < 40) {
+      recommendations.push(`🎯 **Early Drafter**: They pick rounds 1-3 heavy - snipe their round 4-6 targets`);
+    } else if (avgPick > 80) {
+      recommendations.push(`🏝️ **Late Round Hero**: They find gems late - target their typical round 8-10 players early`);
+    }
   }
   
-  // Psychological warfare
-  if (complexStats.repeatPlayers?.length > 0) {
-    const playerLastName = complexStats.repeatPlayers[0].player.split(' ').pop();
-    recommendations.push(`🧠 **Mind Games**: Mention ${playerLastName} rumors during the draft`);
+  // Weakness targeting
+  const positions = complexStats.positionFrequency || {};
+  const weakPositions = Object.entries(positions)
+    .filter(([pos, count]) => count < stats.total_picks * 0.15 && ['QB', 'TE'].includes(pos))
+    .map(([pos]) => pos);
+  
+  if (weakPositions.length > 0) {
+    recommendations.push(`🎪 **${weakPositions[0]} Run**: Start a ${weakPositions[0]} run in mid-rounds - they'll panic reach`);
   }
   
   return recommendations.slice(0, 3);

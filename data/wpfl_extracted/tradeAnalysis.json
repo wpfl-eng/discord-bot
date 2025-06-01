@@ -1,0 +1,57 @@
+{
+  "yearlyActivity": {
+    "2018": 27,
+    "2019": 22,
+    "2020": 21,
+    "2022": 20,
+    "2023": 45
+  },
+  "traderProfiles": [
+    {
+      "trader": "Todd Ellis",
+      "totalTrades": 22,
+      "avgPerYear": "2.2",
+      "style": "Very Active"
+    },
+    {
+      "trader": "David Adler",
+      "totalTrades": 16,
+      "avgPerYear": "1.6",
+      "style": "Active"
+    },
+    {
+      "trader": "Neill Bullock",
+      "totalTrades": 15,
+      "avgPerYear": "1.5",
+      "style": "Moderate"
+    },
+    {
+      "trader": "Jimmy Simpson",
+      "totalTrades": 14,
+      "avgPerYear": "1.4",
+      "style": "Moderate"
+    },
+    {
+      "trader": "Mike Simpson",
+      "totalTrades": 11,
+      "avgPerYear": "1.1",
+      "style": "Moderate"
+    }
+  ],
+  "hotPlayers": [
+    {
+      "player": "Tyler Lockett",
+      "trades": 5
+    },
+    {
+      "player": "Amari Cooper",
+      "trades": 4
+    },
+    {
+      "player": "Emmanuel Sanders",
+      "trades": 3
+    }
+  ],
+  "validated": true,
+  "source": "Excel trade history analysis"
+}

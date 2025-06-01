@@ -1,0 +1,1153 @@
+{
+  "metadata": {
+    "source": "Cross-validated Excel + API data",
+    "extracted": "2025-06-01T19:53:23.459Z",
+    "apiEndpoints": [
+      "https://wpflapi.azurewebsites.net/api/expectedwins",
+      "https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners"
+    ],
+    "validation": "Names cross-matched between sources"
+  },
+  "owners": {
+    "confirmed": [
+      "AJ Boorde",
+      "David Adler",
+      "Nixon Ball",
+      "Mike Simpson",
+      "Forrest Britton",
+      "Todd Ellis",
+      "Jimmy Simpson",
+      "David Evans",
+      "Neill Bullock",
+      "Ryan Salchert",
+      "Doug Black",
+      "Michael Hoyle",
+      "Rick Kocher",
+      "Jonathan Mims"
+    ],
+    "count": 14,
+    "nameMatches": {
+      "AJ Boorde": [
+        "AJ",
+        "AJ Boorde"
+      ],
+      "David Adler": [
+        "Adler",
+        "David Adler"
+      ],
+      "Nixon Ball": [
+        "Nixon",
+        "Nixon Ball"
+      ],
+      "Mike Simpson": [
+        "Mike S",
+        "Mike Simpson"
+      ],
+      "Forrest Britton": [
+        "Forrest",
+        "Forrest Britton"
+      ],
+      "Todd Ellis": [
+        "Todd",
+        "Todd Ellis",
+        "todd ellis"
+      ],
+      "Jimmy Simpson": [
+        "Jimmy",
+        "Jimmy Simpson"
+      ],
+      "David Evans": [
+        "Dave",
+        "David Evans"
+      ],
+      "Neill Bullock": [
+        "Neill",
+        "Neill Bullock"
+      ],
+      "Ryan Salchert": [
+        "Ryan",
+        "Ryan Salchert"
+      ],
+      "Doug Black": [
+        "Doug",
+        "Doug Black"
+      ],
+      "Michael Hoyle": [
+        "Hoyle",
+        "Michael Hoyle"
+      ],
+      "Rick Kocher": [
+        "Rick",
+        "Rick Kocher"
+      ],
+      "Jonathan Mims": [
+        "Mims",
+        "Jonathan Mims"
+      ]
+    }
+  },
+  "expectedWins": {
+    "AJ Boorde": {
+      "expectedWins": 61.98,
+      "actualWins": 62,
+      "seasons": "2015-2024",
+      "luckFactor": 0.020000000000003126
+    },
+    "David Adler": {
+      "expectedWins": 72.67,
+      "actualWins": 75,
+      "seasons": "2015-2024",
+      "luckFactor": 2.3299999999999983
+    },
+    "David Evans": {
+      "expectedWins": 69.48,
+      "actualWins": 71,
+      "seasons": "2015-2024",
+      "luckFactor": 1.519999999999996
+    },
+    "Doug Black": {
+      "expectedWins": 73.07,
+      "actualWins": 70,
+      "seasons": "2015-2024",
+      "luckFactor": -3.069999999999993
+    },
+    "Forrest Britton": {
+      "expectedWins": 70.89,
+      "actualWins": 76,
+      "seasons": "2015-2024",
+      "luckFactor": 5.109999999999999
+    },
+    "Jimmy Simpson": {
+      "expectedWins": 65.16,
+      "actualWins": 58,
+      "seasons": "2015-2024",
+      "luckFactor": -7.159999999999997
+    },
+    "Jonathan Mims": {
+      "expectedWins": 40.36,
+      "actualWins": 45,
+      "seasons": "2015-2024",
+      "luckFactor": 4.640000000000001
+    },
+    "Michael Hoyle": {
+      "expectedWins": 67.59,
+      "actualWins": 70,
+      "seasons": "2015-2024",
+      "luckFactor": 2.4099999999999966
+    },
+    "Mike Simpson": {
+      "expectedWins": 77.24,
+      "actualWins": 77,
+      "seasons": "2015-2024",
+      "luckFactor": -0.23999999999999488
+    },
+    "Neill Bullock": {
+      "expectedWins": 75.21,
+      "actualWins": 73,
+      "seasons": "2015-2024",
+      "luckFactor": -2.2099999999999937
+    },
+    "Nixon Ball": {
+      "expectedWins": 68.52,
+      "actualWins": 67,
+      "seasons": "2015-2024",
+      "luckFactor": -1.519999999999996
+    },
+    "Rick Kocher": {
+      "expectedWins": 42.46,
+      "actualWins": 39,
+      "seasons": "2015-2024",
+      "luckFactor": -3.460000000000001
+    },
+    "Ryan Salchert": {
+      "expectedWins": 58.04,
+      "actualWins": 59,
+      "seasons": "2015-2024",
+      "luckFactor": 0.9600000000000009
+    },
+    "Todd Ellis": {
+      "expectedWins": 68.71,
+      "actualWins": 72,
+      "seasons": "2015-2024",
+      "luckFactor": 3.2900000000000063
+    }
+  },
+  "headToHeadRecords": {
+    "AJ Boorde": {
+      "David Adler": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Nixon Ball": {
+        "wins": 5,
+        "losses": 1,
+        "totalGames": 6
+      },
+      "Mike Simpson": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Forrest Britton": {
+        "wins": 2,
+        "losses": 6,
+        "totalGames": 8
+      },
+      "Todd Ellis": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Jimmy Simpson": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "David Evans": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Neill Bullock": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Ryan Salchert": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Doug Black": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Michael Hoyle": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Rick Kocher": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Jonathan Mims": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      }
+    },
+    "David Adler": {
+      "AJ Boorde": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Nixon Ball": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Mike Simpson": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Forrest Britton": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Todd Ellis": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Jimmy Simpson": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "David Evans": {
+        "wins": 5,
+        "losses": 2,
+        "totalGames": 7
+      },
+      "Neill Bullock": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Ryan Salchert": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Doug Black": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Michael Hoyle": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Jonathan Mims": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      }
+    },
+    "Nixon Ball": {
+      "AJ Boorde": {
+        "wins": 1,
+        "losses": 5,
+        "totalGames": 6
+      },
+      "David Adler": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Mike Simpson": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Forrest Britton": {
+        "wins": 1,
+        "losses": 5,
+        "totalGames": 6
+      },
+      "Todd Ellis": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Jimmy Simpson": {
+        "wins": 5,
+        "losses": 1,
+        "totalGames": 6
+      },
+      "David Evans": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Neill Bullock": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Ryan Salchert": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Doug Black": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Michael Hoyle": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Jonathan Mims": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      }
+    },
+    "Mike Simpson": {
+      "AJ Boorde": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "David Adler": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Nixon Ball": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Forrest Britton": {
+        "wins": 1,
+        "losses": 5,
+        "totalGames": 6
+      },
+      "Todd Ellis": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Jimmy Simpson": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "David Evans": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Neill Bullock": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Ryan Salchert": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Doug Black": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Michael Hoyle": {
+        "wins": 3,
+        "losses": 4,
+        "totalGames": 7
+      },
+      "Rick Kocher": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Jonathan Mims": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      }
+    },
+    "Forrest Britton": {
+      "AJ Boorde": {
+        "wins": 6,
+        "losses": 2,
+        "totalGames": 8
+      },
+      "David Adler": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Nixon Ball": {
+        "wins": 5,
+        "losses": 1,
+        "totalGames": 6
+      },
+      "Mike Simpson": {
+        "wins": 5,
+        "losses": 1,
+        "totalGames": 6
+      },
+      "Todd Ellis": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Jimmy Simpson": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "David Evans": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Neill Bullock": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Ryan Salchert": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Doug Black": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Michael Hoyle": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Jonathan Mims": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      }
+    },
+    "Todd Ellis": {
+      "AJ Boorde": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "David Adler": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Nixon Ball": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Mike Simpson": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Forrest Britton": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Jimmy Simpson": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "David Evans": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Neill Bullock": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Ryan Salchert": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Doug Black": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Michael Hoyle": {
+        "wins": 5,
+        "losses": 2,
+        "totalGames": 7
+      },
+      "Rick Kocher": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Jonathan Mims": {
+        "wins": 1,
+        "losses": 5,
+        "totalGames": 6
+      }
+    },
+    "Jimmy Simpson": {
+      "AJ Boorde": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "David Adler": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Nixon Ball": {
+        "wins": 1,
+        "losses": 5,
+        "totalGames": 6
+      },
+      "Mike Simpson": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Forrest Britton": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Todd Ellis": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "David Evans": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Neill Bullock": {
+        "wins": 3,
+        "losses": 4,
+        "totalGames": 7
+      },
+      "Ryan Salchert": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Doug Black": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Michael Hoyle": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Jonathan Mims": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      }
+    },
+    "David Evans": {
+      "AJ Boorde": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "David Adler": {
+        "wins": 2,
+        "losses": 5,
+        "totalGames": 7
+      },
+      "Nixon Ball": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Mike Simpson": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Forrest Britton": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Todd Ellis": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Jimmy Simpson": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Neill Bullock": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Ryan Salchert": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Doug Black": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Michael Hoyle": {
+        "wins": 0,
+        "losses": 5,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Jonathan Mims": {
+        "wins": 1,
+        "losses": 5,
+        "totalGames": 6
+      }
+    },
+    "Neill Bullock": {
+      "AJ Boorde": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "David Adler": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Nixon Ball": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Mike Simpson": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Forrest Britton": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Todd Ellis": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Jimmy Simpson": {
+        "wins": 4,
+        "losses": 3,
+        "totalGames": 7
+      },
+      "David Evans": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Ryan Salchert": {
+        "wins": 5,
+        "losses": 1,
+        "totalGames": 6
+      },
+      "Doug Black": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Michael Hoyle": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Jonathan Mims": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      }
+    },
+    "Ryan Salchert": {
+      "AJ Boorde": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "David Adler": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Nixon Ball": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Mike Simpson": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Forrest Britton": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Todd Ellis": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Jimmy Simpson": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "David Evans": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Neill Bullock": {
+        "wins": 1,
+        "losses": 5,
+        "totalGames": 6
+      },
+      "Doug Black": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Michael Hoyle": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Jonathan Mims": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      }
+    },
+    "Doug Black": {
+      "AJ Boorde": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "David Adler": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Nixon Ball": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Mike Simpson": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Forrest Britton": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Todd Ellis": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Jimmy Simpson": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "David Evans": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Neill Bullock": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Ryan Salchert": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Michael Hoyle": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 3,
+        "losses": 4,
+        "totalGames": 7
+      },
+      "Jonathan Mims": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      }
+    },
+    "Michael Hoyle": {
+      "AJ Boorde": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "David Adler": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Nixon Ball": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Mike Simpson": {
+        "wins": 4,
+        "losses": 3,
+        "totalGames": 7
+      },
+      "Forrest Britton": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Todd Ellis": {
+        "wins": 2,
+        "losses": 5,
+        "totalGames": 7
+      },
+      "Jimmy Simpson": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "David Evans": {
+        "wins": 5,
+        "losses": 0,
+        "totalGames": 5
+      },
+      "Neill Bullock": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Ryan Salchert": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Doug Black": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Rick Kocher": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Jonathan Mims": {
+        "wins": 4,
+        "losses": 3,
+        "totalGames": 7
+      }
+    },
+    "Rick Kocher": {
+      "AJ Boorde": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "David Adler": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Nixon Ball": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Mike Simpson": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Forrest Britton": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Todd Ellis": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "Jimmy Simpson": {
+        "wins": 2,
+        "losses": 3,
+        "totalGames": 5
+      },
+      "David Evans": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Neill Bullock": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Ryan Salchert": {
+        "wins": 2,
+        "losses": 4,
+        "totalGames": 6
+      },
+      "Doug Black": {
+        "wins": 4,
+        "losses": 3,
+        "totalGames": 7
+      },
+      "Michael Hoyle": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Jonathan Mims": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      }
+    },
+    "Jonathan Mims": {
+      "AJ Boorde": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "David Adler": {
+        "wins": 4,
+        "losses": 2,
+        "totalGames": 6
+      },
+      "Nixon Ball": {
+        "wins": 1,
+        "losses": 4,
+        "totalGames": 5
+      },
+      "Mike Simpson": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Forrest Britton": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Todd Ellis": {
+        "wins": 5,
+        "losses": 1,
+        "totalGames": 6
+      },
+      "Jimmy Simpson": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "David Evans": {
+        "wins": 5,
+        "losses": 1,
+        "totalGames": 6
+      },
+      "Neill Bullock": {
+        "wins": 4,
+        "losses": 1,
+        "totalGames": 5
+      },
+      "Ryan Salchert": {
+        "wins": 3,
+        "losses": 2,
+        "totalGames": 5
+      },
+      "Doug Black": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      },
+      "Michael Hoyle": {
+        "wins": 3,
+        "losses": 4,
+        "totalGames": 7
+      },
+      "Rick Kocher": {
+        "wins": 3,
+        "losses": 3,
+        "totalGames": 6
+      }
+    }
+  },
+  "tradeData": {
+    "yearCounts": {
+      "2018": 27,
+      "2019": 22,
+      "2020": 21,
+      "2022": 20,
+      "2023": 45
+    },
+    "mostActiveTraders": {
+      "Todd Ellis": 22,
+      "David Adler": 16,
+      "Neill Bullock": 15,
+      "Jimmy Simpson": 14,
+      "Mike Simpson": 11
+    },
+    "mostTradedPlayers": [
+      {
+        "player": "Tyler Lockett",
+        "trades": 5
+      },
+      {
+        "player": "Amari Cooper",
+        "trades": 4
+      },
+      {
+        "player": "Emmanuel Sanders",
+        "trades": 3
+      }
+    ]
+  },
+  "dataQuality": {
+    "sourcesUsed": [
+      "Excel MCP analysis",
+      "WPFL API"
+    ],
+    "validated": true,
+    "discrepancies": []
+  }
+}

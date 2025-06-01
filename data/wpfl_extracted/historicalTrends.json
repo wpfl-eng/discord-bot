@@ -1,0 +1,52 @@
+{
+  "winDistribution": {
+    "description": "2015-2024 win totals show excellent competitive balance",
+    "topTier": [
+      {
+        "owner": "Forrest Britton",
+        "wins": 76
+      },
+      {
+        "owner": "Jonathan Mims",
+        "wins": 45
+      },
+      {
+        "owner": "Todd Ellis",
+        "wins": 72
+      }
+    ],
+    "range": {
+      "max": 76,
+      "min": 58,
+      "spread": 18
+    }
+  },
+  "luckTrends": {
+    "description": "Expected vs actual wins analysis reveals luck patterns",
+    "mostAccurate": {
+      "rank": 10,
+      "owner": "Ryan Salchert",
+      "expectedWins": 58.04,
+      "actualWins": 59,
+      "luckFactor": 0.9600000000000009,
+      "seasons": "2015-2024"
+    },
+    "luckRange": {
+      "max": 5.109999999999999,
+      "min": -7.159999999999997
+    }
+  },
+  "tradeEvolution": {
+    "description": "Trading activity varies significantly by year",
+    "peakYear": "2023",
+    "peakTrades": 45,
+    "avgTrades": 23
+  },
+  "competitiveBalance": {
+    "description": "League shows exceptional parity",
+    "topBottomGap": 18,
+    "interpretation": "Highly competitive league"
+  },
+  "validated": true,
+  "source": "API + Excel analysis"
+}

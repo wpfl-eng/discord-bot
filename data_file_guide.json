@@ -1,0 +1,25 @@
+{
+  "primaryFiles": {
+    "mainData": "data/wpfl_extracted/wpfl_structured_data.json",
+    "validatedData": "data/wpfl_properly_extracted/wpfl_validated_data.json",
+    "dynamicAnalysis": "data/wpfl_properly_extracted/dynamic_analysis.json",
+    "ownerPerformance": "data/wpfl_extracted/ownerPerformance.json",
+    "headToHead": "data/wpfl_extracted/headToHeadMatrix.json",
+    "tradeAnalysis": "data/wpfl_extracted/tradeAnalysis.json",
+    "historicalTrends": "data/wpfl_extracted/historicalTrends.json"
+  },
+  "dataHierarchy": {
+    "level1_core": "wpfl_structured_data.json - Primary dataset",
+    "level2_validation": "wpfl_validated_data.json - Cross-validated with API",
+    "level3_analysis": "dynamic_analysis.json - Insights and analysis",
+    "level4_specific": "Other files for specific purposes (trades, trends, etc.)"
+  },
+  "lastCleaned": "2025-06-01T20:08:00.669Z",
+  "cleanupActions": [
+    "Removed: data/wpfl_properly_extracted/wpfl_confirmed_data_only.json",
+    "Removed: data/wpfl_properly_extracted/limited_analysis.json",
+    "Replaced head-to-head with validated version",
+    "Replaced owner performance with validated version"
+  ],
+  "note": "All data has been validated against live API endpoints"
+}

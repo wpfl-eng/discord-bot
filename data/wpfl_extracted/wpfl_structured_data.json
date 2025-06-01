@@ -1,0 +1,177 @@
+{
+  "metadata": {
+    "source": "WPFLHistoryCondensed.xlsx + WPFL API (Validated)",
+    "extracted": "2025-06-01T20:00:20.685Z",
+    "totalRows": 1655,
+    "totalColumns": 89,
+    "description": "WPFL Fantasy Football League Historical Data - VALIDATED",
+    "validation": "Cross-validated between Excel and API sources",
+    "realData": true
+  },
+  "owners": {
+    "list": [
+      "AJ Boorde",
+      "David Adler",
+      "Nixon Ball",
+      "Mike Simpson",
+      "Forrest Britton",
+      "Todd Ellis",
+      "Jimmy Simpson",
+      "David Evans",
+      "Neill Bullock",
+      "Ryan Salchert",
+      "Doug Black",
+      "Michael Hoyle",
+      "Rick Kocher",
+      "Jonathan Mims"
+    ],
+    "actualWins2015to2024": {
+      "AJ Boorde": 62,
+      "David Adler": 75,
+      "David Evans": 71,
+      "Doug Black": 70,
+      "Forrest Britton": 76,
+      "Jimmy Simpson": 58,
+      "Jonathan Mims": 45,
+      "Michael Hoyle": 70,
+      "Mike Simpson": 77,
+      "Neill Bullock": 73,
+      "Nixon Ball": 67,
+      "Rick Kocher": 39,
+      "Ryan Salchert": 59,
+      "Todd Ellis": 72
+    },
+    "expectedWins2015to2024": {
+      "AJ Boorde": 61.98,
+      "David Adler": 72.67,
+      "David Evans": 69.48,
+      "Doug Black": 73.07,
+      "Forrest Britton": 70.89,
+      "Jimmy Simpson": 65.16,
+      "Jonathan Mims": 40.36,
+      "Michael Hoyle": 67.59,
+      "Mike Simpson": 77.24,
+      "Neill Bullock": 75.21,
+      "Nixon Ball": 68.52,
+      "Rick Kocher": 42.46,
+      "Ryan Salchert": 58.04,
+      "Todd Ellis": 68.71
+    }
+  },
+  "tradeHistory": {
+    "yearCounts": {
+      "2018": 27,
+      "2019": 22,
+      "2020": 21,
+      "2022": 20,
+      "2023": 45
+    },
+    "mostActiveTraders": {
+      "Todd Ellis": 22,
+      "David Adler": 16,
+      "Neill Bullock": 15,
+      "Jimmy Simpson": 14,
+      "Mike Simpson": 11
+    },
+    "mostTradedPlayers": [
+      {
+        "player": "Tyler Lockett",
+        "trades": 5
+      },
+      {
+        "player": "Amari Cooper",
+        "trades": 4
+      },
+      {
+        "player": "Emmanuel Sanders",
+        "trades": 3
+      }
+    ]
+  },
+  "headToHead": {
+    "description": "Win-loss records between owners (2020-2024 validated)",
+    "dominantMatchups": [],
+    "note": "Based on validated API data"
+  },
+  "seasonData": {
+    "years": [
+      "2024",
+      "2023",
+      "2022",
+      "2021",
+      "2020",
+      "2019",
+      "2018",
+      "2017",
+      "2016",
+      "2015",
+      "2014",
+      "2013",
+      "2012",
+      "2011"
+    ],
+    "description": "League has data from 2011-2024 (API validated 2015-2024)"
+  },
+  "statistics": {
+    "luckAnalysis": {
+      "luckiest": [
+        {
+          "owner": "Forrest Britton",
+          "luckFactor": 5.109999999999999,
+          "description": "5.1 wins above expected"
+        },
+        {
+          "owner": "Jonathan Mims",
+          "luckFactor": 4.640000000000001,
+          "description": "4.6 wins above expected"
+        },
+        {
+          "owner": "Todd Ellis",
+          "luckFactor": 3.2900000000000063,
+          "description": "3.3 wins above expected"
+        }
+      ],
+      "unluckiest": [
+        {
+          "owner": "Jimmy Simpson",
+          "luckFactor": -7.159999999999997,
+          "description": "7.2 wins below expected"
+        },
+        {
+          "owner": "Rick Kocher",
+          "luckFactor": -3.460000000000001,
+          "description": "3.5 wins below expected"
+        },
+        {
+          "owner": "Doug Black",
+          "luckFactor": -3.069999999999993,
+          "description": "3.1 wins below expected"
+        }
+      ]
+    },
+    "performanceTiers": {
+      "elite": [
+        "Mike Simpson",
+        "Forrest Britton",
+        "David Adler"
+      ],
+      "contenders": [
+        "Neill Bullock",
+        "Todd Ellis",
+        "David Evans",
+        "Doug Black",
+        "Michael Hoyle"
+      ],
+      "rebuilding": [
+        "Nixon Ball",
+        "AJ Boorde",
+        "Ryan Salchert"
+      ],
+      "volatile": [
+        "Jimmy Simpson",
+        "Jonathan Mims",
+        "Rick Kocher"
+      ]
+    }
+  }
+}

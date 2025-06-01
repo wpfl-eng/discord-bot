@@ -73,6 +73,7 @@ This is a Discord bot for fantasy football league management (CommishBot) that i
 - **Commands**: Located in `/discordCommands/[commandname]/[commandname].js`
 - **External APIs**: ESPN Fantasy Football (custom fork), Sleeper API, OpenAI
 - **Database**: PostgreSQL via @vercel/postgres (tables: pins, Bets)
+- **Misc Data**: `/data`
 
 ### Command Pattern
 Each command must export:
@@ -274,3 +275,8 @@ for optimalcoaching, the api returns the aggregate of the week prior, so week 1 
     },
     ...
 ]
+
+Important information regarding data from these endpoints
+-- 2010-2024 is the current data extractable from the endpoint
+-- 2015 is the start of tracking player data
+-- 2016 is the first year of auction draft

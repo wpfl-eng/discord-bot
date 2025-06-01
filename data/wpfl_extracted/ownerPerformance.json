@@ -1,0 +1,119 @@
+{
+  "rankings": [
+    {
+      "rank": 4,
+      "owner": "Mike Simpson",
+      "expectedWins": 77.24,
+      "actualWins": 77,
+      "luckFactor": -0.23999999999999488,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 5,
+      "owner": "Forrest Britton",
+      "expectedWins": 70.89,
+      "actualWins": 76,
+      "luckFactor": 5.109999999999999,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 2,
+      "owner": "David Adler",
+      "expectedWins": 72.67,
+      "actualWins": 75,
+      "luckFactor": 2.3299999999999983,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 9,
+      "owner": "Neill Bullock",
+      "expectedWins": 75.21,
+      "actualWins": 73,
+      "luckFactor": -2.2099999999999937,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 6,
+      "owner": "Todd Ellis",
+      "expectedWins": 68.71,
+      "actualWins": 72,
+      "luckFactor": 3.2900000000000063,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 8,
+      "owner": "David Evans",
+      "expectedWins": 69.48,
+      "actualWins": 71,
+      "luckFactor": 1.519999999999996,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 11,
+      "owner": "Doug Black",
+      "expectedWins": 73.07,
+      "actualWins": 70,
+      "luckFactor": -3.069999999999993,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 12,
+      "owner": "Michael Hoyle",
+      "expectedWins": 67.59,
+      "actualWins": 70,
+      "luckFactor": 2.4099999999999966,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 3,
+      "owner": "Nixon Ball",
+      "expectedWins": 68.52,
+      "actualWins": 67,
+      "luckFactor": -1.519999999999996,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 1,
+      "owner": "AJ Boorde",
+      "expectedWins": 61.98,
+      "actualWins": 62,
+      "luckFactor": 0.020000000000003126,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 10,
+      "owner": "Ryan Salchert",
+      "expectedWins": 58.04,
+      "actualWins": 59,
+      "luckFactor": 0.9600000000000009,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 7,
+      "owner": "Jimmy Simpson",
+      "expectedWins": 65.16,
+      "actualWins": 58,
+      "luckFactor": -7.159999999999997,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 14,
+      "owner": "Jonathan Mims",
+      "expectedWins": 40.36,
+      "actualWins": 45,
+      "luckFactor": 4.640000000000001,
+      "seasons": "2015-2024"
+    },
+    {
+      "rank": 13,
+      "owner": "Rick Kocher",
+      "expectedWins": 42.46,
+      "actualWins": 39,
+      "luckFactor": -3.460000000000001,
+      "seasons": "2015-2024"
+    }
+  ],
+  "source": "API + Excel cross-validation",
+  "validated": true,
+  "lastUpdated": "2025-06-01T20:08:00.668Z"
+}
