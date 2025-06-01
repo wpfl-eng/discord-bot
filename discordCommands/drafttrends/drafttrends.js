@@ -195,21 +195,31 @@ export async function execute(interaction) {
     }
     
     try {
-      await interaction.editReply({ embeds: embeds });
-      console.log("[DRAFTTRENDS] Response sent successfully!");
+      // Try sending just the first embed to test
+      console.log("[DRAFTTRENDS] Attempting to send first embed only...");
+      await interaction.editReply({ embeds: [embeds[0]] });
+      console.log("[DRAFTTRENDS] First embed sent successfully!");
+      
+      // If that works, try to send both in a follow-up
+      if (embeds.length > 1) {
+        console.log("[DRAFTTRENDS] Sending second embed as follow-up...");
+        await interaction.followUp({ embeds: [embeds[1]], ephemeral: true });
+        console.log("[DRAFTTRENDS] Second embed sent successfully!");
+      }
+      
     } catch (sendError) {
       console.error("[DRAFTTRENDS] Error sending embeds:", sendError);
       console.error("[DRAFTTRENDS] Error details:", sendError.message);
       
       // Try sending a simple fallback message
       try {
+        console.log("[DRAFTTRENDS] Trying fallback message...");
         await interaction.editReply(`Draft analysis for **${stats.owner}**: ${stats.total_picks} total picks (${stats.snake_picks} snake, ${stats.auction_picks} auction)`);
         console.log("[DRAFTTRENDS] Sent fallback message");
       } catch (fallbackError) {
         console.error("[DRAFTTRENDS] Fallback also failed:", fallbackError);
+        throw fallbackError;
       }
-      
-      throw sendError;
     }
     
   } catch (error) {
