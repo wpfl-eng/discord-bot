@@ -173,12 +173,42 @@ export async function execute(interaction) {
     }
     
     console.log("[DRAFTTRENDS] Sending embed response...");
+    
+    // Validate embeds before sending
+    for (let i = 0; i < embeds.length; i++) {
+      const embed = embeds[i];
+      console.log(`[DRAFTTRENDS] Embed ${i + 1}: ${embed.data.fields?.length || 0} fields`);
+      
+      // Check field sizes
+      if (embed.data.fields) {
+        embed.data.fields.forEach((field, idx) => {
+          if (field.value.length > 1024) {
+            console.warn(`[DRAFTTRENDS] Field ${idx} "${field.name}" too long: ${field.value.length} chars`);
+          }
+        });
+      }
+      
+      // Check description size
+      if (embed.data.description && embed.data.description.length > 4096) {
+        console.warn(`[DRAFTTRENDS] Description too long: ${embed.data.description.length} chars`);
+      }
+    }
+    
     try {
       await interaction.editReply({ embeds: embeds });
       console.log("[DRAFTTRENDS] Response sent successfully!");
     } catch (sendError) {
       console.error("[DRAFTTRENDS] Error sending embeds:", sendError);
       console.error("[DRAFTTRENDS] Error details:", sendError.message);
+      
+      // Try sending a simple fallback message
+      try {
+        await interaction.editReply(`Draft analysis for **${stats.owner}**: ${stats.total_picks} total picks (${stats.snake_picks} snake, ${stats.auction_picks} auction)`);
+        console.log("[DRAFTTRENDS] Sent fallback message");
+      } catch (fallbackError) {
+        console.error("[DRAFTTRENDS] Fallback also failed:", fallbackError);
+      }
+      
       throw sendError;
     }
     
