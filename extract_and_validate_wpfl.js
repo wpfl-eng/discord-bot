@@ -64,7 +64,7 @@ async function fetchAPIData() {
   
   try {
     // Fetch expected wins data (2015-2024)
-    const expectedWinsResponse = await fetch('https://wpflapi.azurewebsites.net/api/expectedwins?seasonMax=2024&seasonMin=2015&includePlayoffs=false');
+    const expectedWinsResponse = await fetch('https://wpflapi.azurewebsites.net/api/expectedwins?seasonMax=2025&seasonMin=2015&includePlayoffs=false');
     if (expectedWinsResponse.ok) {
       apiData.expectedWins = await expectedWinsResponse.json();
       console.log(`  ✅ Expected wins data: ${apiData.expectedWins.length} owners`);
@@ -77,7 +77,7 @@ async function fetchAPIData() {
   
   try {
     // Fetch matchup data (2015-2024) - limited to avoid timeout
-    const matchupResponse = await fetch('https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMax=2024&seasonMin=2020');
+    const matchupResponse = await fetch('https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMax=2025&seasonMin=2020');
     if (matchupResponse.ok) {
       apiData.matchupData = await matchupResponse.json();
       console.log(`  ✅ Matchup data: ${apiData.matchupData.length} games`);

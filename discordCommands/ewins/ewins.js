@@ -10,7 +10,8 @@ export const data = new SlashCommandBuilder()
       .setName("year")
       .setDescription("Season year (default: current year)")
       .setMinValue(2010)
-      .setMaxValue(2024)
+      .setMaxValue(2025)
+      .setRequired(true)
   )
   .addIntegerOption((option) =>
     option
@@ -18,13 +19,14 @@ export const data = new SlashCommandBuilder()
       .setDescription("Week of season (default: all weeks)")
       .setMinValue(1)
       .setMaxValue(18)
+      .setRequired(true)
   );
 
 export const execute = async (interaction, fetchFn = fetch) => {
   await interaction.deferReply();
 
-  const year = interaction.options.getInteger("year") || 2023;
-  const week = interaction.options.getInteger("week") || 17;
+  const year = interaction.options.getInteger("year") || 2025;
+  const week = interaction.options.getInteger("week") || 9;
 
   const url = new URL("https://wpflapi.azurewebsites.net/api/expectedwins");
   url.searchParams.set("seasonMax", year);

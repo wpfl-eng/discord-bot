@@ -21,15 +21,15 @@ export const data = new SlashCommandBuilder()
       .setDescription("Minimum season year (default: 2015)")
       .setRequired(false)
       .setMinValue(2015)
-      .setMaxValue(2024)
+      .setMaxValue(2025)
   )
   .addIntegerOption((option) =>
     option
       .setName("seasonmax")
-      .setDescription("Maximum season year (default: 2024)")
+      .setDescription("Maximum season year (default: 2025)")
       .setRequired(false)
       .setMinValue(2015)
-      .setMaxValue(2024)
+      .setMaxValue(2025)
   );
 
 /**
@@ -51,9 +51,9 @@ export async function execute(interaction) {
     
     if (!seasonMin && !seasonMax) {
       seasonMin = 2015;
-      seasonMax = 2024;
+      seasonMax = 2025;
     } else if (seasonMin && !seasonMax) {
-      seasonMax = 2024;
+      seasonMax = 2025;
     } else if (!seasonMin && seasonMax) {
       seasonMin = 2015;
     }

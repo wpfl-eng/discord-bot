@@ -80,12 +80,12 @@ export async function execute(interaction) {
       // Check if we have data for the full range as a fallback
       let fullRangeResult;
       try {
-        console.log("[DRAFTTRENDS] Querying for full range (2010-2024)...");
+        console.log("[DRAFTTRENDS] Querying for full range (2010-2025)...");
         fullRangeResult = await sql`
           SELECT * FROM owner_draft_stats 
           WHERE LOWER(owner) = LOWER(${userName})
           AND season_min = 2010
-          AND season_max = 2024
+          AND season_max = 2025
           ORDER BY computed_at DESC
           LIMIT 1`;
         console.log(`[DRAFTTRENDS] Full range query returned ${fullRangeResult.rows.length} rows`);

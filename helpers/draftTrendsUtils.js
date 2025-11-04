@@ -6,7 +6,7 @@
 export const DRAFT_CONSTANTS = {
   AUCTION_START_YEAR: 2016,
   MIN_SEASON: 2010,
-  MAX_SEASON: 2024,
+  MAX_SEASON: 2025,
   ROUNDS_PER_DRAFT: 12,
   
   // Thresholds

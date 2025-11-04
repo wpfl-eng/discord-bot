@@ -9,21 +9,23 @@ export const data = new SlashCommandBuilder()
       .setName("year")
       .setDescription("The year to fetch data for")
       .setMinValue(2010)
-      .setMaxValue(2024)
+      .setMaxValue(2025)
+      .setRequired(true)
   )
   .addIntegerOption((option) =>
     option
       .setName("week")
-      .setDescription("The week to fetch data for (optional)")
+      .setDescription("The week to fetch data for")
       .setMinValue(1)
       .setMaxValue(18)
+      .setRequired(true)
   );
 
 export async function execute(interaction) {
   await interaction.deferReply();
 
-  const year = interaction.options.getInteger("year") || 2023;
-  const week = interaction.options.getInteger("week") || 17;
+  const year = interaction.options.getInteger("year") || 2025;
+  const week = interaction.options.getInteger("week") || 9;
 
   let url = `https://wpflapi.azurewebsites.net/api/optimalcoaching/pointsfor/${year}`;
   if (week) {
