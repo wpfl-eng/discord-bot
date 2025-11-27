@@ -9,18 +9,18 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption((option) =>
     option
       .setName("week")
-      .setDescription("The week number")
-      .setRequired(true)
+      .setDescription("The week number (default: 13)")
+      .setRequired(false)
       .setMinValue(1)
       .setMaxValue(18)
   )
   .addIntegerOption((option) =>
     option
       .setName("year")
-      .setDescription("The year")
+      .setDescription("The year (default: 2025)")
       .setRequired(false)
       .setMinValue(2018)
-      .setMaxValue(new Date().getFullYear())
+      .setMaxValue(2025)
   );
 
 async function getRankedScores(week, year) {
@@ -76,8 +76,8 @@ async function getRankedScores(week, year) {
 export async function execute(interaction) {
   await interaction.deferReply();
 
-  const week = interaction.options.getInteger("week");
-  const year = interaction.options.getInteger("year") || new Date().getFullYear();
+  const week = interaction.options.getInteger("week") || 13;
+  const year = interaction.options.getInteger("year") || 2025;
 
   const response = await getRankedScores(week, year);
 
