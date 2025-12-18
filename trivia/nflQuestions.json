@@ -1,7 +1,7 @@
 [
   {
     "id": "nfl_moment_helmet_catch_team",
-    "question": "In Super Bowl XLII, which Giants receiver made the famous 'Helmet Catch'?",
+    "question": "In Super Bowl XLII (2007 season), which Giants receiver made the famous 'Helmet Catch'?",
     "answer": "David Tyree",
     "acceptable_answers": [
       "David Tyree",
@@ -194,7 +194,7 @@
   },
   {
     "id": "nfl_sb_xlv",
-    "question": "Which team won Super Bowl XLV after the 2010 season?",
+    "question": "Which team won Super Bowl XLV (2010 season) after the 2010 season?",
     "answer": "Green Bay Packers",
     "acceptable_answers": [
       "Green Bay Packers",
@@ -210,7 +210,7 @@
   },
   {
     "id": "nfl_sbmvp_xlv",
-    "question": "Who was the Super Bowl XLV MVP?",
+    "question": "Who was the Super Bowl XLV (2010 season) MVP?",
     "answer": "Aaron Rodgers",
     "acceptable_answers": [
       "Aaron Rodgers",
@@ -408,7 +408,7 @@
   },
   {
     "id": "nfl_sb_xlvi",
-    "question": "Which team won Super Bowl XLVI after the 2011 season?",
+    "question": "Which team won Super Bowl XLVI (2011 season) after the 2011 season?",
     "answer": "New York Giants",
     "acceptable_answers": [
       "New York Giants",
@@ -424,7 +424,7 @@
   },
   {
     "id": "nfl_sbmvp_xlvi",
-    "question": "Who was the Super Bowl XLVI MVP?",
+    "question": "Who was the Super Bowl XLVI (2011 season) MVP?",
     "answer": "Eli Manning",
     "acceptable_answers": [
       "Eli Manning",
@@ -652,7 +652,7 @@
   },
   {
     "id": "nfl_sb_xlvii",
-    "question": "Which team won Super Bowl XLVII after the 2012 season?",
+    "question": "Which team won Super Bowl XLVII (2012 season) after the 2012 season?",
     "answer": "Baltimore Ravens",
     "acceptable_answers": [
       "Baltimore Ravens",
@@ -668,7 +668,7 @@
   },
   {
     "id": "nfl_sbmvp_xlvii",
-    "question": "Who was the Super Bowl XLVII MVP?",
+    "question": "Who was the Super Bowl XLVII (2012 season) MVP?",
     "answer": "Joe Flacco",
     "acceptable_answers": [
       "Joe Flacco",
@@ -862,7 +862,7 @@
   },
   {
     "id": "nfl_sb_xlviii",
-    "question": "Which team won Super Bowl XLVIII after the 2013 season?",
+    "question": "Which team won Super Bowl XLVIII (2013 season) after the 2013 season?",
     "answer": "Seattle Seahawks",
     "acceptable_answers": [
       "Seattle Seahawks",
@@ -878,7 +878,7 @@
   },
   {
     "id": "nfl_sbmvp_xlviii",
-    "question": "Who was the Super Bowl XLVIII MVP?",
+    "question": "Who was the Super Bowl XLVIII (2013 season) MVP?",
     "answer": "Malcolm Smith",
     "acceptable_answers": [
       "Malcolm Smith",
@@ -1056,7 +1056,7 @@
   },
   {
     "id": "nfl_sb_xlix",
-    "question": "Which team won Super Bowl XLIX after the 2014 season?",
+    "question": "Which team won Super Bowl XLIX (2014 season) after the 2014 season?",
     "answer": "New England Patriots",
     "acceptable_answers": [
       "New England Patriots",
@@ -1073,7 +1073,7 @@
   },
   {
     "id": "nfl_sbmvp_xlix",
-    "question": "Who was the Super Bowl XLIX MVP?",
+    "question": "Who was the Super Bowl XLIX (2014 season) MVP?",
     "answer": "Tom Brady",
     "acceptable_answers": [
       "Tom Brady",
@@ -1328,7 +1328,7 @@
   },
   {
     "id": "nfl_moment_28_3",
-    "question": "In Super Bowl LI, the Patriots overcame a 28-3 deficit to beat which team?",
+    "question": "In Super Bowl LI (2016 season), the Patriots overcame a 28-3 deficit to beat which team?",
     "answer": "Atlanta Falcons",
     "acceptable_answers": [
       "Atlanta Falcons",
@@ -1478,7 +1478,7 @@
   },
   {
     "id": "nfl_sb_li",
-    "question": "Which team won Super Bowl LI after the 2016 season?",
+    "question": "Which team won Super Bowl LI (2016 season) after the 2016 season?",
     "answer": "New England Patriots",
     "acceptable_answers": [
       "New England Patriots",
@@ -1495,7 +1495,7 @@
   },
   {
     "id": "nfl_sbmvp_li",
-    "question": "Who was the Super Bowl LI MVP?",
+    "question": "Who was the Super Bowl LI (2016 season) MVP?",
     "answer": "Tom Brady",
     "acceptable_answers": [
       "Tom Brady",
@@ -1540,7 +1540,7 @@
   },
   {
     "id": "nfl_moment_philly_special",
-    "question": "What was the name of the famous trick play the Eagles ran in Super Bowl LII?",
+    "question": "What was the name of the famous trick play the Eagles ran in Super Bowl LII (2017 season)?",
     "answer": "Philly Special",
     "acceptable_answers": [
       "Philly Special",
@@ -1701,7 +1701,7 @@
   },
   {
     "id": "nfl_sb_lii",
-    "question": "Which team won Super Bowl LII after the 2017 season?",
+    "question": "Which team won Super Bowl LII (2017 season) after the 2017 season?",
     "answer": "Philadelphia Eagles",
     "acceptable_answers": [
       "Philadelphia Eagles",
@@ -1718,7 +1718,7 @@
   },
   {
     "id": "nfl_sbmvp_lii",
-    "question": "Who was the Super Bowl LII MVP?",
+    "question": "Who was the Super Bowl LII (2017 season) MVP?",
     "answer": "Nick Foles",
     "acceptable_answers": [
       "Nick Foles",
@@ -1939,7 +1939,7 @@
   },
   {
     "id": "nfl_sb_liii",
-    "question": "Which team won Super Bowl LIII after the 2018 season?",
+    "question": "Which team won Super Bowl LIII (2018 season) after the 2018 season?",
     "answer": "New England Patriots",
     "acceptable_answers": [
       "New England Patriots",
@@ -1956,7 +1956,7 @@
   },
   {
     "id": "nfl_sbmvp_liii",
-    "question": "Who was the Super Bowl LIII MVP?",
+    "question": "Who was the Super Bowl LIII (2018 season) MVP?",
     "answer": "Julian Edelman",
     "acceptable_answers": [
       "Julian Edelman",
@@ -2136,7 +2136,7 @@
   },
   {
     "id": "nfl_sb_liv",
-    "question": "Which team won Super Bowl LIV after the 2019 season?",
+    "question": "Which team won Super Bowl LIV (2019 season) after the 2019 season?",
     "answer": "Kansas City Chiefs",
     "acceptable_answers": [
       "Kansas City Chiefs",
@@ -2152,7 +2152,7 @@
   },
   {
     "id": "nfl_sbmvp_liv",
-    "question": "Who was the Super Bowl LIV MVP?",
+    "question": "Who was the Super Bowl LIV (2019 season) MVP?",
     "answer": "Patrick Mahomes",
     "acceptable_answers": [
       "Patrick Mahomes",
@@ -2359,7 +2359,7 @@
   },
   {
     "id": "nfl_sb_lv",
-    "question": "Which team won Super Bowl LV after the 2020 season?",
+    "question": "Which team won Super Bowl LV (2020 season) after the 2020 season?",
     "answer": "Tampa Bay Buccaneers",
     "acceptable_answers": [
       "Tampa Bay Buccaneers",
@@ -2376,7 +2376,7 @@
   },
   {
     "id": "nfl_sbmvp_lv",
-    "question": "Who was the Super Bowl LV MVP?",
+    "question": "Who was the Super Bowl LV (2020 season) MVP?",
     "answer": "Tom Brady",
     "acceptable_answers": [
       "Tom Brady",
@@ -2569,7 +2569,7 @@
   },
   {
     "id": "nfl_sb_lvi",
-    "question": "Which team won Super Bowl LVI after the 2021 season?",
+    "question": "Which team won Super Bowl LVI (2021 season) after the 2021 season?",
     "answer": "Los Angeles Rams",
     "acceptable_answers": [
       "Los Angeles Rams",
@@ -2585,7 +2585,7 @@
   },
   {
     "id": "nfl_sbmvp_lvi",
-    "question": "Who was the Super Bowl LVI MVP?",
+    "question": "Who was the Super Bowl LVI (2021 season) MVP?",
     "answer": "Cooper Kupp",
     "acceptable_answers": [
       "Cooper Kupp",
@@ -2763,7 +2763,7 @@
   },
   {
     "id": "nfl_sb_lvii",
-    "question": "Which team won Super Bowl LVII after the 2022 season?",
+    "question": "Which team won Super Bowl LVII (2022 season) after the 2022 season?",
     "answer": "Kansas City Chiefs",
     "acceptable_answers": [
       "Kansas City Chiefs",
@@ -2779,7 +2779,7 @@
   },
   {
     "id": "nfl_sbmvp_lvii",
-    "question": "Who was the Super Bowl LVII MVP?",
+    "question": "Who was the Super Bowl LVII (2022 season) MVP?",
     "answer": "Patrick Mahomes",
     "acceptable_answers": [
       "Patrick Mahomes",
@@ -2972,7 +2972,7 @@
   },
   {
     "id": "nfl_sb_lviii",
-    "question": "Which team won Super Bowl LVIII after the 2023 season?",
+    "question": "Which team won Super Bowl LVIII (2023 season) after the 2023 season?",
     "answer": "Kansas City Chiefs",
     "acceptable_answers": [
       "Kansas City Chiefs",
@@ -2988,7 +2988,7 @@
   },
   {
     "id": "nfl_sbmvp_lviii",
-    "question": "Who was the Super Bowl LVIII MVP?",
+    "question": "Who was the Super Bowl LVIII (2023 season) MVP?",
     "answer": "Patrick Mahomes",
     "acceptable_answers": [
       "Patrick Mahomes",
@@ -3149,6 +3149,2215 @@
       "category": "rushing_yards",
       "stat_value": 2005,
       "team": "PHI"
+    }
+  },
+  {
+    "id": "nfl_comeback_colts_2014",
+    "question": "In the 2014 AFC Wild Card, which team overcame a 28-point deficit to beat the Chiefs 45-44?",
+    "answer": "Indianapolis Colts",
+    "acceptable_answers": [
+      "Indianapolis Colts",
+      "Colts",
+      "Indianapolis"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2014,
+      "category": "playoff_comeback"
+    }
+  },
+  {
+    "id": "nfl_comeback_jaguars_2023",
+    "question": "In the 2023 AFC Wild Card, which team overcame a 27-point deficit to beat the Chargers 31-30?",
+    "answer": "Jacksonville Jaguars",
+    "acceptable_answers": [
+      "Jacksonville Jaguars",
+      "Jaguars",
+      "Jacksonville"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2023,
+      "category": "playoff_comeback"
+    }
+  },
+  {
+    "id": "nfl_superbowl_li_deficit",
+    "question": "What was the largest deficit overcome in Super Bowl history when the Patriots beat the Falcons in Super Bowl LI (2016 season)?",
+    "answer": "25 points",
+    "acceptable_answers": [
+      "25 points",
+      "25",
+      "Twenty-five"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2016,
+      "category": "super_bowl_record"
+    }
+  },
+  {
+    "id": "nfl_comeback_49ers_2024",
+    "question": "In the 2023 NFC Championship, which team erased a 17-point halftime deficit to beat the Lions 34-31?",
+    "answer": "San Francisco 49ers",
+    "acceptable_answers": [
+      "San Francisco 49ers",
+      "49ers",
+      "San Francisco",
+      "SF"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2023,
+      "category": "playoff_comeback"
+    }
+  },
+  {
+    "id": "nfl_record_tucker_fg",
+    "question": "Which Ravens kicker set the NFL record for longest field goal at 66 yards in 2021?",
+    "answer": "Justin Tucker",
+    "acceptable_answers": [
+      "Justin Tucker",
+      "Tucker"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_prater_fg",
+    "question": "Whose 64-yard field goal record did Justin Tucker break in 2021?",
+    "answer": "Matt Prater",
+    "acceptable_answers": [
+      "Matt Prater",
+      "Prater"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2021,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_aubrey_50yard",
+    "question": "In 2024, which Cowboys kicker set a record with 14 field goals of 50+ yards in a single season?",
+    "answer": "Brandon Aubrey",
+    "acceptable_answers": [
+      "Brandon Aubrey",
+      "Aubrey"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2024,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_tj_watt_sacks",
+    "question": "Which Steelers linebacker tied Michael Strahan's single-season sack record with 22.5 in 2021?",
+    "answer": "T.J. Watt",
+    "acceptable_answers": [
+      "T.J. Watt",
+      "TJ Watt",
+      "Watt"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_jj_watt_20sacks",
+    "question": "Who is the only player to record 20+ sacks in multiple seasons?",
+    "answer": "J.J. Watt",
+    "acceptable_answers": [
+      "J.J. Watt",
+      "JJ Watt",
+      "Watt"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_lamar_perfect_rating",
+    "question": "Which quarterback holds the NFL record for most games with a perfect passer rating (158.3)?",
+    "answer": "Lamar Jackson",
+    "acceptable_answers": [
+      "Lamar Jackson",
+      "Jackson",
+      "Lamar"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2024,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_foles_7td_perfect",
+    "question": "Which Eagles quarterback is the only player to throw 7 touchdowns while achieving a perfect passer rating in the same game?",
+    "answer": "Nick Foles",
+    "acceptable_answers": [
+      "Nick Foles",
+      "Foles"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2013,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_goff_400yard_perfect",
+    "question": "Who is the only QB to have two 400-yard passing games with a perfect passer rating?",
+    "answer": "Jared Goff",
+    "acceptable_answers": [
+      "Jared Goff",
+      "Goff"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2018,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_mvp_unanimous",
+    "question": "Who are the only two players to win the NFL MVP unanimously? (Name one)",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady",
+      "Lamar Jackson",
+      "Jackson",
+      "Lamar"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2010,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_mvp_most_wins",
+    "question": "Which quarterback has won the most NFL MVP awards with five?",
+    "answer": "Peyton Manning",
+    "acceptable_answers": [
+      "Peyton Manning",
+      "Manning",
+      "Peyton"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2000yard_chris_johnson",
+    "question": "Which Titans running back rushed for 2,006 yards in 2009, becoming the sixth member of the 2000-yard club?",
+    "answer": "Chris Johnson",
+    "acceptable_answers": [
+      "Chris Johnson",
+      "Johnson",
+      "CJ2K"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2009,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2000yard_peterson_short",
+    "question": "Which running back rushed for 2,097 yards in 2012, just 8 yards short of Eric Dickerson's record?",
+    "answer": "Adrian Peterson",
+    "acceptable_answers": [
+      "Adrian Peterson",
+      "Peterson",
+      "AP",
+      "AD"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2000yard_titans_two",
+    "question": "The Titans became the first franchise with two 2,000-yard rushers when which player achieved the feat in 2020?",
+    "answer": "Derrick Henry",
+    "acceptable_answers": [
+      "Derrick Henry",
+      "Henry"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2000yard_ninth_member",
+    "question": "Which player became the ninth member of the 2,000-yard rushing club in 2024?",
+    "answer": "Saquon Barkley",
+    "acceptable_answers": [
+      "Saquon Barkley",
+      "Barkley",
+      "Saquon"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_dpoy_jj_watt_three",
+    "question": "Which Texans defender is the only player to win three Defensive Player of the Year awards?",
+    "answer": "J.J. Watt",
+    "acceptable_answers": [
+      "J.J. Watt",
+      "JJ Watt",
+      "Watt"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "dpoy"
+    }
+  },
+  {
+    "id": "nfl_dpoy_undrafted",
+    "question": "Who is the only undrafted player to win NFL Defensive Player of the Year?",
+    "answer": "James Harrison",
+    "acceptable_answers": [
+      "James Harrison",
+      "Harrison"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2008,
+      "category": "dpoy"
+    }
+  },
+  {
+    "id": "nfl_dpoy_donald_three",
+    "question": "Which Rams defensive tackle won three DPOY awards in 2017, 2018, and 2020?",
+    "answer": "Aaron Donald",
+    "acceptable_answers": [
+      "Aaron Donald",
+      "Donald"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "dpoy"
+    }
+  },
+  {
+    "id": "nfl_rookie_herbert_td",
+    "question": "Which Chargers quarterback set the rookie record for most passing touchdowns with 31 in 2020?",
+    "answer": "Justin Herbert",
+    "acceptable_answers": [
+      "Justin Herbert",
+      "Herbert"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "rookie_record"
+    }
+  },
+  {
+    "id": "nfl_rookie_nacua_yards",
+    "question": "Which Rams receiver set the rookie record for most receiving yards in 2023?",
+    "answer": "Puka Nacua",
+    "acceptable_answers": [
+      "Puka Nacua",
+      "Nacua",
+      "Puka"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "rookie_record"
+    }
+  },
+  {
+    "id": "nfl_rookie_bowers_receptions",
+    "question": "Which Raiders tight end set the rookie record for most receptions with 112 in 2024?",
+    "answer": "Brock Bowers",
+    "acceptable_answers": [
+      "Brock Bowers",
+      "Bowers"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "rookie_record"
+    }
+  },
+  {
+    "id": "nfl_rookie_luck_yards",
+    "question": "Which Colts quarterback set the rookie record for most passing yards with 4,374 in 2012?",
+    "answer": "Andrew Luck",
+    "acceptable_answers": [
+      "Andrew Luck",
+      "Luck"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "rookie_record"
+    }
+  },
+  {
+    "id": "nfl_record_bland_picksix",
+    "question": "Which Cowboys cornerback set the single-season record for most pick-sixes with 5 in 2023?",
+    "answer": "DaRon Bland",
+    "acceptable_answers": [
+      "DaRon Bland",
+      "Bland"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2023,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_reed_int_return",
+    "question": "Which Ravens safety holds the record for longest interception return at 107 yards?",
+    "answer": "Ed Reed",
+    "acceptable_answers": [
+      "Ed Reed",
+      "Reed"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2008,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_dubious_schaub_picksix",
+    "question": "Which Texans quarterback became the first to throw a pick-six in four consecutive games in 2013?",
+    "answer": "Matt Schaub",
+    "acceptable_answers": [
+      "Matt Schaub",
+      "Schaub"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2013,
+      "category": "dubious_record"
+    }
+  },
+  {
+    "id": "nfl_500td_club_count",
+    "question": "How many quarterbacks have thrown 500+ career touchdown passes?",
+    "answer": "5",
+    "acceptable_answers": [
+      "5",
+      "Five"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "milestone"
+    }
+  },
+  {
+    "id": "nfl_500td_fastest",
+    "question": "Which quarterback reached 500 career touchdown passes in the fewest games (244)?",
+    "answer": "Peyton Manning",
+    "acceptable_answers": [
+      "Peyton Manning",
+      "Manning",
+      "Peyton"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2014,
+      "category": "milestone"
+    }
+  },
+  {
+    "id": "nfl_500td_fifth",
+    "question": "Who became the fifth quarterback to reach 500 career touchdown passes in 2024?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "milestone"
+    }
+  },
+  {
+    "id": "nfl_sb_xliii_harrison",
+    "question": "Which Steelers linebacker returned an interception 100 yards for a touchdown in Super Bowl XLIII (2008 season)?",
+    "answer": "James Harrison",
+    "acceptable_answers": [
+      "James Harrison",
+      "Harrison"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2008,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sb_xlix_butler",
+    "question": "Which Patriots cornerback made the famous goal-line interception to seal Super Bowl XLIX (2014 season)?",
+    "answer": "Malcolm Butler",
+    "acceptable_answers": [
+      "Malcolm Butler",
+      "Butler"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sb_home_stadium",
+    "question": "In 2021, which team became the first to play and win the Super Bowl in their home stadium?",
+    "answer": "Tampa Bay Buccaneers",
+    "acceptable_answers": [
+      "Tampa Bay Buccaneers",
+      "Buccaneers",
+      "Tampa Bay",
+      "Bucs"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sb_xlviii_scorigami",
+    "question": "Super Bowl XLVIII (2013 season) saw the Seahawks beat the Broncos 43-8. What term describes this historically unique final score?",
+    "answer": "Scorigami",
+    "acceptable_answers": [
+      "Scorigami"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2013,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_draft_rodgers_fall",
+    "question": "In the 2005 NFL Draft, which quarterback fell to pick #24 despite being projected to go #1?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2005,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_draft_russell_bust",
+    "question": "Which 2007 #1 overall pick is considered one of the biggest busts ever, lasting only 25 career starts?",
+    "answer": "JaMarcus Russell",
+    "acceptable_answers": [
+      "JaMarcus Russell",
+      "Russell"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2007,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_draft_gholston_nosacks",
+    "question": "Which 2008 sixth overall pick by the Jets never recorded a single sack in his NFL career?",
+    "answer": "Vernon Gholston",
+    "acceptable_answers": [
+      "Vernon Gholston",
+      "Gholston"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2008,
+      "category": "draft_bust"
+    }
+  },
+  {
+    "id": "nfl_draft_brown_probowls",
+    "question": "Antonio Brown was selected 195th overall in 2010. How many Pro Bowl selections did he earn?",
+    "answer": "7",
+    "acceptable_answers": [
+      "7",
+      "Seven"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2010,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_first_female_ref",
+    "question": "In 2015, who became the NFL's first officially hired female referee?",
+    "answer": "Sarah Thomas",
+    "acceptable_answers": [
+      "Sarah Thomas",
+      "Thomas"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "historic_first"
+    }
+  },
+  {
+    "id": "nfl_seahawks_scorigami_wizard",
+    "question": "Which team had exactly one scorigami per season from 2010-2018, earning their coach the title 'wizard of modern scorigami'?",
+    "answer": "Seattle Seahawks",
+    "acceptable_answers": [
+      "Seattle Seahawks",
+      "Seahawks",
+      "Seattle"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2018,
+      "category": "unusual_fact"
+    }
+  },
+  {
+    "id": "nfl_jaguars_no_ties",
+    "question": "Which is the only current NFL franchise to have never played a tie game?",
+    "answer": "Jacksonville Jaguars",
+    "acceptable_answers": [
+      "Jacksonville Jaguars",
+      "Jaguars",
+      "Jacksonville"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2024,
+      "category": "unusual_fact"
+    }
+  },
+  {
+    "id": "nfl_bears_700_wins",
+    "question": "In November 2010, which team became the first NFL franchise to reach 700 regular season victories?",
+    "answer": "Chicago Bears",
+    "acceptable_answers": [
+      "Chicago Bears",
+      "Bears",
+      "Chicago"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2010,
+      "category": "milestone"
+    }
+  },
+  {
+    "id": "nfl_colts_win_streak",
+    "question": "Which team holds the record for longest winning streak in NFL history at 23 games (2008-2009)?",
+    "answer": "Indianapolis Colts",
+    "acceptable_answers": [
+      "Indianapolis Colts",
+      "Colts",
+      "Indianapolis"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2009,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_tomlinson_vs_raiders",
+    "question": "In 2006, LaDainian Tomlinson scored 31 total touchdowns. What was unusual about his point total compared to the Raiders?",
+    "answer": "He scored more points than the entire Raiders team",
+    "acceptable_answers": [
+      "He scored more points than the entire Raiders team",
+      "More points than the Raiders",
+      "More than Raiders",
+      "Outscored the Raiders"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2006,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_kamara_christmas",
+    "question": "Which Saints running back tied the NFL record with 6 rushing touchdowns on Christmas Day 2020?",
+    "answer": "Alvin Kamara",
+    "acceptable_answers": [
+      "Alvin Kamara",
+      "Kamara"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_moss_receiving_tds",
+    "question": "Which Patriots receiver holds the record for most receiving touchdowns in a single season with 23 (2007)?",
+    "answer": "Randy Moss",
+    "acceptable_answers": [
+      "Randy Moss",
+      "Moss"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2007,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_coty_interim",
+    "question": "In 2012, who became the first interim coach to win AP Coach of the Year?",
+    "answer": "Bruce Arians",
+    "acceptable_answers": [
+      "Bruce Arians",
+      "Arians"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "coty"
+    }
+  },
+  {
+    "id": "nfl_coty_belichick_three",
+    "question": "Which coach has won AP Coach of the Year three times with the Patriots (2003, 2007, 2010)?",
+    "answer": "Bill Belichick",
+    "acceptable_answers": [
+      "Bill Belichick",
+      "Belichick"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "coty"
+    }
+  },
+  {
+    "id": "nfl_500yard_roethlisberger",
+    "question": "Which quarterback is the only one to throw for 500+ yards four times in his career?",
+    "answer": "Ben Roethlisberger",
+    "acceptable_answers": [
+      "Ben Roethlisberger",
+      "Roethlisberger",
+      "Big Ben"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2014,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_career_safeties_record",
+    "question": "Which player holds the record for most career safeties with 4, tied with Jared Allen, Justin Houston, and Doug English?",
+    "answer": "Ted Hendricks",
+    "acceptable_answers": [
+      "Ted Hendricks",
+      "Hendricks",
+      "Jared Allen",
+      "Justin Houston",
+      "Doug English"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1983,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_two_safeties_game",
+    "question": "Which Rams defender recorded 2 safeties in a single game on October 21, 1973, the only player in NFL history to accomplish this?",
+    "answer": "Fred Dryer",
+    "acceptable_answers": [
+      "Fred Dryer",
+      "Dryer"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1973,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_seven_sacks_game",
+    "question": "In 1990, which Chiefs linebacker recorded 7 sacks in a single game against the Seahawks, an NFL record that still stands?",
+    "answer": "Derrick Thomas",
+    "acceptable_answers": [
+      "Derrick Thomas",
+      "Thomas"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1990,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_72_team_sacks",
+    "question": "Which team recorded 72 sacks in 1984, an NFL single-season team record that still stands?",
+    "answer": "Chicago Bears",
+    "acceptable_answers": [
+      "Chicago Bears",
+      "Bears",
+      "1984 Bears"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1984,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_three_safeties_quarter",
+    "question": "The Rams recorded 3 safeties in a single game on September 30, 1984 - all in which quarter?",
+    "answer": "Third quarter",
+    "acceptable_answers": [
+      "Third quarter",
+      "3rd quarter",
+      "Third",
+      "3rd"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1984,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_harrison_dpoy_undrafted",
+    "question": "Which undrafted linebacker from Kent State won Defensive Player of the Year with 16 sacks in 2008?",
+    "answer": "James Harrison",
+    "acceptable_answers": [
+      "James Harrison",
+      "Harrison"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2008,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_watt_three_sack_titles",
+    "question": "Which Steelers linebacker is the only player to lead the NFL in sacks three separate times?",
+    "answer": "T.J. Watt",
+    "acceptable_answers": [
+      "T.J. Watt",
+      "TJ Watt",
+      "Watt"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_bruce_smith_200_sacks",
+    "question": "Bruce Smith holds the career sack record with how many sacks?",
+    "answer": "200",
+    "acceptable_answers": [
+      "200",
+      "200 sacks"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2003,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_sharper_int_return_yards",
+    "question": "Which safety holds the record for most interception return yards in a single season with 376 in 2009?",
+    "answer": "Darren Sharper",
+    "acceptable_answers": [
+      "Darren Sharper",
+      "Sharper"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2009,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_mike_edwards_two_pick_six",
+    "question": "Which Bucs safety returned 2 interceptions for touchdowns in a single game in 2020?",
+    "answer": "Mike Edwards",
+    "acceptable_answers": [
+      "Mike Edwards",
+      "Edwards"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2020,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_jeremy_chinn_two_fumble_tds",
+    "question": "Which Panthers linebacker returned 2 fumbles for touchdowns on consecutive defensive plays in 2020, an NFL first?",
+    "answer": "Jeremy Chinn",
+    "acceptable_answers": [
+      "Jeremy Chinn",
+      "Chinn"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2020,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_rod_woodson_12_pick_six",
+    "question": "Rod Woodson holds the career record for most interceptions returned for touchdowns with how many?",
+    "answer": "12",
+    "acceptable_answers": [
+      "12",
+      "12 pick-sixes",
+      "Twelve"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2003,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_dolphins_153_no_fumble_td",
+    "question": "The Dolphins hold the record for most consecutive games without allowing a fumble returned for a TD at 153. What years did this streak span?",
+    "answer": "2008-2017",
+    "acceptable_answers": [
+      "2008-2017",
+      "2008 to 2017"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2017,
+      "category": "defense"
+    }
+  },
+  {
+    "id": "nfl_puka_nacua_15_catches_rookie",
+    "question": "Which Rams receiver set the rookie record for most catches in a single game with 15 on September 17, 2023?",
+    "answer": "Puka Nacua",
+    "acceptable_answers": [
+      "Puka Nacua",
+      "Nacua"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "rookie"
+    }
+  },
+  {
+    "id": "nfl_stonehouse_punting_average",
+    "question": "Which Titans punter set the rookie record for highest average yards per punt at 53.10 in 2022?",
+    "answer": "Ryan Stonehouse",
+    "acceptable_answers": [
+      "Ryan Stonehouse",
+      "Stonehouse"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2022,
+      "category": "rookie"
+    }
+  },
+  {
+    "id": "nfl_parkey_54_consecutive_fg",
+    "question": "Which Eagles kicker set the rookie record for most consecutive field goals made without a miss at 54 in 2014?",
+    "answer": "Cody Parkey",
+    "acceptable_answers": [
+      "Cody Parkey",
+      "Parkey"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2014,
+      "category": "rookie"
+    }
+  },
+  {
+    "id": "nfl_hester_6_return_tds_rookie",
+    "question": "Which Bears rookie returned 6 kicks for touchdowns in 2006, setting an NFL single-season record?",
+    "answer": "Devin Hester",
+    "acceptable_answers": [
+      "Devin Hester",
+      "Hester"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2006,
+      "category": "rookie"
+    }
+  },
+  {
+    "id": "nfl_demarco_murray_253_first_start",
+    "question": "Which Cowboys running back rushed for 253 yards in his first career start in 2011, an NFL record?",
+    "answer": "DeMarco Murray",
+    "acceptable_answers": [
+      "DeMarco Murray",
+      "Murray"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "rookie"
+    }
+  },
+  {
+    "id": "nfl_amobi_okoye_youngest_drafted",
+    "question": "At 19 years and 10 months old in 2007, who became the youngest player ever drafted in NFL history?",
+    "answer": "Amobi Okoye",
+    "acceptable_answers": [
+      "Amobi Okoye",
+      "Okoye"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2007,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_weeden_oldest_first_round",
+    "question": "Which quarterback was the oldest first-round draft pick ever at 28 years and 195 days when selected 22nd overall by Cleveland in 2012?",
+    "answer": "Brandon Weeden",
+    "acceptable_answers": [
+      "Brandon Weeden",
+      "Weeden"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_weinke_oldest_drafted",
+    "question": "Which quarterback holds the record for being the oldest player ever drafted, selected by Carolina in the 4th round of 2001 at age 28?",
+    "answer": "Chris Weinke",
+    "acceptable_answers": [
+      "Chris Weinke",
+      "Weinke"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2001,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_stadiums_no_corporate",
+    "question": "Name one of the only three NFL stadiums that do not have corporate naming rights.",
+    "answer": "Arrowhead Stadium",
+    "acceptable_answers": [
+      "Arrowhead Stadium",
+      "Arrowhead",
+      "Lambeau Field",
+      "Lambeau",
+      "Soldier Field",
+      "Soldier"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_metlife_naming_rights",
+    "question": "Which NFL stadium has the largest naming rights deal in American sports history at $400 million over 25 years?",
+    "answer": "MetLife Stadium",
+    "acceptable_answers": [
+      "MetLife Stadium",
+      "MetLife"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_mercedes_two_stadiums",
+    "question": "Which company is the only one to hold naming rights for two different NFL stadiums (Atlanta and New Orleans)?",
+    "answer": "Mercedes-Benz",
+    "acceptable_answers": [
+      "Mercedes-Benz",
+      "Mercedes"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_oldest_stadium",
+    "question": "Which NFL stadium is the oldest, having opened in 1924?",
+    "answer": "Soldier Field",
+    "acceptable_answers": [
+      "Soldier Field",
+      "Soldier"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1924,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_lambeau_continuous",
+    "question": "Which NFL stadium is the oldest continuously operating, hosting its team since 1957?",
+    "answer": "Lambeau Field",
+    "acceptable_answers": [
+      "Lambeau Field",
+      "Lambeau"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1957,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_smallest_stadium",
+    "question": "Which NFL stadium has the smallest seating capacity at 61,500?",
+    "answer": "Soldier Field",
+    "acceptable_answers": [
+      "Soldier Field",
+      "Soldier"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2024,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_landshark_stadium",
+    "question": "In 2009, Miami's stadium was briefly named after which Jimmy Buffett beer brand?",
+    "answer": "Land Shark",
+    "acceptable_answers": [
+      "Land Shark",
+      "LandShark",
+      "Land Shark Stadium"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2009,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_ford_field_naming",
+    "question": "Ford Field is named after what - the Ford family or the Ford Motor Company?",
+    "answer": "Ford Motor Company",
+    "acceptable_answers": [
+      "Ford Motor Company",
+      "The company",
+      "Company"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2002,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_metlife_shared",
+    "question": "Which two NFL teams share MetLife Stadium?",
+    "answer": "Giants and Jets",
+    "acceptable_answers": [
+      "Giants and Jets",
+      "New York Giants and New York Jets",
+      "Jets and Giants"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_att_stadium_capacity",
+    "question": "Which NFL stadium has the highest peak capacity at over 100,000?",
+    "answer": "AT&T Stadium",
+    "acceptable_answers": [
+      "AT&T Stadium",
+      "ATT Stadium",
+      "Cowboys Stadium"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2009,
+      "category": "stadium"
+    }
+  },
+  {
+    "id": "nfl_entourage_movie",
+    "question": "Which three Super Bowl-winning players appeared in the 2015 movie 'Entourage'? Name one.",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady",
+      "Rob Gronkowski",
+      "Gronk",
+      "Gronkowski",
+      "Russell Wilson",
+      "Wilson"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_bradshaw_acting",
+    "question": "Which former Steelers quarterback has appeared on 'The Masked Singer,' 'Last Man Standing,' and 'Failure to Launch'?",
+    "answer": "Terry Bradshaw",
+    "acceptable_answers": [
+      "Terry Bradshaw",
+      "Bradshaw"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2006,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_blind_side_movie",
+    "question": "Which 2009 movie told the story of Michael Oher's journey from homelessness to the NFL?",
+    "answer": "The Blind Side",
+    "acceptable_answers": [
+      "The Blind Side",
+      "Blind Side"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2009,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_carl_weathers_rocky",
+    "question": "Which former NFL player became Apollo Creed in the Rocky films after a brief pro career?",
+    "answer": "Carl Weathers",
+    "acceptable_answers": [
+      "Carl Weathers",
+      "Weathers"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1976,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_joe_horn_cellphone",
+    "question": "In 2003, which Saints receiver was fined $30,000 for using a cell phone hidden in the goal post padding to celebrate a touchdown?",
+    "answer": "Joe Horn",
+    "acceptable_answers": [
+      "Joe Horn",
+      "Horn"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2003,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_chad_johnson_fines",
+    "question": "Which receiver racked up approximately $115,000 in career celebration fines, including one for pulling out a sombrero and poncho?",
+    "answer": "Chad Johnson",
+    "acceptable_answers": [
+      "Chad Johnson",
+      "Chad Ochocinco",
+      "Ochocinco"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_jimmy_graham_goalpost",
+    "question": "In 2014, which tight end was fined $30,000 for dunking the football over the goalpost, a rule created partly because of him?",
+    "answer": "Jimmy Graham",
+    "acceptable_answers": [
+      "Jimmy Graham",
+      "Graham"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_kelce_gonzalez_tribute",
+    "question": "Travis Kelce was fined $14,069 in 2024 for dunking over the goalpost as a tribute to which former Chiefs tight end?",
+    "answer": "Tony Gonzalez",
+    "acceptable_answers": [
+      "Tony Gonzalez",
+      "Gonzalez"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_mcnabb_tie_game",
+    "question": "After the 2008 tie game against the Bengals, which Eagles quarterback famously said he didn't know an NFL game could end in a tie?",
+    "answer": "Donovan McNabb",
+    "acceptable_answers": [
+      "Donovan McNabb",
+      "McNabb"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2008,
+      "category": "pop_culture"
+    }
+  },
+  {
+    "id": "nfl_shula_career_wins",
+    "question": "Which coach holds the record for most career wins with 347?",
+    "answer": "Don Shula",
+    "acceptable_answers": [
+      "Don Shula",
+      "Shula"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1995,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_belichick_8_super_bowls",
+    "question": "Bill Belichick won 8 Super Bowls total - how many as a head coach?",
+    "answer": "6",
+    "acceptable_answers": [
+      "6",
+      "Six"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_belichick_playoff_wins",
+    "question": "Which coach holds the NFL record for most postseason wins with 31?",
+    "answer": "Bill Belichick",
+    "acceptable_answers": [
+      "Bill Belichick",
+      "Belichick"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_payton_bounty_suspension",
+    "question": "Which Saints coach was suspended for an entire season without pay for his involvement in the bounty scandal?",
+    "answer": "Sean Payton",
+    "acceptable_answers": [
+      "Sean Payton",
+      "Payton"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_belichick_spygate_fine",
+    "question": "After the Spygate investigation in 2007, Bill Belichick was fined how much - the largest fine ever given to a head coach?",
+    "answer": "$500,000",
+    "acceptable_answers": [
+      "$500,000",
+      "500000",
+      "500,000"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2007,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_tom_flores_first_minority",
+    "question": "Which Raiders coach in 1979 became the first minority to win the Super Bowl as a player, assistant coach, and head coach?",
+    "answer": "Tom Flores",
+    "acceptable_answers": [
+      "Tom Flores",
+      "Flores"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1984,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_art_shell_first_aa",
+    "question": "Who became the first modern era African-American head coach when hired by the Raiders in 1989?",
+    "answer": "Art Shell",
+    "acceptable_answers": [
+      "Art Shell",
+      "Shell"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1989,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_mccarthy_fired_midseason",
+    "question": "Which Packers coach was fired midseason in 2018 after 12+ years with the team, the longest-tenured coach to be fired midseason since at least 1990?",
+    "answer": "Mike McCarthy",
+    "acceptable_answers": [
+      "Mike McCarthy",
+      "McCarthy"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_frank_reich_11_games",
+    "question": "Which Panthers coach lasted only 11 games in 2023, the second-shortest non-interim head coaching tenure in NFL history?",
+    "answer": "Frank Reich",
+    "acceptable_answers": [
+      "Frank Reich",
+      "Reich"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_saleh_5_games",
+    "question": "Which Jets coach was fired after only 5 games in 2024?",
+    "answer": "Robert Saleh",
+    "acceptable_answers": [
+      "Robert Saleh",
+      "Saleh"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_reid_three_super_bowls",
+    "question": "Andy Reid is the only active coach with how many Super Bowl wins?",
+    "answer": "3",
+    "acceptable_answers": [
+      "3",
+      "Three"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_culley_oldest_first_time",
+    "question": "Which 65-year-old became the oldest first-time NFL head coach when hired by Houston in 2021, only to be fired after one season?",
+    "answer": "David Culley",
+    "acceptable_answers": [
+      "David Culley",
+      "Culley"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2021,
+      "category": "coaching"
+    }
+  },
+  {
+    "id": "nfl_cromartie_109_yard_return",
+    "question": "On November 4, 2007, which Chargers cornerback returned a missed field goal 109 yards for a touchdown, tying the longest play in NFL history?",
+    "answer": "Antonio Cromartie",
+    "acceptable_answers": [
+      "Antonio Cromartie",
+      "Cromartie"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2007,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_patterson_109_kickoff",
+    "question": "Which Vikings rookie returned a kickoff 109 yards for a touchdown against the Packers in 2013, tying the NFL record?",
+    "answer": "Cordarrelle Patterson",
+    "acceptable_answers": [
+      "Cordarrelle Patterson",
+      "Patterson"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_reed_107_int_return",
+    "question": "Ed Reed holds the record for longest interception return. How many yards was his record return in 2008?",
+    "answer": "107",
+    "acceptable_answers": [
+      "107",
+      "107 yards"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2008,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_henry_99_yard_run",
+    "question": "In 2018, which Titans running back became only the second player to rush 99 yards for a touchdown, tying Tony Dorsett's 1983 record?",
+    "answer": "Derrick Henry",
+    "acceptable_answers": [
+      "Derrick Henry",
+      "Henry"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_bailey_103_punt_return",
+    "question": "Robert Bailey holds the record for longest punt return at how many yards, set in 1994?",
+    "answer": "103",
+    "acceptable_answers": [
+      "103",
+      "103 yards"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1994,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_longest_game_1971",
+    "question": "The longest NFL game in history lasted 82 minutes and 40 seconds. Which teams played this double-overtime Christmas Day classic in 1971?",
+    "answer": "Dolphins and Chiefs",
+    "acceptable_answers": [
+      "Dolphins and Chiefs",
+      "Miami Dolphins and Kansas City Chiefs",
+      "Chiefs and Dolphins"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1971,
+      "category": "historic"
+    }
+  },
+  {
+    "id": "nfl_tucker_double_ot_broncos",
+    "question": "In January 2013, Justin Tucker's 47-yard field goal in double overtime helped the Ravens beat which team 38-35 in what became known as one of the greatest playoff games ever?",
+    "answer": "Broncos",
+    "acceptable_answers": [
+      "Broncos",
+      "Denver Broncos",
+      "Denver"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "historic"
+    }
+  },
+  {
+    "id": "nfl_desean_jackson_miracle",
+    "question": "In 2010, which Eagles returner won the game against the Giants by returning a muffed punt 65 yards for a touchdown as time expired?",
+    "answer": "DeSean Jackson",
+    "acceptable_answers": [
+      "DeSean Jackson",
+      "Jackson"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "historic"
+    }
+  },
+  {
+    "id": "nfl_robey_coleman_no_call",
+    "question": "In the 2019 NFC Championship, the Saints lost after officials missed a blatant pass interference call against which Rams cornerback?",
+    "answer": "Nickell Robey-Coleman",
+    "acceptable_answers": [
+      "Nickell Robey-Coleman",
+      "Robey-Coleman"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "historic"
+    }
+  },
+  {
+    "id": "nfl_fail_mary_refs",
+    "question": "In September 2012, the 'Fail Mary' controversy between the Seahawks and Packers was decided by what type of officials?",
+    "answer": "Replacement refs",
+    "acceptable_answers": [
+      "Replacement refs",
+      "Replacement officials",
+      "Replacement referees",
+      "Scab refs"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "historic"
+    }
+  },
+  {
+    "id": "nfl_rams_chiefs_mnf",
+    "question": "In 2018, the Rams beat the Chiefs 54-51 in the highest-scoring Monday Night Football game ever. How many combined points were scored?",
+    "answer": "105",
+    "acceptable_answers": [
+      "105",
+      "105 points"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "historic"
+    }
+  },
+  {
+    "id": "nfl_brees_manning_13_tds",
+    "question": "In November 2015, the Giants lost to Saints 52-49 with 13 combined TD passes. Which two QBs combined for that record?",
+    "answer": "Drew Brees and Eli Manning",
+    "acceptable_answers": [
+      "Drew Brees and Eli Manning",
+      "Brees and Manning",
+      "Eli Manning and Drew Brees"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "historic"
+    }
+  },
+  {
+    "id": "nfl_josh_allen_77_rush_tds",
+    "question": "Josh Allen holds the career record for rushing touchdowns by a quarterback with how many?",
+    "answer": "77",
+    "acceptable_answers": [
+      "77",
+      "77 rushing TDs"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_lamar_6506_rush_yards",
+    "question": "Which quarterback holds the career record for most rushing yards by a QB with 6,506?",
+    "answer": "Lamar Jackson",
+    "acceptable_answers": [
+      "Lamar Jackson",
+      "Jackson",
+      "Lamar"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_hurts_allen_15_rush_tds",
+    "question": "Jalen Hurts and Josh Allen tied the single-season QB rushing touchdown record in 2023 with how many?",
+    "answer": "15",
+    "acceptable_answers": [
+      "15",
+      "15 rushing TDs"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_grogan_qb_rush_td_record",
+    "question": "Which Patriots quarterback held the single-season QB rushing TD record of 12 for 35 years until Cam Newton broke it in 2011?",
+    "answer": "Steve Grogan",
+    "acceptable_answers": [
+      "Steve Grogan",
+      "Grogan"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1976,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_favre_297_consecutive",
+    "question": "Brett Favre holds the record for most consecutive regular season starts by a QB with how many?",
+    "answer": "297",
+    "acceptable_answers": [
+      "297",
+      "297 starts",
+      "297 games"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_rivers_240_consecutive",
+    "question": "Philip Rivers retired with the second-longest QB consecutive start streak at how many games (2006-2021)?",
+    "answer": "240",
+    "acceptable_answers": [
+      "240",
+      "240 games"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2021,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_lamar_4_perfect_ratings",
+    "question": "Lamar Jackson holds the record for most career games with a perfect passer rating (158.3, minimum 15 attempts) with how many?",
+    "answer": "4",
+    "acceptable_answers": [
+      "4",
+      "Four"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_foles_7_tds_perfect",
+    "question": "Nick Foles holds the record for most touchdowns in a game while achieving a perfect passer rating. How many TDs did he throw?",
+    "answer": "7",
+    "acceptable_answers": [
+      "7",
+      "Seven"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_matt_ryan_154_streak",
+    "question": "Which Falcons QB had his 154-game consecutive start streak end in 2019?",
+    "answer": "Matt Ryan",
+    "acceptable_answers": [
+      "Matt Ryan",
+      "Ryan",
+      "Matty Ice"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_marino_19_no_sacks",
+    "question": "Dan Marino went how many consecutive games without being sacked across 1988 and 1989, an NFL record?",
+    "answer": "19",
+    "acceptable_answers": [
+      "19",
+      "19 games"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1989,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_favre_career_fumbles",
+    "question": "Brett Favre is the career leader in which negative statistic despite being famous for touchdowns?",
+    "answer": "Fumbles",
+    "acceptable_answers": [
+      "Fumbles",
+      "Most fumbles",
+      "Career fumbles"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_6_fumbles_game",
+    "question": "Which quarterback fumbled the ball 6 times in a single game, tied for the NFL record? Name any one.",
+    "answer": "Chad Pennington",
+    "acceptable_answers": [
+      "Chad Pennington",
+      "Pennington",
+      "Kurt Warner",
+      "Warner",
+      "Brett Favre",
+      "Favre",
+      "Dave Krieg",
+      "Krieg"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2003,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_prater_64_yards",
+    "question": "Who held the NFL record for longest field goal at 64 yards before Justin Tucker broke it?",
+    "answer": "Matt Prater",
+    "acceptable_answers": [
+      "Matt Prater",
+      "Prater"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "kicking"
+    }
+  },
+  {
+    "id": "nfl_tucker_crossbar",
+    "question": "Justin Tucker's record 66-yard field goal in 2021 hit what part of the goal post before bouncing through?",
+    "answer": "Crossbar",
+    "acceptable_answers": [
+      "Crossbar",
+      "The crossbar"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "kicking"
+    }
+  },
+  {
+    "id": "nfl_cam_little_68_yards",
+    "question": "In 2025, which Jaguars kicker broke Justin Tucker's record with a 68-yard field goal?",
+    "answer": "Cam Little",
+    "acceptable_answers": [
+      "Cam Little",
+      "Little"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2025,
+      "category": "kicking"
+    }
+  },
+  {
+    "id": "nfl_feagles_1713_punts",
+    "question": "Jeff Feagles retired with the NFL record for most career punts at how many?",
+    "answer": "1,713",
+    "acceptable_answers": [
+      "1,713",
+      "1713",
+      "1713 punts"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2010,
+      "category": "kicking"
+    }
+  },
+  {
+    "id": "nfl_hester_19_return_tds",
+    "question": "Devin Hester holds the record for most return touchdowns in a career with 19. How many were punt returns vs. kickoff returns?",
+    "answer": "14 punt, 5 kickoff",
+    "acceptable_answers": [
+      "14 punt, 5 kickoff",
+      "14 and 5"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2014,
+      "category": "kicking"
+    }
+  },
+  {
+    "id": "nfl_sam_koch_ravens",
+    "question": "Which punter spent his entire 16-year career with the Ravens, setting franchise records with 1,168 punts and 52,868 punting yards?",
+    "answer": "Sam Koch",
+    "acceptable_answers": [
+      "Sam Koch",
+      "Koch"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2022,
+      "category": "kicking"
+    }
+  },
+  {
+    "id": "nfl_vinatieri_2643_points",
+    "question": "Which undrafted kicker from South Dakota State holds the NFL record for career points scored with 2,643?",
+    "answer": "Adam Vinatieri",
+    "acceptable_answers": [
+      "Adam Vinatieri",
+      "Vinatieri"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "kicking"
+    }
+  },
+  {
+    "id": "nfl_vinatieri_599_fgs",
+    "question": "Adam Vinatieri also holds the NFL record for most career field goals made with how many?",
+    "answer": "599",
+    "acceptable_answers": [
+      "599",
+      "599 field goals"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "kicking"
+    }
+  },
+  {
+    "id": "nfl_tomlinson_186_points",
+    "question": "In 2006, LaDainian Tomlinson scored how many points, breaking Paul Hornung's 46-year-old single-season record?",
+    "answer": "186",
+    "acceptable_answers": [
+      "186",
+      "186 points"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2006,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_tomlinson_18_td_streak",
+    "question": "LaDainian Tomlinson holds the record for most consecutive games with any touchdown at how many (2004-2005)?",
+    "answer": "18",
+    "acceptable_answers": [
+      "18",
+      "18 games"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2005,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_malcolm_butler_d2",
+    "question": "Which West Alabama (Division II) cornerback made arguably the greatest play in Super Bowl history with his goal-line interception in Super Bowl XLIX?",
+    "answer": "Malcolm Butler",
+    "acceptable_answers": [
+      "Malcolm Butler",
+      "Butler"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "undrafted"
+    }
+  },
+  {
+    "id": "nfl_adam_thielen_d2",
+    "question": "Which Vikings receiver from Minnesota State-Mankato (Division II) made multiple Pro Bowls as an undrafted free agent?",
+    "answer": "Adam Thielen",
+    "acceptable_answers": [
+      "Adam Thielen",
+      "Thielen"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "undrafted"
+    }
+  },
+  {
+    "id": "nfl_london_fletcher_d3",
+    "question": "Which John Carroll (Division III) linebacker played 256 consecutive games, never missing a game in his 16-year career?",
+    "answer": "London Fletcher",
+    "acceptable_answers": [
+      "London Fletcher",
+      "Fletcher"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2013,
+      "category": "undrafted"
+    }
+  },
+  {
+    "id": "nfl_gates_basketball",
+    "question": "Antonio Gates never played college football. What sport did he play at Kent State before becoming an 8-time Pro Bowl tight end?",
+    "answer": "Basketball",
+    "acceptable_answers": [
+      "Basketball",
+      "College basketball"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2003,
+      "category": "undrafted"
+    }
+  },
+  {
+    "id": "nfl_randle_137_sacks",
+    "question": "John Randle is the only undrafted player to record 100+ career sacks. How many did he finish with?",
+    "answer": "137.5",
+    "acceptable_answers": [
+      "137.5",
+      "137.5 sacks"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2003,
+      "category": "undrafted"
+    }
+  },
+  {
+    "id": "nfl_judon_d2",
+    "question": "Which Grand Valley State (Division II) linebacker became a 4-time Pro Bowler, most recently with the Patriots and Falcons?",
+    "answer": "Matthew Judon",
+    "acceptable_answers": [
+      "Matthew Judon",
+      "Judon"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2023,
+      "category": "undrafted"
+    }
+  },
+  {
+    "id": "nfl_romo_eastern_illinois",
+    "question": "Which undrafted quarterback from Division 1-AA Eastern Illinois became the Cowboys' all-time passing leader with 34,154 yards?",
+    "answer": "Tony Romo",
+    "acceptable_answers": [
+      "Tony Romo",
+      "Romo"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "undrafted"
+    }
+  },
+  {
+    "id": "nfl_moon_56_fumble_recoveries",
+    "question": "Warren Moon holds the career record for most fumble recoveries with how many?",
+    "answer": "56",
+    "acceptable_answers": [
+      "56",
+      "56 fumbles recovered"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2000,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_browner_24_penalties",
+    "question": "Which Saints cornerback was the most penalized player in a single season with 24 flags in 2015?",
+    "answer": "Brandon Browner",
+    "acceptable_answers": [
+      "Brandon Browner",
+      "Browner"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2015,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_most_penalized_game_1976",
+    "question": "The most penalized game in NFL history featured 35 accepted penalties for 310 yards in 1976 between which two expansion teams?",
+    "answer": "Seahawks and Buccaneers",
+    "acceptable_answers": [
+      "Seahawks and Buccaneers",
+      "Seattle Seahawks and Tampa Bay Buccaneers",
+      "Buccaneers and Seahawks"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1976,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_raiders_23_penalties",
+    "question": "Which team holds the single-game record for most penalties with 23 in their 2016 overtime win against Tampa Bay?",
+    "answer": "Raiders",
+    "acceptable_answers": [
+      "Raiders",
+      "Oakland Raiders"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_ravens_no_shutout_streak",
+    "question": "The Ravens hold the NFL record for most consecutive games without being shut out, dating back to 2002. Approximately how many games is this streak as of 2024?",
+    "answer": "353",
+    "acceptable_answers": [
+      "353",
+      "353 games"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2024,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2024_first_shutout_week",
+    "question": "The 2024 NFL season saw its first shutout in which week, the latest ever for a first shutout?",
+    "answer": "Week 16",
+    "acceptable_answers": [
+      "Week 16",
+      "16"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2024,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_patriots_59_0",
+    "question": "The largest shutout in Super Bowl era history was the Patriots beating the Titans 59-0 in 2009. How many total yards did New England gain?",
+    "answer": "619",
+    "acceptable_answers": [
+      "619",
+      "619 yards"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2009,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_brady_oldest_sb_mvp",
+    "question": "Tom Brady is the oldest Super Bowl MVP at what age?",
+    "answer": "43",
+    "acceptable_answers": [
+      "43",
+      "43 years old"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_allen_youngest_sb_mvp",
+    "question": "Marcus Allen is the youngest Super Bowl MVP at what age?",
+    "answer": "23",
+    "acceptable_answers": [
+      "23",
+      "23 years old"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1984,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_howley_losing_mvp",
+    "question": "Which Cowboys linebacker was the only Super Bowl MVP to come from the losing team (Super Bowl V)?",
+    "answer": "Chuck Howley",
+    "acceptable_answers": [
+      "Chuck Howley",
+      "Howley"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1971,
+      "category": "super_bowl"
     }
   }
 ]

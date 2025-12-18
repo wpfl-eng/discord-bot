@@ -49,11 +49,11 @@ export async function execute(interaction) {
     const activeQuestion = await triviaDb.getActiveQuestion(category);
 
     if (activeQuestion && !activeQuestion.is_closed) {
-      // Close the existing one first (no results, just cancel)
-      await triviaDb.closeQuestion(activeQuestion.id);
+      // Use closeWindow to properly show results with answer
+      await triviaService.closeWindow(category);
       if (triviaChannel) {
         await triviaChannel.send({
-          content: `Previous ${category.toUpperCase()} question closed early. New question incoming...`,
+          content: `New question incoming...`,
         });
       }
     }
