@@ -245,7 +245,7 @@ export class TriviaService {
       if (attemptsLeft > 0) {
         await message.reply(`Incorrect. You have ${attemptsLeft} guess${attemptsLeft === 1 ? "" : "es"} left.`);
       } else {
-        await message.reply("Incorrect. No guesses remaining for this question.");
+        await message.reply(`Incorrect. No guesses remaining for this question.\n\nThe answer was: **${activeQuestion.answer}**`);
         // Announce failure with roast
         await this.announceExhaustedGuesses(activeQuestion, message.author.username);
       }
