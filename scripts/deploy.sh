@@ -22,7 +22,7 @@ REMOTE=$(git rev-parse origin/main)
 if [ "$LOCAL" != "$REMOTE" ]; then
   echo "$(date): Deploying update..."
   git pull origin main
-  npm install --production
+  npm install
   pm2 restart discord-bot
   echo "$(date): Deploy complete"
 fi
