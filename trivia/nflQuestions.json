@@ -1,0 +1,3154 @@
+[
+  {
+    "id": "nfl_moment_helmet_catch_team",
+    "question": "In Super Bowl XLII, which Giants receiver made the famous 'Helmet Catch'?",
+    "answer": "David Tyree",
+    "acceptable_answers": [
+      "David Tyree",
+      "Tyree"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2007,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_draft_2010",
+    "question": "Who was selected #1 overall in the 2010 NFL Draft?",
+    "answer": "Sam Bradford",
+    "acceptable_answers": [
+      "Sam Bradford",
+      "Bradford"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2010_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2010?",
+    "answer": "Eli Manning",
+    "acceptable_answers": [
+      "Eli Manning",
+      "Manning",
+      "Eli M."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2010,
+      "category": "interceptions",
+      "stat_value": 25,
+      "team": "NYG"
+    }
+  },
+  {
+    "id": "nfl_moment_beast_quake",
+    "question": "Which running back had the famous 'Beast Quake' run in the 2010 playoffs?",
+    "answer": "Marshawn Lynch",
+    "acceptable_answers": [
+      "Marshawn Lynch",
+      "Lynch",
+      "Beast Mode"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_mvp_2010",
+    "question": "Who won the NFL MVP award for the 2010 season?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2010_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2010?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady",
+      "Tom B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "passing_tds",
+      "stat_value": 36,
+      "team": "NE"
+    }
+  },
+  {
+    "id": "nfl_2010_passing_yards",
+    "question": "Who led the NFL in passing yards in 2010?",
+    "answer": "Philip Rivers",
+    "acceptable_answers": [
+      "Philip Rivers",
+      "Rivers",
+      "Philip R."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "passing_yards",
+      "stat_value": 4710,
+      "team": "LAC"
+    }
+  },
+  {
+    "id": "nfl_2010_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2010?",
+    "answer": "Dwayne Bowe",
+    "acceptable_answers": [
+      "Dwayne Bowe",
+      "Bowe",
+      "Dwayne B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "receiving_tds",
+      "stat_value": 15,
+      "team": "KC"
+    }
+  },
+  {
+    "id": "nfl_2010_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2010?",
+    "answer": "Brandon Lloyd",
+    "acceptable_answers": [
+      "Brandon Lloyd",
+      "Lloyd",
+      "Brandon L."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "receiving_yards",
+      "stat_value": 1448,
+      "team": "DEN"
+    }
+  },
+  {
+    "id": "nfl_2010_receptions",
+    "question": "Who led the NFL in receptions in 2010?",
+    "answer": "Roddy White",
+    "acceptable_answers": [
+      "Roddy White",
+      "White",
+      "Roddy W."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "receptions",
+      "stat_value": 115,
+      "team": "ATL"
+    }
+  },
+  {
+    "id": "nfl_2010_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2010?",
+    "answer": "Arian Foster",
+    "acceptable_answers": [
+      "Arian Foster",
+      "Foster",
+      "Arian F."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "rushing_tds",
+      "stat_value": 16,
+      "team": "HOU"
+    }
+  },
+  {
+    "id": "nfl_2010_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2010?",
+    "answer": "Arian Foster",
+    "acceptable_answers": [
+      "Arian Foster",
+      "Foster",
+      "Arian F."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "rushing_yards",
+      "stat_value": 1614,
+      "team": "HOU"
+    }
+  },
+  {
+    "id": "nfl_sb_xlv",
+    "question": "Which team won Super Bowl XLV after the 2010 season?",
+    "answer": "Green Bay Packers",
+    "acceptable_answers": [
+      "Green Bay Packers",
+      "Packers",
+      "Green Bay",
+      "GB"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2010,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_xlv",
+    "question": "Who was the Super Bowl XLV MVP?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers",
+      "A-Rod"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2011",
+    "question": "Who was selected #1 overall in the 2011 NFL Draft?",
+    "answer": "Cam Newton",
+    "acceptable_answers": [
+      "Cam Newton",
+      "Newton",
+      "Cam"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2011_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2011?",
+    "answer": "Ryan Fitzpatrick",
+    "acceptable_answers": [
+      "Ryan Fitzpatrick",
+      "Fitzpatrick",
+      "Ryan F."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2011,
+      "category": "interceptions",
+      "stat_value": 23,
+      "team": "BUF"
+    }
+  },
+  {
+    "id": "nfl_mvp_2011",
+    "question": "Who won the NFL MVP award for the 2011 season?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2011_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2011?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Drew B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "passing_tds",
+      "stat_value": 46,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2011_passing_yards",
+    "question": "Who led the NFL in passing yards in 2011?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Drew B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "passing_yards",
+      "stat_value": 5535,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2011_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2011?",
+    "answer": "Rob Gronkowski",
+    "acceptable_answers": [
+      "Rob Gronkowski",
+      "Gronkowski",
+      "Rob G."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "receiving_tds",
+      "stat_value": 17,
+      "team": "NE"
+    }
+  },
+  {
+    "id": "nfl_2011_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2011?",
+    "answer": "Calvin Johnson",
+    "acceptable_answers": [
+      "Calvin Johnson",
+      "Johnson",
+      "Calvin J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "receiving_yards",
+      "stat_value": 1686,
+      "team": "DET"
+    }
+  },
+  {
+    "id": "nfl_2011_receptions",
+    "question": "Who led the NFL in receptions in 2011?",
+    "answer": "Wes Welker",
+    "acceptable_answers": [
+      "Wes Welker",
+      "Welker",
+      "Wes W."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "receptions",
+      "stat_value": 122,
+      "team": "NE"
+    }
+  },
+  {
+    "id": "nfl_record_marino_broken",
+    "question": "In 2011, which three quarterbacks broke Dan Marino's single-season passing yards record?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Tom Brady",
+      "Brady",
+      "Matthew Stafford",
+      "Stafford"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2011,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2011_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2011?",
+    "answer": "LeSean McCoy",
+    "acceptable_answers": [
+      "LeSean McCoy",
+      "McCoy",
+      "LeSean M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "rushing_tds",
+      "stat_value": 17,
+      "team": "PHI"
+    }
+  },
+  {
+    "id": "nfl_2011_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2011?",
+    "answer": "Maurice Jones-Drew",
+    "acceptable_answers": [
+      "Maurice Jones-Drew",
+      "Jones-Drew",
+      "Maurice J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "rushing_yards",
+      "stat_value": 1606,
+      "team": "JAX"
+    }
+  },
+  {
+    "id": "nfl_sb_xlvi",
+    "question": "Which team won Super Bowl XLVI after the 2011 season?",
+    "answer": "New York Giants",
+    "acceptable_answers": [
+      "New York Giants",
+      "Giants",
+      "NY Giants",
+      "NYG"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2011,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_xlvi",
+    "question": "Who was the Super Bowl XLVI MVP?",
+    "answer": "Eli Manning",
+    "acceptable_answers": [
+      "Eli Manning",
+      "Manning",
+      "Eli"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2011,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2012",
+    "question": "Who was selected #1 overall in the 2012 NFL Draft?",
+    "answer": "Andrew Luck",
+    "acceptable_answers": [
+      "Andrew Luck",
+      "Luck"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2012_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2012?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Drew B."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "interceptions",
+      "stat_value": 19,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_moment_superbowl_blackout",
+    "question": "Which Super Bowl had a 34-minute power outage during the game?",
+    "answer": "Super Bowl XLVII",
+    "acceptable_answers": [
+      "Super Bowl XLVII",
+      "XLVII",
+      "47",
+      "Super Bowl 47"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_mvp_2012",
+    "question": "Who won the NFL MVP award for the 2012 season?",
+    "answer": "Adrian Peterson",
+    "acceptable_answers": [
+      "Adrian Peterson",
+      "Peterson",
+      "AP",
+      "AD"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2012_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2012?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Drew B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "passing_tds",
+      "stat_value": 43,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2012_passing_yards",
+    "question": "Who led the NFL in passing yards in 2012?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Drew B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "passing_yards",
+      "stat_value": 5177,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2012_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2012?",
+    "answer": "James Jones",
+    "acceptable_answers": [
+      "James Jones",
+      "Jones",
+      "James J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "receiving_tds",
+      "stat_value": 14,
+      "team": "GB"
+    }
+  },
+  {
+    "id": "nfl_2012_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2012?",
+    "answer": "Calvin Johnson",
+    "acceptable_answers": [
+      "Calvin Johnson",
+      "Johnson",
+      "Calvin J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "receiving_yards",
+      "stat_value": 1964,
+      "team": "DET"
+    }
+  },
+  {
+    "id": "nfl_2012_receptions",
+    "question": "Who led the NFL in receptions in 2012?",
+    "answer": "Calvin Johnson",
+    "acceptable_answers": [
+      "Calvin Johnson",
+      "Johnson",
+      "Calvin J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "receptions",
+      "stat_value": 122,
+      "team": "DET"
+    }
+  },
+  {
+    "id": "nfl_record_peterson_yards",
+    "question": "In 2012, which running back rushed for 2,097 yards, the second-most in NFL history?",
+    "answer": "Adrian Peterson",
+    "acceptable_answers": [
+      "Adrian Peterson",
+      "Peterson",
+      "AP",
+      "AD"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_calvin_receiving",
+    "question": "Who set the single-season receiving yards record with 1,964 yards in 2012?",
+    "answer": "Calvin Johnson",
+    "acceptable_answers": [
+      "Calvin Johnson",
+      "Johnson",
+      "Megatron"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2012_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2012?",
+    "answer": "Arian Foster",
+    "acceptable_answers": [
+      "Arian Foster",
+      "Foster",
+      "Arian F."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "rushing_tds",
+      "stat_value": 15,
+      "team": "HOU"
+    }
+  },
+  {
+    "id": "nfl_2012_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2012?",
+    "answer": "Adrian Peterson",
+    "acceptable_answers": [
+      "Adrian Peterson",
+      "Peterson",
+      "Adrian P."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "rushing_yards",
+      "stat_value": 2097,
+      "team": "MIN"
+    }
+  },
+  {
+    "id": "nfl_sb_xlvii",
+    "question": "Which team won Super Bowl XLVII after the 2012 season?",
+    "answer": "Baltimore Ravens",
+    "acceptable_answers": [
+      "Baltimore Ravens",
+      "Ravens",
+      "Baltimore",
+      "BAL"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2012,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_xlvii",
+    "question": "Who was the Super Bowl XLVII MVP?",
+    "answer": "Joe Flacco",
+    "acceptable_answers": [
+      "Joe Flacco",
+      "Flacco"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2013",
+    "question": "Who was selected #1 overall in the 2013 NFL Draft?",
+    "answer": "Eric Fisher",
+    "acceptable_answers": [
+      "Eric Fisher",
+      "Fisher"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2013,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2013_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2013?",
+    "answer": "Eli Manning",
+    "acceptable_answers": [
+      "Eli Manning",
+      "Manning",
+      "Eli M."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2013,
+      "category": "interceptions",
+      "stat_value": 27,
+      "team": "NYG"
+    }
+  },
+  {
+    "id": "nfl_mvp_2013",
+    "question": "Who won the NFL MVP award for the 2013 season?",
+    "answer": "Peyton Manning",
+    "acceptable_answers": [
+      "Peyton Manning",
+      "Manning",
+      "Peyton"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2013_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2013?",
+    "answer": "Peyton Manning",
+    "acceptable_answers": [
+      "Peyton Manning",
+      "Manning",
+      "Peyton M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "passing_tds",
+      "stat_value": 55,
+      "team": "DEN"
+    }
+  },
+  {
+    "id": "nfl_2013_passing_yards",
+    "question": "Who led the NFL in passing yards in 2013?",
+    "answer": "Peyton Manning",
+    "acceptable_answers": [
+      "Peyton Manning",
+      "Manning",
+      "Peyton M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "passing_yards",
+      "stat_value": 5477,
+      "team": "DEN"
+    }
+  },
+  {
+    "id": "nfl_2013_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2013?",
+    "answer": "Jimmy Graham",
+    "acceptable_answers": [
+      "Jimmy Graham",
+      "Graham",
+      "Jimmy G."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "receiving_tds",
+      "stat_value": 16,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2013_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2013?",
+    "answer": "Josh Gordon",
+    "acceptable_answers": [
+      "Josh Gordon",
+      "Gordon",
+      "Josh G."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "receiving_yards",
+      "stat_value": 1646,
+      "team": "CLE"
+    }
+  },
+  {
+    "id": "nfl_2013_receptions",
+    "question": "Who led the NFL in receptions in 2013?",
+    "answer": "Pierre Garcon",
+    "acceptable_answers": [
+      "Pierre Garcon",
+      "Garcon",
+      "Pierre G."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "receptions",
+      "stat_value": 113,
+      "team": "WAS"
+    }
+  },
+  {
+    "id": "nfl_record_peyton_tds",
+    "question": "Who holds the record for most passing touchdowns in a single season with 55?",
+    "answer": "Peyton Manning",
+    "acceptable_answers": [
+      "Peyton Manning",
+      "Manning",
+      "Peyton"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2013_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2013?",
+    "answer": "Marshawn Lynch",
+    "acceptable_answers": [
+      "Marshawn Lynch",
+      "Lynch",
+      "Marshawn L."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "rushing_tds",
+      "stat_value": 12,
+      "team": "SEA"
+    }
+  },
+  {
+    "id": "nfl_2013_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2013?",
+    "answer": "LeSean McCoy",
+    "acceptable_answers": [
+      "LeSean McCoy",
+      "McCoy",
+      "LeSean M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2013,
+      "category": "rushing_yards",
+      "stat_value": 1607,
+      "team": "PHI"
+    }
+  },
+  {
+    "id": "nfl_sb_xlviii",
+    "question": "Which team won Super Bowl XLVIII after the 2013 season?",
+    "answer": "Seattle Seahawks",
+    "acceptable_answers": [
+      "Seattle Seahawks",
+      "Seahawks",
+      "Seattle",
+      "SEA"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2013,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_xlviii",
+    "question": "Who was the Super Bowl XLVIII MVP?",
+    "answer": "Malcolm Smith",
+    "acceptable_answers": [
+      "Malcolm Smith",
+      "Smith"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2013,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2014",
+    "question": "Who was selected #1 overall in the 2014 NFL Draft?",
+    "answer": "Jadeveon Clowney",
+    "acceptable_answers": [
+      "Jadeveon Clowney",
+      "Clowney"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2014_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2014?",
+    "answer": "Philip Rivers",
+    "acceptable_answers": [
+      "Philip Rivers",
+      "Rivers",
+      "Philip R."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2014,
+      "category": "interceptions",
+      "stat_value": 18,
+      "team": "LAC"
+    }
+  },
+  {
+    "id": "nfl_mvp_2014",
+    "question": "Who won the NFL MVP award for the 2014 season?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2014_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2014?",
+    "answer": "Andrew Luck",
+    "acceptable_answers": [
+      "Andrew Luck",
+      "Luck",
+      "Andrew L."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "passing_tds",
+      "stat_value": 40,
+      "team": "IND"
+    }
+  },
+  {
+    "id": "nfl_2014_passing_yards",
+    "question": "Who led the NFL in passing yards in 2014?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Drew B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "passing_yards",
+      "stat_value": 4952,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2014_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2014?",
+    "answer": "Dez Bryant",
+    "acceptable_answers": [
+      "Dez Bryant",
+      "Bryant",
+      "Dez B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "receiving_tds",
+      "stat_value": 16,
+      "team": "DAL"
+    }
+  },
+  {
+    "id": "nfl_2014_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2014?",
+    "answer": "Antonio Brown",
+    "acceptable_answers": [
+      "Antonio Brown",
+      "Brown",
+      "Antonio B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "receiving_yards",
+      "stat_value": 1698,
+      "team": "PIT"
+    }
+  },
+  {
+    "id": "nfl_2014_receptions",
+    "question": "Who led the NFL in receptions in 2014?",
+    "answer": "Antonio Brown",
+    "acceptable_answers": [
+      "Antonio Brown",
+      "Brown",
+      "Antonio B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "receptions",
+      "stat_value": 129,
+      "team": "PIT"
+    }
+  },
+  {
+    "id": "nfl_2014_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2014?",
+    "answer": "Marshawn Lynch",
+    "acceptable_answers": [
+      "Marshawn Lynch",
+      "Lynch",
+      "Marshawn L."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "rushing_tds",
+      "stat_value": 13,
+      "team": "SEA"
+    }
+  },
+  {
+    "id": "nfl_2014_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2014?",
+    "answer": "DeMarco Murray",
+    "acceptable_answers": [
+      "DeMarco Murray",
+      "Murray",
+      "DeMarco M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "rushing_yards",
+      "stat_value": 1845,
+      "team": "DAL"
+    }
+  },
+  {
+    "id": "nfl_sb_xlix",
+    "question": "Which team won Super Bowl XLIX after the 2014 season?",
+    "answer": "New England Patriots",
+    "acceptable_answers": [
+      "New England Patriots",
+      "Patriots",
+      "New England",
+      "NE",
+      "Pats"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2014,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_xlix",
+    "question": "Who was the Super Bowl XLIX MVP?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2014,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2015",
+    "question": "Who was selected #1 overall in the 2015 NFL Draft?",
+    "answer": "Jameis Winston",
+    "acceptable_answers": [
+      "Jameis Winston",
+      "Winston",
+      "Jameis"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2015_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2015?",
+    "answer": "Blake Bortles",
+    "acceptable_answers": [
+      "Blake Bortles",
+      "Bortles",
+      "Blake B."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2015,
+      "category": "interceptions",
+      "stat_value": 18,
+      "team": "JAX"
+    }
+  },
+  {
+    "id": "nfl_moment_deflategate",
+    "question": "Which quarterback was suspended 4 games for 'Deflategate'?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_mvp_2015",
+    "question": "Who won the NFL MVP award for the 2015 season?",
+    "answer": "Cam Newton",
+    "acceptable_answers": [
+      "Cam Newton",
+      "Newton",
+      "Cam"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2015_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2015?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady",
+      "Tom B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "passing_tds",
+      "stat_value": 36,
+      "team": "NE"
+    }
+  },
+  {
+    "id": "nfl_2015_passing_yards",
+    "question": "Who led the NFL in passing yards in 2015?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Drew B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "passing_yards",
+      "stat_value": 4870,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2015_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2015?",
+    "answer": "Brandon Marshall",
+    "acceptable_answers": [
+      "Brandon Marshall",
+      "Marshall",
+      "Brandon M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "receiving_tds",
+      "stat_value": 14,
+      "team": "NYJ"
+    }
+  },
+  {
+    "id": "nfl_2015_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2015?",
+    "answer": "Julio Jones",
+    "acceptable_answers": [
+      "Julio Jones",
+      "Jones",
+      "Julio J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "receiving_yards",
+      "stat_value": 1871,
+      "team": "ATL"
+    }
+  },
+  {
+    "id": "nfl_2015_receptions",
+    "question": "Who led the NFL in receptions in 2015?",
+    "answer": "Antonio Brown",
+    "acceptable_answers": [
+      "Antonio Brown",
+      "Brown",
+      "Antonio B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "receptions",
+      "stat_value": 136,
+      "team": "PIT"
+    }
+  },
+  {
+    "id": "nfl_2015_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2015?",
+    "answer": "DeAngelo Williams",
+    "acceptable_answers": [
+      "DeAngelo Williams",
+      "Williams",
+      "DeAngelo W."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "rushing_tds",
+      "stat_value": 11,
+      "team": "PIT"
+    }
+  },
+  {
+    "id": "nfl_2015_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2015?",
+    "answer": "Adrian Peterson",
+    "acceptable_answers": [
+      "Adrian Peterson",
+      "Peterson",
+      "Adrian P."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "rushing_yards",
+      "stat_value": 1485,
+      "team": "MIN"
+    }
+  },
+  {
+    "id": "nfl_sb_50",
+    "question": "Which team won Super Bowl 50 after the 2015 season?",
+    "answer": "Denver Broncos",
+    "acceptable_answers": [
+      "Denver Broncos",
+      "Broncos",
+      "Denver",
+      "DEN"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2015,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_50",
+    "question": "Who was the Super Bowl 50 MVP?",
+    "answer": "Von Miller",
+    "acceptable_answers": [
+      "Von Miller",
+      "Miller"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2016",
+    "question": "Who was selected #1 overall in the 2016 NFL Draft?",
+    "answer": "Jared Goff",
+    "acceptable_answers": [
+      "Jared Goff",
+      "Goff"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2016_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2016?",
+    "answer": "Philip Rivers",
+    "acceptable_answers": [
+      "Philip Rivers",
+      "Rivers",
+      "Philip R."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2016,
+      "category": "interceptions",
+      "stat_value": 21,
+      "team": "LAC"
+    }
+  },
+  {
+    "id": "nfl_moment_28_3",
+    "question": "In Super Bowl LI, the Patriots overcame a 28-3 deficit to beat which team?",
+    "answer": "Atlanta Falcons",
+    "acceptable_answers": [
+      "Atlanta Falcons",
+      "Falcons",
+      "Atlanta",
+      "ATL"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2016,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_mvp_2016",
+    "question": "Who won the NFL MVP award for the 2016 season?",
+    "answer": "Matt Ryan",
+    "acceptable_answers": [
+      "Matt Ryan",
+      "Ryan",
+      "Matty Ice"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2016_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2016?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers",
+      "Aaron R."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "passing_tds",
+      "stat_value": 40,
+      "team": "GB"
+    }
+  },
+  {
+    "id": "nfl_2016_passing_yards",
+    "question": "Who led the NFL in passing yards in 2016?",
+    "answer": "Drew Brees",
+    "acceptable_answers": [
+      "Drew Brees",
+      "Brees",
+      "Drew B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "passing_yards",
+      "stat_value": 5208,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2016_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2016?",
+    "answer": "Jordy Nelson",
+    "acceptable_answers": [
+      "Jordy Nelson",
+      "Nelson",
+      "Jordy N."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "receiving_tds",
+      "stat_value": 14,
+      "team": "GB"
+    }
+  },
+  {
+    "id": "nfl_2016_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2016?",
+    "answer": "T.Y. Hilton",
+    "acceptable_answers": [
+      "T.Y. Hilton",
+      "Hilton",
+      "T.Y. H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "receiving_yards",
+      "stat_value": 1448,
+      "team": "IND"
+    }
+  },
+  {
+    "id": "nfl_2016_receptions",
+    "question": "Who led the NFL in receptions in 2016?",
+    "answer": "Larry Fitzgerald",
+    "acceptable_answers": [
+      "Larry Fitzgerald",
+      "Fitzgerald",
+      "Larry F."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "receptions",
+      "stat_value": 107,
+      "team": "ARI"
+    }
+  },
+  {
+    "id": "nfl_2016_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2016?",
+    "answer": "LeGarrette Blount",
+    "acceptable_answers": [
+      "LeGarrette Blount",
+      "Blount",
+      "LeGarrette B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "rushing_tds",
+      "stat_value": 18,
+      "team": "NE"
+    }
+  },
+  {
+    "id": "nfl_2016_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2016?",
+    "answer": "Ezekiel Elliott",
+    "acceptable_answers": [
+      "Ezekiel Elliott",
+      "Elliott",
+      "Ezekiel E."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "rushing_yards",
+      "stat_value": 1631,
+      "team": "DAL"
+    }
+  },
+  {
+    "id": "nfl_sb_li",
+    "question": "Which team won Super Bowl LI after the 2016 season?",
+    "answer": "New England Patriots",
+    "acceptable_answers": [
+      "New England Patriots",
+      "Patriots",
+      "New England",
+      "NE",
+      "Pats"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2016,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_li",
+    "question": "Who was the Super Bowl LI MVP?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2016,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2017",
+    "question": "Who was selected #1 overall in the 2017 NFL Draft?",
+    "answer": "Myles Garrett",
+    "acceptable_answers": [
+      "Myles Garrett",
+      "Garrett"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2017_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2017?",
+    "answer": "DeShone Kizer",
+    "acceptable_answers": [
+      "DeShone Kizer",
+      "Kizer",
+      "DeShone K."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2017,
+      "category": "interceptions",
+      "stat_value": 22,
+      "team": "CLE"
+    }
+  },
+  {
+    "id": "nfl_moment_philly_special",
+    "question": "What was the name of the famous trick play the Eagles ran in Super Bowl LII?",
+    "answer": "Philly Special",
+    "acceptable_answers": [
+      "Philly Special",
+      "The Philly Special"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_moment_minneapolis_miracle",
+    "question": "Which Vikings receiver caught the 'Minneapolis Miracle' touchdown pass in the 2017 playoffs?",
+    "answer": "Stefon Diggs",
+    "acceptable_answers": [
+      "Stefon Diggs",
+      "Diggs"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_mvp_2017",
+    "question": "Who won the NFL MVP award for the 2017 season?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2017_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2017?",
+    "answer": "Russell Wilson",
+    "acceptable_answers": [
+      "Russell Wilson",
+      "Wilson",
+      "Russell W."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "passing_tds",
+      "stat_value": 34,
+      "team": "SEA"
+    }
+  },
+  {
+    "id": "nfl_2017_passing_yards",
+    "question": "Who led the NFL in passing yards in 2017?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady",
+      "Tom B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "passing_yards",
+      "stat_value": 4577,
+      "team": "NE"
+    }
+  },
+  {
+    "id": "nfl_2017_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2017?",
+    "answer": "DeAndre Hopkins",
+    "acceptable_answers": [
+      "DeAndre Hopkins",
+      "Hopkins",
+      "DeAndre H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "receiving_tds",
+      "stat_value": 13,
+      "team": "HOU"
+    }
+  },
+  {
+    "id": "nfl_2017_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2017?",
+    "answer": "Antonio Brown",
+    "acceptable_answers": [
+      "Antonio Brown",
+      "Brown",
+      "Antonio B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "receiving_yards",
+      "stat_value": 1533,
+      "team": "PIT"
+    }
+  },
+  {
+    "id": "nfl_2017_receptions",
+    "question": "Who led the NFL in receptions in 2017?",
+    "answer": "Jarvis Landry",
+    "acceptable_answers": [
+      "Jarvis Landry",
+      "Landry",
+      "Jarvis L."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "receptions",
+      "stat_value": 112,
+      "team": "MIA"
+    }
+  },
+  {
+    "id": "nfl_2017_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2017?",
+    "answer": "Todd Gurley",
+    "acceptable_answers": [
+      "Todd Gurley",
+      "Gurley",
+      "Todd G."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "rushing_tds",
+      "stat_value": 13,
+      "team": "LA"
+    }
+  },
+  {
+    "id": "nfl_2017_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2017?",
+    "answer": "Kareem Hunt",
+    "acceptable_answers": [
+      "Kareem Hunt",
+      "Hunt",
+      "Kareem H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "rushing_yards",
+      "stat_value": 1327,
+      "team": "KC"
+    }
+  },
+  {
+    "id": "nfl_sb_lii",
+    "question": "Which team won Super Bowl LII after the 2017 season?",
+    "answer": "Philadelphia Eagles",
+    "acceptable_answers": [
+      "Philadelphia Eagles",
+      "Eagles",
+      "Philadelphia",
+      "Philly",
+      "PHI"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2017,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_lii",
+    "question": "Who was the Super Bowl LII MVP?",
+    "answer": "Nick Foles",
+    "acceptable_answers": [
+      "Nick Foles",
+      "Foles"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2017,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2018",
+    "question": "Who was selected #1 overall in the 2018 NFL Draft?",
+    "answer": "Baker Mayfield",
+    "acceptable_answers": [
+      "Baker Mayfield",
+      "Mayfield",
+      "Baker"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2018_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2018?",
+    "answer": "Ben Roethlisberger",
+    "acceptable_answers": [
+      "Ben Roethlisberger",
+      "Roethlisberger",
+      "Ben R."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2018,
+      "category": "interceptions",
+      "stat_value": 16,
+      "team": "PIT"
+    }
+  },
+  {
+    "id": "nfl_moment_double_doink",
+    "question": "Which Bears kicker hit the 'Double Doink' in the 2018 NFC Wild Card game?",
+    "answer": "Cody Parkey",
+    "acceptable_answers": [
+      "Cody Parkey",
+      "Parkey"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2018,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_moment_mahomes_no_look",
+    "question": "Which quarterback is famous for his 'no-look passes'?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2018,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_mvp_2018",
+    "question": "Who won the NFL MVP award for the 2018 season?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2018_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2018?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes",
+      "Patrick M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "passing_tds",
+      "stat_value": 50,
+      "team": "KC"
+    }
+  },
+  {
+    "id": "nfl_2018_passing_yards",
+    "question": "Who led the NFL in passing yards in 2018?",
+    "answer": "Ben Roethlisberger",
+    "acceptable_answers": [
+      "Ben Roethlisberger",
+      "Roethlisberger",
+      "Ben R."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "passing_yards",
+      "stat_value": 5129,
+      "team": "PIT"
+    }
+  },
+  {
+    "id": "nfl_2018_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2018?",
+    "answer": "Antonio Brown",
+    "acceptable_answers": [
+      "Antonio Brown",
+      "Brown",
+      "Antonio B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "receiving_tds",
+      "stat_value": 15,
+      "team": "PIT"
+    }
+  },
+  {
+    "id": "nfl_2018_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2018?",
+    "answer": "Julio Jones",
+    "acceptable_answers": [
+      "Julio Jones",
+      "Jones",
+      "Julio J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "receiving_yards",
+      "stat_value": 1677,
+      "team": "ATL"
+    }
+  },
+  {
+    "id": "nfl_2018_receptions",
+    "question": "Who led the NFL in receptions in 2018?",
+    "answer": "Michael Thomas",
+    "acceptable_answers": [
+      "Michael Thomas",
+      "Thomas",
+      "Michael T."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "receptions",
+      "stat_value": 125,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_record_mahomes_youngest_mvp",
+    "question": "In 2018, who became the youngest quarterback to win both NFL MVP and Super Bowl MVP?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2018_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2018?",
+    "answer": "Todd Gurley",
+    "acceptable_answers": [
+      "Todd Gurley",
+      "Gurley",
+      "Todd G."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "rushing_tds",
+      "stat_value": 17,
+      "team": "LA"
+    }
+  },
+  {
+    "id": "nfl_2018_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2018?",
+    "answer": "Ezekiel Elliott",
+    "acceptable_answers": [
+      "Ezekiel Elliott",
+      "Elliott",
+      "Ezekiel E."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "rushing_yards",
+      "stat_value": 1434,
+      "team": "DAL"
+    }
+  },
+  {
+    "id": "nfl_sb_liii",
+    "question": "Which team won Super Bowl LIII after the 2018 season?",
+    "answer": "New England Patriots",
+    "acceptable_answers": [
+      "New England Patriots",
+      "Patriots",
+      "New England",
+      "NE",
+      "Pats"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2018,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_liii",
+    "question": "Who was the Super Bowl LIII MVP?",
+    "answer": "Julian Edelman",
+    "acceptable_answers": [
+      "Julian Edelman",
+      "Edelman"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2018,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2019",
+    "question": "Who was selected #1 overall in the 2019 NFL Draft?",
+    "answer": "Kyler Murray",
+    "acceptable_answers": [
+      "Kyler Murray",
+      "Murray",
+      "Kyler"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2019_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2019?",
+    "answer": "Jameis Winston",
+    "acceptable_answers": [
+      "Jameis Winston",
+      "Winston",
+      "Jameis W."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2019,
+      "category": "interceptions",
+      "stat_value": 30,
+      "team": "TB"
+    }
+  },
+  {
+    "id": "nfl_mvp_2019",
+    "question": "Who won the NFL MVP award for the 2019 season?",
+    "answer": "Lamar Jackson",
+    "acceptable_answers": [
+      "Lamar Jackson",
+      "Jackson",
+      "Lamar"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2019_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2019?",
+    "answer": "Lamar Jackson",
+    "acceptable_answers": [
+      "Lamar Jackson",
+      "Jackson",
+      "Lamar J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "passing_tds",
+      "stat_value": 36,
+      "team": "BAL"
+    }
+  },
+  {
+    "id": "nfl_2019_passing_yards",
+    "question": "Who led the NFL in passing yards in 2019?",
+    "answer": "Jameis Winston",
+    "acceptable_answers": [
+      "Jameis Winston",
+      "Winston",
+      "Jameis W."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "passing_yards",
+      "stat_value": 5109,
+      "team": "TB"
+    }
+  },
+  {
+    "id": "nfl_2019_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2019?",
+    "answer": "Kenny Golladay",
+    "acceptable_answers": [
+      "Kenny Golladay",
+      "Golladay",
+      "Kenny G."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "receiving_tds",
+      "stat_value": 11,
+      "team": "DET"
+    }
+  },
+  {
+    "id": "nfl_2019_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2019?",
+    "answer": "Michael Thomas",
+    "acceptable_answers": [
+      "Michael Thomas",
+      "Thomas",
+      "Michael T."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "receiving_yards",
+      "stat_value": 1725,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2019_receptions",
+    "question": "Who led the NFL in receptions in 2019?",
+    "answer": "Michael Thomas",
+    "acceptable_answers": [
+      "Michael Thomas",
+      "Thomas",
+      "Michael T."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "receptions",
+      "stat_value": 149,
+      "team": "NO"
+    }
+  },
+  {
+    "id": "nfl_2019_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2019?",
+    "answer": "Derrick Henry",
+    "acceptable_answers": [
+      "Derrick Henry",
+      "Henry",
+      "Derrick H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "rushing_tds",
+      "stat_value": 16,
+      "team": "TEN"
+    }
+  },
+  {
+    "id": "nfl_2019_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2019?",
+    "answer": "Derrick Henry",
+    "acceptable_answers": [
+      "Derrick Henry",
+      "Henry",
+      "Derrick H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "rushing_yards",
+      "stat_value": 1540,
+      "team": "TEN"
+    }
+  },
+  {
+    "id": "nfl_sb_liv",
+    "question": "Which team won Super Bowl LIV after the 2019 season?",
+    "answer": "Kansas City Chiefs",
+    "acceptable_answers": [
+      "Kansas City Chiefs",
+      "Chiefs",
+      "Kansas City",
+      "KC"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2019,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_liv",
+    "question": "Who was the Super Bowl LIV MVP?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2019,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2020",
+    "question": "Who was selected #1 overall in the 2020 NFL Draft?",
+    "answer": "Joe Burrow",
+    "acceptable_answers": [
+      "Joe Burrow",
+      "Burrow"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2020_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2020?",
+    "answer": "Carson Wentz",
+    "acceptable_answers": [
+      "Carson Wentz",
+      "Wentz",
+      "Carson W."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2020,
+      "category": "interceptions",
+      "stat_value": 15,
+      "team": "PHI"
+    }
+  },
+  {
+    "id": "nfl_mvp_2020",
+    "question": "Who won the NFL MVP award for the 2020 season?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2020_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2020?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers",
+      "Aaron R."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "passing_tds",
+      "stat_value": 48,
+      "team": "GB"
+    }
+  },
+  {
+    "id": "nfl_2020_passing_yards",
+    "question": "Who led the NFL in passing yards in 2020?",
+    "answer": "Deshaun Watson",
+    "acceptable_answers": [
+      "Deshaun Watson",
+      "Watson",
+      "Deshaun W."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "passing_yards",
+      "stat_value": 4823,
+      "team": "HOU"
+    }
+  },
+  {
+    "id": "nfl_2020_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2020?",
+    "answer": "Davante Adams",
+    "acceptable_answers": [
+      "Davante Adams",
+      "Adams",
+      "Davante A."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "receiving_tds",
+      "stat_value": 18,
+      "team": "GB"
+    }
+  },
+  {
+    "id": "nfl_2020_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2020?",
+    "answer": "Stefon Diggs",
+    "acceptable_answers": [
+      "Stefon Diggs",
+      "Diggs",
+      "Stefon D."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "receiving_yards",
+      "stat_value": 1535,
+      "team": "BUF"
+    }
+  },
+  {
+    "id": "nfl_2020_receptions",
+    "question": "Who led the NFL in receptions in 2020?",
+    "answer": "Stefon Diggs",
+    "acceptable_answers": [
+      "Stefon Diggs",
+      "Diggs",
+      "Stefon D."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "receptions",
+      "stat_value": 127,
+      "team": "BUF"
+    }
+  },
+  {
+    "id": "nfl_record_brady_rings",
+    "question": "Which quarterback has the most Super Bowl wins with 7?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2020,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_record_henry_derrick",
+    "question": "Which running back rushed for 2,000+ yards in the 2020 season?",
+    "answer": "Derrick Henry",
+    "acceptable_answers": [
+      "Derrick Henry",
+      "Henry",
+      "King Henry"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2020_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2020?",
+    "answer": "Derrick Henry",
+    "acceptable_answers": [
+      "Derrick Henry",
+      "Henry",
+      "Derrick H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "rushing_tds",
+      "stat_value": 17,
+      "team": "TEN"
+    }
+  },
+  {
+    "id": "nfl_2020_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2020?",
+    "answer": "Derrick Henry",
+    "acceptable_answers": [
+      "Derrick Henry",
+      "Henry",
+      "Derrick H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "rushing_yards",
+      "stat_value": 2027,
+      "team": "TEN"
+    }
+  },
+  {
+    "id": "nfl_sb_lv",
+    "question": "Which team won Super Bowl LV after the 2020 season?",
+    "answer": "Tampa Bay Buccaneers",
+    "acceptable_answers": [
+      "Tampa Bay Buccaneers",
+      "Buccaneers",
+      "Tampa Bay",
+      "Bucs",
+      "TB"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2020,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_lv",
+    "question": "Who was the Super Bowl LV MVP?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2020,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2021",
+    "question": "Who was selected #1 overall in the 2021 NFL Draft?",
+    "answer": "Trevor Lawrence",
+    "acceptable_answers": [
+      "Trevor Lawrence",
+      "Lawrence",
+      "Trevor"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2021_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2021?",
+    "answer": "Matthew Stafford",
+    "acceptable_answers": [
+      "Matthew Stafford",
+      "Stafford",
+      "Matthew S."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2021,
+      "category": "interceptions",
+      "stat_value": 17,
+      "team": "LA"
+    }
+  },
+  {
+    "id": "nfl_mvp_2021",
+    "question": "Who won the NFL MVP award for the 2021 season?",
+    "answer": "Aaron Rodgers",
+    "acceptable_answers": [
+      "Aaron Rodgers",
+      "Rodgers"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2021_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2021?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady",
+      "Tom B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "passing_tds",
+      "stat_value": 43,
+      "team": "TB"
+    }
+  },
+  {
+    "id": "nfl_2021_passing_yards",
+    "question": "Who led the NFL in passing yards in 2021?",
+    "answer": "Tom Brady",
+    "acceptable_answers": [
+      "Tom Brady",
+      "Brady",
+      "Tom B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "passing_yards",
+      "stat_value": 5316,
+      "team": "TB"
+    }
+  },
+  {
+    "id": "nfl_2021_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2021?",
+    "answer": "Cooper Kupp",
+    "acceptable_answers": [
+      "Cooper Kupp",
+      "Kupp",
+      "Cooper K."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "receiving_tds",
+      "stat_value": 16,
+      "team": "LA"
+    }
+  },
+  {
+    "id": "nfl_2021_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2021?",
+    "answer": "Cooper Kupp",
+    "acceptable_answers": [
+      "Cooper Kupp",
+      "Kupp",
+      "Cooper K."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "receiving_yards",
+      "stat_value": 1947,
+      "team": "LA"
+    }
+  },
+  {
+    "id": "nfl_2021_receptions",
+    "question": "Who led the NFL in receptions in 2021?",
+    "answer": "Cooper Kupp",
+    "acceptable_answers": [
+      "Cooper Kupp",
+      "Kupp",
+      "Cooper K."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "receptions",
+      "stat_value": 145,
+      "team": "LA"
+    }
+  },
+  {
+    "id": "nfl_record_kupp_triple_crown",
+    "question": "Which receiver won the receiving triple crown (yards, receptions, TDs) in 2021?",
+    "answer": "Cooper Kupp",
+    "acceptable_answers": [
+      "Cooper Kupp",
+      "Kupp"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "record"
+    }
+  },
+  {
+    "id": "nfl_2021_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2021?",
+    "answer": "Jonathan Taylor",
+    "acceptable_answers": [
+      "Jonathan Taylor",
+      "Taylor",
+      "Jonathan T."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "rushing_tds",
+      "stat_value": 18,
+      "team": "IND"
+    }
+  },
+  {
+    "id": "nfl_2021_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2021?",
+    "answer": "Jonathan Taylor",
+    "acceptable_answers": [
+      "Jonathan Taylor",
+      "Taylor",
+      "Jonathan T."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "rushing_yards",
+      "stat_value": 1811,
+      "team": "IND"
+    }
+  },
+  {
+    "id": "nfl_sb_lvi",
+    "question": "Which team won Super Bowl LVI after the 2021 season?",
+    "answer": "Los Angeles Rams",
+    "acceptable_answers": [
+      "Los Angeles Rams",
+      "Rams",
+      "LA Rams",
+      "LAR"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2021,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_lvi",
+    "question": "Who was the Super Bowl LVI MVP?",
+    "answer": "Cooper Kupp",
+    "acceptable_answers": [
+      "Cooper Kupp",
+      "Kupp"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2021,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2022",
+    "question": "Who was selected #1 overall in the 2022 NFL Draft?",
+    "answer": "Travon Walker",
+    "acceptable_answers": [
+      "Travon Walker",
+      "Walker"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2022_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2022?",
+    "answer": "Dak Prescott",
+    "acceptable_answers": [
+      "Dak Prescott",
+      "Prescott",
+      "Dak P."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2022,
+      "category": "interceptions",
+      "stat_value": 15,
+      "team": "DAL"
+    }
+  },
+  {
+    "id": "nfl_mvp_2022",
+    "question": "Who won the NFL MVP award for the 2022 season?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2022_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2022?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes",
+      "Patrick M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "passing_tds",
+      "stat_value": 41,
+      "team": "KC"
+    }
+  },
+  {
+    "id": "nfl_2022_passing_yards",
+    "question": "Who led the NFL in passing yards in 2022?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes",
+      "Patrick M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "passing_yards",
+      "stat_value": 5250,
+      "team": "KC"
+    }
+  },
+  {
+    "id": "nfl_2022_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2022?",
+    "answer": "Davante Adams",
+    "acceptable_answers": [
+      "Davante Adams",
+      "Adams",
+      "Davante A."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "receiving_tds",
+      "stat_value": 14,
+      "team": "LV"
+    }
+  },
+  {
+    "id": "nfl_2022_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2022?",
+    "answer": "Justin Jefferson",
+    "acceptable_answers": [
+      "Justin Jefferson",
+      "Jefferson",
+      "Justin J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "receiving_yards",
+      "stat_value": 1809,
+      "team": "MIN"
+    }
+  },
+  {
+    "id": "nfl_2022_receptions",
+    "question": "Who led the NFL in receptions in 2022?",
+    "answer": "Justin Jefferson",
+    "acceptable_answers": [
+      "Justin Jefferson",
+      "Jefferson",
+      "Justin J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "receptions",
+      "stat_value": 128,
+      "team": "MIN"
+    }
+  },
+  {
+    "id": "nfl_2022_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2022?",
+    "answer": "Jamaal Williams",
+    "acceptable_answers": [
+      "Jamaal Williams",
+      "Williams",
+      "Jamaal W."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "rushing_tds",
+      "stat_value": 17,
+      "team": "DET"
+    }
+  },
+  {
+    "id": "nfl_2022_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2022?",
+    "answer": "Josh Jacobs",
+    "acceptable_answers": [
+      "Josh Jacobs",
+      "Jacobs",
+      "Josh J."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "rushing_yards",
+      "stat_value": 1653,
+      "team": "LV"
+    }
+  },
+  {
+    "id": "nfl_sb_lvii",
+    "question": "Which team won Super Bowl LVII after the 2022 season?",
+    "answer": "Kansas City Chiefs",
+    "acceptable_answers": [
+      "Kansas City Chiefs",
+      "Chiefs",
+      "Kansas City",
+      "KC"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2022,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_lvii",
+    "question": "Who was the Super Bowl LVII MVP?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2022,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2023",
+    "question": "Who was selected #1 overall in the 2023 NFL Draft?",
+    "answer": "Bryce Young",
+    "acceptable_answers": [
+      "Bryce Young",
+      "Young",
+      "Bryce"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2023_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2023?",
+    "answer": "Sam Howell",
+    "acceptable_answers": [
+      "Sam Howell",
+      "Howell",
+      "Sam H."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2023,
+      "category": "interceptions",
+      "stat_value": 21,
+      "team": "WAS"
+    }
+  },
+  {
+    "id": "nfl_moment_brady_retirement",
+    "question": "In what year did Tom Brady officially retire from the NFL?",
+    "answer": "2023",
+    "acceptable_answers": [
+      "2023"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "memorable_moment"
+    }
+  },
+  {
+    "id": "nfl_mvp_2023",
+    "question": "Who won the NFL MVP award for the 2023 season?",
+    "answer": "Lamar Jackson",
+    "acceptable_answers": [
+      "Lamar Jackson",
+      "Jackson",
+      "Lamar"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "mvp"
+    }
+  },
+  {
+    "id": "nfl_2023_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2023?",
+    "answer": "Dak Prescott",
+    "acceptable_answers": [
+      "Dak Prescott",
+      "Prescott",
+      "Dak P."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "passing_tds",
+      "stat_value": 36,
+      "team": "DAL"
+    }
+  },
+  {
+    "id": "nfl_2023_passing_yards",
+    "question": "Who led the NFL in passing yards in 2023?",
+    "answer": "Tua Tagovailoa",
+    "acceptable_answers": [
+      "Tua Tagovailoa",
+      "Tagovailoa",
+      "Tua T."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "passing_yards",
+      "stat_value": 4624,
+      "team": "MIA"
+    }
+  },
+  {
+    "id": "nfl_2023_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2023?",
+    "answer": "Mike Evans",
+    "acceptable_answers": [
+      "Mike Evans",
+      "Evans",
+      "Mike E."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "receiving_tds",
+      "stat_value": 13,
+      "team": "TB"
+    }
+  },
+  {
+    "id": "nfl_2023_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2023?",
+    "answer": "Tyreek Hill",
+    "acceptable_answers": [
+      "Tyreek Hill",
+      "Hill",
+      "Tyreek H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "receiving_yards",
+      "stat_value": 1799,
+      "team": "MIA"
+    }
+  },
+  {
+    "id": "nfl_2023_receptions",
+    "question": "Who led the NFL in receptions in 2023?",
+    "answer": "CeeDee Lamb",
+    "acceptable_answers": [
+      "CeeDee Lamb",
+      "Lamb",
+      "CeeDee L."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "receptions",
+      "stat_value": 135,
+      "team": "DAL"
+    }
+  },
+  {
+    "id": "nfl_2023_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2023?",
+    "answer": "Raheem Mostert",
+    "acceptable_answers": [
+      "Raheem Mostert",
+      "Mostert",
+      "Raheem M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "rushing_tds",
+      "stat_value": 18,
+      "team": "MIA"
+    }
+  },
+  {
+    "id": "nfl_2023_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2023?",
+    "answer": "Christian McCaffrey",
+    "acceptable_answers": [
+      "Christian McCaffrey",
+      "McCaffrey",
+      "Christian M."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "rushing_yards",
+      "stat_value": 1459,
+      "team": "SF"
+    }
+  },
+  {
+    "id": "nfl_sb_lviii",
+    "question": "Which team won Super Bowl LVIII after the 2023 season?",
+    "answer": "Kansas City Chiefs",
+    "acceptable_answers": [
+      "Kansas City Chiefs",
+      "Chiefs",
+      "Kansas City",
+      "KC"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2023,
+      "category": "super_bowl"
+    }
+  },
+  {
+    "id": "nfl_sbmvp_lviii",
+    "question": "Who was the Super Bowl LVIII MVP?",
+    "answer": "Patrick Mahomes",
+    "acceptable_answers": [
+      "Patrick Mahomes",
+      "Mahomes"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2023,
+      "category": "super_bowl_mvp"
+    }
+  },
+  {
+    "id": "nfl_draft_2024",
+    "question": "Who was selected #1 overall in the 2024 NFL Draft?",
+    "answer": "Caleb Williams",
+    "acceptable_answers": [
+      "Caleb Williams",
+      "Williams",
+      "Caleb"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2024,
+      "category": "draft"
+    }
+  },
+  {
+    "id": "nfl_2024_interceptions",
+    "question": "Which quarterback threw the most interceptions in 2024?",
+    "answer": "Kirk Cousins",
+    "acceptable_answers": [
+      "Kirk Cousins",
+      "Cousins",
+      "Kirk C."
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2024,
+      "category": "interceptions",
+      "stat_value": 16,
+      "team": "ATL"
+    }
+  },
+  {
+    "id": "nfl_2024_passing_tds",
+    "question": "Which quarterback threw the most touchdown passes in 2024?",
+    "answer": "Joe Burrow",
+    "acceptable_answers": [
+      "Joe Burrow",
+      "Burrow",
+      "Joe B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "passing_tds",
+      "stat_value": 43,
+      "team": "CIN"
+    }
+  },
+  {
+    "id": "nfl_2024_passing_yards",
+    "question": "Who led the NFL in passing yards in 2024?",
+    "answer": "Joe Burrow",
+    "acceptable_answers": [
+      "Joe Burrow",
+      "Burrow",
+      "Joe B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "passing_yards",
+      "stat_value": 4918,
+      "team": "CIN"
+    }
+  },
+  {
+    "id": "nfl_2024_receiving_tds",
+    "question": "Who scored the most receiving touchdowns in 2024?",
+    "answer": "Ja'Marr Chase",
+    "acceptable_answers": [
+      "Ja'Marr Chase",
+      "Chase",
+      "Ja'Marr C."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "receiving_tds",
+      "stat_value": 17,
+      "team": "CIN"
+    }
+  },
+  {
+    "id": "nfl_2024_receiving_yards",
+    "question": "Who led the NFL in receiving yards in 2024?",
+    "answer": "Ja'Marr Chase",
+    "acceptable_answers": [
+      "Ja'Marr Chase",
+      "Chase",
+      "Ja'Marr C."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "receiving_yards",
+      "stat_value": 1708,
+      "team": "CIN"
+    }
+  },
+  {
+    "id": "nfl_2024_receptions",
+    "question": "Who led the NFL in receptions in 2024?",
+    "answer": "Ja'Marr Chase",
+    "acceptable_answers": [
+      "Ja'Marr Chase",
+      "Chase",
+      "Ja'Marr C."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "receptions",
+      "stat_value": 127,
+      "team": "CIN"
+    }
+  },
+  {
+    "id": "nfl_2024_rushing_tds",
+    "question": "Who scored the most rushing touchdowns in 2024?",
+    "answer": "Derrick Henry",
+    "acceptable_answers": [
+      "Derrick Henry",
+      "Henry",
+      "Derrick H."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "rushing_tds",
+      "stat_value": 16,
+      "team": "BAL"
+    }
+  },
+  {
+    "id": "nfl_2024_rushing_yards",
+    "question": "Who led the NFL in rushing yards in 2024?",
+    "answer": "Saquon Barkley",
+    "acceptable_answers": [
+      "Saquon Barkley",
+      "Barkley",
+      "Saquon B."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "rushing_yards",
+      "stat_value": 2005,
+      "team": "PHI"
+    }
+  }
+]

@@ -8,8 +8,10 @@ import {
   GatewayIntentBits,
   Events,
   ActivityType,
+  Partials,
 } from "discord.js";
 import { fileURLToPath, pathToFileURL } from "url";
+import { TriviaService } from "./trivia/triviaService.js";
 
 // Create a new client instance
 const client = new Client({
@@ -18,12 +20,19 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.DirectMessages,
   ],
+  partials: [Partials.Channel],
 });
+
+// Initialize trivia service and attach to client for command access
+const triviaService = new TriviaService(client);
+client.triviaService = triviaService;
 
 // When the client is ready, run this code (only once)
 client.once("ready", () => {
   console.log("Ready!");
+  triviaService.init();
 });
 
 client.commands = new Collection();
@@ -118,6 +127,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ephemeral: true,
       });
     }
+  }
+});
+
+// Handle DMs for trivia answers
+client.on("messageCreate", async (message) => {
+  if (message.guild === null && !message.author.bot) {
+    await triviaService.handleDM(message);
   }
 });
 
