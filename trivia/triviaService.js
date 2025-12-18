@@ -214,21 +214,46 @@ export class TriviaService {
     });
 
     if (isCorrect) {
-      await message.reply(
-        `Correct! +${activeQuestion.point_value} point(s) when the window closes.`
-      );
+      // Award points immediately
+      let pointsAwarded = true;
+      try {
+        await triviaDb.addPoints(
+          message.author.id,
+          message.author.username,
+          activeQuestion.point_value,
+          category
+        );
+      } catch (error) {
+        console.error("[TRIVIA] Error awarding points:", error);
+        pointsAwarded = false;
+      }
+
+      if (pointsAwarded) {
+        await message.reply(
+          `Correct! +${activeQuestion.point_value} point(s) added to your score!`
+        );
+      } else {
+        await message.reply(
+          `Correct! There was an issue adding points - please contact an admin.`
+        );
+      }
+
+      // Announce in channel (no answer reveal)
+      await this.announceCorrectAnswer(activeQuestion, message.author.username);
     } else {
       const attemptsLeft = MAX_GUESSES - recorded.attempt_count;
       if (attemptsLeft > 0) {
         await message.reply(`Incorrect. You have ${attemptsLeft} guess${attemptsLeft === 1 ? "" : "es"} left.`);
       } else {
         await message.reply("Incorrect. No guesses remaining for this question.");
+        // Announce failure with roast
+        await this.announceExhaustedGuesses(activeQuestion, message.author.username);
       }
     }
   }
 
   /**
-   * Close the answer window and award points
+   * Close the answer window and reveal the answer
    * @param {string} category - 'nfl' or 'wpfl'
    */
   async closeWindow(category) {
@@ -239,18 +264,8 @@ export class TriviaService {
         return;
       }
 
-      // Get all correct answers
+      // Get all correct answers (points already awarded in handleDM)
       const winners = await triviaDb.getCorrectAnswers(activeQuestion.id);
-
-      // Award points to winners
-      for (const winner of winners) {
-        await triviaDb.addPoints(
-          winner.user_id,
-          winner.username,
-          activeQuestion.point_value,
-          category
-        );
-      }
 
       // Close the question
       await triviaDb.closeQuestion(activeQuestion.id);
@@ -269,6 +284,48 @@ export class TriviaService {
       );
     } catch (error) {
       console.error(`[TRIVIA] Error closing ${category} window:`, error);
+    }
+  }
+
+  /**
+   * Announce in channel when a user gets the correct answer
+   * @param {object} activeQuestion - The active question
+   * @param {string} username - The user who got it correct
+   */
+  async announceCorrectAnswer(activeQuestion, username) {
+    try {
+      const channelId = activeQuestion.channel_id || process.env.TRIVIA_CHANNEL_ID;
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel) {
+        await channel.send(`**${username}** got the answer correct!`);
+      }
+    } catch (error) {
+      console.error("[TRIVIA] Error announcing correct answer:", error);
+    }
+  }
+
+  /**
+   * Announce in channel when a user exhausts their guesses
+   * @param {object} activeQuestion - The active question
+   * @param {string} username - The user who struck out
+   */
+  async announceExhaustedGuesses(activeQuestion, username) {
+    try {
+      const channelId = activeQuestion.channel_id || process.env.TRIVIA_CHANNEL_ID;
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel) {
+        const roasts = [
+          `**${username}** used all their guesses and still couldn't get it!`,
+          `**${username}** has exhausted their guesses. Better luck next time!`,
+          `**${username}** struck out. Two swings, two misses.`,
+          `**${username}** is officially 0 for 2 on this one.`,
+          `**${username}** couldn't crack it. Maybe stick to multiple choice?`,
+        ];
+        const roast = roasts[Math.floor(Math.random() * roasts.length)];
+        await channel.send(roast);
+      }
+    } catch (error) {
+      console.error("[TRIVIA] Error announcing exhausted guesses:", error);
     }
   }
 
