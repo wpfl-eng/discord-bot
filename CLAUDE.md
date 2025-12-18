@@ -18,6 +18,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - DO NOT WORRY ABOUT SLEEPER. WE ARENT DOING SLEEPER.
 
+- Ultrathink and use sequential thinking
+
 ## TypeScript and Linting
 
 - ALWAYS add explicit types to all function parameters, variables, and return types
