@@ -16,6 +16,16 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  // Check if user is authorized to run trivia command
+  const triviaAdminId = process.env.TRIVIA_ADMIN_USER_ID;
+  if (triviaAdminId && interaction.user.id !== triviaAdminId) {
+    await interaction.reply({
+      content: "You don't have permission to use this command.",
+      ephemeral: true,
+    });
+    return;
+  }
+
   await interaction.deferReply({ ephemeral: true });
 
   const category = interaction.options.getString("category");
