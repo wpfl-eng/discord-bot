@@ -395,10 +395,11 @@ export async function getUserRank(userId) {
   const user = await getUser(userId);
   if (!user) return null;
 
+  const userWealth = user.wallet + user.bank;
   const result = await sql`
     SELECT COUNT(*) + 1 as rank
     FROM economy_users
-    WHERE (wallet + bank) > (${user.wallet} + ${user.bank})
+    WHERE (wallet + bank) > ${userWealth}
   `;
   return parseInt(result.rows[0]?.rank) || 1;
 }
