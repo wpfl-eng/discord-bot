@@ -7,10 +7,10 @@
     {
       "name": "trivia",
       "description": "Trigger a trivia question",
-      "longDescription": "Start a trivia question in the channel. Choose between NFL general knowledge or WPFL league-specific questions.",
+      "longDescription": "Start a trivia question in the channel with NFL general knowledge questions.",
       "category": "Trivia",
       "categorySlug": "trivia",
-      "usage": ["/trivia category:nfl", "/trivia category:wpfl"],
+      "usage": ["/trivia category:nfl"],
       "options": [
         {
           "name": "category",
@@ -18,8 +18,7 @@
           "type": "string",
           "required": true,
           "choices": [
-            { "name": "NFL", "value": "nfl" },
-            { "name": "WPFL", "value": "wpfl" }
+            { "name": "NFL", "value": "nfl" }
           ]
         }
       ],
@@ -28,10 +27,6 @@
         {
           "input": "/trivia category:nfl",
           "output": "🏈 NFL Trivia!\nQ: Which team won Super Bowl LVIII?\n[Chiefs] [49ers] [Eagles] [Ravens]"
-        },
-        {
-          "input": "/trivia category:wpfl",
-          "output": "🏆 WPFL Trivia!\nQ: Who won the 2023 WPFL Championship?\n[AJ Boorde] [Nixon Ball] [David Adler] [Mike Simpson]"
         }
       ],
       "tips": [

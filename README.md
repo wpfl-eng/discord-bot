@@ -63,19 +63,59 @@ The bot includes an Express server on port 5000 for health checks.
 
 ## Available Commands
 
-- `/activity` - Activity tracking
-- `/betcreate` - Create bets between league members
+### Fantasy Football
+- `/activity` - Recent league transactions
+- `/standings` - League standings by week/year
+- `/median` - Ranked scores for a week
+- `/closestscores` - Closest scoring matchups
+- `/trophies` - Weekly awards
+- `/ewins` - Expected vs actual wins
+- `/optimal` - Optimal lineup analysis
+
+### Draft & Analysis
+- `/draft` - Draft countdown timer
+- `/drafttrends` - Analyze draft patterns
+- `/clutch` - Clutch performance analysis
+- `/cursed` - Statistical nightmares
+
+### Economy
+- `/balance` - Check coin balance
+- `/daily` - Collect daily check
+- `/work` - Earn coins from practice
+- `/deposit` - Move coins to bank
+- `/withdraw` - Move coins from bank
+- `/economyhelp` - Economy command reference
+- `/eleaderboard` - Wealth rankings
+
+### Gambling
+- `/gamble` - Coin flip betting
+- `/slots` - Football slot machine
+- `/blackjack` - Play blackjack
+
+### Shop & Inventory
+- `/shop` - Purchase items
+- `/inventory` - Manage your items
+
+### Training Ground
+- `/train` - Manage training facility (view/manage/settings/stats)
+
+### Robbery
+- `/rob` - Steal coins from players
+
+### Trivia
+- `/trivia` - Start trivia questions
+- `/triviastats` - View trivia stats
+- `/trivialeaderboard` - Top trivia players
+
+### Betting
+- `/betcreate` - Create member bets
 - `/betlist` - View active bets
-- `/closestscores` - Find closest scoring matchups
-- `/draft` - Draft-related features
-- `/ewins` - Calculate expected wins
+
+### Utility
+- `/ping` - Bot health check
 - `/flip` - Coin flip
-- `/image` - Generate images
-- `/optimal` - Show optimal lineup
-- `/ping` - Test bot responsiveness
-- `/roll` - Roll dice
-- `/standings` - Display league standings
-- `/trophies` - Weekly awards and achievements
+- `/roll` - Dice roller
+- `/image` - DALL-E image generation
 
 ## Development Guide
 

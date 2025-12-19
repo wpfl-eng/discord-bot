@@ -10,7 +10,7 @@
       "longDescription": "The Training Ground is a 3x3 grid idle game where you develop rookie players into coins. Set up equipment, hydrate the field, draft rookies, and graduate them for coin rewards.",
       "category": "Training",
       "categorySlug": "training",
-      "usage": ["/train view", "/train manage"],
+      "usage": ["/train view", "/train manage", "/train settings", "/train stats"],
       "subcommands": [
         {
           "name": "view",
@@ -20,6 +20,14 @@
           "name": "manage",
           "description": "Manage your training slots with interactive buttons",
           "options": []
+        },
+        {
+          "name": "settings",
+          "description": "Configure notification settings for training events"
+        },
+        {
+          "name": "stats",
+          "description": "View your training statistics and history"
         }
       ],
       "ephemeral": true,
@@ -31,6 +39,14 @@
         {
           "input": "/train manage",
           "output": "Select a slot to manage:\n[Setup] [Hydrate] [Draft] [Graduate] [Clear]"
+        },
+        {
+          "input": "/train settings",
+          "output": "Configure DM notifications for ready/wilt events"
+        },
+        {
+          "input": "/train stats",
+          "output": "Shows graduates, busts, earnings, success rate"
         }
       ],
       "tips": [
