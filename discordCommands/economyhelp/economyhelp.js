@@ -22,6 +22,7 @@ export async function execute(interaction) {
       { name: "🏦 /withdraw <amount|all>", value: "Move coins from bank to wallet", inline: false },
       { name: "🎰 /gamble <amount|all>", value: "50/50 coin flip - double or nothing!", inline: false },
       { name: "🏈 /slots <amount|all>", value: "Football-themed slot machine!", inline: false },
+      { name: "🃏 /blackjack <amount|all>", value: "Play blackjack - Hit, Stand, or Double Down!", inline: false },
       { name: "🦹 /rob @user", value: "Attempt to steal from another user's wallet", inline: false },
       { name: "🏆 /eleaderboard", value: "View the top 10 wealthiest users", inline: false },
       { name: "🛒 /shop", value: "Buy padlocks and bank expansions", inline: false }
