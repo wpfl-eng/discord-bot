@@ -25,7 +25,8 @@ export async function execute(interaction) {
       { name: "🃏 /blackjack <amount|all>", value: "Play blackjack - Hit, Stand, or Double Down!", inline: false },
       { name: "🦹 /rob @user", value: "Attempt to steal from another user's wallet", inline: false },
       { name: "🏆 /eleaderboard", value: "View the top 10 wealthiest users", inline: false },
-      { name: "🛒 /shop", value: "Buy padlocks and bank expansions", inline: false }
+      { name: "🛒 /shop", value: "Buy padlocks and bank expansions", inline: false },
+      { name: "📦 /inventory", value: "View and sell items from your inventory", inline: false }
     )
     .setFooter({ text: "Tip: Keep money in your bank to protect it from robbery!" })
     .setTimestamp();
