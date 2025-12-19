@@ -20,6 +20,11 @@ export const CONFIG = {
   GAMBLE_MAX: 10000,
   GAMBLE_COOLDOWN_SECONDS: 10,
 
+  // Slots
+  SLOTS_MIN: 10,
+  SLOTS_MAX: 10000,
+  SLOTS_COOLDOWN_SECONDS: 10,
+
   // Rob
   ROB_SUCCESS_RATE: 0.4,
   ROB_MIN_PERCENT: 0.1,
@@ -58,6 +63,30 @@ export const WORK_JOBS = [
 
 export const CURRENCY_EMOJI = "🪙";
 export const CURRENCY_NAME = "coins";
+
+// Slots symbols - football themed
+export const SLOTS_SYMBOLS = [
+  { emoji: "🏈", name: "Football", weight: 25, tier: "common" },
+  { emoji: "⚽", name: "Ball", weight: 20, tier: "common" },
+  { emoji: "🎯", name: "Target", weight: 15, tier: "common" },
+  { emoji: "🏟️", name: "Stadium", weight: 15, tier: "uncommon" },
+  { emoji: "⭐", name: "Star", weight: 10, tier: "uncommon" },
+  { emoji: "🥇", name: "Gold", weight: 8, tier: "rare" },
+  { emoji: "🏆", name: "Trophy", weight: 5, tier: "rare" },
+  { emoji: "🎰", name: "Jackpot", weight: 2, tier: "legendary" },
+];
+
+// Slots payout multipliers
+export const SLOTS_PAYOUTS = {
+  tripleJackpot: 100,
+  tripleTrophy: 25,
+  tripleGold: 10,
+  tripleStar: 7,
+  tripleStadium: 5,
+  tripleCommon: 3,
+  twoSpecial: 2,
+  twoMatching: 2,
+};
 
 // Channel IDs from environment variables
 export const CHANNELS = {
