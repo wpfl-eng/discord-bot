@@ -11,7 +11,7 @@ import {
 
 export const data = new SlashCommandBuilder()
   .setName("work")
-  .setDescription("Work a random job to earn some coins");
+  .setDescription("Put in work at practice to earn some coins");
 
 /**
  * Execute the work command

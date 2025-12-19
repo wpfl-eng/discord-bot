@@ -50,21 +50,21 @@ export const CONFIG = {
 };
 
 export const WORK_JOBS = [
-  { success: "You worked as a barista and earned", fail: "You spilled coffee on a customer and got fired" },
-  { success: "You mowed lawns in the neighborhood and earned", fail: "You ran over a sprinkler head and had to pay for repairs" },
-  { success: "You walked dogs at the park and earned", fail: "The dogs walked you instead. No pay today" },
-  { success: "You delivered pizzas and earned", fail: "You ate all the pizzas. You're fired" },
-  { success: "You worked as a cashier and earned", fail: "Your register came up short. No pay" },
-  { success: "You did some freelance coding and earned", fail: "Your code had bugs. Client refused to pay" },
-  { success: "You helped someone move furniture and earned", fail: "You dropped their TV. You owe them money now" },
-  { success: "You washed cars and earned", fail: "You scratched someone's paint job. Oops" },
-  { success: "You tutored a student and earned", fail: "Your student failed their test. No referrals for you" },
-  { success: "You worked as a server and earned", fail: "You spilled soup on a customer. Tips? None" },
-  { success: "You did yard work and earned", fail: "You mowed over their flower garden. No payment" },
-  { success: "You babysat for a family and earned", fail: "The kid drew on the walls. You paid for the damage" },
-  { success: "You drove for a rideshare and earned", fail: "You got lost and the passenger demanded a refund" },
-  { success: "You sold lemonade and earned", fail: "Nobody wanted lemonade today. You drank it all" },
-  { success: "You did data entry work and earned", fail: "You fell asleep and missed the deadline" },
+  { success: "You ran routes at practice and earned", fail: "You ran the wrong route and got benched. No bonus today" },
+  { success: "You hit the weight room and earned", fail: "You dropped the bar on your foot. Coach is not impressed" },
+  { success: "You studied game film and earned", fail: "You fell asleep during film study. Coach saw everything" },
+  { success: "You signed autographs for fans and earned", fail: "You signed the wrong name. Security escorted you out" },
+  { success: "You did a press conference and earned", fail: "You said 'we're on to Cincinnati' 47 times. Media hated it" },
+  { success: "You filmed a commercial and earned", fail: "You forgot your lines and they cut you from the ad" },
+  { success: "You attended a charity event and earned", fail: "You showed up to the wrong charity. Awkward" },
+  { success: "You ran cone drills and earned", fail: "You tripped over a cone and went viral for the wrong reasons" },
+  { success: "You did blocking drills and earned", fail: "The tackling dummy knocked you over. Embarrassing" },
+  { success: "You attended team meetings and earned", fail: "Your phone went off in the meeting. $10K fine from coach" },
+  { success: "You did conditioning and earned", fail: "You failed the conditioning test. Extra laps tomorrow" },
+  { success: "You practiced celebrations and earned", fail: "You pulled a muscle doing your celebration. Injured reserve" },
+  { success: "You mentored a rookie and earned", fail: "The rookie outperformed you. Coach noticed" },
+  { success: "You did a podcast interview and earned", fail: "You accidentally revealed the playbook. Front office is furious" },
+  { success: "You worked on your footwork and earned", fail: "You stepped on a sprinkler head. Ankle is questionable" },
 ];
 
 export const CURRENCY_EMOJI = "🪙";

@@ -9,7 +9,7 @@ import {
 
 export const data = new SlashCommandBuilder()
   .setName("daily")
-  .setDescription("Claim your daily reward");
+  .setDescription("Collect your game day check");
 
 /**
  * Execute the daily command
@@ -35,9 +35,9 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("☀️ Daily Reward")
+        .setTitle("🏈 Game Day Bonus")
         .setDescription(
-          `You've already claimed your daily reward!\n\nCome back <t:${discordTimestamp}:R>`
+          `You already collected your game check!\n\nNext payday <t:${discordTimestamp}:R>`
         )
         .setTimestamp();
 
@@ -75,19 +75,19 @@ export async function execute(interaction) {
     const discordTimestamp = Math.floor(nextClaimTime / 1000);
 
     // Build response embed
-    const streakEmoji = newStreak >= 5 ? "🔥" : "";
+    const streakEmoji = newStreak >= 5 ? "🔥" : "🏆";
     const embed = new EmbedBuilder()
       .setColor(0xf1c40f)
-      .setTitle(`☀️ Daily Reward Claimed!`)
+      .setTitle(`🏈 Game Check Collected!`)
       .addFields(
         {
-          name: "Base Reward",
+          name: "Base Salary",
           value: formatCurrency(CONFIG.DAILY_AMOUNT),
           inline: true,
         },
         {
-          name: "Streak Bonus",
-          value: `${formatCurrency(streakBonus)} (${newStreak} days ${streakEmoji})`,
+          name: "Win Streak Bonus",
+          value: `${formatCurrency(streakBonus)} (${newStreak} games ${streakEmoji})`,
           inline: true,
         },
         {
@@ -96,12 +96,12 @@ export async function execute(interaction) {
           inline: true,
         },
         {
-          name: "Total Earned",
+          name: "Total Earnings",
           value: formatCurrency(totalReward),
           inline: true,
         },
         {
-          name: "New Balance",
+          name: "Bank Account",
           value: formatCurrency(updatedUser.wallet),
           inline: true,
         },
@@ -113,9 +113,9 @@ export async function execute(interaction) {
       )
       .setTimestamp()
       .setFooter({
-        text: `Next daily available`,
+        text: `Next game check available`,
       })
-      .setDescription(`Come back <t:${discordTimestamp}:R> to keep your streak!`);
+      .setDescription(`Collect again <t:${discordTimestamp}:R> to keep your win streak!`);
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
