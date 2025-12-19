@@ -1,0 +1,85 @@
+{
+  "name": "Trivia",
+  "slug": "trivia",
+  "description": "Test your NFL and league knowledge",
+  "icon": "question",
+  "commands": [
+    {
+      "name": "trivia",
+      "description": "Trigger a trivia question",
+      "longDescription": "Start a trivia question in the channel. Choose between NFL general knowledge or WPFL league-specific questions.",
+      "category": "Trivia",
+      "categorySlug": "trivia",
+      "usage": ["/trivia category:nfl", "/trivia category:wpfl"],
+      "options": [
+        {
+          "name": "category",
+          "description": "The trivia category",
+          "type": "string",
+          "required": true,
+          "choices": [
+            { "name": "NFL", "value": "nfl" },
+            { "name": "WPFL", "value": "wpfl" }
+          ]
+        }
+      ],
+      "ephemeral": false,
+      "examples": [
+        {
+          "input": "/trivia category:nfl",
+          "output": "🏈 NFL Trivia!\nQ: Which team won Super Bowl LVIII?\n[Chiefs] [49ers] [Eagles] [Ravens]"
+        },
+        {
+          "input": "/trivia category:wpfl",
+          "output": "🏆 WPFL Trivia!\nQ: Who won the 2023 WPFL Championship?\n[AJ Boorde] [Nixon Ball] [David Adler] [Mike Simpson]"
+        }
+      ],
+      "tips": [
+        "Admin-only command",
+        "First correct answer wins",
+        "Correct answers earn economy coins"
+      ],
+      "relatedCommands": ["trivialeaderboard", "triviastats"]
+    },
+    {
+      "name": "trivialeaderboard",
+      "description": "View the trivia leaderboard",
+      "longDescription": "See the top 10 trivia players ranked by correct answers.",
+      "category": "Trivia",
+      "categorySlug": "trivia",
+      "usage": ["/trivialeaderboard"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/trivialeaderboard",
+          "output": "🧠 Trivia Leaderboard\n1. AJ Boorde - 47 correct\n2. Nixon Ball - 42 correct\n..."
+        }
+      ],
+      "relatedCommands": ["trivia", "triviastats"]
+    },
+    {
+      "name": "triviastats",
+      "description": "View trivia stats for a user",
+      "longDescription": "View detailed trivia statistics for yourself or another user, including total answers, accuracy, and category breakdown.",
+      "category": "Trivia",
+      "categorySlug": "trivia",
+      "usage": ["/triviastats", "/triviastats user:@player"],
+      "options": [
+        {
+          "name": "user",
+          "description": "The user to view stats for",
+          "type": "user",
+          "required": false
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/triviastats",
+          "output": "📊 Your Trivia Stats\nCorrect: 47 | Incorrect: 12 | Accuracy: 79.7%\nNFL: 32 | WPFL: 15"
+        }
+      ],
+      "relatedCommands": ["trivia", "trivialeaderboard"]
+    }
+  ]
+}

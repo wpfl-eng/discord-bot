@@ -1,0 +1,65 @@
+{
+  "name": "Betting",
+  "slug": "betting",
+  "description": "Create and track bets with other league members",
+  "icon": "ticket",
+  "commands": [
+    {
+      "name": "betcreate",
+      "description": "Create a bet with another member",
+      "longDescription": "Create a custom bet with another league member. Both parties must accept for the bet to be active.",
+      "category": "Betting",
+      "categorySlug": "betting",
+      "usage": ["/betcreate betuser:@player description:\"Loser buys dinner\" amount:100"],
+      "options": [
+        {
+          "name": "betuser",
+          "description": "The user to bet with",
+          "type": "user",
+          "required": true
+        },
+        {
+          "name": "description",
+          "description": "Description of the wager",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "amount",
+          "description": "Amount being wagered",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/betcreate betuser:@Nixon description:\"My team beats yours Week 10\" amount:500",
+          "output": "📝 Bet Created!\nAJ Boorde vs Nixon Ball\nStakes: 🪙 500 each\nTerms: My team beats yours Week 10\n\nWaiting for Nixon Ball to accept..."
+        }
+      ],
+      "tips": [
+        "Both users must have enough coins in wallet",
+        "Coins are held in escrow until bet is resolved",
+        "Bets must be manually resolved by participants"
+      ],
+      "relatedCommands": ["betlist", "balance"]
+    },
+    {
+      "name": "betlist",
+      "description": "Lists all current bets",
+      "longDescription": "View all active bets in the server, including pending, active, and recently completed bets.",
+      "category": "Betting",
+      "categorySlug": "betting",
+      "usage": ["/betlist"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/betlist",
+          "output": "📋 Active Bets\n\n1. AJ vs Nixon - 🪙 500\n   \"My team beats yours Week 10\"\n   Status: Active\n\n2. David vs Mike - 🪙 200\n   \"First to 100 points this week\"\n   Status: Pending acceptance"
+        }
+      ],
+      "relatedCommands": ["betcreate"]
+    }
+  ]
+}

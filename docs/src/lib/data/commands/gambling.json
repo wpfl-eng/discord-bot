@@ -1,0 +1,135 @@
+{
+  "name": "Gambling",
+  "slug": "gambling",
+  "description": "Test your luck with coin flip, slots, and blackjack",
+  "icon": "dice",
+  "commands": [
+    {
+      "name": "gamble",
+      "description": "Gamble coins on a coin flip",
+      "longDescription": "A simple 50/50 coin flip. Win double your bet or lose it all. Quick and risky.",
+      "category": "Gambling",
+      "categorySlug": "gambling",
+      "usage": ["/gamble amount:100", "/gamble amount:all"],
+      "options": [
+        {
+          "name": "amount",
+          "description": "Amount to bet or 'all'",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "ephemeral": true,
+      "cooldown": { "duration": 10, "unit": "seconds" },
+      "examples": [
+        {
+          "input": "/gamble amount:100",
+          "output": "🪙 You won! +100 coins (200 total)"
+        },
+        {
+          "input": "/gamble amount:100",
+          "output": "💀 You lost! -100 coins",
+          "note": "Loss example"
+        }
+      ],
+      "tips": [
+        "50/50 odds - true coin flip",
+        "Win = double your bet",
+        "Bet range: 10 - 10,000 coins"
+      ],
+      "gameConfig": {
+        "minBet": 10,
+        "maxBet": 10000,
+        "cooldownSeconds": 10
+      },
+      "relatedCommands": ["slots", "blackjack", "balance"]
+    },
+    {
+      "name": "slots",
+      "description": "Spin the football-themed slot machine",
+      "longDescription": "Spin three reels with football-themed symbols. Match symbols to win multipliers up to 100x your bet!",
+      "category": "Gambling",
+      "categorySlug": "gambling",
+      "usage": ["/slots amount:100", "/slots amount:all"],
+      "options": [
+        {
+          "name": "amount",
+          "description": "Amount to bet or 'all'",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "ephemeral": true,
+      "cooldown": { "duration": 10, "unit": "seconds" },
+      "examples": [
+        {
+          "input": "/slots amount:50",
+          "output": "🎰 | 🏈 | 🏈 | 🏈 | 🎰\nTriple Football! 3x multiplier!\nYou won 🪙 150"
+        },
+        {
+          "input": "/slots amount:100",
+          "output": "🎰 | 🎰 | 🎰 | 🎰 | 🎰\n🎉 JACKPOT! 100x multiplier!\nYou won 🪙 10,000",
+          "note": "Jackpot example (very rare)"
+        }
+      ],
+      "tips": [
+        "Triple Jackpot (🎰🎰🎰) = 100x bet",
+        "Triple Trophy (🏆🏆🏆) = 25x bet",
+        "Triple Gold (🥇🥇🥇) = 10x bet",
+        "Two matching = 2x bet"
+      ],
+      "gameConfig": {
+        "minBet": 10,
+        "maxBet": 10000,
+        "cooldownSeconds": 10,
+        "payouts": {
+          "tripleJackpot": 100,
+          "tripleTrophy": 25,
+          "tripleGold": 10,
+          "tripleStar": 7,
+          "tripleStadium": 5,
+          "tripleCommon": 3,
+          "twoMatching": 2
+        }
+      },
+      "relatedCommands": ["gamble", "blackjack", "balance"]
+    },
+    {
+      "name": "blackjack",
+      "description": "Play blackjack with interactive buttons",
+      "longDescription": "Classic blackjack against the dealer. Use buttons to Hit, Stand, or Double Down. Get closer to 21 than the dealer without busting!",
+      "category": "Gambling",
+      "categorySlug": "gambling",
+      "usage": ["/blackjack amount:100", "/blackjack amount:all"],
+      "options": [
+        {
+          "name": "amount",
+          "description": "Amount to bet or 'all'",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "ephemeral": true,
+      "cooldown": { "duration": 5, "unit": "seconds" },
+      "examples": [
+        {
+          "input": "/blackjack amount:200",
+          "output": "Your hand: K♠ 7♥ (17)\nDealer shows: 5♦\n[Hit] [Stand] [Double Down]"
+        }
+      ],
+      "tips": [
+        "Double Down doubles your bet for one more card",
+        "Dealer stands on 17",
+        "Blackjack (21 on first two cards) pays 1.5x",
+        "Game times out after 2 minutes"
+      ],
+      "gameConfig": {
+        "minBet": 10,
+        "maxBet": 10000,
+        "cooldownSeconds": 5,
+        "timeoutSeconds": 120
+      },
+      "relatedCommands": ["gamble", "slots", "balance"]
+    }
+  ]
+}

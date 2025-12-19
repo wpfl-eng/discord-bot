@@ -1,0 +1,71 @@
+{
+  "name": "Draft Analysis",
+  "slug": "draft-analysis",
+  "description": "Analyze draft patterns and strategies",
+  "icon": "chart",
+  "commands": [
+    {
+      "name": "draft",
+      "description": "Print a countdown for the draft",
+      "longDescription": "Display a countdown timer showing how long until the fantasy football draft begins.",
+      "category": "Draft Analysis",
+      "categorySlug": "draft-analysis",
+      "usage": ["/draft"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/draft",
+          "output": "🏈 Draft starts in 3 days, 5 hours, 23 minutes"
+        }
+      ],
+      "relatedCommands": ["drafttrends"]
+    },
+    {
+      "name": "drafttrends",
+      "description": "Analyze draft patterns and tendencies",
+      "longDescription": "Deep analysis of a manager's drafting tendencies including position preferences, average draft position, auction spending patterns, and historical picks.",
+      "category": "Draft Analysis",
+      "categorySlug": "draft-analysis",
+      "usage": ["/drafttrends user:\"AJ Boorde\"", "/drafttrends user:\"Nixon Ball\" seasonmin:2020"],
+      "options": [
+        {
+          "name": "user",
+          "description": "Manager name to analyze",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seasonmin",
+          "description": "Starting season for analysis",
+          "type": "integer",
+          "required": false,
+          "minValue": 2015,
+          "maxValue": 2025,
+          "default": 2015
+        },
+        {
+          "name": "seasonmax",
+          "description": "Ending season for analysis",
+          "type": "integer",
+          "required": false,
+          "minValue": 2015,
+          "maxValue": 2025,
+          "default": 2025
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/drafttrends user:\"AJ Boorde\"",
+          "output": "Draft Trends for AJ Boorde (2015-2024)\n- Favors RBs in rounds 1-2\n- Average auction spend: $67 on first pick\n- Most drafted position: WR (45 picks)"
+        }
+      ],
+      "tips": [
+        "Requires precomputed data - run node precompute-draft-trends.js",
+        "Data available from 2015 onwards",
+        "Auction draft data starts from 2016"
+      ],
+      "relatedCommands": ["draft", "clutch"]
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "name": "Shop & Inventory",
+  "slug": "shop-inventory",
+  "description": "Purchase items and manage your inventory",
+  "icon": "cart",
+  "commands": [
+    {
+      "name": "shop",
+      "description": "View and purchase items from the shop",
+      "longDescription": "Browse and buy items including protection items, bank upgrades, and training contracts.",
+      "category": "Shop & Inventory",
+      "categorySlug": "shop-inventory",
+      "usage": ["/shop"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/shop",
+          "output": "🏪 Shop\n\n🔒 Padlock - 🪙 500\n🏦 Bank Expansion - 🪙 2,000\n🤲 TE Contract - 🪙 50\n🏃 RB Contract - 🪙 100\n🎯 WR Contract - 🪙 150\n🏈 QB Contract - 🪙 250\n🔧 Setup Kit - 🪙 500\n💧 Water Cooler - 🪙 300"
+        }
+      ],
+      "tips": [
+        "Padlock protects from one robbery",
+        "Bank Expansion increases bank capacity by 1,000",
+        "Contracts and tools are used in Training Ground"
+      ],
+      "gameConfig": {
+        "items": {
+          "padlock": 500,
+          "bankExpansion": 2000,
+          "contractTE": 50,
+          "contractRB": 100,
+          "contractWR": 150,
+          "contractQB": 250,
+          "setupKit": 500,
+          "waterCooler": 300
+        }
+      },
+      "relatedCommands": ["inventory", "train", "balance"]
+    },
+    {
+      "name": "inventory",
+      "description": "View and manage your inventory",
+      "longDescription": "View your owned items and sell items back for coins.",
+      "category": "Shop & Inventory",
+      "categorySlug": "shop-inventory",
+      "usage": ["/inventory view", "/inventory sell item:padlock"],
+      "subcommands": [
+        {
+          "name": "view",
+          "description": "View your current inventory"
+        },
+        {
+          "name": "sell",
+          "description": "Sell items from your inventory",
+          "options": [
+            {
+              "name": "item",
+              "description": "The item to sell",
+              "type": "string",
+              "required": true,
+              "autocomplete": true
+            },
+            {
+              "name": "quantity",
+              "description": "How many to sell",
+              "type": "integer",
+              "required": false,
+              "default": 1,
+              "minValue": 1
+            }
+          ]
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/inventory view",
+          "output": "📦 Your Inventory:\n🔒 Padlock x2\n🤲 TE Contract x5\n🔧 Setup Kit x8"
+        },
+        {
+          "input": "/inventory sell item:padlock quantity:1",
+          "output": "Sold 1x Padlock for 🪙 250"
+        }
+      ],
+      "tips": [
+        "Items sell for 50% of purchase price",
+        "Some items cannot be sold"
+      ],
+      "relatedCommands": ["shop", "train"]
+    }
+  ]
+}

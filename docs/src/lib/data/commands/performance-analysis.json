@@ -1,0 +1,110 @@
+{
+  "name": "Performance Analysis",
+  "slug": "performance-analysis",
+  "description": "Deep dive into clutch performances and statistical anomalies",
+  "icon": "trophy",
+  "commands": [
+    {
+      "name": "clutch",
+      "description": "Analyze clutch performance in high-pressure situations",
+      "longDescription": "Analyze how managers perform in critical situations: playoffs, close games, and high-stakes matchups.",
+      "category": "Performance Analysis",
+      "categorySlug": "performance-analysis",
+      "usage": ["/clutch type:playoffs", "/clutch type:close seasonmin:2020"],
+      "options": [
+        {
+          "name": "type",
+          "description": "Type of clutch analysis",
+          "type": "string",
+          "required": true,
+          "choices": [
+            { "name": "Playoffs", "value": "playoffs" },
+            { "name": "Close Games (<10 pts)", "value": "close" },
+            { "name": "High Stakes", "value": "highstakes" }
+          ]
+        },
+        {
+          "name": "seasonmin",
+          "description": "Starting season",
+          "type": "integer",
+          "required": false,
+          "minValue": 2015,
+          "maxValue": 2025,
+          "default": 2015
+        },
+        {
+          "name": "seasonmax",
+          "description": "Ending season",
+          "type": "integer",
+          "required": false,
+          "minValue": 2015,
+          "maxValue": 2025,
+          "default": 2025
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/clutch type:playoffs",
+          "output": "Playoff Performance Rankings:\n1. AJ Boorde: 15-5 (75%)\n2. Nixon Ball: 12-6 (67%)"
+        },
+        {
+          "input": "/clutch type:close",
+          "output": "Close Game Performance (games within 10 points):\nShows win rates in nail-biters"
+        }
+      ],
+      "tips": [
+        "Playoffs: Performance in playoff weeks only",
+        "Close: Games decided by less than 10 points",
+        "High Stakes: Playoff implications on the line"
+      ],
+      "relatedCommands": ["cursed", "ewins"]
+    },
+    {
+      "name": "cursed",
+      "description": "Reveal fantasy football curses and statistical nightmares",
+      "longDescription": "Uncover the worst luck, biggest chokes, and most cursed moments for a specific manager.",
+      "category": "Performance Analysis",
+      "categorySlug": "performance-analysis",
+      "usage": ["/cursed user:\"David Adler\""],
+      "options": [
+        {
+          "name": "user",
+          "description": "Manager name to analyze",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "seasonmin",
+          "description": "Starting season",
+          "type": "integer",
+          "required": false,
+          "minValue": 2015,
+          "maxValue": 2025,
+          "default": 2015
+        },
+        {
+          "name": "seasonmax",
+          "description": "Ending season",
+          "type": "integer",
+          "required": false,
+          "minValue": 2015,
+          "maxValue": 2025,
+          "default": 2025
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/cursed user:\"Mike Simpson\"",
+          "output": "🔮 Curse Report for Mike Simpson:\n- Times scored 2nd highest and lost: 12\n- Worst playoff exit: Lost by 0.5 pts in semis\n- Most points left on bench: 147.3"
+        }
+      ],
+      "tips": [
+        "Shows unlucky losses, bench disasters, and heartbreaking moments",
+        "Great for roasting league mates"
+      ],
+      "relatedCommands": ["clutch", "ewins"]
+    }
+  ]
+}
