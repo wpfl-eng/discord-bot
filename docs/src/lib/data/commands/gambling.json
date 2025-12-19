@@ -1,7 +1,7 @@
 {
   "name": "Gambling",
   "slug": "gambling",
-  "description": "Test your luck with coin flip, slots, and blackjack",
+  "description": "Test your luck with coin flip, slots, blackjack, and Red Zone",
   "icon": "dice",
   "commands": [
     {
@@ -208,6 +208,109 @@
         "Blackjacks counts natural 21s (Ace + 10-value on first two cards)"
       ],
       "relatedCommands": ["blackjack", "blackjackstats"]
+    },
+    {
+      "name": "redzone",
+      "description": "Push your luck football game - drive for a touchdown!",
+      "longDescription": "A push-your-luck football minigame. Start at your own 20-yard line and try to drive 80 yards for a touchdown. Each play gains 5-20 yards, but fumble risk increases as you get closer to the end zone. Cash out anytime to lock in your multiplier, or risk it all for the 10x touchdown payout!",
+      "category": "Gambling",
+      "categorySlug": "gambling",
+      "usage": ["/redzone bet:100", "/redzone bet:all"],
+      "options": [
+        {
+          "name": "bet",
+          "description": "Amount to bet (10-10000, or 'all'/'max')",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "ephemeral": true,
+      "cooldown": { "duration": 10, "unit": "seconds" },
+      "examples": [
+        {
+          "input": "/redzone bet:500",
+          "output": "🏈 RED ZONE 🏈\n[======>              ]\nOwn 40 | Multiplier: 1.5x | Fumble Risk: 12%\n[🏈 Run Play] [💰 Cash Out]"
+        },
+        {
+          "input": "/redzone bet:100",
+          "output": "🏆 TOUCHDOWN!!! 🏆\n[=====================>]\n10x PAYOUT! You won 🪙 1,000 on a 🪙 100 bet!",
+          "note": "Touchdown win"
+        },
+        {
+          "input": "/redzone bet:200",
+          "output": "💥 FUMBLE! 💥\nThe defense recovers at the Opp 30!\nYou lost your bet.",
+          "note": "Fumble loss"
+        }
+      ],
+      "tips": [
+        "Start at your own 20 with 0% fumble risk",
+        "Fumble chance increases as you advance (up to 52% at the opponent's 10)",
+        "Cash out anytime to lock in your current multiplier",
+        "Touchdown = 10x payout, but you must survive the drive",
+        "Each play gains 5-20 yards randomly",
+        "Play Again button lets you quickly restart with the same bet",
+        "Your touchdown streaks are tracked!"
+      ],
+      "gameConfig": {
+        "minBet": 10,
+        "maxBet": 10000,
+        "cooldownSeconds": 10,
+        "timeoutSeconds": 120,
+        "fieldPositions": {
+          "own20": { "multiplier": 1.0, "fumbleChance": 0 },
+          "own30": { "multiplier": 1.2, "fumbleChance": 0.08 },
+          "own40": { "multiplier": 1.5, "fumbleChance": 0.12 },
+          "midfield": { "multiplier": 2.0, "fumbleChance": 0.18 },
+          "opp40": { "multiplier": 2.8, "fumbleChance": 0.25 },
+          "opp30": { "multiplier": 4.0, "fumbleChance": 0.33 },
+          "redzone": { "multiplier": 5.5, "fumbleChance": 0.42 },
+          "opp10": { "multiplier": 7.5, "fumbleChance": 0.52 },
+          "touchdown": { "multiplier": 10.0, "fumbleChance": 0 }
+        }
+      },
+      "relatedCommands": ["redzoneleaderboard", "blackjack", "slots", "balance"]
+    },
+    {
+      "name": "redzoneleaderboard",
+      "description": "View the Red Zone leaderboard",
+      "longDescription": "View top 10 players across 6 different Red Zone leaderboard categories: most touchdowns, highest TD rate, longest drive, net profit, best TD streak, and biggest single win.",
+      "category": "Gambling",
+      "categorySlug": "gambling",
+      "usage": ["/redzoneleaderboard", "/redzoneleaderboard category:profit"],
+      "options": [
+        {
+          "name": "category",
+          "description": "Leaderboard category to view",
+          "type": "string",
+          "required": false,
+          "choices": [
+            { "name": "Most Touchdowns", "value": "touchdowns" },
+            { "name": "Highest TD Rate (min 10 games)", "value": "winrate" },
+            { "name": "Longest Drive", "value": "drive" },
+            { "name": "Highest Profit", "value": "profit" },
+            { "name": "Best TD Streak", "value": "streak" },
+            { "name": "Biggest Single Win", "value": "biggest_win" }
+          ]
+        }
+      ],
+      "ephemeral": false,
+      "examples": [
+        {
+          "input": "/redzoneleaderboard",
+          "output": "🏈 Red Zone Leaderboard - Most Touchdowns\n🥇 @Speedster: 47 TDs (62% rate)\n🥈 @Gridiron: 35 TDs (45% rate)\n🥉 @EndZone: 28 TDs (58% rate)"
+        },
+        {
+          "input": "/redzoneleaderboard category:drive",
+          "output": "🏈 Red Zone Leaderboard - Longest Drive\n🥇 @Marathon: 95 yards (1,250 total)\n🥈 @Rusher: 88 yards (890 total)"
+        }
+      ],
+      "tips": [
+        "TD rate leaderboard requires minimum 10 games to qualify",
+        "Longest drive tracks your best single-game yardage",
+        "TD streaks count consecutive touchdowns (cashouts reset streak)",
+        "Profit = total won - total wagered"
+      ],
+      "relatedCommands": ["redzone", "blackjackleaderboard"]
     }
   ]
 }

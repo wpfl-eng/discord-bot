@@ -12,6 +12,10 @@
 		{ id: 'blackjack-strategy', text: 'Basic Strategy', level: 3 },
 		{ id: 'blackjack-surrender', text: 'When to Surrender', level: 3 },
 		{ id: 'blackjack-tracking', text: 'Stats & Leaderboards', level: 3 },
+		{ id: 'redzone', text: 'Red Zone', level: 2 },
+		{ id: 'redzone-field', text: 'Field Position Table', level: 3 },
+		{ id: 'redzone-strategy', text: 'When to Cash Out', level: 3 },
+		{ id: 'redzone-tracking', text: 'Stats & Leaderboards', level: 3 },
 		{ id: 'risk-management', text: 'Risk Management', level: 2 },
 		{ id: 'tips', text: 'Pro Tips', level: 2 }
 	];
@@ -34,7 +38,7 @@
 	<section id="overview" class="mb-12">
 		<h2 class="text-2xl font-bold text-dark-100 mb-4">Overview</h2>
 		<p class="text-dark-300 mb-4">
-			CommishBot offers three gambling options, each with different risk/reward profiles.
+			CommishBot offers four gambling options, each with different risk/reward profiles.
 			Understanding the math can help you make informed decisions.
 		</p>
 		<div class="card border-accent-danger/30">
@@ -43,7 +47,7 @@
 				Only gamble what you're willing to lose!
 			</p>
 		</div>
-		<div class="grid md:grid-cols-3 gap-4 mt-6">
+		<div class="grid md:grid-cols-4 gap-4 mt-6">
 			<div class="card text-center">
 				<div class="text-3xl mb-2">🪙</div>
 				<h3 class="font-semibold text-dark-100">Coin Flip</h3>
@@ -58,6 +62,11 @@
 				<div class="text-3xl mb-2">🃏</div>
 				<h3 class="font-semibold text-dark-100">Blackjack</h3>
 				<p class="text-dark-400 text-sm">Skill-based</p>
+			</div>
+			<div class="card text-center">
+				<div class="text-3xl mb-2">🏈</div>
+				<h3 class="font-semibold text-dark-100">Red Zone</h3>
+				<p class="text-dark-400 text-sm">Push your luck</p>
 			</div>
 		</div>
 	</section>
@@ -268,6 +277,167 @@
 		</div>
 	</section>
 
+	<section id="redzone" class="mb-12">
+		<h2 class="text-2xl font-bold text-dark-100 mb-4">Red Zone</h2>
+		<p class="text-dark-300 mb-4">
+			A push-your-luck football minigame. Start at your own 20-yard line and drive toward the end zone.
+			Each play gains yards, but fumble risk increases as you advance. Cash out to lock in your multiplier,
+			or risk it all for the 10x touchdown payout!
+		</p>
+		<div class="card mb-6">
+			<h4 class="font-semibold text-dark-100 mb-2">How It Works</h4>
+			<ul class="space-y-1 text-dark-300 text-sm">
+				<li>• Start at your own 20-yard line with 0% fumble risk</li>
+				<li>• Click <strong>Run Play</strong> to gain 5-20 yards randomly</li>
+				<li>• Fumble risk increases as you get closer to the end zone</li>
+				<li>• Click <strong>Cash Out</strong> anytime to take your current multiplier</li>
+				<li>• Reach the end zone for a <strong>TOUCHDOWN</strong> = 10x payout!</li>
+				<li>• Fumble = lose everything</li>
+			</ul>
+		</div>
+
+		<div id="redzone-field" class="mt-8">
+			<h3 class="text-xl font-bold text-dark-100 mb-4">Field Position Table</h3>
+			<p class="text-dark-300 mb-4">
+				Risk and reward scale as you advance down the field:
+			</p>
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm min-w-[500px]">
+					<thead>
+						<tr class="text-left text-dark-400 border-b border-dark-border">
+							<th class="pb-3">Position</th>
+							<th class="pb-3">Multiplier</th>
+							<th class="pb-3">Fumble Risk</th>
+							<th class="pb-3">EV if Continue</th>
+						</tr>
+					</thead>
+					<tbody class="text-dark-200">
+						<tr class="border-b border-dark-border">
+							<td class="py-3">Own 20 (Start)</td>
+							<td class="py-3">1.0x</td>
+							<td class="py-3 text-accent-success">0%</td>
+							<td class="py-3 text-dark-400">Safe</td>
+						</tr>
+						<tr class="border-b border-dark-border">
+							<td class="py-3">Own 30</td>
+							<td class="py-3">1.2x</td>
+							<td class="py-3">8%</td>
+							<td class="py-3 text-dark-400">1.10x</td>
+						</tr>
+						<tr class="border-b border-dark-border">
+							<td class="py-3">Own 40</td>
+							<td class="py-3">1.5x</td>
+							<td class="py-3">12%</td>
+							<td class="py-3 text-dark-400">1.32x</td>
+						</tr>
+						<tr class="border-b border-dark-border">
+							<td class="py-3">Midfield (50)</td>
+							<td class="py-3 text-accent-primary">2.0x</td>
+							<td class="py-3">18%</td>
+							<td class="py-3 text-dark-400">1.64x</td>
+						</tr>
+						<tr class="border-b border-dark-border">
+							<td class="py-3">Opp 40</td>
+							<td class="py-3 text-accent-primary">2.8x</td>
+							<td class="py-3 text-accent-warning">25%</td>
+							<td class="py-3 text-dark-400">2.10x</td>
+						</tr>
+						<tr class="border-b border-dark-border">
+							<td class="py-3">Opp 30</td>
+							<td class="py-3 text-accent-success">4.0x</td>
+							<td class="py-3 text-accent-warning">33%</td>
+							<td class="py-3 text-dark-400">2.68x</td>
+						</tr>
+						<tr class="border-b border-dark-border">
+							<td class="py-3">Red Zone (Opp 20)</td>
+							<td class="py-3 text-accent-success">5.5x</td>
+							<td class="py-3 text-accent-danger">42%</td>
+							<td class="py-3 text-dark-400">3.19x</td>
+						</tr>
+						<tr class="border-b border-dark-border">
+							<td class="py-3">Opp 10</td>
+							<td class="py-3 text-accent-success font-bold">7.5x</td>
+							<td class="py-3 text-accent-danger">52%</td>
+							<td class="py-3 text-dark-400">3.60x</td>
+						</tr>
+						<tr>
+							<td class="py-3 font-bold">TOUCHDOWN!</td>
+							<td class="py-3 text-accent-success font-bold">10.0x</td>
+							<td class="py-3 text-accent-success">0%</td>
+							<td class="py-3 text-accent-success">WIN!</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<p class="mt-4 text-dark-400 text-sm">
+				<strong>EV if Continue</strong> = Multiplier × (1 - Fumble Risk). This shows your expected return
+				if you run another play at this position.
+			</p>
+		</div>
+
+		<div id="redzone-strategy" class="mt-8">
+			<h3 class="text-xl font-bold text-dark-100 mb-4">When to Cash Out</h3>
+			<p class="text-dark-300 mb-4">
+				The math is in your favor early, but the decision gets tougher as you advance:
+			</p>
+			<div class="space-y-4">
+				<div class="card border-accent-success/30">
+					<h4 class="font-semibold text-dark-100 mb-2">Always Run (Own 20-40)</h4>
+					<p class="text-dark-300 text-sm">
+						Fumble risk is low (0-12%) and the expected value of running exceeds your current multiplier.
+						There's no reason to cash out early.
+					</p>
+				</div>
+				<div class="card border-accent-warning/30">
+					<h4 class="font-semibold text-dark-100 mb-2">The Danger Zone (Midfield to Opp 30)</h4>
+					<p class="text-dark-300 text-sm">
+						Fumble risk is climbing (18-33%). The EV of continuing is still positive, but you're now
+						risking meaningful multipliers. <strong>Consider your risk tolerance.</strong>
+					</p>
+				</div>
+				<div class="card border-accent-danger/30">
+					<h4 class="font-semibold text-dark-100 mb-2">High Stakes (Opp 20 and beyond)</h4>
+					<p class="text-dark-300 text-sm">
+						At 42-52% fumble chance, you're flipping coins with serious money on the line.
+						At 5.5x+ multiplier, cashing out is the "safe" play. Going for the touchdown is pure gamble.
+						<strong>Are you feeling lucky?</strong>
+					</p>
+				</div>
+			</div>
+			<div class="card mt-6">
+				<h4 class="font-semibold text-dark-100 mb-2">Optimal Strategy (Mathematically)</h4>
+				<p class="text-dark-300 text-sm">
+					Since EV stays positive all the way to the goal line, the math says <strong>always run</strong>.
+					But this ignores bankroll management and the pain of watching a 7.5x multiplier evaporate to a fumble.
+					Play based on your risk tolerance and how much you're betting.
+				</p>
+			</div>
+		</div>
+
+		<div id="redzone-tracking" class="mt-8">
+			<h3 class="text-xl font-bold text-dark-100 mb-4">Stats & Leaderboards</h3>
+			<p class="text-dark-300 mb-4">
+				Every Red Zone drive is tracked. Compete on the leaderboards!
+			</p>
+			<div class="card">
+				<h4 class="font-semibold text-dark-100 mb-2">/redzoneleaderboard</h4>
+				<p class="text-dark-300 text-sm mb-2">Compete across 6 categories:</p>
+				<ul class="space-y-1 text-dark-400 text-sm">
+					<li>• <strong>Most Touchdowns</strong> - Total TDs scored</li>
+					<li>• <strong>Highest TD Rate</strong> - Win percentage (min 10 games)</li>
+					<li>• <strong>Longest Drive</strong> - Most yards gained in a single game</li>
+					<li>• <strong>Highest Profit</strong> - Net winnings over all games</li>
+					<li>• <strong>Best TD Streak</strong> - Consecutive touchdowns</li>
+					<li>• <strong>Biggest Single Win</strong> - Largest single payout</li>
+				</ul>
+			</div>
+			<p class="mt-4 text-dark-400 text-sm">
+				<strong>Streak tracking:</strong> TD streaks count consecutive touchdowns.
+				Cashing out resets your streak. Can you string together multiple TDs in a row?
+			</p>
+		</div>
+	</section>
+
 	<section id="risk-management" class="mb-12">
 		<h2 class="text-2xl font-bold text-dark-100 mb-4">Risk Management</h2>
 		<div class="space-y-4">
@@ -312,6 +482,10 @@
 			</div>
 			<div class="flex items-start gap-3 p-4 bg-dark-bg rounded-lg">
 				<span class="text-accent-success text-lg">4</span>
+				<p class="text-dark-300">Red Zone is for thrill seekers. The math says always run, but watching a 7x multiplier fumble away hurts. Cash out when you're happy with your win.</p>
+			</div>
+			<div class="flex items-start gap-3 p-4 bg-dark-bg rounded-lg">
+				<span class="text-accent-success text-lg">5</span>
 				<p class="text-dark-300">Never gamble with coins you need. Keep your core savings in the bank, gamble with wallet funds you can afford to lose.</p>
 			</div>
 		</div>

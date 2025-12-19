@@ -31,6 +31,14 @@ export const CONFIG = {
   BLACKJACK_COOLDOWN_SECONDS: 5,
   BLACKJACK_TIMEOUT_SECONDS: 120,
 
+  // Red Zone
+  REDZONE_MIN: 10,
+  REDZONE_MAX: 10000,
+  REDZONE_COOLDOWN_SECONDS: 10,
+  REDZONE_TIMEOUT_SECONDS: 120,
+  REDZONE_YARD_GAIN_MIN: 5,
+  REDZONE_YARD_GAIN_MAX: 20,
+
   // Rob
   ROB_SUCCESS_RATE: 0.4,
   ROB_MIN_PERCENT: 0.1,
@@ -92,6 +100,19 @@ export const SLOTS_PAYOUTS = {
   tripleCommon: 3,
   twoSpecial: 2,
   twoMatching: 2,
+};
+
+// Red Zone field positions - yard line -> { multiplier, fumbleChance }
+export const REDZONE_FIELD_POSITIONS = {
+  20: { multiplier: 1.0, fumbleChance: 0, label: "Own 20" },
+  30: { multiplier: 1.2, fumbleChance: 0.08, label: "Own 30" },
+  40: { multiplier: 1.5, fumbleChance: 0.12, label: "Own 40" },
+  50: { multiplier: 2.0, fumbleChance: 0.18, label: "Midfield" },
+  60: { multiplier: 2.8, fumbleChance: 0.25, label: "Opp 40" },
+  70: { multiplier: 4.0, fumbleChance: 0.33, label: "Opp 30" },
+  80: { multiplier: 5.5, fumbleChance: 0.42, label: "Red Zone" },
+  90: { multiplier: 7.5, fumbleChance: 0.52, label: "Opp 10" },
+  100: { multiplier: 10.0, fumbleChance: 0, label: "Touchdown!" },
 };
 
 // Channel IDs from environment variables
