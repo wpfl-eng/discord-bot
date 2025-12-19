@@ -4,8 +4,8 @@ import { EmbedBuilder } from "discord.js";
 import * as triviaDb from "./triviaDb.js";
 import { checkAnswer } from "./answerMatcher.js";
 import * as economyDb from "../economy/economyDb.js";
-import nflQuestions from "./nflQuestions.json" assert { type: "json" };
-import wpflQuestions from "./wpflQuestions.json" assert { type: "json" };
+import nflQuestions from "./nflQuestions.json" with { type: "json" };
+import wpflQuestions from "./wpflQuestions.json" with { type: "json" };
 
 export class TriviaService {
   constructor(client) {

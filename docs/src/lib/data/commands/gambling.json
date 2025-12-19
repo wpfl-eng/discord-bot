@@ -183,7 +183,15 @@
           "description": "Leaderboard category to view",
           "type": "string",
           "required": true,
-          "choices": ["games", "wins", "winrate", "blackjacks", "profit", "streak", "biggest_win"]
+          "choices": [
+            { "name": "Most Games Played", "value": "games" },
+            { "name": "Most Wins", "value": "wins" },
+            { "name": "Highest Win Rate", "value": "winrate" },
+            { "name": "Most Blackjacks", "value": "blackjacks" },
+            { "name": "Highest Profit", "value": "profit" },
+            { "name": "Best Win Streak", "value": "streak" },
+            { "name": "Biggest Single Win", "value": "biggest_win" }
+          ]
         }
       ],
       "ephemeral": true,
