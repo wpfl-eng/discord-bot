@@ -7,8 +7,6 @@ import {
   CURRENCY_EMOJI,
   CHANNELS,
 } from "../../economy/economyConfig.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
 
 export const data = new SlashCommandBuilder()
   .setName("rob")
@@ -221,17 +219,6 @@ export async function execute(interaction) {
           console.error("Failed to send robbery announcement to town-square:", err);
         }
       }
-
-      // Check for achievements (non-blocking)
-      checkForAchievements({
-        actionType: ACTION_TYPES.ROB_SUCCESS,
-        userId: attackerId,
-        username: attackerUsername,
-        client: interaction.client,
-        amount: stolenAmount,
-        targetUserId: targetUser.id,
-        targetUsername: targetUser.username,
-      }).catch((err) => console.error("Failed to check achievements:", err));
     } else {
       // Failed - pay fine using atomic operation
       const updatedAttacker = await economyDb.payRobFine(attackerId, CONFIG.ROB_FAIL_FINE);
@@ -266,17 +253,6 @@ export async function execute(interaction) {
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
-
-      // Check for achievements (non-blocking)
-      checkForAchievements({
-        actionType: ACTION_TYPES.ROB_FAIL,
-        userId: attackerId,
-        username: attackerUsername,
-        client: interaction.client,
-        amount: CONFIG.ROB_FAIL_FINE,
-        targetUserId: targetUser.id,
-        targetUsername: targetUser.username,
-      }).catch((err) => console.error("Failed to check achievements:", err));
     }
   } catch (error) {
     console.error("rob command error:", error);

@@ -15,8 +15,6 @@ import {
   CHANNELS,
 } from "../../economy/economyConfig.js";
 import * as redzoneDb from "../../redzone/redzoneDb.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
 
 /** @type {Map<string, object>} */
 const activeGames = new Map();
@@ -240,19 +238,6 @@ async function resolveGame(interaction, game, userId, outcome) {
   } catch (statsError) {
     console.error("Failed to record redzone stats:", statsError);
   }
-
-  // Check for achievements (non-blocking)
-  // Touchdown and cashout with profit are wins, fumble is a loss
-  const isWin = outcome === "touchdown" || (outcome === "cashout" && payout > game.bet);
-  checkForAchievements({
-    actionType: isWin ? ACTION_TYPES.REDZONE_WIN : ACTION_TYPES.REDZONE_LOSE,
-    userId,
-    username: interaction.user.username,
-    client: interaction.client,
-    amount: isWin ? payout : game.bet,
-    outcome,
-    yardsGained: game.yardsGained,
-  }).catch((err) => console.error("Failed to check achievements:", err));
 
   const embed = new EmbedBuilder()
     .setColor(color)
