@@ -400,6 +400,7 @@ async function resolveGame(interaction, game, userId) {
       // We'll create a fake options object
       const fakeInteraction = {
         ...interaction,
+        client: interaction.client,
         options: {
           getString: (name) => (name === "amount" ? game.originalBet.toString() : null),
         },

@@ -131,13 +131,15 @@ async function handleView(interaction) {
 function buildViewEmbed(username, slots, isNew) {
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)
-    .setTitle(`🏟️ ${username}'s Training Ground`)
-    .setDescription(
-      isNew
-        ? "**Welcome to your new Training Ground!**\nYou've been given a starter kit to begin training rookies.\n\n"
-        : ""
-    )
-    .addFields(
+    .setTitle(`🏟️ ${username}'s Training Ground`);
+
+  if (isNew) {
+    embed.setDescription(
+      "**Welcome to your new Training Ground!**\nYou've been given a starter kit to begin training rookies.\n\n"
+    );
+  }
+
+  embed.addFields(
       {
         name: "Training Grid",
         value: "```\n" + renderGrid(slots) + "\n```",
@@ -328,10 +330,21 @@ async function showManageMenu(interaction, userId) {
       }
     } catch (error) {
       console.error(`train action ${action} error:`, error);
-      await btnInteraction.reply({
-        content: `Error: ${error.message}`,
-        ephemeral: true,
-      });
+      try {
+        if (btnInteraction.deferred || btnInteraction.replied) {
+          await btnInteraction.followUp({
+            content: `Error: ${error.message}`,
+            ephemeral: true,
+          });
+        } else {
+          await btnInteraction.reply({
+            content: `Error: ${error.message}`,
+            ephemeral: true,
+          });
+        }
+      } catch {
+        // Interaction may have expired - ignore
+      }
     }
   });
 
