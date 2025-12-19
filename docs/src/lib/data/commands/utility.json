@@ -1,0 +1,117 @@
+{
+  "name": "Utility",
+  "slug": "utility",
+  "description": "General utility and fun commands",
+  "icon": "wrench",
+  "commands": [
+    {
+      "name": "ping",
+      "description": "Check if the bot is responsive",
+      "longDescription": "Simple health check command that replies with 'Pong!' to verify the bot is online and responsive.",
+      "category": "Utility",
+      "categorySlug": "utility",
+      "usage": ["/ping"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/ping",
+          "output": "🏓 Pong! Latency: 42ms"
+        }
+      ],
+      "relatedCommands": []
+    },
+    {
+      "name": "flip",
+      "description": "Flip a coin",
+      "longDescription": "Flip a virtual coin and get heads or tails. Useful for making decisions or settling disputes.",
+      "category": "Utility",
+      "categorySlug": "utility",
+      "usage": ["/flip"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/flip",
+          "output": "🪙 The coin landed on... Heads!"
+        }
+      ],
+      "tips": [
+        "Pure 50/50 odds",
+        "For gambling with coins, use /gamble instead"
+      ],
+      "relatedCommands": ["roll", "gamble"]
+    },
+    {
+      "name": "roll",
+      "description": "Roll dice",
+      "longDescription": "Roll one or more dice with a specified number of sides. Optionally hide the result from others.",
+      "category": "Utility",
+      "categorySlug": "utility",
+      "usage": ["/roll sides:6", "/roll sides:20 dice:2 hidden:true"],
+      "options": [
+        {
+          "name": "sides",
+          "description": "Number of sides on the die",
+          "type": "integer",
+          "required": true,
+          "minValue": 2
+        },
+        {
+          "name": "dice",
+          "description": "How many dice to roll",
+          "type": "integer",
+          "required": false,
+          "default": 1,
+          "minValue": 1
+        },
+        {
+          "name": "hidden",
+          "description": "Hide the roll from others",
+          "type": "boolean",
+          "required": false,
+          "default": false
+        }
+      ],
+      "ephemeral": false,
+      "examples": [
+        {
+          "input": "/roll sides:20",
+          "output": "🎲 You rolled a d20: 17"
+        },
+        {
+          "input": "/roll sides:6 dice:2",
+          "output": "🎲 You rolled 2d6: 4 + 6 = 10"
+        }
+      ],
+      "relatedCommands": ["flip"]
+    },
+    {
+      "name": "image",
+      "description": "Generate a DALL-E 3 image",
+      "longDescription": "Generate an AI image using DALL-E 3 based on your text prompt. Creates unique, high-quality images.",
+      "category": "Utility",
+      "categorySlug": "utility",
+      "usage": ["/image query:\"A football stadium at sunset\""],
+      "options": [
+        {
+          "name": "query",
+          "description": "The image prompt for DALL-E",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "ephemeral": false,
+      "examples": [
+        {
+          "input": "/image query:\"A futuristic football helmet with LED lights\"",
+          "output": "[Generated image of a futuristic helmet]"
+        }
+      ],
+      "tips": [
+        "Be descriptive for better results",
+        "May take a few seconds to generate",
+        "Powered by OpenAI DALL-E 3"
+      ],
+      "relatedCommands": []
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "name": "Robbery",
+  "slug": "robbery",
+  "description": "Risk it all to steal from other players",
+  "icon": "mask",
+  "commands": [
+    {
+      "name": "rob",
+      "description": "Attempt to steal coins from another player's wallet",
+      "longDescription": "Try to steal coins from another player's wallet. Success steals 10-30% of their wallet, but failure costs you 100 coins. Padlocks can block robbery attempts.",
+      "category": "Robbery",
+      "categorySlug": "robbery",
+      "usage": ["/rob target:@player"],
+      "options": [
+        {
+          "name": "target",
+          "description": "The player to attempt to rob",
+          "type": "user",
+          "required": true
+        }
+      ],
+      "ephemeral": true,
+      "cooldown": { "duration": 30, "unit": "minutes" },
+      "examples": [
+        {
+          "input": "/rob target:@Nixon",
+          "output": "🏈 Interception! You picked off 🪙 450 from Nixon's wallet!"
+        },
+        {
+          "input": "/rob target:@Nixon",
+          "output": "🚫 Nixon's padlock stopped you! The padlock was consumed.",
+          "note": "Blocked by padlock"
+        },
+        {
+          "input": "/rob target:@Nixon",
+          "output": "💀 Fumble! You were caught and fined 🪙 100",
+          "note": "Failed robbery"
+        }
+      ],
+      "tips": [
+        "40% success rate",
+        "Steal 10-30% of target's wallet on success",
+        "Failure costs you 100 coins",
+        "Target must have at least 100 coins in wallet",
+        "Victims have 60-minute protection after being robbed",
+        "Buy padlocks from /shop for protection"
+      ],
+      "gameConfig": {
+        "successRate": 0.4,
+        "minStealPercent": 0.1,
+        "maxStealPercent": 0.3,
+        "failFine": 100,
+        "cooldownMinutes": 30,
+        "victimCooldownMinutes": 60,
+        "minTargetWallet": 100
+      },
+      "relatedCommands": ["shop", "balance"]
+    }
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "name": "Economy",
+  "slug": "economy",
+  "description": "Earn, save, and manage your coins",
+  "icon": "coins",
+  "commands": [
+    {
+      "name": "balance",
+      "description": "Check your or another user's economy balance",
+      "longDescription": "View the wallet balance, bank balance, and total net worth for yourself or another user.",
+      "category": "Economy",
+      "categorySlug": "economy",
+      "usage": ["/balance", "/balance user:@player"],
+      "options": [
+        {
+          "name": "user",
+          "description": "The user to check balance for",
+          "type": "user",
+          "required": false
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/balance",
+          "output": "Wallet: 🪙 500 | Bank: 🪙 2,500 | Net Worth: 🪙 3,000"
+        }
+      ],
+      "relatedCommands": ["daily", "deposit", "withdraw"]
+    },
+    {
+      "name": "daily",
+      "description": "Collect your game day check",
+      "longDescription": "Collect your daily bonus of 100 coins, plus streak bonuses for consecutive days. Streaks reset after 48 hours of inactivity.",
+      "category": "Economy",
+      "categorySlug": "economy",
+      "usage": ["/daily"],
+      "ephemeral": true,
+      "cooldown": { "duration": 24, "unit": "hours" },
+      "examples": [
+        {
+          "input": "/daily",
+          "output": "Game Day Check: 🪙 100 | Streak Bonus: +🪙 50 (Day 6)"
+        }
+      ],
+      "tips": [
+        "Collect within 48 hours to maintain your streak",
+        "Streak bonus is +10 coins per consecutive day",
+        "Maximum streak bonus is 100 coins (day 11+)"
+      ],
+      "gameConfig": {
+        "baseAmount": 100,
+        "streakBonus": 10,
+        "maxStreakBonus": 100,
+        "streakExpireHours": 48
+      },
+      "relatedCommands": ["work", "balance"]
+    },
+    {
+      "name": "work",
+      "description": "Put in work at practice to earn coins",
+      "longDescription": "Complete a random football-themed work activity to earn 20-80 coins. Has a 70% success rate - failure results in no earnings.",
+      "category": "Economy",
+      "categorySlug": "economy",
+      "usage": ["/work"],
+      "ephemeral": true,
+      "cooldown": { "duration": 30, "unit": "minutes" },
+      "examples": [
+        {
+          "input": "/work",
+          "output": "You ran routes at practice and earned 🪙 65"
+        },
+        {
+          "input": "/work",
+          "output": "You pulled a muscle doing your celebration. Injured reserve. No coins earned.",
+          "note": "Failure example"
+        }
+      ],
+      "tips": [
+        "70% success rate - failures earn nothing",
+        "Earnings range from 20-80 coins",
+        "Football-themed activities with fun flavor text"
+      ],
+      "gameConfig": {
+        "minAmount": 20,
+        "maxAmount": 80,
+        "successRate": 0.7,
+        "cooldownMinutes": 30
+      },
+      "relatedCommands": ["daily", "balance"]
+    },
+    {
+      "name": "deposit",
+      "description": "Deposit coins from wallet to bank",
+      "longDescription": "Move coins from your wallet to your bank. Bank storage protects your coins from robbery attempts.",
+      "category": "Economy",
+      "categorySlug": "economy",
+      "usage": ["/deposit amount:500", "/deposit amount:all"],
+      "options": [
+        {
+          "name": "amount",
+          "description": "Amount to deposit or 'all'",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/deposit amount:1000",
+          "output": "Deposited 🪙 1,000 to your bank"
+        }
+      ],
+      "tips": [
+        "Bank has a capacity limit (starts at 1,000)",
+        "Buy Bank Expansions from /shop to increase capacity",
+        "Coins in bank are safe from /rob"
+      ],
+      "gameConfig": {
+        "startingCapacity": 1000,
+        "expansionCost": 2000,
+        "expansionAmount": 1000
+      },
+      "relatedCommands": ["withdraw", "balance", "shop"]
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw coins from bank to wallet",
+      "longDescription": "Move coins from your bank to your wallet. Wallet coins are needed for gambling, purchases, and can be stolen via robbery.",
+      "category": "Economy",
+      "categorySlug": "economy",
+      "usage": ["/withdraw amount:500", "/withdraw amount:all"],
+      "options": [
+        {
+          "name": "amount",
+          "description": "Amount to withdraw or 'all'",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/withdraw amount:500",
+          "output": "Withdrew 🪙 500 from your bank"
+        }
+      ],
+      "tips": [
+        "Wallet coins can be stolen via /rob",
+        "Keep large amounts in the bank for safety"
+      ],
+      "relatedCommands": ["deposit", "balance"]
+    },
+    {
+      "name": "economyhelp",
+      "description": "View all economy commands with descriptions",
+      "longDescription": "Get a quick reference guide to all economy commands with brief descriptions.",
+      "category": "Economy",
+      "categorySlug": "economy",
+      "usage": ["/economyhelp"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/economyhelp",
+          "output": "Lists all economy commands with descriptions"
+        }
+      ],
+      "relatedCommands": ["balance", "daily"]
+    },
+    {
+      "name": "eleaderboard",
+      "description": "View the economy leaderboard",
+      "longDescription": "See the top 10 wealthiest users in the server, ranked by total net worth (wallet + bank).",
+      "category": "Economy",
+      "categorySlug": "economy",
+      "usage": ["/eleaderboard"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/eleaderboard",
+          "output": "🏆 Economy Leaderboard (Top 10 by net worth)"
+        }
+      ],
+      "relatedCommands": ["balance"]
+    }
+  ]
+}

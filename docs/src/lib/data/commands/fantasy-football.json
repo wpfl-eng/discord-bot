@@ -1,0 +1,238 @@
+{
+  "name": "Fantasy Football",
+  "slug": "fantasy-football",
+  "description": "Commands for viewing league standings, scores, and statistics",
+  "icon": "football",
+  "commands": [
+    {
+      "name": "activity",
+      "description": "Returns recent league transactions",
+      "longDescription": "View the most recent transactions in your fantasy football league, including trades, waiver claims, and roster moves.",
+      "category": "Fantasy Football",
+      "categorySlug": "fantasy-football",
+      "usage": ["/activity"],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/activity",
+          "output": "Lists recent trades, waiver claims, and roster moves"
+        }
+      ],
+      "relatedCommands": ["standings", "trophies"]
+    },
+    {
+      "name": "standings",
+      "description": "Returns standings by week and year",
+      "longDescription": "View the league standings for a specific week and year, showing each team's record and position.",
+      "category": "Fantasy Football",
+      "categorySlug": "fantasy-football",
+      "usage": ["/standings week:12 year:2024"],
+      "options": [
+        {
+          "name": "week",
+          "description": "The week number to view standings for",
+          "type": "integer",
+          "required": true,
+          "minValue": 1,
+          "maxValue": 18
+        },
+        {
+          "name": "year",
+          "description": "The season year",
+          "type": "integer",
+          "required": true,
+          "minValue": 2018
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/standings week:14 year:2024",
+          "output": "Shows the standings after week 14 of the 2024 season"
+        }
+      ],
+      "relatedCommands": ["median", "trophies"]
+    },
+    {
+      "name": "median",
+      "description": "Get ranked scores for a specific week and year",
+      "longDescription": "View all team scores for a specific week, ranked from highest to lowest. Useful for determining where your score falls relative to the league median.",
+      "category": "Fantasy Football",
+      "categorySlug": "fantasy-football",
+      "usage": ["/median", "/median week:12 year:2024"],
+      "options": [
+        {
+          "name": "week",
+          "description": "The week number",
+          "type": "integer",
+          "required": false,
+          "minValue": 1,
+          "maxValue": 18,
+          "default": 13
+        },
+        {
+          "name": "year",
+          "description": "The season year",
+          "type": "integer",
+          "required": false,
+          "minValue": 2018,
+          "default": 2025
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/median week:10 year:2024",
+          "output": "Shows all scores for week 10, ranked highest to lowest"
+        }
+      ],
+      "tips": [
+        "Use this to see if you would have beaten the league median",
+        "Great for comparing your score across the entire league"
+      ],
+      "relatedCommands": ["standings", "closestscores"]
+    },
+    {
+      "name": "closestscores",
+      "description": "Get the closest scores for a specific week and year",
+      "longDescription": "View the closest matchups for a given week, showing games decided by the smallest margins.",
+      "category": "Fantasy Football",
+      "categorySlug": "fantasy-football",
+      "usage": ["/closestscores", "/closestscores week:12 year:2024"],
+      "options": [
+        {
+          "name": "week",
+          "description": "The week number",
+          "type": "integer",
+          "required": false,
+          "minValue": 1,
+          "maxValue": 18
+        },
+        {
+          "name": "year",
+          "description": "The season year",
+          "type": "integer",
+          "required": false,
+          "minValue": 2018
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/closestscores week:8 year:2024",
+          "output": "Shows matchups with margins under 16 points"
+        }
+      ],
+      "relatedCommands": ["median", "trophies"]
+    },
+    {
+      "name": "trophies",
+      "description": "Returns trophies by week and year",
+      "longDescription": "View weekly awards including highest scorer, lowest scorer, closest game, and biggest blowout.",
+      "category": "Fantasy Football",
+      "categorySlug": "fantasy-football",
+      "usage": ["/trophies week:12 year:2024"],
+      "options": [
+        {
+          "name": "week",
+          "description": "The week number",
+          "type": "integer",
+          "required": true,
+          "minValue": 1,
+          "maxValue": 18
+        },
+        {
+          "name": "year",
+          "description": "The season year",
+          "type": "integer",
+          "required": true,
+          "minValue": 2018
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/trophies week:15 year:2024",
+          "output": "Shows weekly awards: high score, low score, closest game, blowout"
+        }
+      ],
+      "relatedCommands": ["standings", "median"]
+    },
+    {
+      "name": "ewins",
+      "description": "Returns expected wins vs actual wins",
+      "longDescription": "Analyze the luck factor in your season by comparing expected wins (based on all-play record) to actual wins. Shows who got lucky and who got unlucky.",
+      "category": "Fantasy Football",
+      "categorySlug": "fantasy-football",
+      "usage": ["/ewins year:2024 week:14"],
+      "options": [
+        {
+          "name": "year",
+          "description": "The season year",
+          "type": "integer",
+          "required": true,
+          "minValue": 2010,
+          "maxValue": 2025
+        },
+        {
+          "name": "week",
+          "description": "The week number (cumulative through this week)",
+          "type": "integer",
+          "required": true,
+          "minValue": 1,
+          "maxValue": 18
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/ewins year:2024 week:14",
+          "output": "AJ Boorde: Expected 10.67, Actual 12.00 (+1.33 lucky)"
+        }
+      ],
+      "tips": [
+        "Positive difference means you got lucky with your schedule",
+        "Negative difference means you were unlucky"
+      ],
+      "relatedCommands": ["optimal", "standings"]
+    },
+    {
+      "name": "optimal",
+      "description": "Shows optimal coaching data",
+      "longDescription": "Compare your actual points scored to what you could have scored with optimal lineup decisions. Shows coaching efficiency.",
+      "category": "Fantasy Football",
+      "categorySlug": "fantasy-football",
+      "usage": ["/optimal year:2024 week:14"],
+      "options": [
+        {
+          "name": "year",
+          "description": "The season year",
+          "type": "integer",
+          "required": true,
+          "minValue": 2010,
+          "maxValue": 2025
+        },
+        {
+          "name": "week",
+          "description": "The week number (cumulative through this week)",
+          "type": "integer",
+          "required": true,
+          "minValue": 1,
+          "maxValue": 18
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/optimal year:2024 week:16",
+          "output": "AJ Boorde: Actual 1806.16, Optimal 1910.00 (94.6% efficiency)"
+        }
+      ],
+      "tips": [
+        "Higher efficiency means better start/sit decisions",
+        "Week 18 shows the full season aggregate"
+      ],
+      "relatedCommands": ["ewins", "standings"]
+    }
+  ]
+}
