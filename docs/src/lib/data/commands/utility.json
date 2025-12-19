@@ -112,6 +112,67 @@
         "Powered by OpenAI DALL-E 3"
       ],
       "relatedCommands": []
+    },
+    {
+      "name": "namecolor",
+      "description": "Change your display name color in the server",
+      "longDescription": "Customize your name color in the server by creating a personal color role. Choose from predefined colors or specify any hex color code. Each user gets their own unique color role that only affects their display.",
+      "category": "Utility",
+      "categorySlug": "utility",
+      "usage": [
+        "/namecolor set color:blue",
+        "/namecolor set color:#FF5733",
+        "/namecolor remove",
+        "/namecolor list"
+      ],
+      "subcommands": [
+        {
+          "name": "set",
+          "description": "Set your name color",
+          "options": [
+            {
+              "name": "color",
+              "description": "Hex code or color name",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        {
+          "name": "remove",
+          "description": "Remove your custom name color"
+        },
+        {
+          "name": "list",
+          "description": "Show available predefined colors"
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/namecolor set color:purple",
+          "output": "Your name color has been set to #9B59B6"
+        },
+        {
+          "input": "/namecolor set color:#E91E63",
+          "output": "Your name color has been set to #E91E63"
+        },
+        {
+          "input": "/namecolor list",
+          "output": "Available colors: red, blue, green, purple, orange, pink, cyan, gold, white"
+        },
+        {
+          "input": "/namecolor remove",
+          "output": "Your custom name color has been removed."
+        }
+      ],
+      "tips": [
+        "Predefined colors: red, blue, green, purple, orange, pink, cyan, gold, white",
+        "Use any hex code like #FF5733 for custom colors",
+        "Your color may be overridden by higher-positioned roles",
+        "Bot needs 'Manage Roles' permission to work"
+      ],
+      "relatedCommands": []
     }
   ]
 }
