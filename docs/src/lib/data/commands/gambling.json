@@ -97,7 +97,7 @@
     {
       "name": "blackjack",
       "description": "Play blackjack with interactive buttons",
-      "longDescription": "Classic blackjack against the dealer. Use buttons to Hit, Stand, or Double Down. Get closer to 21 than the dealer without busting!",
+      "longDescription": "Classic blackjack against the dealer. Use buttons to Hit, Stand, Double Down, or Surrender. Soft hands display clearly (e.g., 'Soft 17'). Your stats and streaks are tracked automatically!",
       "category": "Gambling",
       "categorySlug": "gambling",
       "usage": ["/blackjack amount:100", "/blackjack amount:all"],
@@ -114,13 +114,22 @@
       "examples": [
         {
           "input": "/blackjack amount:200",
-          "output": "Your hand: K♠ 7♥ (17)\nDealer shows: 5♦\n[Hit] [Stand] [Double Down]"
+          "output": "Your hand: A♠ 6♥ (Soft 17)\nDealer shows: 5♦\n[Hit] [Stand] [Double Down] [Surrender]"
+        },
+        {
+          "input": "/blackjack amount:100",
+          "output": "Your hand: K♠ 7♥ (17)\nDealer: 5♦ 10♣ 8♠ (Bust!)\n🎉 You win! +100 coins\nCurrent streak: 🔥 3 wins",
+          "note": "Win with streak display"
         }
       ],
       "tips": [
+        "Surrender returns 50% of your bet (before first hit only)",
+        "Soft hands (with Ace as 11) display as 'Soft X'",
         "Double Down doubles your bet for one more card",
         "Dealer stands on 17",
         "Blackjack (21 on first two cards) pays 1.5x",
+        "Play Again button lets you quickly replay with the same bet",
+        "Your win/loss streaks are tracked and displayed",
         "Game times out after 2 minutes"
       ],
       "gameConfig": {
@@ -129,7 +138,68 @@
         "cooldownSeconds": 5,
         "timeoutSeconds": 120
       },
-      "relatedCommands": ["gamble", "slots", "balance"]
+      "relatedCommands": ["gamble", "slots", "blackjackstats", "blackjackleaderboard", "balance"]
+    },
+    {
+      "name": "blackjackstats",
+      "description": "View your blackjack statistics",
+      "longDescription": "View comprehensive blackjack statistics including games played, win rate, profit/loss, streaks, double down success rate, and more. Can view your own stats or another player's.",
+      "category": "Gambling",
+      "categorySlug": "gambling",
+      "usage": ["/blackjackstats", "/blackjackstats user:@player"],
+      "options": [
+        {
+          "name": "user",
+          "description": "User to view stats for (defaults to yourself)",
+          "type": "user",
+          "required": false
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/blackjackstats",
+          "output": "📊 Blackjack Stats for @You\nGames: 150 (75W - 60L - 15P)\nWin Rate: 55.6%\nBlackjacks: 12 | Busts: 28\nDouble Success: 62.5% (25/40)\n💰 Wagered: 15,000 | Profit: +2,350\n🏆 Biggest Win: 500\n🔥 Best Streak: 8 | 😢 Worst: -5"
+        }
+      ],
+      "tips": [
+        "Win rate is calculated from wins / (wins + losses)",
+        "Profit = total won - total wagered",
+        "Double down success rate shows how often your doubles win",
+        "Pushes don't count toward win/loss streaks"
+      ],
+      "relatedCommands": ["blackjack", "blackjackleaderboard", "balance"]
+    },
+    {
+      "name": "blackjackleaderboard",
+      "description": "View blackjack leaderboards",
+      "longDescription": "View top 10 players across 7 different leaderboard categories: games played, total wins, win rate, natural blackjacks, net profit, best win streak, and biggest single win.",
+      "category": "Gambling",
+      "categorySlug": "gambling",
+      "usage": ["/blackjackleaderboard category:wins", "/blackjackleaderboard category:profit"],
+      "options": [
+        {
+          "name": "category",
+          "description": "Leaderboard category to view",
+          "type": "string",
+          "required": true,
+          "choices": ["games", "wins", "winrate", "blackjacks", "profit", "streak", "biggest_win"]
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/blackjackleaderboard category:profit",
+          "output": "🏆 Blackjack Leaderboard - Profit\n🥇 @HighRoller: +$5,200\n🥈 @CardShark: +$3,150\n🥉 @LuckyDan: +$2,800\n4. @You: +$2,350"
+        }
+      ],
+      "tips": [
+        "Win rate leaderboard requires minimum 20 games to qualify",
+        "Profit = total won - total wagered over all games",
+        "Streak shows best consecutive win streak ever achieved",
+        "Blackjacks counts natural 21s (Ace + 10-value on first two cards)"
+      ],
+      "relatedCommands": ["blackjack", "blackjackstats"]
     }
   ]
 }
