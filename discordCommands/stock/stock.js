@@ -4,6 +4,8 @@ import * as stockDb from "../../stock/stockDb.js";
 import * as stockApi from "../../stock/stockApi.js";
 import { formatCurrency } from "../../economy/economyConfig.js";
 import { STOCK_CONFIG, STOCK_MESSAGES, formatShares, formatPrice } from "../../stock/stockConfig.js";
+import { checkForAchievements } from "../../achievements/achievementService.js";
+import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
 
 // In-memory cooldown tracking (resets on bot restart - acceptable for 30s cooldown)
 const tradeCooldowns = new Map();
@@ -205,6 +207,17 @@ async function handleBuy(interaction) {
       .setFooter({ text: "Use /stock portfolio to view all holdings" });
 
     await interaction.editReply({ embeds: [embed] });
+
+    // Check for achievements (non-blocking)
+    checkForAchievements({
+      actionType: ACTION_TYPES.STOCK_BUY,
+      userId,
+      username,
+      client: interaction.client,
+      amount,
+      ticker: quote.ticker,
+      shares,
+    }).catch((err) => console.error("Failed to check achievements:", err));
   } catch (error) {
     console.error("stock buy error:", error);
     await interaction.editReply({
@@ -327,6 +340,18 @@ async function handleSell(interaction) {
     }
 
     await interaction.editReply({ embeds: [embed] });
+
+    // Check for achievements (non-blocking)
+    checkForAchievements({
+      actionType: ACTION_TYPES.STOCK_SELL,
+      userId,
+      username,
+      client: interaction.client,
+      amount: sellResult.proceeds,
+      ticker: quote.ticker,
+      shares: sharesToSell,
+      profit: sellResult.profit,
+    }).catch((err) => console.error("Failed to check achievements:", err));
   } catch (error) {
     console.error("stock sell error:", error);
     await interaction.editReply({

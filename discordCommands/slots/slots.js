@@ -8,6 +8,8 @@ import {
   SLOTS_PAYOUTS,
   CHANNELS,
 } from "../../economy/economyConfig.js";
+import { checkForAchievements } from "../../achievements/achievementService.js";
+import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
 
 // In-memory cooldown tracking (resets on bot restart - acceptable for 10s cooldown)
 const slotsCooldowns = new Map();
@@ -226,6 +228,15 @@ export async function execute(interaction) {
           console.error("Failed to send casino announcement:", error);
         }
       }
+
+      // Check for achievements (non-blocking)
+      checkForAchievements({
+        actionType: ACTION_TYPES.SLOTS_WIN,
+        userId,
+        username,
+        client: interaction.client,
+        amount: amount * multiplier,
+      }).catch((err) => console.error("Failed to check achievements:", err));
     } else {
       // Lose
       const updatedUser = await economyDb.gambleLose(userId, amount);
@@ -254,6 +265,15 @@ export async function execute(interaction) {
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
+
+      // Check for achievements (non-blocking)
+      checkForAchievements({
+        actionType: ACTION_TYPES.SLOTS_LOSE,
+        userId,
+        username,
+        client: interaction.client,
+        amount,
+      }).catch((err) => console.error("Failed to check achievements:", err));
     }
   } catch (error) {
     console.error("slots command error:", error);

@@ -22,6 +22,8 @@ import {
   getVisibleDealerValue,
 } from "./blackjackUtils.js";
 import * as blackjackDb from "../../blackjack/blackjackDb.js";
+import { checkForAchievements } from "../../achievements/achievementService.js";
+import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
 
 // In-memory state tracking (resets on bot restart)
 const activeGames = new Map();
@@ -291,6 +293,18 @@ async function resolveGame(interaction, game, userId) {
     });
   } catch (statsError) {
     console.error("Failed to record blackjack stats:", statsError);
+  }
+
+  // Check for achievements (non-blocking)
+  const achievementActionType = isWin ? ACTION_TYPES.BLACKJACK_WIN : ACTION_TYPES.BLACKJACK_LOSE;
+  if (!isPush) {
+    checkForAchievements({
+      actionType: achievementActionType,
+      userId,
+      username: interaction.user.username,
+      client: interaction.client,
+      amount: isWin ? payout : game.bet,
+    }).catch((err) => console.error("Failed to check achievements:", err));
   }
 
   const embed = createGameEmbed(game, outcome, color, false);
