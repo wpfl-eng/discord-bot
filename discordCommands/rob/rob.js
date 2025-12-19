@@ -10,11 +10,11 @@ import {
 
 export const data = new SlashCommandBuilder()
   .setName("rob")
-  .setDescription("Attempt to rob another user's wallet")
+  .setDescription("Attempt to intercept coins from another player")
   .addUserOption((option) =>
     option
       .setName("target")
-      .setDescription("The user to rob")
+      .setDescription("The player to pick off")
       .setRequired(true)
   );
 
@@ -33,7 +33,7 @@ export async function execute(interaction) {
     // Can't rob yourself
     if (targetUser.id === attackerId) {
       await interaction.editReply({
-        content: "You can't rob yourself!",
+        content: "You can't intercept your own passes!",
       });
       return;
     }
@@ -41,7 +41,7 @@ export async function execute(interaction) {
     // Can't rob bots
     if (targetUser.bot) {
       await interaction.editReply({
-        content: "You can't rob bots!",
+        content: "You can't pick off the refs!",
       });
       return;
     }
@@ -64,9 +64,9 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🦹 Rob Failed")
+        .setTitle("🏈 Interception Failed")
         .setDescription(
-          `You're still laying low from your last robbery!\n\nTry again <t:${discordTimestamp}:R>`
+          `You're still reviewing film from your last pick attempt!\n\nBack on the field <t:${discordTimestamp}:R>`
         )
         .setTimestamp();
 
@@ -79,9 +79,9 @@ export async function execute(interaction) {
     if (!isCooldownOver(targetData.last_robbed_at, victimCooldownMs)) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🦹 Rob Failed")
+        .setTitle("🏈 Interception Failed")
         .setDescription(
-          `**${targetUser.username}** was recently robbed and is on high alert!\n\nFind another target.`
+          `**${targetUser.username}** just got picked off and is protecting the ball!\n\nFind another target.`
         )
         .setTimestamp();
 
@@ -93,9 +93,9 @@ export async function execute(interaction) {
     if (targetData.wallet < CONFIG.ROB_MIN_WALLET) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🦹 Rob Failed")
+        .setTitle("🏈 Interception Failed")
         .setDescription(
-          `**${targetUser.username}** doesn't have enough in their wallet to be worth robbing.\n\nThey need at least ${formatCurrency(CONFIG.ROB_MIN_WALLET)} in their wallet.`
+          `**${targetUser.username}** isn't carrying enough to be worth the risk.\n\nThey need at least ${formatCurrency(CONFIG.ROB_MIN_WALLET)} in their wallet.`
         )
         .setTimestamp();
 
@@ -107,9 +107,9 @@ export async function execute(interaction) {
     if (attackerData.wallet < CONFIG.ROB_FAIL_FINE) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🦹 Rob Failed")
+        .setTitle("🏈 Interception Failed")
         .setDescription(
-          `You need at least ${formatCurrency(CONFIG.ROB_FAIL_FINE)} in your wallet to attempt a robbery (in case you get caught and have to pay a fine).`
+          `You need at least ${formatCurrency(CONFIG.ROB_FAIL_FINE)} in your wallet to attempt an interception (in case you get flagged for pass interference).`
         )
         .setTimestamp();
 
@@ -127,9 +127,9 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🔒 Rob Blocked!")
+        .setTitle("🛡️ Pass Defended!")
         .setDescription(
-          `**${targetUser.username}** had a padlock! Your robbery was blocked.\n\nTheir padlock has been consumed.`
+          `**${targetUser.username}**'s offensive line blocked your attempt!\n\nTheir protection has been used up.`
         )
         .setTimestamp();
 
@@ -137,7 +137,7 @@ export async function execute(interaction) {
 
       // Notify the victim that their padlock saved them
       await interaction.channel.send({
-        content: `🔒 <@${targetUser.id}>'s padlock protected them from a robbery attempt by **${attackerUsername}**!`,
+        content: `🛡️ <@${targetUser.id}>'s O-line protected them from an interception attempt by **${attackerUsername}**!`,
       });
       return;
     }
@@ -164,9 +164,9 @@ export async function execute(interaction) {
       if (!updatedVictim || !updatedAttacker) {
         const embed = new EmbedBuilder()
           .setColor(0xe74c3c)
-          .setTitle("🦹 Rob Failed")
+          .setTitle("🏈 Interception Failed")
           .setDescription(
-            `**${targetUser.username}** moved their money just in time! Nothing to steal.`
+            `**${targetUser.username}** threw the ball away just in time! Nothing to intercept.`
           )
           .setTimestamp();
 
@@ -179,13 +179,13 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setTitle("🦹 Robbery Successful!")
+        .setTitle("🏈 PICK SIX!")
         .setDescription(
-          `You stole ${formatCurrency(stolenAmount)} from **${targetUser.username}**!`
+          `You intercepted ${formatCurrency(stolenAmount)} from **${targetUser.username}** and took it to the house!`
         )
         .addFields(
           {
-            name: "Stolen",
+            name: "Intercepted",
             value: formatCurrency(stolenAmount),
             inline: true,
           },
@@ -195,7 +195,7 @@ export async function execute(interaction) {
             inline: true,
           }
         )
-        .setFooter({ text: `Rob again` })
+        .setFooter({ text: `Look for another target` })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -203,9 +203,9 @@ export async function execute(interaction) {
       // PUBLIC ANNOUNCEMENT - Send to town-square channel
       const announcementEmbed = new EmbedBuilder()
         .setColor(0xff0000)
-        .setTitle("🚨 ROBBERY ALERT!")
+        .setTitle("🚨 TURNOVER!")
         .setDescription(
-          `<@${targetUser.id}> was just robbed by **${attackerUsername}** for ${formatCurrency(stolenAmount)}!`
+          `<@${targetUser.id}> just got picked off by **${attackerUsername}** for ${formatCurrency(stolenAmount)}!`
         )
         .setTimestamp();
 
@@ -233,13 +233,13 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🚨 Robbery Failed!")
+        .setTitle("🚩 Pass Interference!")
         .setDescription(
-          `You got caught trying to rob **${targetUser.username}**!\n\nYou paid a ${formatCurrency(CONFIG.ROB_FAIL_FINE)} fine.`
+          `You got flagged trying to pick off **${targetUser.username}**!\n\nYou paid a ${formatCurrency(CONFIG.ROB_FAIL_FINE)} penalty.`
         )
         .addFields(
           {
-            name: "Fine Paid",
+            name: "Penalty",
             value: formatCurrency(CONFIG.ROB_FAIL_FINE),
             inline: true,
           },
@@ -249,7 +249,7 @@ export async function execute(interaction) {
             inline: true,
           }
         )
-        .setFooter({ text: "Better luck next time!" })
+        .setFooter({ text: "The refs saw everything!" })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
