@@ -15,7 +15,7 @@ export const TRAINING_CONFIG = {
       trainTimeMinutes: 5,
       graduateValueMin: 75,
       graduateValueMax: 100,
-      wiltWindowMinutes: 15,
+      wiltWindowMinutes: 1440, // 24 hours
     },
     RB: {
       emoji: "🏃",
@@ -25,7 +25,7 @@ export const TRAINING_CONFIG = {
       trainTimeMinutes: 10,
       graduateValueMin: 150,
       graduateValueMax: 200,
-      wiltWindowMinutes: 20,
+      wiltWindowMinutes: 1440, // 24 hours
     },
     WR: {
       emoji: "🎯",
@@ -35,7 +35,7 @@ export const TRAINING_CONFIG = {
       trainTimeMinutes: 15,
       graduateValueMin: 225,
       graduateValueMax: 300,
-      wiltWindowMinutes: 25,
+      wiltWindowMinutes: 1440, // 24 hours
     },
     QB: {
       emoji: "🏈",
@@ -45,7 +45,7 @@ export const TRAINING_CONFIG = {
       trainTimeMinutes: 25,
       graduateValueMin: 375,
       graduateValueMax: 500,
-      wiltWindowMinutes: 30,
+      wiltWindowMinutes: 1440, // 24 hours
     },
   },
 
