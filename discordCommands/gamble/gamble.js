@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import * as economyDb from "../../economy/economyDb.js";
 import { CONFIG, formatCurrency, CURRENCY_EMOJI } from "../../economy/economyConfig.js";
+import { checkForAchievements } from "../../achievements/achievementService.js";
+import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
 
 export const data = new SlashCommandBuilder()
   .setName("gamble")
@@ -111,6 +113,15 @@ export async function execute(interaction) {
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
+
+      // Check for achievements (non-blocking)
+      checkForAchievements({
+        actionType: ACTION_TYPES.GAMBLE_WIN,
+        userId,
+        username,
+        client: interaction.client,
+        amount,
+      }).catch((err) => console.error("Failed to check achievements:", err));
     } else {
       // Lose - use atomic gambleLose
       const updatedUser = await economyDb.gambleLose(userId, amount);
@@ -152,6 +163,15 @@ export async function execute(interaction) {
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
+
+      // Check for achievements (non-blocking)
+      checkForAchievements({
+        actionType: ACTION_TYPES.GAMBLE_LOSE,
+        userId,
+        username,
+        client: interaction.client,
+        amount,
+      }).catch((err) => console.error("Failed to check achievements:", err));
     }
   } catch (error) {
     console.error("gamble command error:", error);
