@@ -27,3 +27,7 @@ CREATE TABLE IF NOT EXISTS training_slots (
 -- Indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_training_slots_user ON training_slots(user_id);
 CREATE INDEX IF NOT EXISTS idx_training_slots_state ON training_slots(state);
+
+-- Phase 2: Add notification tracking column
+ALTER TABLE training_grounds
+ADD COLUMN IF NOT EXISTS last_notified_at TIMESTAMP;

@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 import { fileURLToPath, pathToFileURL } from "url";
 import { TriviaService } from "./trivia/triviaService.js";
+import { TrainingNotificationService } from "./training/trainingNotificationService.js";
 
 // Create a new client instance
 const client = new Client({
@@ -29,10 +30,15 @@ const client = new Client({
 const triviaService = new TriviaService(client);
 client.triviaService = triviaService;
 
+// Initialize training notification service
+const trainingNotificationService = new TrainingNotificationService(client);
+client.trainingNotificationService = trainingNotificationService;
+
 // When the client is ready, run this code (only once)
 client.once("ready", () => {
   console.log("Ready!");
   triviaService.init();
+  trainingNotificationService.init();
 });
 
 client.commands = new Collection();

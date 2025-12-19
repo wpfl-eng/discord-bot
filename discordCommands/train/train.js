@@ -27,6 +27,12 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((sub) =>
     sub.setName("manage").setDescription("Manage your training slots")
+  )
+  .addSubcommand((sub) =>
+    sub.setName("settings").setDescription("Configure notification settings")
+  )
+  .addSubcommand((sub) =>
+    sub.setName("stats").setDescription("View your training statistics")
   );
 
 /**
@@ -40,6 +46,10 @@ export async function execute(interaction) {
     await handleView(interaction);
   } else if (subcommand === "manage") {
     await handleManage(interaction);
+  } else if (subcommand === "settings") {
+    await handleSettings(interaction);
+  } else if (subcommand === "stats") {
+    await handleStats(interaction);
   }
 }
 
@@ -586,6 +596,178 @@ async function handleClearAll(btnInteraction, interaction, userId) {
   });
 
   await showManageMenu(interaction, userId);
+}
+
+// ============ Settings Subcommand ============
+
+/**
+ * Handle /train settings
+ */
+async function handleSettings(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const userId = interaction.user.id;
+    const username = interaction.user.username;
+
+    // Ensure training ground exists
+    const { ground } = await trainingDb.getOrCreateTrainingGround(userId, username);
+    const isEnabled = ground.notify_ready;
+
+    // Build embed
+    const embed = new EmbedBuilder()
+      .setColor(isEnabled ? 0x2ecc71 : 0x95a5a6)
+      .setTitle("🔔 Training Notification Settings")
+      .setDescription(
+        `📬 Ready Notifications: **${isEnabled ? "Enabled" : "Disabled"}** ${isEnabled ? "✅" : "❌"}\n\n` +
+          `When enabled, you'll receive a DM when your rookies are ready to graduate (max once per 30 min).`
+      )
+      .setTimestamp();
+
+    // Build toggle button
+    const button = new ButtonBuilder()
+      .setCustomId("train_settings_toggle")
+      .setLabel(isEnabled ? "Disable Notifications" : "Enable Notifications")
+      .setEmoji(isEnabled ? "🔕" : "🔔")
+      .setStyle(isEnabled ? ButtonStyle.Secondary : ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder().addComponents(button);
+
+    const response = await interaction.editReply({
+      embeds: [embed],
+      components: [row],
+    });
+
+    // Handle button interaction
+    const collector = response.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 60000,
+      filter: (i) => i.user.id === userId,
+    });
+
+    collector.on("collect", async (btnInteraction) => {
+      await btnInteraction.deferUpdate();
+
+      // Toggle the setting
+      const currentGround = await trainingDb.getTrainingGround(userId);
+      const newValue = !currentGround.notify_ready;
+      await trainingDb.updateNotificationSetting(userId, newValue);
+
+      // Update embed and button
+      const newEmbed = new EmbedBuilder()
+        .setColor(newValue ? 0x2ecc71 : 0x95a5a6)
+        .setTitle("🔔 Training Notification Settings")
+        .setDescription(
+          `📬 Ready Notifications: **${newValue ? "Enabled" : "Disabled"}** ${newValue ? "✅" : "❌"}\n\n` +
+            `When enabled, you'll receive a DM when your rookies are ready to graduate (max once per 30 min).`
+        )
+        .setTimestamp();
+
+      const newButton = new ButtonBuilder()
+        .setCustomId("train_settings_toggle")
+        .setLabel(newValue ? "Disable Notifications" : "Enable Notifications")
+        .setEmoji(newValue ? "🔕" : "🔔")
+        .setStyle(newValue ? ButtonStyle.Secondary : ButtonStyle.Primary);
+
+      const newRow = new ActionRowBuilder().addComponents(newButton);
+
+      await interaction.editReply({
+        embeds: [newEmbed],
+        components: [newRow],
+      });
+
+      await btnInteraction.followUp({
+        content: newValue
+          ? "🔔 Notifications enabled! You'll receive a DM when rookies are ready."
+          : "🔕 Notifications disabled.",
+        ephemeral: true,
+      });
+    });
+
+    collector.on("end", async () => {
+      await interaction.editReply({ components: [] }).catch(() => {});
+    });
+  } catch (error) {
+    console.error("train settings error:", error);
+    await interaction.editReply({
+      content: `An error occurred: ${error.message}`,
+    });
+  }
+}
+
+// ============ Stats Subcommand ============
+
+/**
+ * Handle /train stats
+ */
+async function handleStats(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const userId = interaction.user.id;
+    const username = interaction.user.username;
+
+    // Ensure training ground exists
+    const { ground } = await trainingDb.getOrCreateTrainingGround(userId, username);
+
+    // Calculate success rate
+    const total = ground.total_graduated + ground.total_busted;
+    let successRate = "N/A";
+    if (total > 0) {
+      successRate = ((ground.total_graduated / total) * 100).toFixed(1) + "%";
+    }
+
+    // Get inventory counts for each rookie type
+    const positions = getPositionKeys();
+    const rosterLines = [];
+    for (const pos of positions) {
+      const config = getPosition(pos);
+      const qty = await inventoryDb.getItemQuantity(userId, config.rookieItemType);
+      rosterLines.push(`${config.emoji} ${config.displayName}: **${qty}**`);
+    }
+
+    // Format created date
+    const createdAt = new Date(ground.created_at);
+    const dateStr = createdAt.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    // Build embed
+    const embed = new EmbedBuilder()
+      .setColor(0x3498db)
+      .setTitle(`📊 ${username}'s Training Stats`)
+      .addFields(
+        {
+          name: "Performance",
+          value:
+            `⭐ Players Graduated: **${ground.total_graduated}**\n` +
+            `💀 Players Busted: **${ground.total_busted}**\n` +
+            `📈 Success Rate: **${successRate}**`,
+          inline: true,
+        },
+        {
+          name: "Account",
+          value: `🏟️ Training Since: **${dateStr}**`,
+          inline: true,
+        },
+        {
+          name: "🎽 Current Roster",
+          value: rosterLines.join("\n") || "No rookies yet!",
+          inline: false,
+        }
+      )
+      .setFooter({ text: "Sell your rookies with /inventory sell" })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("train stats error:", error);
+    await interaction.editReply({
+      content: `An error occurred: ${error.message}`,
+    });
+  }
 }
 
 // ============ Helpers ============

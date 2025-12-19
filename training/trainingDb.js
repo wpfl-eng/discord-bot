@@ -382,3 +382,55 @@ export async function refreshSlotStates(userId) {
   const busted = await checkAndUpdateWilted(userId);
   return { becameReady, busted };
 }
+
+// ============ Notification Operations ============
+
+/**
+ * Update user's notification setting
+ * @param {string} userId
+ * @param {boolean} enabled
+ * @returns {Promise<object|null>}
+ */
+export async function updateNotificationSetting(userId, enabled) {
+  const result = await sql`
+    UPDATE training_grounds
+    SET notify_ready = ${enabled}
+    WHERE user_id = ${userId}
+    RETURNING *
+  `;
+  return result.rows[0] || null;
+}
+
+/**
+ * Update last notification timestamp
+ * @param {string} userId
+ * @returns {Promise<void>}
+ */
+export async function updateLastNotified(userId) {
+  await sql`
+    UPDATE training_grounds
+    SET last_notified_at = NOW()
+    WHERE user_id = ${userId}
+  `;
+}
+
+/**
+ * Get users who need notification (ready players + opted in + cooldown expired)
+ * @returns {Promise<array>} - Array of { user_id, username, ready_count }
+ */
+export async function getUsersNeedingNotification() {
+  const result = await sql`
+    SELECT
+      tg.user_id,
+      tg.username,
+      COUNT(ts.id) as ready_count
+    FROM training_grounds tg
+    JOIN training_slots ts ON tg.user_id = ts.user_id
+    WHERE tg.notify_ready = true
+      AND ts.state = 'ready'
+      AND (tg.last_notified_at IS NULL
+           OR tg.last_notified_at < NOW() - INTERVAL '30 minutes')
+    GROUP BY tg.user_id, tg.username
+  `;
+  return result.rows;
+}
