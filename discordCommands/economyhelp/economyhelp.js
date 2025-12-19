@@ -25,10 +25,15 @@ export async function execute(interaction) {
       { name: "🃏 /blackjack <amount|all>", value: "Play blackjack - Hit, Stand, or Double Down!", inline: false },
       { name: "🦹 /rob @user", value: "Attempt to steal from another user's wallet", inline: false },
       { name: "🏆 /eleaderboard", value: "View the top 10 wealthiest users", inline: false },
-      { name: "🛒 /shop", value: "Buy padlocks and bank expansions", inline: false },
-      { name: "📦 /inventory", value: "View and sell items from your inventory", inline: false }
+      { name: "🛒 /shop", value: "Buy padlocks, bank expansions, and training supplies", inline: false },
+      { name: "📦 /inventory", value: "View and sell items from your inventory", inline: false },
+      { name: "\u200B", value: "**🏟️ Training Ground**", inline: false },
+      { name: "🏟️ /train view", value: "View your training facility", inline: false },
+      { name: "🔧 /train manage", value: "Manage training slots (setup, hydrate, draft, graduate)", inline: false },
+      { name: "🔔 /train settings", value: "Configure notification settings", inline: false },
+      { name: "📊 /train stats", value: "View your training statistics", inline: false }
     )
-    .setFooter({ text: "Tip: Keep money in your bank to protect it from robbery!" })
+    .setFooter({ text: "Tip: Train rookies and sell them for profit!" })
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed], ephemeral: true });
