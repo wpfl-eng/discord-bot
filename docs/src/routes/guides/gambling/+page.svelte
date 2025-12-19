@@ -10,6 +10,8 @@
 		{ id: 'slots-math', text: 'Expected Value', level: 3 },
 		{ id: 'blackjack', text: 'Blackjack', level: 2 },
 		{ id: 'blackjack-strategy', text: 'Basic Strategy', level: 3 },
+		{ id: 'blackjack-surrender', text: 'When to Surrender', level: 3 },
+		{ id: 'blackjack-tracking', text: 'Stats & Leaderboards', level: 3 },
 		{ id: 'risk-management', text: 'Risk Management', level: 2 },
 		{ id: 'tips', text: 'Pro Tips', level: 2 }
 	];
@@ -166,16 +168,19 @@
 	<section id="blackjack" class="mb-12">
 		<h2 class="text-2xl font-bold text-dark-100 mb-4">Blackjack</h2>
 		<p class="text-dark-300 mb-4">
-			The most skill-based option. Play against the dealer with Hit, Stand, and Double Down.
+			The most skill-based option. Play against the dealer with Hit, Stand, Double Down, and Surrender.
+			Your stats are tracked automatically including win streaks and profit!
 		</p>
 		<div class="card mb-6">
 			<h4 class="font-semibold text-dark-100 mb-2">Rules</h4>
 			<ul class="space-y-1 text-dark-300 text-sm">
 				<li>• Goal: Get closer to 21 than the dealer without busting</li>
 				<li>• Face cards = 10, Aces = 1 or 11</li>
+				<li>• Soft hands display as "Soft X" (e.g., A+6 = Soft 17)</li>
 				<li>• Dealer stands on 17</li>
 				<li>• Blackjack (21 on first 2 cards) pays 1.5x</li>
 				<li>• Double Down: Double bet for exactly one more card</li>
+				<li>• Surrender: Return 50% of bet before your first hit</li>
 			</ul>
 		</div>
 
@@ -207,6 +212,59 @@
 					</ul>
 				</div>
 			</div>
+		</div>
+
+		<div id="blackjack-surrender" class="mt-8">
+			<h3 class="text-xl font-bold text-dark-100 mb-4">When to Surrender</h3>
+			<p class="text-dark-300 mb-4">
+				Surrender lets you forfeit half your bet to avoid a likely loss. Use it sparingly against strong dealer upcards.
+			</p>
+			<div class="card">
+				<h4 class="font-semibold text-dark-100 mb-2">Optimal Surrender Hands</h4>
+				<ul class="space-y-1 text-dark-300 text-sm">
+					<li>• Your hand is 16 and dealer shows 9, 10, or Ace</li>
+					<li>• Your hand is 15 and dealer shows 10</li>
+					<li>• Surrender is only available before your first hit</li>
+					<li>• You get back 50% of your original bet</li>
+				</ul>
+			</div>
+			<p class="mt-4 text-dark-400 text-sm">
+				<strong>Why surrender?</strong> With 16 vs dealer 10, you'll lose ~77% of the time playing normally.
+				Surrendering guarantees you keep half instead of likely losing everything.
+			</p>
+		</div>
+
+		<div id="blackjack-tracking" class="mt-8">
+			<h3 class="text-xl font-bold text-dark-100 mb-4">Stats & Leaderboards</h3>
+			<p class="text-dark-300 mb-4">
+				Every blackjack game is tracked automatically. View your stats and compete on the leaderboards!
+			</p>
+			<div class="grid md:grid-cols-2 gap-4">
+				<div class="card">
+					<h4 class="font-semibold text-dark-100 mb-2">/blackjackstats</h4>
+					<p class="text-dark-300 text-sm mb-2">View comprehensive personal statistics:</p>
+					<ul class="space-y-1 text-dark-400 text-sm">
+						<li>• Games played, wins, losses, pushes</li>
+						<li>• Win rate and double down success rate</li>
+						<li>• Total wagered and net profit/loss</li>
+						<li>• Best/worst streaks and biggest win</li>
+					</ul>
+				</div>
+				<div class="card">
+					<h4 class="font-semibold text-dark-100 mb-2">/blackjackleaderboard</h4>
+					<p class="text-dark-300 text-sm mb-2">Compete across 7 categories:</p>
+					<ul class="space-y-1 text-dark-400 text-sm">
+						<li>• Most games played / Most wins</li>
+						<li>• Highest win rate (min 20 games)</li>
+						<li>• Most natural blackjacks</li>
+						<li>• Highest profit / Best streak / Biggest win</li>
+					</ul>
+				</div>
+			</div>
+			<p class="mt-4 text-dark-400 text-sm">
+				<strong>Streak tracking:</strong> Your current win/loss streak is displayed after each game.
+				Can you beat the server's best streak record?
+			</p>
 		</div>
 	</section>
 

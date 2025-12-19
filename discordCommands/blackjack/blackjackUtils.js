@@ -145,3 +145,62 @@ export function getVisibleDealerValue(hand, hideSecond = false) {
   }
   return calculateHandValue(hand);
 }
+
+/**
+ * Get the card value for split comparison (10 for all face cards)
+ * @param {{suit: string, rank: string}} card - The card to get split value for
+ * @returns {number} Card value for split comparison
+ */
+export function getSplitValue(card) {
+  if (card.rank === "A") return 11;
+  if (["K", "Q", "J", "10"].includes(card.rank)) return 10;
+  return parseInt(card.rank);
+}
+
+/**
+ * Check if a hand can be split (two cards of same split value)
+ * Allows any 10-value cards to split with each other (10, J, Q, K)
+ * @param {Array<{suit: string, rank: string}>} hand - The hand to check
+ * @returns {boolean} True if hand can be split
+ */
+export function canSplit(hand) {
+  if (hand.length !== 2) return false;
+  return getSplitValue(hand[0]) === getSplitValue(hand[1]);
+}
+
+/**
+ * Check if dealer's upcard is an Ace (for insurance offer)
+ * @param {Array<{suit: string, rank: string}>} dealerHand - The dealer's hand
+ * @returns {boolean} True if dealer shows an Ace
+ */
+export function dealerShowsAce(dealerHand) {
+  return dealerHand.length >= 1 && dealerHand[0].rank === "A";
+}
+
+/**
+ * Check if dealer's upcard is a 10-value (for dealer peek)
+ * @param {Array<{suit: string, rank: string}>} dealerHand - The dealer's hand
+ * @returns {boolean} True if dealer shows 10, J, Q, or K
+ */
+export function dealerShowsTen(dealerHand) {
+  if (dealerHand.length < 1) return false;
+  return ["10", "J", "Q", "K"].includes(dealerHand[0].rank);
+}
+
+/**
+ * Check if dealer peek is needed (showing 10 or Ace)
+ * @param {Array<{suit: string, rank: string}>} dealerHand - The dealer's hand
+ * @returns {boolean} True if dealer peek should happen
+ */
+export function shouldDealerPeek(dealerHand) {
+  return dealerShowsAce(dealerHand) || dealerShowsTen(dealerHand);
+}
+
+/**
+ * Calculate insurance bet amount (half of original bet)
+ * @param {number} originalBet - The original bet amount
+ * @returns {number} Insurance bet amount
+ */
+export function calculateInsuranceBet(originalBet) {
+  return Math.floor(originalBet / 2);
+}
