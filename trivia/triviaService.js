@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { EmbedBuilder } from "discord.js";
 import * as triviaDb from "./triviaDb.js";
 import { checkAnswer } from "./answerMatcher.js";
+import * as economyDb from "../economy/economyDb.js";
 import nflQuestions from "./nflQuestions.json" assert { type: "json" };
 import wpflQuestions from "./wpflQuestions.json" assert { type: "json" };
 
@@ -228,9 +229,23 @@ export class TriviaService {
         pointsAwarded = false;
       }
 
+      // Award economy coins (25x point value)
+      let coinsAwarded = 0;
       if (pointsAwarded) {
+        try {
+          const coinReward = activeQuestion.point_value * 25;
+          await economyDb.getOrCreateUser(message.author.id, message.author.username);
+          await economyDb.addToWallet(message.author.id, coinReward);
+          coinsAwarded = coinReward;
+        } catch (error) {
+          console.error("[TRIVIA] Error awarding coins:", error);
+        }
+      }
+
+      if (pointsAwarded) {
+        const coinText = coinsAwarded > 0 ? ` and 🪙 ${coinsAwarded} coins` : "";
         await message.reply(
-          `Correct! +${activeQuestion.point_value} point(s) added to your score!`
+          `Correct! +${activeQuestion.point_value} point(s)${coinText} added!`
         );
       } else {
         await message.reply(
