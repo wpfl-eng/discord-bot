@@ -10,7 +10,7 @@ export const CONFIG = {
   WORD_LENGTH: 5,
 
   // Word rotation - word changes every N hours, but only if someone solved it
-  ROTATION_HOURS: 2,
+  ROTATION_HOURS: 1,
 };
 
 /**
@@ -18,10 +18,10 @@ export const CONFIG = {
  */
 export const REWARDS = {
   // Base reward for solving the wordle
-  BASE_WIN: 2000,
+  BASE_WIN: 300,
 
   // Additional bonus for being the first to solve
-  FIRST_SOLVER_BONUS: 1000,
+  FIRST_SOLVER_BONUS: 200,
 
   // Item awarded to first solver
   FIRST_SOLVER_ITEM: "wordle_lucky_letter",
