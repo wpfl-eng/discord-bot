@@ -81,7 +81,7 @@ function buildSuccessEmbed(player, nflmon) {
 }
 
 export async function execute(interaction) {
-  await interaction.deferReply();
+  await interaction.deferReply({ ephemeral: true });
 
   const userId = interaction.user.id;
   const username = interaction.user.username;
