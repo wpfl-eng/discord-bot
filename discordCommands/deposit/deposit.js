@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
-import { formatCurrency, CURRENCY_EMOJI } from '../../economy/economyConfig.js';
+import { formatCurrency } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('deposit')

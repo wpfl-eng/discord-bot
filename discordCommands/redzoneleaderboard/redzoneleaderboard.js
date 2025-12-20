@@ -57,10 +57,11 @@ export async function execute(interaction) {
           case 'drive':
             statText = `${entry.longest_drive} yards (${entry.total_yards_gained} total)`;
             break;
-          case 'profit':
+          case 'profit': {
             const profit = entry.net_profit;
             statText = `${profit >= 0 ? '+' : ''}${formatCurrency(profit)}`;
             break;
+          }
           case 'streak':
             statText = `${entry.best_td_streak} TD streak`;
             break;

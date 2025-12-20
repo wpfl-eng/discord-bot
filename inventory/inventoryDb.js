@@ -1,11 +1,6 @@
 import { sql } from '@vercel/postgres';
 import * as economyDb from '../economy/economyDb.js';
-import {
-  getItemDefinition,
-  getItemDisplayName,
-  getItemBaseValue,
-  isItemSellable,
-} from './inventoryConfig.js';
+import { getItemDefinition, getItemBaseValue, isItemSellable } from './inventoryConfig.js';
 
 // ============ Read Operations ============
 

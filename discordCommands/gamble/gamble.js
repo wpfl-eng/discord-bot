@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
-import { CONFIG, formatCurrency, CURRENCY_EMOJI } from '../../economy/economyConfig.js';
+import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 

@@ -121,7 +121,7 @@ export function getStatusSummary(slots) {
   };
 
   for (const slot of slots) {
-    if (summary.hasOwnProperty(slot.state)) {
+    if (Object.hasOwn(summary, slot.state)) {
       summary[slot.state]++;
     }
   }

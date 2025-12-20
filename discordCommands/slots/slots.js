@@ -3,7 +3,6 @@ import * as economyDb from '../../economy/economyDb.js';
 import {
   CONFIG,
   formatCurrency,
-  CURRENCY_EMOJI,
   SLOTS_SYMBOLS,
   SLOTS_PAYOUTS,
   CHANNELS,

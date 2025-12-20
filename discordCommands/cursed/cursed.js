@@ -171,14 +171,26 @@ function analyzeCurses(games, userName) {
 
     // Track margin buckets
     if (margin < 3) {
-      won ? curses.marginBuckets.under3.wins++ : curses.marginBuckets.under3.losses++;
+      if (won) {
+        curses.marginBuckets.under3.wins++;
+      } else {
+        curses.marginBuckets.under3.losses++;
+      }
       curses.closeGames.push({ ...game, margin, won, userScore, oppScore });
     }
     if (margin < 5) {
-      won ? curses.marginBuckets.under5.wins++ : curses.marginBuckets.under5.losses++;
+      if (won) {
+        curses.marginBuckets.under5.wins++;
+      } else {
+        curses.marginBuckets.under5.losses++;
+      }
     }
     if (margin < 10) {
-      won ? curses.marginBuckets.under10.wins++ : curses.marginBuckets.under10.losses++;
+      if (won) {
+        curses.marginBuckets.under10.wins++;
+      } else {
+        curses.marginBuckets.under10.losses++;
+      }
     }
 
     // Track bad beats (lost by <3 with high score)
@@ -191,7 +203,11 @@ function analyzeCurses(games, userName) {
     if (!curses.weekCurses[week]) {
       curses.weekCurses[week] = { wins: 0, losses: 0 };
     }
-    won ? curses.weekCurses[week].wins++ : curses.weekCurses[week].losses++;
+    if (won) {
+      curses.weekCurses[week].wins++;
+    } else {
+      curses.weekCurses[week].losses++;
+    }
 
     // Track playoff games
     if (game.isPlayoffs || parseInt(week) >= 14) {
@@ -319,7 +335,11 @@ function createCursedEmbed(userName, curseData, seasonMin, seasonMax) {
   // Playoff curse
   const playoffRecord = curseData.playoffGames.reduce(
     (acc, game) => {
-      game.won ? acc.wins++ : acc.losses++;
+      if (game.won) {
+        acc.wins++;
+      } else {
+        acc.losses++;
+      }
       return acc;
     },
     { wins: 0, losses: 0 }

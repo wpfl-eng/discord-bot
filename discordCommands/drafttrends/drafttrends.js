@@ -541,7 +541,7 @@ function calculateConsistency(stats, complexStats) {
  * @param {Object} complexStats - Complex statistics object
  * @returns {number} Value hunting score 0-100
  */
-function calculateValueHunting(stats, complexStats) {
+function calculateValueHunting(stats, _complexStats) {
   let valueScore = 20; // Base score
 
   // Low average value = value hunter
@@ -608,7 +608,7 @@ function calculateValueHunting(stats, complexStats) {
  * @param {Object} complexStats - Complex statistics object
  * @returns {Object} Power metrics including draftIQ and riskScore
  */
-function calculatePowerMetrics(stats, complexStats) {
+function calculatePowerMetrics(stats, _complexStats) {
   let draftIQ = 50; // Base score
 
   // ROI bonus
@@ -778,7 +778,6 @@ function generateBoldPredictions(stats, complexStats) {
 
   // Budget allocation prediction for auction
   if (stats.auction_max_bid && stats.auction_avg_value) {
-    const maxBid = parseFloat(stats.auction_max_bid);
     const totalSpent = parseFloat(stats.auction_total_spent);
     const picks = stats.auction_picks;
 

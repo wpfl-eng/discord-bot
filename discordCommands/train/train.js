@@ -13,10 +13,9 @@ import {
   renderGrid,
   buildStatusText,
   getActionableSlots,
-  formatSlotNumbers,
   getStatusSummary,
 } from '../../training/trainingUtils.js';
-import { TRAINING_CONFIG, getPosition, getPositionKeys } from '../../training/trainingConfig.js';
+import { getPosition, getPositionKeys } from '../../training/trainingConfig.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
@@ -58,7 +57,7 @@ async function handleView(interaction) {
     const username = interaction.user.username;
 
     // Get or create training ground
-    const { ground, slots, isNew } = await trainingDb.getOrCreateTrainingGround(userId, username);
+    const { isNew } = await trainingDb.getOrCreateTrainingGround(userId, username);
 
     // Refresh slot states (training→ready, ready→busted)
     await trainingDb.refreshSlotStates(userId);

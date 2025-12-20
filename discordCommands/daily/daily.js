@@ -1,11 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
-import {
-  CONFIG,
-  formatCurrency,
-  isCooldownOver,
-  CURRENCY_EMOJI,
-} from '../../economy/economyConfig.js';
+import { CONFIG, formatCurrency, isCooldownOver } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('daily')

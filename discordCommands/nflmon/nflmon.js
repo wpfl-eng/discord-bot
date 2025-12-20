@@ -12,7 +12,7 @@ import {
 import * as nflmonDb from '../../nflmon/nflmonDb.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
 import { TRADE_ERRORS } from '../../nflmon/nflmonService.js';
-import { getSellValue, formatRarity, TRAINING_CONFIG } from '../../nflmon/nflmonConfig.js';
+import { getSellValue, formatRarity } from '../../nflmon/nflmonConfig.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
 
 // =============================================================================
@@ -1195,7 +1195,7 @@ async function handleTradeOffer(interaction) {
       );
       const dmButtons = buildTradeResponseButtons(trade.id);
       await targetUser.send({ embeds: [recipientEmbed], components: dmButtons });
-    } catch (dmError) {
+    } catch {
       console.log('[NFLMON] Could not DM trade recipient - they may have DMs disabled');
     }
 

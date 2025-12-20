@@ -86,10 +86,11 @@ const getActivityResponse = (action) => {
     case 'DROPPED':
       actionString = `${memberName} dropped ${playerName}`;
       break;
-    case 'TRADED':
+    case 'TRADED': {
       const tradedTo = espnMembers.find((member) => member.id === ids.to)?.name ?? 'Unknown';
       actionString = `${memberName} traded ${playerName} to ${tradedTo}`;
       break;
+    }
     case 'WAIVER ADDED':
       actionString = `${memberName} added ${playerName} from the waivers for $${bidAmount}`;
       break;

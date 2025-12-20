@@ -8,7 +8,7 @@ import {
 } from 'discord.js';
 import * as nflmonDb from '../../nflmon/nflmonDb.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
-import { generateIVs, getRarityById } from '../../nflmon/nflmonConfig.js';
+import { generateIVs } from '../../nflmon/nflmonConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('starter')

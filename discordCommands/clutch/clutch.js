@@ -509,7 +509,7 @@ async function analyzeHighStakesPerformance(seasonMin, seasonMax) {
     // Process high-stakes games
     const ownerStats = {};
 
-    sortedWeeks.forEach(([weekKey, weekData]) => {
+    sortedWeeks.forEach(([_weekKey, weekData]) => {
       if (weekData.avgPoints >= highStakesThreshold) {
         weekData.games.forEach((game) => {
           // Process both teams

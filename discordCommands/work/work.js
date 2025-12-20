@@ -6,7 +6,6 @@ import {
   isCooldownOver,
   randomInt,
   getRandomJob,
-  CURRENCY_EMOJI,
 } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()

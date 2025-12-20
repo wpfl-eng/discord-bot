@@ -647,7 +647,7 @@ async function main() {
     const content = fs.readFileSync(questionsPath, 'utf-8');
     existingQuestions = JSON.parse(content);
     console.log(`Read ${existingQuestions.length} existing questions`);
-  } catch (error) {
+  } catch {
     console.log('No existing questions file found, starting fresh');
   }
 

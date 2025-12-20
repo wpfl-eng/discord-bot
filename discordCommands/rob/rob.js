@@ -1,12 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
-import {
-  CONFIG,
-  formatCurrency,
-  isCooldownOver,
-  CURRENCY_EMOJI,
-  CHANNELS,
-} from '../../economy/economyConfig.js';
+import { CONFIG, formatCurrency, isCooldownOver, CHANNELS } from '../../economy/economyConfig.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 
@@ -137,10 +131,6 @@ export async function execute(interaction) {
 
     // Determine success or failure
     const isSuccess = Math.random() < CONFIG.ROB_SUCCESS_RATE;
-
-    // Calculate next rob time for display
-    const nextRobTime = Date.now() + robCooldownMs;
-    const discordTimestamp = Math.floor(nextRobTime / 1000);
 
     if (isSuccess) {
       // Calculate stolen amount (10-30% of target's wallet)

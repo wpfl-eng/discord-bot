@@ -61,10 +61,11 @@ export async function execute(interaction) {
           case 'blackjacks':
             statText = `${entry.blackjacks_hit} blackjacks in ${entry.games_played} games`;
             break;
-          case 'profit':
+          case 'profit': {
             const profit = entry.net_profit;
             statText = `${profit >= 0 ? '+' : ''}${formatCurrency(profit)}`;
             break;
+          }
           case 'streak':
             statText = `${entry.best_win_streak} win streak`;
             break;

@@ -805,11 +805,8 @@ export async function execute(interaction) {
 
     // Parse amount
     let amount;
-    let isAllIn = false;
-
     if (amountStr === 'all' || amountStr === 'max') {
       amount = userData.wallet;
-      isAllIn = true;
     } else {
       amount = parseInt(amountStr);
     }

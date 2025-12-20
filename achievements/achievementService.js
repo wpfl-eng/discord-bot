@@ -1,6 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 import * as achievementDb from './achievementDb.js';
-import { ACHIEVEMENTS, ACTION_TYPES, getAchievement } from './achievementConfig.js';
+import { ACTION_TYPES, getAchievement } from './achievementConfig.js';
 import { CHANNELS, formatCurrency } from '../economy/economyConfig.js';
 import * as economyDb from '../economy/economyDb.js';
 import * as wordleDb from '../wordle/wordleDb.js';

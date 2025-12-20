@@ -280,7 +280,7 @@ export async function getUserRank(userId, category = 'games') {
       `;
       break;
 
-    case 'profit':
+    case 'profit': {
       const netProfit = stats.total_won - stats.total_wagered;
       result = await sql`
         SELECT COUNT(*) + 1 as rank
@@ -288,6 +288,7 @@ export async function getUserRank(userId, category = 'games') {
         WHERE (total_won - total_wagered) > ${netProfit}
       `;
       break;
+    }
 
     default:
       result = await sql`
