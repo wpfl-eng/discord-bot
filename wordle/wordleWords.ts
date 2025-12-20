@@ -8,12 +8,14 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// ============ PRIVATE FUNCTIONS ============
+
 /**
  * Parse a text file containing words (one per line)
- * @param {string} filename - The filename to parse
- * @returns {string[]} Array of words
+ * @param filename - The filename to parse (relative to this module)
+ * @returns Array of 5-letter words (lowercase)
  */
-function loadWordsFromFile(filename) {
+function loadWordsFromFile(filename: string): string[] {
   try {
     const filePath = join(__dirname, filename);
     const content = readFileSync(filePath, 'utf-8');
@@ -22,33 +24,38 @@ function loadWordsFromFile(filename) {
       .map((word) => word.trim().toLowerCase())
       .filter((word) => word.length === 5);
   } catch (error) {
-    console.error(`Error loading ${filename}:`, error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`Error loading ${filename}:`, errorMessage);
     return [];
   }
 }
+
+// ============ WORD LISTS ============
 
 /**
  * Answer words - Common, recognizable 5-letter words that can be THE answer
  * Loaded from wordleAnswers.txt
  */
-export const ANSWER_WORDS = loadWordsFromFile('wordleAnswers.txt');
+export const ANSWER_WORDS: readonly string[] = loadWordsFromFile('wordleAnswers.txt');
 
 /**
  * Valid guesses - Additional words that can be guessed but won't be answers
  * Loaded from wordleGuesses.txt
  */
-export const VALID_GUESSES = loadWordsFromFile('wordleGuesses.txt');
+export const VALID_GUESSES: readonly string[] = loadWordsFromFile('wordleGuesses.txt');
 
 // Pre-compute Sets for O(1) lookup performance
-const answerSet = new Set(ANSWER_WORDS);
-const validSet = new Set([...ANSWER_WORDS, ...VALID_GUESSES]);
+const answerSet: ReadonlySet<string> = new Set(ANSWER_WORDS);
+const validSet: ReadonlySet<string> = new Set([...ANSWER_WORDS, ...VALID_GUESSES]);
+
+// ============ VALIDATION FUNCTIONS ============
 
 /**
  * Check if a word is a valid guess (can be entered as a guess)
- * @param {string} word - The word to check
- * @returns {boolean} True if the word is valid
+ * @param word - The word to check
+ * @returns True if the word is valid
  */
-export function isValidWord(word) {
+export function isValidWord(word: string | null | undefined): boolean {
   if (!word || typeof word !== 'string') {
     return false;
   }
@@ -57,22 +64,24 @@ export function isValidWord(word) {
 
 /**
  * Check if a word can be an answer (is in the answer word list)
- * @param {string} word - The word to check
- * @returns {boolean} True if the word can be an answer
+ * @param word - The word to check
+ * @returns True if the word can be an answer
  */
-export function isAnswerWord(word) {
+export function isAnswerWord(word: string | null | undefined): boolean {
   if (!word || typeof word !== 'string') {
     return false;
   }
   return answerSet.has(word.toLowerCase());
 }
 
+// ============ WORD SELECTION ============
+
 /**
  * Get a random answer word, optionally excluding certain words
- * @param {string[]} excludeWords - Array of words to exclude (already used)
- * @returns {string} A random answer word
+ * @param excludeWords - Array of words to exclude (already used)
+ * @returns A random answer word
  */
-export function getRandomWord(excludeWords = []) {
+export function getRandomWord(excludeWords: string[] = []): string {
   const excludeSet = new Set(excludeWords.map((w) => w.toLowerCase()));
   const available = ANSWER_WORDS.filter((w) => !excludeSet.has(w.toLowerCase()));
 
@@ -85,18 +94,20 @@ export function getRandomWord(excludeWords = []) {
   return available[Math.floor(Math.random() * available.length)];
 }
 
+// ============ COUNT FUNCTIONS ============
+
 /**
  * Get the total count of answer words available
- * @returns {number} Number of possible answer words
+ * @returns Number of possible answer words
  */
-export function getAnswerWordCount() {
+export function getAnswerWordCount(): number {
   return ANSWER_WORDS.length;
 }
 
 /**
  * Get the total count of valid guess words
- * @returns {number} Number of valid guess words (including answers)
+ * @returns Number of valid guess words (including answers)
  */
-export function getValidWordCount() {
+export function getValidWordCount(): number {
   return validSet.size;
 }

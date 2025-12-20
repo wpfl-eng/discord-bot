@@ -3,23 +3,52 @@
 
 import { STOCK_CONFIG, STOCK_MESSAGES } from './stockConfig.js';
 
+// ============ TYPE DEFINITIONS ============
+
+/**
+ * Finnhub API quote response structure
+ */
+interface FinnhubQuoteResponse {
+  c: number; // Current price
+  d: number | null; // Change
+  dp: number | null; // Change percent
+  h: number; // High of day
+  l: number; // Low of day
+  o: number; // Open
+  pc: number; // Previous close
+  t: number; // Timestamp
+}
+
+/**
+ * Normalized stock quote data
+ */
+export interface StockQuoteData {
+  readonly ticker: string;
+  readonly currentPrice: number;
+  readonly change: number | null;
+  readonly changePercent: number | null;
+  readonly high: number;
+  readonly low: number;
+  readonly open: number;
+  readonly previousClose: number;
+  readonly timestamp: number;
+}
+
+/**
+ * Result type for getQuote function
+ */
+export type QuoteResult =
+  | { success: true; data: StockQuoteData }
+  | { success: false; error: string };
+
+// ============ API FUNCTIONS ============
+
 /**
  * Fetch current stock quote from Finnhub API
- * @param {string} ticker - Stock ticker symbol (e.g., "AAPL")
- * @returns {Promise<{success: boolean, data?: object, error?: string}>}
- *
- * On success, data contains:
- * - ticker: Normalized ticker symbol
- * - currentPrice: Current price
- * - change: Dollar change from previous close
- * - changePercent: Percent change from previous close
- * - high: Day high
- * - low: Day low
- * - open: Opening price
- * - previousClose: Previous closing price
- * - timestamp: Quote timestamp
+ * @param ticker - Stock ticker symbol (e.g., "AAPL")
+ * @returns Quote result with data on success or error message on failure
  */
-export async function getQuote(ticker) {
+export async function getQuote(ticker: string): Promise<QuoteResult> {
   const apiKey = process.env.FINNHUB_API_KEY;
 
   if (!apiKey) {
@@ -42,7 +71,7 @@ export async function getQuote(ticker) {
       return { success: false, error: STOCK_MESSAGES.API_ERROR };
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as FinnhubQuoteResponse;
 
     // Finnhub returns { c: 0, h: 0, l: 0, o: 0, pc: 0, d: null, dp: null } for invalid tickers
     if (data.c === 0 && data.pc === 0) {
@@ -53,18 +82,18 @@ export async function getQuote(ticker) {
       success: true,
       data: {
         ticker: normalizedTicker,
-        currentPrice: data.c, // Current price
-        change: data.d, // Change
-        changePercent: data.dp, // Change percent
-        high: data.h, // High of day
-        low: data.l, // Low of day
-        open: data.o, // Open
-        previousClose: data.pc, // Previous close
-        timestamp: data.t, // Timestamp
+        currentPrice: data.c,
+        change: data.d,
+        changePercent: data.dp,
+        high: data.h,
+        low: data.l,
+        open: data.o,
+        previousClose: data.pc,
+        timestamp: data.t,
       },
     };
   } catch (error) {
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.error('Finnhub API request timed out');
       return { success: false, error: 'Request timed out. Please try again.' };
     }
@@ -73,13 +102,15 @@ export async function getQuote(ticker) {
   }
 }
 
+// ============ VALIDATION FUNCTIONS ============
+
 /**
  * Validate if a ticker appears to be a valid format
- * US tickers are 1-5 uppercase letters
- * @param {string} ticker - Stock ticker to validate
- * @returns {boolean} - True if valid format
+ * US tickers are 1-5 letters (case insensitive)
+ * @param ticker - Stock ticker to validate
+ * @returns True if valid format
  */
-export function isValidTickerFormat(ticker) {
+export function isValidTickerFormat(ticker: string | null | undefined): boolean {
   if (!ticker || typeof ticker !== 'string') {
     return false;
   }

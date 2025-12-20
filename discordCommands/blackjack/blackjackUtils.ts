@@ -1,14 +1,44 @@
 // Blackjack Card and Deck Utilities
 
-export const SUITS = ['♠', '♥', '♦', '♣'];
-export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+// ============ TYPE DEFINITIONS ============
+
+export type Suit = '♠' | '♥' | '♦' | '♣';
+export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
+
+export interface Card {
+  readonly suit: Suit;
+  readonly rank: Rank;
+}
+
+export type Hand = Card[];
+export type Deck = Card[];
+
+// ============ CONSTANTS ============
+
+export const SUITS: readonly Suit[] = ['♠', '♥', '♦', '♣'] as const;
+export const RANKS: readonly Rank[] = [
+  'A',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  '10',
+  'J',
+  'Q',
+  'K',
+] as const;
+
+// ============ DECK FUNCTIONS ============
 
 /**
  * Creates a new shuffled 52-card deck
- * @returns {Array<{suit: string, rank: string}>} Shuffled deck
  */
-export function createDeck() {
-  const deck = [];
+export function createDeck(): Deck {
+  const deck: Deck = [];
   for (const suit of SUITS) {
     for (const rank of RANKS) {
       deck.push({ suit, rank });
@@ -19,10 +49,10 @@ export function createDeck() {
 
 /**
  * Fisher-Yates shuffle algorithm
- * @param {Array} deck - Deck to shuffle
- * @returns {Array} Shuffled deck (in place)
+ * @param deck - Deck to shuffle (mutated in place)
+ * @returns The same deck array (shuffled)
  */
-export function shuffle(deck) {
+export function shuffle<T>(deck: T[]): T[] {
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -32,20 +62,20 @@ export function shuffle(deck) {
 
 /**
  * Draw a card from the deck
- * @param {Array} deck - The deck to draw from
- * @returns {{suit: string, rank: string}} The drawn card
+ * @param deck - The deck to draw from
+ * @returns The drawn card or undefined if deck is empty
  */
-export function drawCard(deck) {
+export function drawCard(deck: Deck): Card | undefined {
   return deck.pop();
 }
+
+// ============ HAND VALUE CALCULATIONS ============
 
 /**
  * Calculate the value of a blackjack hand
  * Handles soft hands (Ace = 11 or 1)
- * @param {Array<{suit: string, rank: string}>} hand - The hand to evaluate
- * @returns {number} The hand value
  */
-export function calculateHandValue(hand) {
+export function calculateHandValue(hand: Hand): number {
   let value = 0;
   let aces = 0;
 
@@ -56,7 +86,7 @@ export function calculateHandValue(hand) {
     } else if (['K', 'Q', 'J'].includes(card.rank)) {
       value += 10;
     } else {
-      value += parseInt(card.rank);
+      value += parseInt(card.rank, 10);
     }
   }
 
@@ -71,19 +101,15 @@ export function calculateHandValue(hand) {
 
 /**
  * Check if a hand is a natural blackjack (2 cards totaling 21)
- * @param {Array<{suit: string, rank: string}>} hand - The hand to check
- * @returns {boolean} True if natural blackjack
  */
-export function isBlackjack(hand) {
+export function isBlackjack(hand: Hand): boolean {
   return hand.length === 2 && calculateHandValue(hand) === 21;
 }
 
 /**
  * Check if a hand is soft (has an Ace counted as 11)
- * @param {Array<{suit: string, rank: string}>} hand - The hand to check
- * @returns {boolean} True if hand is soft
  */
-export function isSoft(hand) {
+export function isSoft(hand: Hand): boolean {
   let value = 0;
   let aces = 0;
 
@@ -94,7 +120,7 @@ export function isSoft(hand) {
     } else if (['K', 'Q', 'J'].includes(card.rank)) {
       value += 10;
     } else {
-      value += parseInt(card.rank);
+      value += parseInt(card.rank, 10);
     }
   }
 
@@ -107,22 +133,21 @@ export function isSoft(hand) {
   return aces > 0 && value <= 21;
 }
 
+// ============ DISPLAY FORMATTING ============
+
 /**
  * Format a single card for display
- * @param {{suit: string, rank: string}} card - The card to format
- * @returns {string} Formatted card string (e.g., "A♠")
+ * @returns Formatted card string (e.g., "A♠")
  */
-export function formatCard(card) {
+export function formatCard(card: Card): string {
   return `${card.rank}${card.suit}`;
 }
 
 /**
  * Format a hand for embed display
- * @param {Array<{suit: string, rank: string}>} hand - The hand to format
- * @param {boolean} hideSecond - Whether to hide the second card (dealer's hole card)
- * @returns {string} Formatted hand string
+ * @param hideSecond - Whether to hide the second card (dealer's hole card)
  */
-export function formatHand(hand, hideSecond = false) {
+export function formatHand(hand: Hand, hideSecond: boolean = false): string {
   if (hideSecond && hand.length >= 2) {
     return `\`${formatCard(hand[0])}\` \`🎴\``;
   }
@@ -131,76 +156,68 @@ export function formatHand(hand, hideSecond = false) {
 
 /**
  * Get the visible value of dealer's hand (only first card if hideSecond)
- * @param {Array<{suit: string, rank: string}>} hand - The dealer's hand
- * @param {boolean} hideSecond - Whether the second card is hidden
- * @returns {number} Visible hand value
+ * @param hideSecond - Whether the second card is hidden
  */
-export function getVisibleDealerValue(hand, hideSecond = false) {
+export function getVisibleDealerValue(hand: Hand, hideSecond: boolean = false): number {
   if (hideSecond && hand.length >= 2) {
     // Only count the first card
     const card = hand[0];
     if (card.rank === 'A') return 11;
     if (['K', 'Q', 'J'].includes(card.rank)) return 10;
-    return parseInt(card.rank);
+    return parseInt(card.rank, 10);
   }
   return calculateHandValue(hand);
 }
 
+// ============ SPLIT LOGIC ============
+
 /**
  * Get the card value for split comparison (10 for all face cards)
- * @param {{suit: string, rank: string}} card - The card to get split value for
- * @returns {number} Card value for split comparison
  */
-export function getSplitValue(card) {
+export function getSplitValue(card: Card): number {
   if (card.rank === 'A') return 11;
   if (['K', 'Q', 'J', '10'].includes(card.rank)) return 10;
-  return parseInt(card.rank);
+  return parseInt(card.rank, 10);
 }
 
 /**
  * Check if a hand can be split (two cards of same split value)
  * Allows any 10-value cards to split with each other (10, J, Q, K)
- * @param {Array<{suit: string, rank: string}>} hand - The hand to check
- * @returns {boolean} True if hand can be split
  */
-export function canSplit(hand) {
+export function canSplit(hand: Hand): boolean {
   if (hand.length !== 2) return false;
   return getSplitValue(hand[0]) === getSplitValue(hand[1]);
 }
 
+// ============ DEALER DETECTION ============
+
 /**
  * Check if dealer's upcard is an Ace (for insurance offer)
- * @param {Array<{suit: string, rank: string}>} dealerHand - The dealer's hand
- * @returns {boolean} True if dealer shows an Ace
  */
-export function dealerShowsAce(dealerHand) {
+export function dealerShowsAce(dealerHand: Hand): boolean {
   return dealerHand.length >= 1 && dealerHand[0].rank === 'A';
 }
 
 /**
  * Check if dealer's upcard is a 10-value (for dealer peek)
- * @param {Array<{suit: string, rank: string}>} dealerHand - The dealer's hand
- * @returns {boolean} True if dealer shows 10, J, Q, or K
  */
-export function dealerShowsTen(dealerHand) {
+export function dealerShowsTen(dealerHand: Hand): boolean {
   if (dealerHand.length < 1) return false;
   return ['10', 'J', 'Q', 'K'].includes(dealerHand[0].rank);
 }
 
 /**
  * Check if dealer peek is needed (showing 10 or Ace)
- * @param {Array<{suit: string, rank: string}>} dealerHand - The dealer's hand
- * @returns {boolean} True if dealer peek should happen
  */
-export function shouldDealerPeek(dealerHand) {
+export function shouldDealerPeek(dealerHand: Hand): boolean {
   return dealerShowsAce(dealerHand) || dealerShowsTen(dealerHand);
 }
 
+// ============ INSURANCE ============
+
 /**
  * Calculate insurance bet amount (half of original bet)
- * @param {number} originalBet - The original bet amount
- * @returns {number} Insurance bet amount
  */
-export function calculateInsuranceBet(originalBet) {
+export function calculateInsuranceBet(originalBet: number): number {
   return Math.floor(originalBet / 2);
 }

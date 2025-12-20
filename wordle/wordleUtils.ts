@@ -1,7 +1,18 @@
 // Wordle Utility Functions
 // Grid rendering, feedback calculation, and game logic helpers
 
-import { CONFIG, EMOJIS, FEEDBACK_TYPES, getFeedbackEmoji } from './wordleConfig.js';
+import { CONFIG, EMOJIS, FEEDBACK_TYPES, FeedbackType, getFeedbackEmoji } from './wordleConfig.js';
+
+// ============ TYPE DEFINITIONS ============
+
+export type FeedbackArray = FeedbackType[];
+
+export interface GameState {
+  readonly isOver: boolean;
+  readonly won: boolean;
+}
+
+// ============ FEEDBACK CALCULATION ============
 
 /**
  * Calculate feedback for a guess against the answer
@@ -10,17 +21,17 @@ import { CONFIG, EMOJIS, FEEDBACK_TYPES, getFeedbackEmoji } from './wordleConfig
  * - A letter gets PRESENT only if there's an unmatched instance in the answer
  * - A letter gets ABSENT if it's not in the answer or all instances are accounted for
  *
- * @param {string} guess - The 5-letter guess (lowercase)
- * @param {string} answer - The 5-letter answer (lowercase)
- * @returns {string[]} Array of feedback types: 'correct', 'present', or 'absent'
+ * @param guess - The 5-letter guess
+ * @param answer - The 5-letter answer
+ * @returns Array of feedback types: 'correct', 'present', or 'absent'
  */
-export function calculateFeedback(guess, answer) {
+export function calculateFeedback(guess: string, answer: string): FeedbackArray {
   const guessLower = guess.toLowerCase();
   const answerLower = answer.toLowerCase();
 
-  const result = new Array(CONFIG.WORD_LENGTH).fill(FEEDBACK_TYPES.ABSENT);
-  const answerLetters = answerLower.split('');
-  const guessLetters = guessLower.split('');
+  const result: FeedbackArray = new Array(CONFIG.WORD_LENGTH).fill(FEEDBACK_TYPES.ABSENT);
+  const answerLetters: (string | null)[] = answerLower.split('');
+  const guessLetters: string[] = guessLower.split('');
 
   // First pass: mark exact matches (CORRECT)
   // Remove matched letters from consideration for PRESENT matching
@@ -48,15 +59,17 @@ export function calculateFeedback(guess, answer) {
   return result;
 }
 
+// ============ RENDERING FUNCTIONS ============
+
 /**
  * Render a single guess row with emoji feedback and letters
  * Example output: "🟩🟨⬛⬛🟩  C R A N E"
  *
- * @param {string} guess - The 5-letter guess
- * @param {string[]} feedback - Array of feedback types from calculateFeedback
- * @returns {string} Formatted row string
+ * @param guess - The 5-letter guess
+ * @param feedback - Array of feedback types from calculateFeedback
+ * @returns Formatted row string
  */
-export function renderGuessRow(guess, feedback) {
+export function renderGuessRow(guess: string, feedback: FeedbackArray): string {
   const emojis = feedback.map((f) => getFeedbackEmoji(f)).join('');
   const letters = guess
     .toUpperCase()
@@ -70,22 +83,20 @@ export function renderGuessRow(guess, feedback) {
 /**
  * Render an empty row (unused guess slot)
  * Example output: "⬜⬜⬜⬜⬜"
- *
- * @returns {string} Empty row string
  */
-export function renderEmptyRow() {
+export function renderEmptyRow(): string {
   return EMOJIS.EMPTY.repeat(CONFIG.WORD_LENGTH);
 }
 
 /**
  * Render the full game board with all guesses and remaining empty slots
  *
- * @param {string[]} guesses - Array of guesses made so far
- * @param {string} answer - The answer word (for calculating feedback)
- * @returns {string} Full board as a multi-line string
+ * @param guesses - Array of guesses made so far
+ * @param answer - The answer word (for calculating feedback)
+ * @returns Full board as a multi-line string
  */
-export function renderBoard(guesses, answer) {
-  const rows = [];
+export function renderBoard(guesses: string[], answer: string): string {
+  const rows: string[] = [];
 
   for (let i = 0; i < CONFIG.MAX_GUESSES; i++) {
     if (i < guesses.length) {
@@ -99,35 +110,30 @@ export function renderBoard(guesses, answer) {
   return rows.join('\n');
 }
 
+// ============ GAME STATE FUNCTIONS ============
+
 /**
  * Check if a guess is the winning guess
- *
- * @param {string} guess - The guess to check
- * @param {string} answer - The answer word
- * @returns {boolean} True if the guess matches the answer
  */
-export function isWinningGuess(guess, answer) {
+export function isWinningGuess(guess: string, answer: string): boolean {
   return guess.toLowerCase() === answer.toLowerCase();
 }
 
 /**
  * Get the number of remaining guesses
- *
- * @param {string[]} guesses - Array of guesses made so far
- * @returns {number} Number of guesses remaining
  */
-export function getRemainingGuesses(guesses) {
+export function getRemainingGuesses(guesses: string[]): number {
   return CONFIG.MAX_GUESSES - guesses.length;
 }
 
 /**
  * Check if the game is over (won or out of guesses)
  *
- * @param {string[]} guesses - Array of guesses made so far
- * @param {string} answer - The answer word
- * @returns {{ isOver: boolean, won: boolean }} Game state
+ * @param guesses - Array of guesses made so far
+ * @param answer - The answer word
+ * @returns Game state object
  */
-export function checkGameState(guesses, answer) {
+export function checkGameState(guesses: string[], answer: string): GameState {
   if (guesses.length === 0) {
     return { isOver: false, won: false };
   }
@@ -146,14 +152,13 @@ export function checkGameState(guesses, answer) {
   return { isOver: false, won: false };
 }
 
+// ============ DISPLAY FORMATTING ============
+
 /**
  * Format guess count for display
  * Example: "3/6"
- *
- * @param {number} current - Current number of guesses
- * @returns {string} Formatted guess count
  */
-export function formatGuessCount(current) {
+export function formatGuessCount(current: number): string {
   return `${current}/${CONFIG.MAX_GUESSES}`;
 }
 
@@ -161,13 +166,18 @@ export function formatGuessCount(current) {
  * Get a share-friendly text representation of the game
  * Used for sharing results (like real Wordle)
  *
- * @param {string[]} guesses - Array of guesses made
- * @param {string} answer - The answer word
- * @param {number} wordNumber - The word number for this puzzle
- * @param {boolean} won - Whether the player won
- * @returns {string} Shareable text
+ * @param guesses - Array of guesses made
+ * @param answer - The answer word
+ * @param wordNumber - The word number for this puzzle
+ * @param won - Whether the player won
+ * @returns Shareable text
  */
-export function generateShareText(guesses, answer, wordNumber, won) {
+export function generateShareText(
+  guesses: string[],
+  answer: string,
+  wordNumber: number,
+  won: boolean
+): string {
   const header = `Wordle #${wordNumber} ${won ? guesses.length : 'X'}/${CONFIG.MAX_GUESSES}`;
 
   const grid = guesses
@@ -180,22 +190,24 @@ export function generateShareText(guesses, answer, wordNumber, won) {
   return `${header}\n\n${grid}`;
 }
 
+// ============ KEYBOARD STATE ============
+
 /**
  * Get keyboard letter states based on all guesses
  * Tracks which letters have been used and their best known state
  *
- * @param {string[]} guesses - Array of guesses made
- * @param {string} answer - The answer word
- * @returns {Map<string, string>} Map of letter to feedback type
+ * @param guesses - Array of guesses made
+ * @param answer - The answer word
+ * @returns Map of letter to feedback type
  */
-export function getKeyboardState(guesses, answer) {
-  const letterStates = new Map();
+export function getKeyboardState(guesses: string[], answer: string): Map<string, FeedbackType> {
+  const letterStates = new Map<string, FeedbackType>();
 
   // Priority: CORRECT > PRESENT > ABSENT
-  const priority = {
-    [FEEDBACK_TYPES.CORRECT]: 3,
-    [FEEDBACK_TYPES.PRESENT]: 2,
-    [FEEDBACK_TYPES.ABSENT]: 1,
+  const priority: Record<FeedbackType, number> = {
+    correct: 3,
+    present: 2,
+    absent: 1,
   };
 
   for (const guess of guesses) {
