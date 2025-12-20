@@ -3,16 +3,95 @@
 
 import { sql } from '@vercel/postgres';
 import * as economyDb from '../economy/economyDb.js';
+import type { EconomyUser } from '../types/database.js';
+
+// ============ Type Definitions ============
+
+/**
+ * Stock holding record from stock_holdings table
+ */
+export interface StockHolding {
+  readonly user_id: string;
+  readonly ticker: string;
+  readonly shares: string; // numeric comes as string from postgres
+  readonly average_cost: string; // numeric comes as string from postgres
+  readonly first_purchased_at: Date;
+  readonly last_updated_at: Date;
+}
+
+/**
+ * Buy operation error types
+ */
+export type BuyError = 'INSUFFICIENT_FUNDS';
+
+/**
+ * Sell operation error types
+ */
+export type SellError = 'NO_HOLDING' | 'INSUFFICIENT_SHARES' | 'WALLET_UPDATE_FAILED';
+
+/**
+ * Successful buy result
+ */
+export interface BuySuccess {
+  readonly success: true;
+  readonly holding: StockHolding;
+  readonly user: EconomyUser;
+}
+
+/**
+ * Failed buy result
+ */
+export interface BuyFailure {
+  readonly success: false;
+  readonly error: BuyError;
+}
+
+/**
+ * Buy operation result (discriminated union)
+ */
+export type BuyResult = BuySuccess | BuyFailure;
+
+/**
+ * Successful sell result
+ */
+export interface SellSuccess {
+  readonly success: true;
+  readonly proceeds: number;
+  readonly profit: number;
+  readonly holding: StockHolding | null;
+  readonly user: EconomyUser;
+}
+
+/**
+ * Failed sell result
+ */
+export interface SellFailure {
+  readonly success: false;
+  readonly error: SellError;
+}
+
+/**
+ * Sell operation result (discriminated union)
+ */
+export type SellResult = SellSuccess | SellFailure;
+
+/**
+ * Portfolio statistics
+ */
+export interface PortfolioStats {
+  readonly uniqueStocks: number;
+  readonly totalCostBasis: number;
+}
 
 // ============ Read Operations ============
 
 /**
  * Get all stock holdings for a user
- * @param {string} userId - Discord user ID
- * @returns {Promise<Array>} - Array of holdings
+ * @param userId - Discord user ID
+ * @returns Array of holdings
  */
-export async function getPortfolio(userId) {
-  const result = await sql`
+export async function getPortfolio(userId: string): Promise<StockHolding[]> {
+  const result = await sql<StockHolding>`
     SELECT * FROM stock_holdings
     WHERE user_id = ${userId}
     ORDER BY ticker
@@ -22,19 +101,22 @@ export async function getPortfolio(userId) {
 
 /**
  * Get a specific holding for a user
- * @param {string} userId - Discord user ID
- * @param {string} ticker - Stock ticker symbol
- * @returns {Promise<object|null>} - Holding or null if not found
+ * @param userId - Discord user ID
+ * @param ticker - Stock ticker symbol
+ * @returns Holding or null if not found
  */
-export async function getHolding(userId, ticker) {
+export async function getHolding(
+  userId: string,
+  ticker: string
+): Promise<StockHolding | null> {
   const normalizedTicker = ticker.toUpperCase().trim();
-  const result = await sql`
+  const result = await sql<StockHolding>`
     SELECT * FROM stock_holdings
     WHERE user_id = ${userId}
       AND ticker = ${normalizedTicker}
     LIMIT 1
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 // ============ Buy Operations ============
@@ -42,14 +124,20 @@ export async function getHolding(userId, ticker) {
 /**
  * Buy shares of a stock
  * Atomic operation: deducts from wallet and adds/updates holding
- * @param {string} userId - Discord user ID
- * @param {string} ticker - Stock ticker symbol
- * @param {number} shares - Number of shares to buy
- * @param {number} pricePerShare - Current price per share
- * @param {number} totalCost - Total cost in coins
- * @returns {Promise<{success: boolean, holding?: object, user?: object, error?: string}>}
+ * @param userId - Discord user ID
+ * @param ticker - Stock ticker symbol
+ * @param shares - Number of shares to buy
+ * @param pricePerShare - Current price per share
+ * @param totalCost - Total cost in coins
+ * @returns Buy result with success/failure discriminated union
  */
-export async function buyShares(userId, ticker, shares, pricePerShare, totalCost) {
+export async function buyShares(
+  userId: string,
+  ticker: string,
+  shares: number,
+  pricePerShare: number,
+  totalCost: number
+): Promise<BuyResult> {
   const normalizedTicker = ticker.toUpperCase().trim();
 
   // First, deduct from wallet (atomic - fails if insufficient funds)
@@ -62,8 +150,8 @@ export async function buyShares(userId, ticker, shares, pricePerShare, totalCost
   // Get existing holding to calculate new average cost
   const existingHolding = await getHolding(userId, normalizedTicker);
 
-  let newShares;
-  let newAverageCost;
+  let newShares: number;
+  let newAverageCost: number;
 
   if (existingHolding) {
     // Calculate weighted average cost for existing position
@@ -79,7 +167,7 @@ export async function buyShares(userId, ticker, shares, pricePerShare, totalCost
   }
 
   // Upsert the holding
-  const result = await sql`
+  const result = await sql<StockHolding>`
     INSERT INTO stock_holdings (user_id, ticker, shares, average_cost, first_purchased_at, last_updated_at)
     VALUES (${userId}, ${normalizedTicker}, ${newShares}, ${newAverageCost}, NOW(), NOW())
     ON CONFLICT (user_id, ticker) DO UPDATE SET
@@ -101,13 +189,18 @@ export async function buyShares(userId, ticker, shares, pricePerShare, totalCost
 /**
  * Sell shares of a stock
  * Atomic operation: removes/reduces holding and adds to wallet
- * @param {string} userId - Discord user ID
- * @param {string} ticker - Stock ticker symbol
- * @param {number} sharesToSell - Number of shares to sell
- * @param {number} pricePerShare - Current price per share
- * @returns {Promise<{success: boolean, proceeds?: number, profit?: number, holding?: object, user?: object, error?: string}>}
+ * @param userId - Discord user ID
+ * @param ticker - Stock ticker symbol
+ * @param sharesToSell - Number of shares to sell
+ * @param pricePerShare - Current price per share
+ * @returns Sell result with success/failure discriminated union
  */
-export async function sellShares(userId, ticker, sharesToSell, pricePerShare) {
+export async function sellShares(
+  userId: string,
+  ticker: string,
+  sharesToSell: number,
+  pricePerShare: number
+): Promise<SellResult> {
   const normalizedTicker = ticker.toUpperCase().trim();
 
   // Get existing holding
@@ -131,7 +224,7 @@ export async function sellShares(userId, ticker, sharesToSell, pricePerShare) {
   const remainingShares = currentShares - sharesToSell;
 
   // Update or delete the holding
-  let holdingResult;
+  let holdingResult: StockHolding | null;
   if (remainingShares <= 0.000001) {
     // Delete if effectively zero shares remain
     await sql`
@@ -142,7 +235,7 @@ export async function sellShares(userId, ticker, sharesToSell, pricePerShare) {
     holdingResult = null;
   } else {
     // Update with remaining shares (average cost stays the same)
-    const result = await sql`
+    const result = await sql<StockHolding>`
       UPDATE stock_holdings
       SET shares = ${remainingShares},
           last_updated_at = NOW()
@@ -185,11 +278,11 @@ export async function sellShares(userId, ticker, sharesToSell, pricePerShare) {
 
 /**
  * Get portfolio summary statistics for a user
- * @param {string} userId - Discord user ID
- * @returns {Promise<{uniqueStocks: number, totalCostBasis: number}>}
+ * @param userId - Discord user ID
+ * @returns Portfolio statistics
  */
-export async function getPortfolioStats(userId) {
-  const result = await sql`
+export async function getPortfolioStats(userId: string): Promise<PortfolioStats> {
+  const result = await sql<{ unique_stocks: string; total_cost_basis: string }>`
     SELECT
       COUNT(*) as unique_stocks,
       COALESCE(SUM(shares * average_cost), 0) as total_cost_basis
@@ -198,7 +291,7 @@ export async function getPortfolioStats(userId) {
   `;
 
   return {
-    uniqueStocks: parseInt(result.rows[0]?.unique_stocks) || 0,
-    totalCostBasis: parseFloat(result.rows[0]?.total_cost_basis) || 0,
+    uniqueStocks: parseInt(result.rows[0]?.unique_stocks ?? '0', 10),
+    totalCostBasis: parseFloat(result.rows[0]?.total_cost_basis ?? '0'),
   };
 }

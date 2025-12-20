@@ -1,15 +1,103 @@
+// Blackjack Database Operations
+// Stats tracking and leaderboards for the Blackjack game
+
 import { sql } from '@vercel/postgres';
+
+// ============ Type Definitions ============
+
+/**
+ * Game outcome types
+ */
+export type GameOutcome = 'win' | 'loss' | 'push';
+
+/**
+ * Leaderboard category types
+ */
+export type LeaderboardCategory =
+  | 'games'
+  | 'wins'
+  | 'winrate'
+  | 'blackjacks'
+  | 'profit'
+  | 'streak'
+  | 'biggest_win';
+
+/**
+ * Blackjack stats record from blackjack_stats table
+ */
+export interface BlackjackStats {
+  readonly user_id: string;
+  readonly username: string;
+  readonly games_played: number;
+  readonly games_won: number;
+  readonly games_lost: number;
+  readonly pushes: number;
+  readonly blackjacks_hit: number;
+  readonly busts: number;
+  readonly current_streak: number;
+  readonly best_win_streak: number;
+  readonly worst_loss_streak: number;
+  readonly total_wagered: number;
+  readonly total_won: number;
+  readonly biggest_win: number;
+  readonly doubles_attempted: number;
+  readonly doubles_won: number;
+  readonly splits_attempted: number;
+  readonly insurances_taken: number;
+  readonly surrenders: number;
+  readonly last_played_at: Date | null;
+  readonly created_at: Date;
+}
+
+/**
+ * Data required to record a game result
+ */
+export interface RecordGameResultData {
+  readonly userId: string;
+  readonly username: string;
+  readonly outcome: GameOutcome;
+  readonly bet: number;
+  readonly payout: number;
+  readonly wasBlackjack?: boolean;
+  readonly wasBust?: boolean;
+  readonly wasDouble?: boolean;
+  readonly wasSplit?: boolean;
+  readonly wasInsurance?: boolean;
+  readonly wasSurrender?: boolean;
+}
+
+/**
+ * Leaderboard entry with computed fields
+ */
+export interface LeaderboardEntry {
+  readonly user_id: string;
+  readonly username: string;
+  readonly games_played?: number;
+  readonly games_won?: number;
+  readonly games_lost?: number;
+  readonly win_rate?: number;
+  readonly blackjacks_hit?: number;
+  readonly net_profit?: number;
+  readonly total_wagered?: number;
+  readonly total_won?: number;
+  readonly best_win_streak?: number;
+  readonly current_streak?: number;
+  readonly biggest_win?: number;
+}
 
 // ============ Stats Management ============
 
 /**
  * Get or create a user's blackjack stats
- * @param {string} userId - Discord user ID
- * @param {string} username - Discord username
- * @returns {Promise<object>} - User blackjack stats
+ * @param userId - Discord user ID
+ * @param username - Discord username
+ * @returns User blackjack stats
  */
-export async function getOrCreateStats(userId, username) {
-  const result = await sql`
+export async function getOrCreateStats(
+  userId: string,
+  username: string
+): Promise<BlackjackStats> {
+  const result = await sql<BlackjackStats>`
     INSERT INTO blackjack_stats (user_id, username, created_at)
     VALUES (${userId}, ${username}, NOW())
     ON CONFLICT (user_id) DO UPDATE SET
@@ -21,36 +109,25 @@ export async function getOrCreateStats(userId, username) {
 
 /**
  * Get a user's blackjack stats
- * @param {string} userId - Discord user ID
- * @returns {Promise<object|null>} - User stats or null
+ * @param userId - Discord user ID
+ * @returns User stats or null
  */
-export async function getUserStats(userId) {
-  const result = await sql`
+export async function getUserStats(userId: string): Promise<BlackjackStats | null> {
+  const result = await sql<BlackjackStats>`
     SELECT * FROM blackjack_stats
     WHERE user_id = ${userId}
     LIMIT 1
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 /**
  * Record a game result and update all stats atomically
  * Handles streak calculation: positive = wins, negative = losses, 0 = push
- * @param {object} data - Game result data
- * @param {string} data.userId - Discord user ID
- * @param {string} data.username - Discord username
- * @param {'win'|'loss'|'push'} data.outcome - Game outcome
- * @param {number} data.bet - Amount wagered
- * @param {number} data.payout - Amount won (0 for loss, bet for push)
- * @param {boolean} data.wasBlackjack - Whether player had natural blackjack
- * @param {boolean} data.wasBust - Whether player busted
- * @param {boolean} data.wasDouble - Whether player doubled down
- * @param {boolean} data.wasSplit - Whether player split
- * @param {boolean} data.wasInsurance - Whether player took insurance
- * @param {boolean} data.wasSurrender - Whether player surrendered
- * @returns {Promise<object>} - Updated user stats
+ * @param data - Game result data
+ * @returns Updated user stats
  */
-export async function recordGameResult(data) {
+export async function recordGameResult(data: RecordGameResultData): Promise<BlackjackStats> {
   const {
     userId,
     username,
@@ -80,7 +157,7 @@ export async function recordGameResult(data) {
   // Calculate net profit for this game (payout - bet, or for loss just -bet since payout is 0)
   const netProfit = payout - bet;
 
-  const result = await sql`
+  const result = await sql<BlackjackStats>`
     INSERT INTO blackjack_stats (
       user_id, username, games_played, games_won, games_lost, pushes,
       blackjacks_hit, busts, current_streak, best_win_streak, worst_loss_streak,
@@ -156,16 +233,19 @@ export async function recordGameResult(data) {
 
 /**
  * Get blackjack leaderboard by category
- * @param {'games'|'wins'|'winrate'|'blackjacks'|'profit'|'streak'|'biggest_win'} category - Leaderboard category
- * @param {number} limit - Number of results
- * @returns {Promise<array>} - Leaderboard entries
+ * @param category - Leaderboard category
+ * @param limit - Number of results
+ * @returns Leaderboard entries
  */
-export async function getLeaderboard(category, limit = 10) {
+export async function getLeaderboard(
+  category: LeaderboardCategory,
+  limit: number = 10
+): Promise<LeaderboardEntry[]> {
   let result;
 
   switch (category) {
     case 'games':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, games_played, games_won, games_lost,
           CASE WHEN games_played > 0
             THEN ROUND(100.0 * games_won / games_played, 1)
@@ -178,7 +258,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'wins':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, games_won, games_played,
           CASE WHEN games_played > 0
             THEN ROUND(100.0 * games_won / games_played, 1)
@@ -191,7 +271,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'winrate':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, games_won, games_played,
           ROUND(100.0 * games_won / games_played, 1) as win_rate
         FROM blackjack_stats
@@ -202,7 +282,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'blackjacks':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, blackjacks_hit, games_played
         FROM blackjack_stats
         ORDER BY blackjacks_hit DESC
@@ -211,7 +291,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'profit':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username,
           (total_won - total_wagered) as net_profit,
           total_wagered, total_won, games_played
@@ -222,7 +302,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'streak':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, best_win_streak, current_streak, games_played
         FROM blackjack_stats
         ORDER BY best_win_streak DESC
@@ -231,7 +311,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'biggest_win':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, biggest_win, games_played
         FROM blackjack_stats
         ORDER BY biggest_win DESC
@@ -240,7 +320,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     default:
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, games_played, games_won
         FROM blackjack_stats
         ORDER BY games_played DESC
@@ -253,11 +333,14 @@ export async function getLeaderboard(category, limit = 10) {
 
 /**
  * Get a user's rank on a specific leaderboard
- * @param {string} userId - Discord user ID
- * @param {'games'|'wins'|'winrate'|'profit'} category - Category to rank
- * @returns {Promise<number|null>} - User's rank (1-based) or null
+ * @param userId - Discord user ID
+ * @param category - Category to rank
+ * @returns User's rank (1-based) or null
  */
-export async function getUserRank(userId, category = 'games') {
+export async function getUserRank(
+  userId: string,
+  category: 'games' | 'wins' | 'winrate' | 'profit' = 'games'
+): Promise<number | null> {
   const stats = await getUserStats(userId);
   if (!stats) return null;
 
@@ -265,7 +348,7 @@ export async function getUserRank(userId, category = 'games') {
 
   switch (category) {
     case 'games':
-      result = await sql`
+      result = await sql<{ rank: string }>`
         SELECT COUNT(*) + 1 as rank
         FROM blackjack_stats
         WHERE games_played > ${stats.games_played}
@@ -273,7 +356,7 @@ export async function getUserRank(userId, category = 'games') {
       break;
 
     case 'wins':
-      result = await sql`
+      result = await sql<{ rank: string }>`
         SELECT COUNT(*) + 1 as rank
         FROM blackjack_stats
         WHERE games_won > ${stats.games_won}
@@ -282,7 +365,7 @@ export async function getUserRank(userId, category = 'games') {
 
     case 'profit': {
       const netProfit = stats.total_won - stats.total_wagered;
-      result = await sql`
+      result = await sql<{ rank: string }>`
         SELECT COUNT(*) + 1 as rank
         FROM blackjack_stats
         WHERE (total_won - total_wagered) > ${netProfit}
@@ -291,23 +374,23 @@ export async function getUserRank(userId, category = 'games') {
     }
 
     default:
-      result = await sql`
+      result = await sql<{ rank: string }>`
         SELECT COUNT(*) + 1 as rank
         FROM blackjack_stats
         WHERE games_played > ${stats.games_played}
       `;
   }
 
-  return parseInt(result.rows[0]?.rank) || 1;
+  return parseInt(result.rows[0]?.rank ?? '1', 10);
 }
 
 /**
  * Get total number of blackjack players
- * @returns {Promise<number>} - Total player count
+ * @returns Total player count
  */
-export async function getTotalPlayers() {
-  const result = await sql`
+export async function getTotalPlayers(): Promise<number> {
+  const result = await sql<{ count: string }>`
     SELECT COUNT(*) as count FROM blackjack_stats
   `;
-  return parseInt(result.rows[0]?.count) || 0;
+  return parseInt(result.rows[0]?.count ?? '0', 10);
 }

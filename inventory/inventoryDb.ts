@@ -1,16 +1,100 @@
+// Inventory Database Operations
+// CRUD operations for user inventory items
+
 import { sql } from '@vercel/postgres';
 import * as economyDb from '../economy/economyDb.js';
 import { getItemDefinition, getItemBaseValue, isItemSellable } from './inventoryConfig.js';
+
+// ============ Type Definitions ============
+
+/**
+ * Inventory item record from user_inventory table
+ */
+export interface InventoryItem {
+  readonly user_id: string;
+  readonly item_type: string;
+  readonly quantity: number;
+  readonly item_value: number | null;
+  readonly acquired_at: Date;
+}
+
+/**
+ * Data for adding multiple items
+ */
+export interface AddItemData {
+  readonly itemType: string;
+  readonly quantity?: number;
+  readonly itemValue?: number | null;
+}
+
+/**
+ * Sell operation error types
+ */
+export type SellError =
+  | 'INVALID_QUANTITY'
+  | 'NOT_SELLABLE'
+  | 'INSUFFICIENT_QUANTITY'
+  | 'REMOVE_FAILED'
+  | 'WALLET_UPDATE_FAILED';
+
+/**
+ * Transfer operation error types
+ */
+export type TransferError = 'INVALID_QUANTITY' | 'INSUFFICIENT_QUANTITY' | 'ADD_FAILED';
+
+/**
+ * Successful sell result
+ */
+export interface SellSuccess {
+  readonly success: true;
+  readonly item: InventoryItem;
+  readonly earnings: number;
+  readonly newBalance: number;
+  readonly quantitySold: number;
+}
+
+/**
+ * Failed sell result
+ */
+export interface SellFailure {
+  readonly success: false;
+  readonly error: SellError;
+}
+
+/**
+ * Sell operation result (discriminated union)
+ */
+export type SellResult = SellSuccess | SellFailure;
+
+/**
+ * Successful transfer result
+ */
+export interface TransferSuccess {
+  readonly success: true;
+}
+
+/**
+ * Failed transfer result
+ */
+export interface TransferFailure {
+  readonly success: false;
+  readonly error: TransferError;
+}
+
+/**
+ * Transfer operation result (discriminated union)
+ */
+export type TransferResult = TransferSuccess | TransferFailure;
 
 // ============ Read Operations ============
 
 /**
  * Get all inventory items for a user
- * @param {string} userId - Discord user ID
- * @returns {Promise<array>} - Array of inventory items
+ * @param userId - Discord user ID
+ * @returns Array of inventory items
  */
-export async function getInventory(userId) {
-  const result = await sql`
+export async function getInventory(userId: string): Promise<InventoryItem[]> {
+  const result = await sql<InventoryItem>`
     SELECT * FROM user_inventory
     WHERE user_id = ${userId}
     ORDER BY item_type
@@ -20,27 +104,33 @@ export async function getInventory(userId) {
 
 /**
  * Get a single item from user's inventory
- * @param {string} userId - Discord user ID
- * @param {string} itemType - Item type key
- * @returns {Promise<object|null>} - Inventory item or null if not found
+ * @param userId - Discord user ID
+ * @param itemType - Item type key
+ * @returns Inventory item or null if not found
  */
-export async function getItem(userId, itemType) {
-  const result = await sql`
+export async function getItem(
+  userId: string,
+  itemType: string
+): Promise<InventoryItem | null> {
+  const result = await sql<InventoryItem>`
     SELECT * FROM user_inventory
     WHERE user_id = ${userId}
       AND item_type = ${itemType}
     LIMIT 1
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 /**
  * Get items filtered by category
- * @param {string} userId - Discord user ID
- * @param {string} category - Category to filter by
- * @returns {Promise<array>} - Array of inventory items in category
+ * @param userId - Discord user ID
+ * @param category - Category to filter by
+ * @returns Array of inventory items in category
  */
-export async function getItemsByCategory(userId, category) {
+export async function getItemsByCategory(
+  userId: string,
+  category: string
+): Promise<InventoryItem[]> {
   // Get all items and filter by category (category is in config, not DB)
   const allItems = await getInventory(userId);
   return allItems.filter((item) => {
@@ -51,12 +141,16 @@ export async function getItemsByCategory(userId, category) {
 
 /**
  * Check if user has at least N of an item
- * @param {string} userId - Discord user ID
- * @param {string} itemType - Item type key
- * @param {number} minQuantity - Minimum quantity required (default: 1)
- * @returns {Promise<boolean>} - True if user has enough
+ * @param userId - Discord user ID
+ * @param itemType - Item type key
+ * @param minQuantity - Minimum quantity required (default: 1)
+ * @returns True if user has enough
  */
-export async function hasItem(userId, itemType, minQuantity = 1) {
+export async function hasItem(
+  userId: string,
+  itemType: string,
+  minQuantity: number = 1
+): Promise<boolean> {
   const result = await sql`
     SELECT quantity FROM user_inventory
     WHERE user_id = ${userId}
@@ -69,11 +163,14 @@ export async function hasItem(userId, itemType, minQuantity = 1) {
 
 /**
  * Get quantity of a specific item
- * @param {string} userId - Discord user ID
- * @param {string} itemType - Item type key
- * @returns {Promise<number>} - Quantity owned (0 if not owned)
+ * @param userId - Discord user ID
+ * @param itemType - Item type key
+ * @returns Quantity owned (0 if not owned)
  */
-export async function getItemQuantity(userId, itemType) {
+export async function getItemQuantity(
+  userId: string,
+  itemType: string
+): Promise<number> {
   const item = await getItem(userId, itemType);
   return item ? item.quantity : 0;
 }
@@ -82,19 +179,24 @@ export async function getItemQuantity(userId, itemType) {
 
 /**
  * Add item to inventory (upsert - adds to quantity if exists)
- * @param {string} userId - Discord user ID
- * @param {string} itemType - Item type key
- * @param {number} quantity - Quantity to add (default: 1)
- * @param {number|null} itemValue - Value per item (for sellable items)
- * @returns {Promise<object|null>} - Updated inventory item
+ * @param userId - Discord user ID
+ * @param itemType - Item type key
+ * @param quantity - Quantity to add (default: 1)
+ * @param itemValue - Value per item (for sellable items)
+ * @returns Updated inventory item or null if invalid quantity
  */
-export async function addItem(userId, itemType, quantity = 1, itemValue = null) {
+export async function addItem(
+  userId: string,
+  itemType: string,
+  quantity: number = 1,
+  itemValue: number | null = null
+): Promise<InventoryItem | null> {
   if (quantity <= 0) return null;
 
   // If no value provided, use base value from config
   const value = itemValue !== null ? itemValue : getItemBaseValue(itemType);
 
-  const result = await sql`
+  const result = await sql<InventoryItem>`
     INSERT INTO user_inventory (user_id, item_type, quantity, item_value, acquired_at)
     VALUES (${userId}, ${itemType}, ${quantity}, ${value}, NOW())
     ON CONFLICT (user_id, item_type) DO UPDATE SET
@@ -102,20 +204,24 @@ export async function addItem(userId, itemType, quantity = 1, itemValue = null) 
       item_value = COALESCE(${value}, user_inventory.item_value)
     RETURNING *
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 /**
  * Remove item from inventory (atomic - fails if insufficient)
- * @param {string} userId - Discord user ID
- * @param {string} itemType - Item type key
- * @param {number} quantity - Quantity to remove (default: 1)
- * @returns {Promise<object|null>} - Updated inventory item or null if insufficient
+ * @param userId - Discord user ID
+ * @param itemType - Item type key
+ * @param quantity - Quantity to remove (default: 1)
+ * @returns Updated inventory item or null if insufficient
  */
-export async function removeItem(userId, itemType, quantity = 1) {
+export async function removeItem(
+  userId: string,
+  itemType: string,
+  quantity: number = 1
+): Promise<InventoryItem | null> {
   if (quantity <= 0) return null;
 
-  const result = await sql`
+  const result = await sql<InventoryItem>`
     UPDATE user_inventory
     SET quantity = quantity - ${quantity}
     WHERE user_id = ${userId}
@@ -142,12 +248,16 @@ export async function removeItem(userId, itemType, quantity = 1) {
 
 /**
  * Set exact quantity of an item (use with caution)
- * @param {string} userId - Discord user ID
- * @param {string} itemType - Item type key
- * @param {number} quantity - New quantity
- * @returns {Promise<object|null>} - Updated inventory item
+ * @param userId - Discord user ID
+ * @param itemType - Item type key
+ * @param quantity - New quantity
+ * @returns Updated inventory item or null if deleted
  */
-export async function setItemQuantity(userId, itemType, quantity) {
+export async function setItemQuantity(
+  userId: string,
+  itemType: string,
+  quantity: number
+): Promise<InventoryItem | null> {
   if (quantity <= 0) {
     // Delete the item if setting to 0 or negative
     await sql`
@@ -158,26 +268,30 @@ export async function setItemQuantity(userId, itemType, quantity) {
     return null;
   }
 
-  const result = await sql`
+  const result = await sql<InventoryItem>`
     INSERT INTO user_inventory (user_id, item_type, quantity, acquired_at)
     VALUES (${userId}, ${itemType}, ${quantity}, NOW())
     ON CONFLICT (user_id, item_type) DO UPDATE SET
       quantity = ${quantity}
     RETURNING *
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 // ============ Transaction Operations ============
 
 /**
  * Sell item from inventory (atomic: remove from inventory + add to wallet)
- * @param {string} userId - Discord user ID
- * @param {string} itemType - Item type key
- * @param {number} quantity - Quantity to sell (default: 1)
- * @returns {Promise<{success: boolean, item?: object, earnings?: number, error?: string}>}
+ * @param userId - Discord user ID
+ * @param itemType - Item type key
+ * @param quantity - Quantity to sell (default: 1)
+ * @returns Sell result with success/failure discriminated union
  */
-export async function sellItem(userId, itemType, quantity = 1) {
+export async function sellItem(
+  userId: string,
+  itemType: string,
+  quantity: number = 1
+): Promise<SellResult> {
   if (quantity <= 0) {
     return { success: false, error: 'INVALID_QUANTITY' };
   }
@@ -194,7 +308,7 @@ export async function sellItem(userId, itemType, quantity = 1) {
   }
 
   // Calculate earnings (use item_value from DB if set, otherwise base value)
-  const valuePerItem = currentItem.item_value || getItemBaseValue(itemType);
+  const valuePerItem = currentItem.item_value ?? getItemBaseValue(itemType);
   const totalEarnings = valuePerItem * quantity;
 
   // Remove items from inventory (atomic)
@@ -225,13 +339,18 @@ export async function sellItem(userId, itemType, quantity = 1) {
 
 /**
  * Transfer items between users
- * @param {string} fromUserId - Source user ID
- * @param {string} toUserId - Destination user ID
- * @param {string} itemType - Item type key
- * @param {number} quantity - Quantity to transfer
- * @returns {Promise<{success: boolean, error?: string}>}
+ * @param fromUserId - Source user ID
+ * @param toUserId - Destination user ID
+ * @param itemType - Item type key
+ * @param quantity - Quantity to transfer
+ * @returns Transfer result with success/failure discriminated union
  */
-export async function transferItem(fromUserId, toUserId, itemType, quantity = 1) {
+export async function transferItem(
+  fromUserId: string,
+  toUserId: string,
+  itemType: string,
+  quantity: number = 1
+): Promise<TransferResult> {
   if (quantity <= 0) {
     return { success: false, error: 'INVALID_QUANTITY' };
   }
@@ -260,14 +379,17 @@ export async function transferItem(fromUserId, toUserId, itemType, quantity = 1)
 
 /**
  * Add multiple items at once
- * @param {string} userId - Discord user ID
- * @param {array} items - Array of {itemType, quantity, itemValue?}
- * @returns {Promise<array>} - Array of added items
+ * @param userId - Discord user ID
+ * @param items - Array of item data to add
+ * @returns Array of added items
  */
-export async function addItems(userId, items) {
-  const results = [];
+export async function addItems(
+  userId: string,
+  items: AddItemData[]
+): Promise<InventoryItem[]> {
+  const results: InventoryItem[] = [];
   for (const item of items) {
-    const result = await addItem(userId, item.itemType, item.quantity || 1, item.itemValue);
+    const result = await addItem(userId, item.itemType, item.quantity ?? 1, item.itemValue ?? null);
     if (result) {
       results.push(result);
     }
@@ -277,11 +399,11 @@ export async function addItems(userId, items) {
 
 /**
  * Clear all items of a specific type from user's inventory
- * @param {string} userId - Discord user ID
- * @param {string} itemType - Item type key
- * @returns {Promise<boolean>} - True if deleted
+ * @param userId - Discord user ID
+ * @param itemType - Item type key
+ * @returns True if deleted
  */
-export async function clearItem(userId, itemType) {
+export async function clearItem(userId: string, itemType: string): Promise<boolean> {
   const result = await sql`
     DELETE FROM user_inventory
     WHERE user_id = ${userId}
@@ -293,10 +415,10 @@ export async function clearItem(userId, itemType) {
 
 /**
  * Clear entire inventory for a user (use with caution!)
- * @param {string} userId - Discord user ID
- * @returns {Promise<number>} - Number of items deleted
+ * @param userId - Discord user ID
+ * @returns Number of items deleted
  */
-export async function clearInventory(userId) {
+export async function clearInventory(userId: string): Promise<number> {
   const result = await sql`
     DELETE FROM user_inventory
     WHERE user_id = ${userId}

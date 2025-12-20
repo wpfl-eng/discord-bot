@@ -5,29 +5,147 @@ import { sql } from '@vercel/postgres';
 import { getRandomWord } from './wordleWords.js';
 import { CONFIG } from './wordleConfig.js';
 
+// ============ Type Definitions ============
+
+/**
+ * Leaderboard category types
+ */
+export type LeaderboardCategory = 'wins' | 'streak' | 'first_solves' | 'winrate';
+
+/**
+ * Guess distribution tracking (1-6 guesses)
+ */
+export interface GuessDistribution {
+  readonly '1': number;
+  readonly '2': number;
+  readonly '3': number;
+  readonly '4': number;
+  readonly '5': number;
+  readonly '6': number;
+}
+
+/**
+ * Word record from wordle_words table
+ */
+export interface WordleWord {
+  readonly id: number;
+  readonly current_word: string;
+  readonly word_number: number;
+  readonly set_at: Date;
+  readonly solved: boolean;
+  readonly solve_count: number;
+  readonly first_solver_id: string | null;
+  readonly first_solver_username: string | null;
+  readonly first_solved_at: Date | null;
+}
+
+/**
+ * Extended word record with first solver flag
+ */
+export interface WordleWordWithSolverFlag extends WordleWord {
+  readonly is_first_solver: boolean;
+}
+
+/**
+ * User game record from wordle_user_games table
+ */
+export interface WordleUserGame {
+  readonly id: number;
+  readonly user_id: string;
+  readonly username: string;
+  readonly word: string;
+  readonly word_number: number;
+  readonly guesses: string[];
+  readonly completed: boolean;
+  readonly won: boolean;
+  readonly completed_at: Date | null;
+  readonly created_at: Date;
+}
+
+/**
+ * User stats record from wordle_stats table
+ */
+export interface WordleStats {
+  readonly user_id: string;
+  readonly username: string;
+  readonly games_played: number;
+  readonly games_won: number;
+  readonly current_streak: number;
+  readonly best_streak: number;
+  readonly first_solves: number;
+  readonly total_guesses: number;
+  readonly guess_distribution: GuessDistribution;
+  readonly last_played_at: Date | null;
+  readonly created_at: Date;
+}
+
+/**
+ * Rotation info result
+ */
+export interface RotationInfo {
+  readonly canRotate: boolean;
+  readonly minutesRemaining: number;
+}
+
+/**
+ * Data for recording a game result
+ */
+export interface RecordGameResultData {
+  readonly userId: string;
+  readonly username: string;
+  readonly won: boolean;
+  readonly guessCount: number;
+  readonly wasFirstSolver: boolean;
+}
+
+/**
+ * Leaderboard entry (varies by category)
+ */
+export interface LeaderboardEntry {
+  readonly user_id: string;
+  readonly username: string;
+  readonly games_won?: number;
+  readonly games_played?: number;
+  readonly win_rate?: number;
+  readonly best_streak?: number;
+  readonly current_streak?: number;
+  readonly first_solves?: number;
+}
+
+/**
+ * Global stats aggregate
+ */
+export interface GlobalStats {
+  readonly total_players: string;
+  readonly total_games: string;
+  readonly total_wins: string;
+  readonly total_first_solves: string;
+  readonly longest_streak: number;
+}
+
 // ============ Word Management ============
 
 /**
  * Get the current active word
- * @returns {Promise<object|null>} Current word record or null
+ * @returns Current word record or null
  */
-export async function getCurrentWord() {
-  const result = await sql`
+export async function getCurrentWord(): Promise<WordleWord | null> {
+  const result = await sql<WordleWord>`
     SELECT * FROM wordle_words
     ORDER BY id DESC
     LIMIT 1
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 /**
  * Initialize the first word (used when no word exists)
- * @returns {Promise<object>} Newly created word record
+ * @returns Newly created word record
  */
-export async function initializeWord() {
+export async function initializeWord(): Promise<WordleWord> {
   const word = getRandomWord([]);
 
-  const result = await sql`
+  const result = await sql<WordleWord>`
     INSERT INTO wordle_words (current_word, word_number, set_at)
     VALUES (${word}, 1, NOW())
     RETURNING *
@@ -39,9 +157,9 @@ export async function initializeWord() {
  * Check if word rotation is needed and rotate if conditions are met
  * Conditions: time >= ROTATION_HOURS AND someone has attempted (win or loss)
  * Does NOT rotate if no one has touched the word
- * @returns {Promise<object>} Current or new word record
+ * @returns Current or new word record
  */
-export async function rotateWordIfNeeded() {
+export async function rotateWordIfNeeded(): Promise<WordleWord> {
   const current = await getCurrentWord();
 
   // Initialize if no word exists
@@ -62,7 +180,7 @@ export async function rotateWordIfNeeded() {
   // Only rotate if: time exceeded AND someone has attempted
   if (hoursSinceSet >= CONFIG.ROTATION_HOURS && hasAttempts) {
     // Get all previously used words to avoid repeats
-    const usedWordsResult = await sql`
+    const usedWordsResult = await sql<{ current_word: string }>`
       SELECT DISTINCT current_word FROM wordle_words
     `;
     const excludeList = usedWordsResult.rows.map((r) => r.current_word);
@@ -70,7 +188,7 @@ export async function rotateWordIfNeeded() {
     const newWord = getRandomWord(excludeList);
     const newNumber = current.word_number + 1;
 
-    const result = await sql`
+    const result = await sql<WordleWord>`
       INSERT INTO wordle_words (current_word, word_number, set_at)
       VALUES (${newWord}, ${newNumber}, NOW())
       RETURNING *
@@ -84,13 +202,17 @@ export async function rotateWordIfNeeded() {
 /**
  * Mark a word as solved and track first solver atomically
  * Uses COALESCE to ensure only the first solver gets credit
- * @param {number} wordId - Word record ID
- * @param {string} userId - Discord user ID of solver
- * @param {string} username - Discord username of solver
- * @returns {Promise<object>} Updated word record with is_first_solver flag
+ * @param wordId - Word record ID
+ * @param userId - Discord user ID of solver
+ * @param username - Discord username of solver
+ * @returns Updated word record with is_first_solver flag
  */
-export async function markWordSolved(wordId, userId, username) {
-  const result = await sql`
+export async function markWordSolved(
+  wordId: number,
+  userId: string,
+  username: string
+): Promise<WordleWordWithSolverFlag> {
+  const result = await sql<WordleWordWithSolverFlag>`
     UPDATE wordle_words
     SET
       solved = TRUE,
@@ -108,10 +230,10 @@ export async function markWordSolved(wordId, userId, username) {
 /**
  * Get time remaining until next word rotation
  * Note: This is only called when user has completed their game, so hasAttempts is implied
- * @param {object} currentWord - Current word record
- * @returns {object} { canRotate, minutesRemaining }
+ * @param currentWord - Current word record
+ * @returns Rotation info with canRotate flag and minutes remaining
  */
-export function getRotationInfo(currentWord) {
+export function getRotationInfo(currentWord: WordleWord | null): RotationInfo {
   if (!currentWord) {
     return { canRotate: false, minutesRemaining: 0 };
   }
@@ -130,50 +252,62 @@ export function getRotationInfo(currentWord) {
 
 /**
  * Get a user's game for a specific word
- * @param {string} userId - Discord user ID
- * @param {string} word - The word to find the game for
- * @returns {Promise<object|null>} User game record or null
+ * @param userId - Discord user ID
+ * @param word - The word to find the game for
+ * @returns User game record or null
  */
-export async function getUserGame(userId, word) {
-  const result = await sql`
+export async function getUserGame(
+  userId: string,
+  word: string
+): Promise<WordleUserGame | null> {
+  const result = await sql<WordleUserGame>`
     SELECT * FROM wordle_user_games
     WHERE user_id = ${userId} AND word = ${word}
     LIMIT 1
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 /**
  * Create a new game for a user
  * Uses ON CONFLICT to handle race conditions
- * @param {string} userId - Discord user ID
- * @param {string} username - Discord username
- * @param {string} word - The word for this game
- * @param {number} wordNumber - The word number
- * @returns {Promise<object|null>} New game record or null if already exists
+ * @param userId - Discord user ID
+ * @param username - Discord username
+ * @param word - The word for this game
+ * @param wordNumber - The word number
+ * @returns New game record or null if already exists
  */
-export async function createUserGame(userId, username, word, wordNumber) {
-  const result = await sql`
+export async function createUserGame(
+  userId: string,
+  username: string,
+  word: string,
+  wordNumber: number
+): Promise<WordleUserGame | null> {
+  const result = await sql<WordleUserGame>`
     INSERT INTO wordle_user_games (user_id, username, word, word_number)
     VALUES (${userId}, ${username}, ${word}, ${wordNumber})
     ON CONFLICT (user_id, word) DO NOTHING
     RETURNING *
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 /**
  * Add a guess to a user's game
  * Appends to the JSONB guesses array
- * @param {number} gameId - Game record ID
- * @param {string} guess - The guess to add
- * @param {string[]} currentGuesses - Current guesses array
- * @returns {Promise<object>} Updated game record
+ * @param gameId - Game record ID
+ * @param guess - The guess to add
+ * @param currentGuesses - Current guesses array
+ * @returns Updated game record
  */
-export async function addGuess(gameId, guess, currentGuesses) {
+export async function addGuess(
+  gameId: number,
+  guess: string,
+  currentGuesses: string[]
+): Promise<WordleUserGame> {
   const newGuesses = [...currentGuesses, guess.toLowerCase()];
 
-  const result = await sql`
+  const result = await sql<WordleUserGame>`
     UPDATE wordle_user_games
     SET guesses = ${JSON.stringify(newGuesses)}::jsonb
     WHERE id = ${gameId}
@@ -184,12 +318,15 @@ export async function addGuess(gameId, guess, currentGuesses) {
 
 /**
  * Mark a game as completed
- * @param {number} gameId - Game record ID
- * @param {boolean} won - Whether the player won
- * @returns {Promise<object>} Updated game record
+ * @param gameId - Game record ID
+ * @param won - Whether the player won
+ * @returns Updated game record
  */
-export async function completeGame(gameId, won) {
-  const result = await sql`
+export async function completeGame(
+  gameId: number,
+  won: boolean
+): Promise<WordleUserGame> {
+  const result = await sql<WordleUserGame>`
     UPDATE wordle_user_games
     SET
       completed = TRUE,
@@ -203,11 +340,11 @@ export async function completeGame(gameId, won) {
 
 /**
  * Get all games for a specific word (for stats/display)
- * @param {string} word - The word to get games for
- * @returns {Promise<array>} Array of game records
+ * @param word - The word to get games for
+ * @returns Array of game records
  */
-export async function getGamesForWord(word) {
-  const result = await sql`
+export async function getGamesForWord(word: string): Promise<WordleUserGame[]> {
+  const result = await sql<WordleUserGame>`
     SELECT * FROM wordle_user_games
     WHERE word = ${word}
     ORDER BY completed_at ASC
@@ -219,12 +356,15 @@ export async function getGamesForWord(word) {
 
 /**
  * Get or create a user's wordle stats
- * @param {string} userId - Discord user ID
- * @param {string} username - Discord username
- * @returns {Promise<object>} User stats record
+ * @param userId - Discord user ID
+ * @param username - Discord username
+ * @returns User stats record
  */
-export async function getOrCreateStats(userId, username) {
-  const result = await sql`
+export async function getOrCreateStats(
+  userId: string,
+  username: string
+): Promise<WordleStats> {
+  const result = await sql<WordleStats>`
     INSERT INTO wordle_stats (user_id, username, created_at)
     VALUES (${userId}, ${username}, NOW())
     ON CONFLICT (user_id) DO UPDATE SET
@@ -236,32 +376,37 @@ export async function getOrCreateStats(userId, username) {
 
 /**
  * Get a user's stats (without creating)
- * @param {string} userId - Discord user ID
- * @returns {Promise<object|null>} User stats or null
+ * @param userId - Discord user ID
+ * @returns User stats or null
  */
-export async function getUserStats(userId) {
-  const result = await sql`
+export async function getUserStats(userId: string): Promise<WordleStats | null> {
+  const result = await sql<WordleStats>`
     SELECT * FROM wordle_stats
     WHERE user_id = ${userId}
     LIMIT 1
   `;
-  return result.rows[0] || null;
+  return result.rows[0] ?? null;
 }
 
 /**
  * Update user stats after completing a game
  * Handles streaks and guess distribution
- * @param {string} userId - Discord user ID
- * @param {boolean} won - Whether the player won
- * @param {number} guessCount - Number of guesses used
- * @param {boolean} wasFirstSolver - Whether this was the first solve
- * @returns {Promise<object>} Updated stats record
+ * @param userId - Discord user ID
+ * @param won - Whether the player won
+ * @param guessCount - Number of guesses used
+ * @param wasFirstSolver - Whether this was the first solve
+ * @returns Updated stats record
  */
-export async function updateStats(userId, won, guessCount, wasFirstSolver) {
+export async function updateStats(
+  userId: string,
+  won: boolean,
+  guessCount: number,
+  wasFirstSolver: boolean
+): Promise<WordleStats> {
   // For guess distribution, we need to update the specific key
   const guessKey = guessCount.toString();
 
-  const result = await sql`
+  const result = await sql<WordleStats>`
     UPDATE wordle_stats
     SET
       games_played = games_played + 1,
@@ -295,10 +440,10 @@ export async function updateStats(userId, won, guessCount, wasFirstSolver) {
 
 /**
  * Record a complete game result (combines multiple operations)
- * @param {object} data - Game result data
- * @returns {Promise<object>} Updated stats
+ * @param data - Game result data
+ * @returns Updated stats
  */
-export async function recordGameResult(data) {
+export async function recordGameResult(data: RecordGameResultData): Promise<WordleStats> {
   const { userId, username, won, guessCount, wasFirstSolver } = data;
 
   // Ensure stats exist
@@ -312,16 +457,19 @@ export async function recordGameResult(data) {
 
 /**
  * Get wordle leaderboard by category
- * @param {'wins'|'streak'|'first_solves'|'winrate'} category - Leaderboard category
- * @param {number} limit - Number of results
- * @returns {Promise<array>} Leaderboard entries
+ * @param category - Leaderboard category
+ * @param limit - Number of results
+ * @returns Leaderboard entries
  */
-export async function getLeaderboard(category, limit = 10) {
+export async function getLeaderboard(
+  category: LeaderboardCategory,
+  limit: number = 10
+): Promise<LeaderboardEntry[]> {
   let result;
 
   switch (category) {
     case 'wins':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, games_won, games_played,
           CASE WHEN games_played > 0
             THEN ROUND(100.0 * games_won / games_played, 1)
@@ -335,7 +483,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'streak':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, best_streak, current_streak, games_played
         FROM wordle_stats
         WHERE games_played > 0
@@ -345,7 +493,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'first_solves':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, first_solves, games_played
         FROM wordle_stats
         WHERE first_solves > 0
@@ -355,7 +503,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     case 'winrate':
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, games_won, games_played,
           ROUND(100.0 * games_won / games_played, 1) as win_rate
         FROM wordle_stats
@@ -366,7 +514,7 @@ export async function getLeaderboard(category, limit = 10) {
       break;
 
     default:
-      result = await sql`
+      result = await sql<LeaderboardEntry>`
         SELECT user_id, username, games_won, games_played
         FROM wordle_stats
         WHERE games_played > 0
@@ -380,21 +528,21 @@ export async function getLeaderboard(category, limit = 10) {
 
 /**
  * Get total number of wordle players
- * @returns {Promise<number>} Total player count
+ * @returns Total player count
  */
-export async function getTotalPlayers() {
-  const result = await sql`
+export async function getTotalPlayers(): Promise<number> {
+  const result = await sql<{ count: string }>`
     SELECT COUNT(*) as count FROM wordle_stats WHERE games_played > 0
   `;
-  return parseInt(result.rows[0]?.count) || 0;
+  return parseInt(result.rows[0]?.count ?? '0', 10);
 }
 
 /**
  * Get global wordle statistics
- * @returns {Promise<object>} Global stats
+ * @returns Global stats
  */
-export async function getGlobalStats() {
-  const result = await sql`
+export async function getGlobalStats(): Promise<GlobalStats> {
+  const result = await sql<GlobalStats>`
     SELECT
       COUNT(*) as total_players,
       SUM(games_played) as total_games,
