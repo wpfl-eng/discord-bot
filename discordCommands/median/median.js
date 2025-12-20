@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
-import { espnMembers } from '../../constants/espnMembers.js';
+import { espnMembers } from '../../constants/espnMembers.ts';
 
 export const data = new SlashCommandBuilder()
   .setName('median')

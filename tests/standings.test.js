@@ -1,7 +1,7 @@
 // standings.test.js
 import { jest } from '@jest/globals';
 import { getStandings } from '../discordCommands/standings/standings.js';
-import { espnMembers } from '../constants/espnMembers.js';
+import { espnMembers } from '../constants/espnMembers.ts';
 
 describe('Standings Command', () => {
   let mockEspnClient;

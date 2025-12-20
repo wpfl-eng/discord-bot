@@ -1,7 +1,7 @@
 // standings.js
 import { SlashCommandBuilder } from 'discord.js';
 import { Client } from '../../espnClient.cjs';
-import { espnMembers } from '../../constants/espnMembers.js';
+import { espnMembers } from '../../constants/espnMembers.ts';
 
 export const data = new SlashCommandBuilder()
   .setName('standings')

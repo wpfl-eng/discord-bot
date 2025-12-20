@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
-import { espnMembers } from '../../constants/espnMembers.js';
+import { espnMembers } from '../../constants/espnMembers.ts';
 import { formatDistanceToNow, subDays, format } from 'date-fns';
 
 // Define the slash command

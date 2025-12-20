@@ -5,7 +5,7 @@ import {
   truncateFieldValue,
   validateSeasonRange,
   getDraftArchetype,
-} from '../../helpers/draftTrendsUtils.js';
+} from '../../helpers/draftTrendsUtils.ts';
 
 export const data = new SlashCommandBuilder()
   .setName('drafttrends')

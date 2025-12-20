@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { formatNumber } from '../../helpers/utils.js';
-import { espnMembers } from '../../constants/espnMembers.js';
+import { formatNumber } from '../../helpers/utils.ts';
+import { espnMembers } from '../../constants/espnMembers.ts';
 import { Client } from '../../espnClient.cjs';
 
 // Define the command structure

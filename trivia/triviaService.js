@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import crypto from 'crypto';
 import { EmbedBuilder } from 'discord.js';
 import * as triviaDb from './triviaDb.js';
-import { checkAnswer } from './answerMatcher.js';
+import { checkAnswer } from './answerMatcher.ts';
 import * as economyDb from '../economy/economyDb.js';
 import nflQuestions from './nflQuestions.json' with { type: 'json' };
 import wpflQuestions from './wpflQuestions.json' with { type: 'json' };

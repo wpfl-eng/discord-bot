@@ -1,9 +1,9 @@
-import { sleeperMemebers } from '../../constants/sleeperMembers.js';
+import { sleeperMembers } from '../../constants/sleeperMembers.ts';
 
 class Matchup {
   constructor(matchupData) {
     const memberInfo =
-      sleeperMemebers.find((member) => member.rosterId === matchupData.roster_id) || {};
+      sleeperMembers.find((member) => member.rosterId === matchupData.roster_id) || {};
     this.name = memberInfo.name || 'Unknown';
 
     this.starters = matchupData.starters;
