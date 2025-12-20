@@ -263,24 +263,24 @@ export class TriviaService {
         "trivia_correct"
       );
 
+      // Build combined reply message
+      let replyParts = [];
+
       if (pointsAwarded) {
         const coinText = coinsAwarded > 0 ? ` and 🪙 ${coinsAwarded} coins` : "";
-        await message.reply(
-          `Correct! +${activeQuestion.point_value} point(s)${coinText} added!`
-        );
+        replyParts.push(`Correct! +${activeQuestion.point_value} point(s)${coinText} added!`);
       } else {
-        await message.reply(
-          `Correct! There was an issue adding points - please contact an admin.`
-        );
+        replyParts.push(`Correct! There was an issue adding points - please contact an admin.`);
       }
 
-      // Send NFLmon notifications via DM
+      // Add NFLmon drop info to same message
       if (nflmonDropped) {
-        await message.reply(
-          `You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity.name})! Use \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`
+        replyParts.push(
+          `🎮 You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity.name})! Use \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`
         );
       }
 
+      // Add training XP info to same message
       if (xpResult && xpResult.results.length > 0) {
         const xpLines = xpResult.results.map((r) => {
           let line = `${r.player?.name || "Unknown"} +${xpResult.xpAmount} XP`;
@@ -288,8 +288,10 @@ export class TriviaService {
           if (r.evolved) line += ` EVOLVED!`;
           return line;
         });
-        await message.reply(`**Training XP:** ${xpLines.join(", ")}`);
+        replyParts.push(`**Training XP:** ${xpLines.join(", ")}`);
       }
+
+      await message.reply(replyParts.join("\n"));
 
       // Announce in channel (no answer reveal)
       await this.announceCorrectAnswer(activeQuestion, message.author.username);

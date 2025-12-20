@@ -83,6 +83,20 @@ export function getPlayersByRarity(rarityPool) {
   );
 }
 
+/**
+ * Get N random common players for starter selection
+ * @param {number} count - Number of players to return
+ * @returns {object[]} Array of random common players
+ */
+export function getRandomCommonPlayers(count) {
+  const commonPlayers = getPlayersByRarity("common");
+  if (commonPlayers.length === 0) return [];
+
+  // Shuffle and take first N
+  const shuffled = [...commonPlayers].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
 // =============================================================================
 // CORE SERVICE FUNCTIONS
 // =============================================================================
@@ -732,4 +746,117 @@ export function buildDexEmbed(players, page, totalPages, totalCount, filters) {
 
   embed.setFooter({ text: `Page ${page}/${totalPages} | Use /nflmon bench to see your collection` });
   return embed;
+}
+
+// =============================================================================
+// TRADE ACTION HELPERS
+// =============================================================================
+
+/**
+ * Trade error messages (centralized for reuse)
+ */
+export const TRADE_ERRORS = {
+  NOT_FOUND: "Trade not found.",
+  NOT_RECIPIENT: "You cannot accept/reject this trade.",
+  NOT_PENDING: "This trade is no longer pending.",
+  NOT_SENDER: "You can only cancel trades you sent.",
+  EXPIRED: "This trade has expired.",
+  FROM_NFLMON_UNAVAILABLE: "The offered NFLmon is no longer available.",
+  FROM_NFLMON_TRAINING: "The offered NFLmon is in training.",
+  TO_NFLMON_UNAVAILABLE: "The requested NFLmon is no longer available.",
+  TO_NFLMON_TRAINING: "Your NFLmon is in training. Untrain it first.",
+  INSUFFICIENT_COINS: "The sender no longer has enough coins.",
+  SELF_TRADE: "You cannot trade with yourself.",
+  TRANSACTION_FAILED: "Transaction failed. Please try again.",
+};
+
+/**
+ * Process trade accept action and return embeds
+ * @param {string} userId - User accepting the trade
+ * @param {number} tradeId - Trade ID
+ * @returns {Promise<{success: boolean, responseEmbed: EmbedBuilder, announceEmbed?: EmbedBuilder, error?: string}>}
+ */
+export async function processTradeAccept(userId, tradeId) {
+  const result = await nflmonDb.acceptTrade(userId, tradeId);
+
+  if (!result.success) {
+    const errorMsg = TRADE_ERRORS[result.error] || "Trade failed.";
+    const responseEmbed = new EmbedBuilder()
+      .setColor(0xff0000)
+      .setTitle("Trade Failed")
+      .setDescription(errorMsg);
+    return { success: false, responseEmbed, error: result.error };
+  }
+
+  // Get player names
+  const fromPlayer = getPlayer(result.fromNflmon.player_id);
+  const toPlayer = result.toNflmon
+    ? getPlayer(result.toNflmon.player_id)
+    : null;
+
+  // Build response embed
+  const responseEmbed = buildTradeResultEmbed(
+    true,
+    fromPlayer,
+    toPlayer,
+    result.trade.coins_offered
+  );
+
+  // Build announcement embed
+  const fromName = fromPlayer?.name || "Unknown";
+  const toName = toPlayer?.name;
+  const announceEmbed = new EmbedBuilder()
+    .setColor(0x2ecc71)
+    .setTitle("Trade Completed!")
+    .setDescription(
+      `**${result.trade.from_username}** traded **${fromName}** ` +
+        `to **${result.trade.to_username}**` +
+        (toName ? ` for **${toName}**` : "") +
+        (result.trade.coins_offered > 0 ? ` + ${result.trade.coins_offered} coins` : "")
+    );
+
+  return { success: true, responseEmbed, announceEmbed };
+}
+
+/**
+ * Process trade reject action and return embed
+ * @param {string} userId - User rejecting the trade
+ * @param {number} tradeId - Trade ID
+ * @returns {Promise<{success: boolean, responseEmbed: EmbedBuilder}>}
+ */
+export async function processTradeReject(userId, tradeId) {
+  await nflmonDb.rejectTrade(userId, tradeId);
+
+  const responseEmbed = new EmbedBuilder()
+    .setColor(0x808080)
+    .setTitle("Trade Rejected")
+    .setDescription("You declined the trade offer.");
+
+  return { success: true, responseEmbed };
+}
+
+/**
+ * Process trade cancel action and return embed
+ * @param {string} userId - User cancelling the trade
+ * @param {number} tradeId - Trade ID
+ * @returns {Promise<{success: boolean, responseEmbed: EmbedBuilder, error?: string}>}
+ */
+export async function processTradeCancel(userId, tradeId) {
+  const result = await nflmonDb.cancelTrade(userId, tradeId);
+
+  if (!result.success) {
+    const errorMsg = TRADE_ERRORS[result.error] || "Failed to cancel trade.";
+    const responseEmbed = new EmbedBuilder()
+      .setColor(0xff0000)
+      .setTitle("Error")
+      .setDescription(errorMsg);
+    return { success: false, responseEmbed, error: result.error };
+  }
+
+  const responseEmbed = new EmbedBuilder()
+    .setColor(0x808080)
+    .setTitle("Trade Cancelled")
+    .setDescription(`Trade #${tradeId} has been cancelled.`);
+
+  return { success: true, responseEmbed };
 }

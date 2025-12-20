@@ -829,6 +829,39 @@ export async function getUserRank(userId, category = "total_caught") {
   };
 }
 
+// =============================================================================
+// STARTER OPERATIONS
+// =============================================================================
+
+/**
+ * Check if user has already claimed their starter NFLmon
+ * @param {string} userId - User ID
+ * @returns {Promise<boolean>} True if already claimed
+ */
+export async function hasClaimedStarter(userId) {
+  const stats = await getOrCreateStats(userId);
+  return stats.starter_claimed === true;
+}
+
+/**
+ * Mark user as having claimed their starter NFLmon
+ * @param {string} userId - User ID
+ * @returns {Promise<object|null>} Updated stats or null
+ */
+export async function markStarterClaimed(userId) {
+  const result = await sql`
+    UPDATE nflmon_stats
+    SET starter_claimed = TRUE
+    WHERE user_id = ${userId}
+    RETURNING *
+  `;
+  return result.rows[0] || null;
+}
+
+// =============================================================================
+// EVOLUTION OPERATIONS
+// =============================================================================
+
 /**
  * Evolve an NFLmon to a new stage
  * @param {string} userId - User ID for ownership check

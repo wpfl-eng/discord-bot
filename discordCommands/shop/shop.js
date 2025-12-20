@@ -383,18 +383,24 @@ export async function execute(interaction) {
           RETURNING *
         `;
         if (deductResult.rows.length > 0) {
-          const packResult = await nflmonService.rollMultipleNflmon(
-            userId,
-            username,
-            item.quantity
-          );
-          if (packResult.success) {
-            updatedUser = deductResult.rows[0];
-            purchaseDetails.nflmonPack = true;
-            purchaseDetails.packResults = packResult.results;
-            purchaseDetails.packName = item.name;
-          } else {
-            // Refund on failure
+          try {
+            const packResult = await nflmonService.rollMultipleNflmon(
+              userId,
+              username,
+              item.quantity
+            );
+            if (packResult.success) {
+              updatedUser = deductResult.rows[0];
+              purchaseDetails.nflmonPack = true;
+              purchaseDetails.packResults = packResult.results;
+              purchaseDetails.packName = item.name;
+            } else {
+              // Refund on failure
+              await sql`UPDATE economy_users SET wallet = wallet + ${item.price} WHERE user_id = ${userId}`;
+            }
+          } catch (packError) {
+            // Refund on exception
+            console.error("[SHOP] NFLmon pack error, refunding:", packError);
             await sql`UPDATE economy_users SET wallet = wallet + ${item.price} WHERE user_id = ${userId}`;
           }
         }

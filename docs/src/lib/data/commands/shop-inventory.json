@@ -15,13 +15,15 @@
       "examples": [
         {
           "input": "/shop",
-          "output": "🏪 Shop\n\n🔒 Padlock - 🪙 500\n🏦 Bank Expansion - 🪙 2,000\n🤲 TE Contract - 🪙 50\n🏃 RB Contract - 🪙 100\n🎯 WR Contract - 🪙 150\n🏈 QB Contract - 🪙 250\n🔧 Setup Kit - 🪙 500\n💧 Water Cooler - 🪙 300"
+          "output": "🏪 Shop\n\n🔒 Padlock - 🪙 500\n🏦 Bank Expansion - 🪙 2,000\n🤲 TE Contract - 🪙 50\n🏃 RB Contract - 🪙 100\n🎯 WR Contract - 🪙 150\n🏈 QB Contract - 🪙 250\n🔧 Setup Kit - 🪙 500\n💧 Water Cooler - 🪙 300\n\n🎴 Starter Pack - 🪙 500 (1 NFLmon)\n🎴 Pro Pack - 🪙 1,500 (3 NFLmon)\n🎴 Elite Pack - 🪙 5,000 (5 NFLmon)\n🎓 Training Slot - 🪙 3,000"
         }
       ],
       "tips": [
         "Padlock protects from one robbery",
         "Bank Expansion increases bank capacity by 1,000",
-        "Contracts and tools are used in Training Ground"
+        "Contracts and tools are used in Training Ground",
+        "NFLmon packs give guaranteed random players",
+        "Training Slots increase max NFLmon you can train at once"
       ],
       "gameConfig": {
         "items": {
@@ -32,7 +34,11 @@
           "contractWR": 150,
           "contractQB": 250,
           "setupKit": 500,
-          "waterCooler": 300
+          "waterCooler": 300,
+          "starterPack": 500,
+          "proPack": 1500,
+          "elitePack": 5000,
+          "trainingSlot": 3000
         }
       },
       "relatedCommands": ["inventory", "train", "balance"]

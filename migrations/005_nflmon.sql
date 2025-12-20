@@ -41,6 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_nflmon_user ON nflmon_bench(user_id);
 CREATE INDEX IF NOT EXISTS idx_nflmon_training ON nflmon_bench(user_id) WHERE training_slot IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_nflmon_level ON nflmon_bench(level DESC);
 CREATE INDEX IF NOT EXISTS idx_nflmon_rarity ON nflmon_bench(rarity);
+CREATE INDEX IF NOT EXISTS idx_nflmon_player ON nflmon_bench(player_id);
 
 -- =============================================================================
 -- User statistics table

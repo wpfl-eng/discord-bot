@@ -11,6 +11,7 @@ import {
 } from "discord.js";
 import * as nflmonDb from "../../nflmon/nflmonDb.js";
 import * as nflmonService from "../../nflmon/nflmonService.js";
+import { TRADE_ERRORS } from "../../nflmon/nflmonService.js";
 import {
   getSellValue,
   formatRarity,
@@ -31,20 +32,6 @@ const ERROR_MESSAGES = {
   SLOT_OCCUPIED: "That training slot is already in use.",
   NOT_IN_TRAINING: "This NFLmon is not currently in training.",
   ALREADY_IN_TRAINING: "This NFLmon is already in a training slot.",
-};
-
-const TRADE_ERRORS = {
-  NOT_FOUND: "Trade not found.",
-  NOT_RECIPIENT: "You cannot accept this trade.",
-  NOT_PENDING: "This trade is no longer pending.",
-  NOT_SENDER: "You can only cancel trades you sent.",
-  EXPIRED: "This trade has expired.",
-  FROM_NFLMON_UNAVAILABLE: "The offered NFLmon is no longer available.",
-  FROM_NFLMON_TRAINING: "The offered NFLmon is in training.",
-  TO_NFLMON_UNAVAILABLE: "The requested NFLmon is no longer available.",
-  TO_NFLMON_TRAINING: "Your NFLmon is in training. Untrain it first.",
-  INSUFFICIENT_COINS: "The sender no longer has enough coins.",
-  SELF_TRADE: "You cannot trade with yourself.",
 };
 
 // =============================================================================
@@ -1240,6 +1227,12 @@ async function handleTradeOffer(interaction) {
         });
         return;
       }
+      if (theirNflmon.training_slot !== null) {
+        await interaction.editReply({
+          content: "That NFLmon is currently in training. The owner must untrain it first.",
+        });
+        return;
+      }
     }
 
     // Create the trade
@@ -1343,101 +1336,44 @@ async function handleTradePending(interaction) {
       const tradeId = parseInt(tradeIdStr);
 
       if (action === "accept") {
-        const result = await nflmonDb.acceptTrade(userId, tradeId);
-
-        if (!result.success) {
-          const errorMsg = TRADE_ERRORS[result.error] || "Trade failed.";
-          await buttonInteraction.update({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0xff0000)
-                .setTitle("Trade Failed")
-                .setDescription(errorMsg),
-            ],
-            components: [],
-          });
-          collector.stop();
-          return;
-        }
-
-        // Get player names for result
-        const fromPlayer = nflmonService.getPlayer(result.fromNflmon.player_id);
-        const toPlayer = result.toNflmon
-          ? nflmonService.getPlayer(result.toNflmon.player_id)
-          : null;
-
-        const resultEmbed = nflmonService.buildTradeResultEmbed(
-          true,
-          fromPlayer,
-          toPlayer,
-          result.trade.coins_offered
-        );
+        const result = await nflmonService.processTradeAccept(userId, tradeId);
 
         await buttonInteraction.update({
-          embeds: [resultEmbed],
+          embeds: [result.responseEmbed],
           components: [],
         });
 
         // Announce trade completion publicly
-        try {
-          const channelId = process.env.GENERAL_CHANNEL_ID;
-          if (channelId) {
-            const channel = await interaction.client.channels.fetch(channelId);
-            if (channel) {
-              const announceEmbed = new EmbedBuilder()
-                .setColor(0x2ecc71)
-                .setTitle("Trade Completed!")
-                .setDescription(
-                  `**${result.trade.from_username}** traded **${fromPlayer?.name || "Unknown"}** ` +
-                    `to **${result.trade.to_username}**` +
-                    (toPlayer ? ` for **${toPlayer.name}**` : "") +
-                    (result.trade.coins_offered > 0 ? ` + ${result.trade.coins_offered} coins` : "")
-                );
-              await channel.send({ embeds: [announceEmbed] });
+        if (result.success && result.announceEmbed) {
+          try {
+            const channelId = process.env.GENERAL_CHANNEL_ID;
+            if (channelId) {
+              const channel = await interaction.client.channels.fetch(channelId);
+              if (channel) {
+                await channel.send({ embeds: [result.announceEmbed] });
+              }
             }
+          } catch (announceError) {
+            console.log("[NFLMON] Could not announce trade:", announceError.message);
           }
-        } catch (announceError) {
-          console.log("[NFLMON] Could not announce trade:", announceError.message);
         }
 
         collector.stop();
       } else if (action === "reject") {
-        const result = await nflmonDb.rejectTrade(userId, tradeId);
+        const result = await nflmonService.processTradeReject(userId, tradeId);
 
         await buttonInteraction.update({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0x808080)
-              .setTitle("Trade Rejected")
-              .setDescription("You declined the trade offer."),
-          ],
+          embeds: [result.responseEmbed],
           components: [],
         });
         collector.stop();
       } else if (action === "cancel") {
-        const trade = await nflmonDb.getTrade(tradeId);
-        if (trade && trade.from_user_id === userId) {
-          await nflmonDb.cancelTrade(userId, tradeId);
-          await buttonInteraction.update({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0x808080)
-                .setTitle("Trade Cancelled")
-                .setDescription("You cancelled your trade offer."),
-            ],
-            components: [],
-          });
-        } else {
-          await buttonInteraction.update({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0xff0000)
-                .setTitle("Error")
-                .setDescription(TRADE_ERRORS.NOT_SENDER),
-            ],
-            components: [],
-          });
-        }
+        const result = await nflmonService.processTradeCancel(userId, tradeId);
+
+        await buttonInteraction.update({
+          embeds: [result.responseEmbed],
+          components: [],
+        });
         collector.stop();
       }
     });
