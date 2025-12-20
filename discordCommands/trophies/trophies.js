@@ -1,17 +1,17 @@
-import { SlashCommandBuilder } from "discord.js";
-import { formatNumber } from "../../helpers/utils.js";
-import { espnMembers } from "../../constants/espnMembers.js";
-import { Client } from "../../espnClient.cjs";
+import { SlashCommandBuilder } from 'discord.js';
+import { formatNumber } from '../../helpers/utils.js';
+import { espnMembers } from '../../constants/espnMembers.js';
+import { Client } from '../../espnClient.cjs';
 
 // Define the command structure
 export const data = new SlashCommandBuilder()
-  .setName("trophies")
-  .setDescription("Returns trophies by week and year")
+  .setName('trophies')
+  .setDescription('Returns trophies by week and year')
   .addIntegerOption(
     (option) =>
       option
-        .setName("week")
-        .setDescription("Input week of matchup")
+        .setName('week')
+        .setDescription('Input week of matchup')
         .setRequired(true)
         .setMinValue(1)
         .setMaxValue(18) // Assuming a maximum of 17 weeks in a season
@@ -19,8 +19,8 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption(
     (option) =>
       option
-        .setName("year")
-        .setDescription("Input year of matchup")
+        .setName('year')
+        .setDescription('Input year of matchup')
         .setRequired(true)
         .setMinValue(2018)
         .setMaxValue(new Date().getFullYear()) // Dynamic max year
@@ -29,14 +29,14 @@ export const data = new SlashCommandBuilder()
 // Main execution function
 export const execute = async (interaction) => {
   // Get user inputs
-  const matchupWeek = interaction.options.getInteger("week");
-  const matchupYear = interaction.options.getInteger("year");
+  const matchupWeek = interaction.options.getInteger('week');
+  const matchupYear = interaction.options.getInteger('year');
 
   // Check for required environment variables
   const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
   if (!LEAGUE_ID || !ESPN_S2 || !SWID) {
     return await interaction.reply({
-      content: "Missing required environment variables",
+      content: 'Missing required environment variables',
       ephemeral: true,
     });
   }
@@ -63,7 +63,7 @@ export const execute = async (interaction) => {
     // Send the formatted response
     await interaction.editReply({ content: response });
   } catch (error) {
-    console.error("Trophies command error:", error);
+    console.error('Trophies command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
       ephemeral: true,
@@ -80,13 +80,7 @@ const analyzeScores = (boxscores) => {
 
       updateHighLowScores(scores, homeScore, homeMemberName);
       updateHighLowScores(scores, awayScore, awayMemberName);
-      updateCloseAndBlowoutScores(
-        scores,
-        homeScore,
-        awayScore,
-        homeMemberName,
-        awayMemberName
-      );
+      updateCloseAndBlowoutScores(scores, homeScore, awayScore, homeMemberName, awayMemberName);
       updateHighestScoringLoserAndLowestScoringWinner(
         scores,
         homeScore,
@@ -101,17 +95,17 @@ const analyzeScores = (boxscores) => {
     },
     {
       lowScore: Infinity,
-      lowScoreTeam: "",
+      lowScoreTeam: '',
       highScore: -Infinity,
-      highScoreTeam: "",
+      highScoreTeam: '',
       closeScore: Infinity,
-      closeScoreWinner: "",
-      closeScoreLoser: "",
+      closeScoreWinner: '',
+      closeScoreLoser: '',
       biggestBlowout: -Infinity,
-      biggestBlowoutWinner: "",
-      biggestBlowoutLoser: "",
-      highestScoringLoser: { score: -Infinity, team: "" },
-      lowestScoringWinner: { score: Infinity, team: "" },
+      biggestBlowoutWinner: '',
+      biggestBlowoutLoser: '',
+      highestScoringLoser: { score: -Infinity, team: '' },
+      lowestScoringWinner: { score: Infinity, team: '' },
       totalScore: 0,
       matchupCount: 0,
     }
@@ -120,7 +114,7 @@ const analyzeScores = (boxscores) => {
 
 // Get member name from team ID
 const getMemberName = (teamId) =>
-  espnMembers.find((member) => member.id === teamId)?.name ?? "Unknown";
+  espnMembers.find((member) => member.id === teamId)?.name ?? 'Unknown';
 
 // Update high and low scores
 const updateHighLowScores = (scores, score, teamName) => {
@@ -144,9 +138,7 @@ const updateCloseAndBlowoutScores = (
 ) => {
   const scoreDifference = Math.abs(homeScore - awayScore);
   const [winner, loser] =
-    homeScore > awayScore
-      ? [homeMemberName, awayMemberName]
-      : [awayMemberName, homeMemberName];
+    homeScore > awayScore ? [homeMemberName, awayMemberName] : [awayMemberName, homeMemberName];
 
   // Update close game
   if (scoreDifference !== 0 && scoreDifference < scores.closeScore) {
@@ -194,12 +186,8 @@ const formatResponse = (week, year, scores) => {
   const weeklyAverageScore = scores.totalScore / (scores.matchupCount * 2);
   return `
 Week ${week} ${year} Trophies:
-- Lowest Score with ${formatNumber(scores.lowScore)} points: ${
-    scores.lowScoreTeam
-  }
-- Highest Score with ${formatNumber(scores.highScore)} points: ${
-    scores.highScoreTeam
-  }
+- Lowest Score with ${formatNumber(scores.lowScore)} points: ${scores.lowScoreTeam}
+- Highest Score with ${formatNumber(scores.highScore)} points: ${scores.highScoreTeam}
 - ${scores.closeScoreWinner} barely beat ${
     scores.closeScoreLoser
   } by a margin of ${formatNumber(scores.closeScore)} points

@@ -4,40 +4,40 @@
 // ============ RARITIES ============
 export const RARITIES = {
   COMMON: {
-    id: "common",
-    name: "Common",
+    id: 'common',
+    name: 'Common',
     weight: 50,
     sellValue: 50,
     multiplier: 1.0,
     color: 0x95a5a6,
   },
   UNCOMMON: {
-    id: "uncommon",
-    name: "Uncommon",
+    id: 'uncommon',
+    name: 'Uncommon',
     weight: 25,
     sellValue: 100,
     multiplier: 1.1,
     color: 0x2ecc71,
   },
   RARE: {
-    id: "rare",
-    name: "Rare",
+    id: 'rare',
+    name: 'Rare',
     weight: 12,
     sellValue: 250,
     multiplier: 1.2,
     color: 0x3498db,
   },
   EPIC: {
-    id: "epic",
-    name: "Epic",
+    id: 'epic',
+    name: 'Epic',
     weight: 5,
     sellValue: 500,
     multiplier: 1.35,
     color: 0x9b59b6,
   },
   LEGENDARY: {
-    id: "legendary",
-    name: "Legendary",
+    id: 'legendary',
+    name: 'Legendary',
     weight: 8,
     sellValue: 1000,
     multiplier: 1.5,
@@ -48,15 +48,15 @@ export const RARITIES = {
 // ============ EVOLUTION STAGES ============
 // Config-driven for easy extension (e.g., adding "Legend" tier later)
 export const EVOLUTION_STAGES = [
-  { id: "rookie", name: "Rookie", emoji: "🌱", minLevel: 1 },
-  { id: "pro", name: "Pro", emoji: "⭐", minLevel: 21 },
-  { id: "all_pro", name: "All-Pro", emoji: "🌟", minLevel: 41 },
+  { id: 'rookie', name: 'Rookie', emoji: '🌱', minLevel: 1 },
+  { id: 'pro', name: 'Pro', emoji: '⭐', minLevel: 21 },
+  { id: 'all_pro', name: 'All-Pro', emoji: '🌟', minLevel: 41 },
   {
-    id: "hall_of_famer",
-    name: "Hall of Famer",
-    emoji: "👑",
+    id: 'hall_of_famer',
+    name: 'Hall of Famer',
+    emoji: '👑',
     minLevel: 61,
-    minRarity: "rare",
+    minRarity: 'rare',
   },
 ];
 
@@ -78,7 +78,7 @@ export const POSITION_BASE_STATS = {
 // ============ VARIANTS ============
 // Extensibility for future shiny/throwback/gold versions
 export const VARIANTS = {
-  standard: { name: "Standard", statBonus: 0 },
+  standard: { name: 'Standard', statBonus: 0 },
   // Future variants (uncomment when implementing):
   // shiny: { name: 'Shiny', statBonus: 5, dropChance: 0.01 },
   // throwback: { name: 'Throwback', statBonus: 0, imageKey: 'throwback' },
@@ -97,24 +97,24 @@ export const XP_SOURCES = {
 // ============ DROP CONFIG ============
 // Probability of NFLmon dropping from activities
 export const DROP_CONFIG = {
-  WORDLE_WIN_CHANCE: 0.20, // 20% chance on any wordle win
+  WORDLE_WIN_CHANCE: 0.2, // 20% chance on any wordle win
   WORDLE_FIRST_CHANCE: 1.0, // 100% guaranteed on first solve
   TRIVIA_CORRECT_CHANCE: 0.15, // 15% chance on correct trivia answer
 };
 
 // ============ SHOP PACKS ============
 export const SHOP_PACKS = {
-  starter_pack: { name: "Starter Pack", price: 500, quantity: 1 },
-  pro_pack: { name: "Pro Pack", price: 1500, quantity: 3 },
-  elite_pack: { name: "Elite Pack", price: 5000, quantity: 5 },
+  starter_pack: { name: 'Starter Pack', price: 500, quantity: 1 },
+  pro_pack: { name: 'Pro Pack', price: 1500, quantity: 3 },
+  elite_pack: { name: 'Elite Pack', price: 5000, quantity: 5 },
 };
 
 // ============ ACQUISITION SOURCES ============
 export const ACQUISITION_SOURCES = {
-  WORDLE: "wordle",
-  TRIVIA: "trivia",
-  SHOP: "shop",
-  TRADE: "trade",
+  WORDLE: 'wordle',
+  TRIVIA: 'trivia',
+  SHOP: 'shop',
+  TRADE: 'trade',
 };
 
 // ============ TRAINING CONFIG ============
@@ -229,12 +229,7 @@ export function calculateAllStats(position, ivs, level, rarityId) {
     speed: calculateStat(baseStats.speed, ivs.speed, level, multiplier),
     power: calculateStat(baseStats.power, ivs.power, level, multiplier),
     agility: calculateStat(baseStats.agility, ivs.agility, level, multiplier),
-    awareness: calculateStat(
-      baseStats.awareness,
-      ivs.awareness,
-      level,
-      multiplier
-    ),
+    awareness: calculateStat(baseStats.awareness, ivs.awareness, level, multiplier),
     hp: calculateStat(baseStats.hp, ivs.hp, level, multiplier),
   };
 }
@@ -268,11 +263,7 @@ export function getTotalIVs(ivs) {
  * @returns {object|null} Rarity object or null
  */
 export function getRarityById(rarityId) {
-  return (
-    Object.values(RARITIES).find(
-      (r) => r.id === rarityId.toLowerCase()
-    ) || null
-  );
+  return Object.values(RARITIES).find((r) => r.id === rarityId.toLowerCase()) || null;
 }
 
 /**
@@ -301,7 +292,7 @@ export function getSellValue(rarityId) {
  * @returns {number} Order index (0-4, higher = rarer)
  */
 export function getRarityOrder(rarityId) {
-  const order = ["common", "uncommon", "rare", "epic", "legendary"];
+  const order = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   return order.indexOf(rarityId.toLowerCase());
 }
 
@@ -340,9 +331,7 @@ export function getEvolutionStage(level, rarityId) {
  * @returns {object|null} Next stage or null if at max
  */
 export function getNextEvolutionStage(currentStageId) {
-  const currentIndex = EVOLUTION_STAGES.findIndex(
-    (s) => s.id === currentStageId
-  );
+  const currentIndex = EVOLUTION_STAGES.findIndex((s) => s.id === currentStageId);
   if (currentIndex === -1 || currentIndex >= EVOLUTION_STAGES.length - 1) {
     return null;
   }
@@ -363,7 +352,7 @@ export function canEvolve(currentStageId, level, rarityId) {
     return {
       canEvolve: false,
       nextStage: null,
-      reason: "Already at maximum evolution",
+      reason: 'Already at maximum evolution',
     };
   }
 
@@ -414,7 +403,7 @@ export function getRandomXp(source) {
  */
 export function formatRarity(rarityId) {
   const rarity = getRarityById(rarityId);
-  return rarity ? rarity.name : "Unknown";
+  return rarity ? rarity.name : 'Unknown';
 }
 
 /**
@@ -424,7 +413,7 @@ export function formatRarity(rarityId) {
  */
 export function getEvolutionEmoji(stageId) {
   const stage = EVOLUTION_STAGES.find((s) => s.id === stageId);
-  return stage ? stage.emoji : "🌱";
+  return stage ? stage.emoji : '🌱';
 }
 
 /**

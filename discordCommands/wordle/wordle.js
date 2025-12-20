@@ -1,38 +1,29 @@
 // Wordle Discord Command
 // Play Wordle! Guess the 5-letter word.
 
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as wordleDb from "../../wordle/wordleDb.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as wordleDb from '../../wordle/wordleDb.js';
 import {
   renderBoard,
   checkGameState,
   formatGuessCount,
   generateShareText,
-} from "../../wordle/wordleUtils.js";
-import {
-  CONFIG,
-  COLORS,
-  REWARDS,
-  calculateReward,
-} from "../../wordle/wordleConfig.js";
-import { isValidWord } from "../../wordle/wordleWords.js";
-import * as economyDb from "../../economy/economyDb.js";
-import * as inventoryDb from "../../inventory/inventoryDb.js";
-import { formatCurrency, CHANNELS } from "../../economy/economyConfig.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
-import * as nflmonService from "../../nflmon/nflmonService.js";
-import { DROP_CONFIG } from "../../nflmon/nflmonConfig.js";
+} from '../../wordle/wordleUtils.js';
+import { CONFIG, COLORS, REWARDS, calculateReward } from '../../wordle/wordleConfig.js';
+import { isValidWord } from '../../wordle/wordleWords.js';
+import * as economyDb from '../../economy/economyDb.js';
+import * as inventoryDb from '../../inventory/inventoryDb.js';
+import { formatCurrency, CHANNELS } from '../../economy/economyConfig.js';
+import { checkForAchievements } from '../../achievements/achievementService.js';
+import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
+import * as nflmonService from '../../nflmon/nflmonService.js';
+import { DROP_CONFIG } from '../../nflmon/nflmonConfig.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("wordle")
-  .setDescription("Play Wordle! Guess the 5-letter word.")
+  .setName('wordle')
+  .setDescription('Play Wordle! Guess the 5-letter word.')
   .addStringOption((option) =>
-    option
-      .setName("guess")
-      .setDescription("Your 5-letter guess")
-      .setMinLength(5)
-      .setMaxLength(5)
+    option.setName('guess').setDescription('Your 5-letter guess').setMinLength(5).setMaxLength(5)
   );
 
 /**
@@ -54,15 +45,13 @@ function createGameEmbed(game, currentWord, footer, color, showAnswer = false) {
     .setDescription(renderBoard(guesses, answer))
     .addFields(
       {
-        name: "Guesses",
+        name: 'Guesses',
         value: formatGuessCount(guesses.length),
         inline: true,
       },
       {
-        name: "Status",
-        value: currentWord.solved
-          ? `Solved by ${currentWord.solve_count}`
-          : "Unsolved!",
+        name: 'Status',
+        value: currentWord.solved ? `Solved by ${currentWord.solve_count}` : 'Unsolved!',
         inline: true,
       }
     )
@@ -71,7 +60,7 @@ function createGameEmbed(game, currentWord, footer, color, showAnswer = false) {
 
   if (currentWord.solved && currentWord.first_solver_username) {
     embed.addFields({
-      name: "First Solver",
+      name: 'First Solver',
       value: currentWord.first_solver_username,
       inline: true,
     });
@@ -79,7 +68,7 @@ function createGameEmbed(game, currentWord, footer, color, showAnswer = false) {
 
   if (showAnswer) {
     embed.addFields({
-      name: "Answer",
+      name: 'Answer',
       value: answer.toUpperCase(),
       inline: false,
     });
@@ -103,32 +92,25 @@ function createWinEmbed(game, currentWord, reward, isFirstSolver) {
 
   const embed = new EmbedBuilder()
     .setColor(color)
-    .setTitle(
-      `Wordle #${currentWord.word_number} - ${isFirstSolver ? "First Solve!" : "Victory!"}`
-    )
+    .setTitle(`Wordle #${currentWord.word_number} - ${isFirstSolver ? 'First Solve!' : 'Victory!'}`)
     .setDescription(renderBoard(guesses, answer))
     .addFields(
-      { name: "Answer", value: answer.toUpperCase(), inline: true },
-      { name: "Guesses", value: formatGuessCount(guesses.length), inline: true },
-      { name: "Reward", value: formatCurrency(reward), inline: true }
+      { name: 'Answer', value: answer.toUpperCase(), inline: true },
+      { name: 'Guesses', value: formatGuessCount(guesses.length), inline: true },
+      { name: 'Reward', value: formatCurrency(reward), inline: true }
     )
     .setTimestamp();
 
   if (isFirstSolver) {
     embed.addFields({
-      name: "Bonus Item",
-      value: "Lucky Letter",
+      name: 'Bonus Item',
+      value: 'Lucky Letter',
       inline: true,
     });
   }
 
   // Add share text in footer
-  const shareText = generateShareText(
-    guesses,
-    answer,
-    currentWord.word_number,
-    true
-  );
+  const shareText = generateShareText(guesses, answer, currentWord.word_number, true);
   embed.setFooter({ text: shareText });
 
   return embed;
@@ -149,11 +131,11 @@ function createLossEmbed(game, currentWord) {
     .setTitle(`Wordle #${currentWord.word_number} - Better luck next time`)
     .setDescription(renderBoard(guesses, answer))
     .addFields(
-      { name: "Answer", value: answer.toUpperCase(), inline: true },
-      { name: "Guesses", value: formatGuessCount(guesses.length), inline: true }
+      { name: 'Answer', value: answer.toUpperCase(), inline: true },
+      { name: 'Guesses', value: formatGuessCount(guesses.length), inline: true }
     )
     .setFooter({
-      text: "New word available in 1 hours",
+      text: 'New word available in 1 hours',
     })
     .setTimestamp();
 }
@@ -169,24 +151,22 @@ function createAlreadyPlayedEmbed(game, currentWord) {
   const color = game.won ? COLORS.WON : COLORS.LOST;
   const rotationInfo = wordleDb.getRotationInfo(currentWord);
 
-  let footerText = game.won
-    ? "You already solved this puzzle!"
-    : "You already played this puzzle.";
+  let footerText = game.won ? 'You already solved this puzzle!' : 'You already played this puzzle.';
 
   if (rotationInfo.canRotate) {
-    footerText += " A new word is available!";
+    footerText += ' A new word is available!';
   } else if (rotationInfo.minutesRemaining > 0) {
     footerText += ` Next word in ${rotationInfo.minutesRemaining} minutes.`;
   }
 
   const embed = new EmbedBuilder()
     .setColor(color)
-    .setTitle(`Wordle #${currentWord.word_number} - ${game.won ? "Solved!" : "Complete"}`)
+    .setTitle(`Wordle #${currentWord.word_number} - ${game.won ? 'Solved!' : 'Complete'}`)
     .setDescription(renderBoard(game.guesses, answer))
     .addFields(
-      { name: "Answer", value: answer.toUpperCase(), inline: true },
-      { name: "Guesses", value: formatGuessCount(game.guesses.length), inline: true },
-      { name: "Result", value: game.won ? "Won" : "Lost", inline: true }
+      { name: 'Answer', value: answer.toUpperCase(), inline: true },
+      { name: 'Guesses', value: formatGuessCount(game.guesses.length), inline: true },
+      { name: 'Result', value: game.won ? 'Won' : 'Lost', inline: true }
     )
     .setFooter({ text: footerText })
     .setTimestamp();
@@ -210,14 +190,12 @@ async function announceFirstSolver(client, userId, currentWord, guessCount) {
 
     const embed = new EmbedBuilder()
       .setColor(COLORS.FIRST_SOLVE)
-      .setTitle("First Solve!")
-      .setDescription(
-        `<@${userId}> was the first to solve **Wordle #${currentWord.word_number}**!`
-      )
+      .setTitle('First Solve!')
+      .setDescription(`<@${userId}> was the first to solve **Wordle #${currentWord.word_number}**!`)
       .addFields(
-        { name: "Guesses", value: `${guessCount}/${CONFIG.MAX_GUESSES}`, inline: true },
+        { name: 'Guesses', value: `${guessCount}/${CONFIG.MAX_GUESSES}`, inline: true },
         {
-          name: "Bonus",
+          name: 'Bonus',
           value: `${formatCurrency(REWARDS.FIRST_SOLVER_BONUS)} + Lucky Letter`,
           inline: true,
         }
@@ -226,7 +204,7 @@ async function announceFirstSolver(client, userId, currentWord, guessCount) {
 
     await channel.send({ embeds: [embed] });
   } catch (error) {
-    console.error("Failed to announce first solver:", error);
+    console.error('Failed to announce first solver:', error);
   }
 }
 
@@ -240,7 +218,7 @@ export async function execute(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const guess = interaction.options.getString("guess")?.toLowerCase();
+    const guess = interaction.options.getString('guess')?.toLowerCase();
 
     // Ensure user exists in economy system
     await economyDb.getOrCreateUser(userId, username);
@@ -252,12 +230,7 @@ export async function execute(interaction) {
     // Get or create user's game for this word
     let game = await wordleDb.getUserGame(userId, answer);
     if (!game) {
-      game = await wordleDb.createUserGame(
-        userId,
-        username,
-        answer,
-        currentWord.word_number
-      );
+      game = await wordleDb.createUserGame(userId, username, answer, currentWord.word_number);
       // Handle race condition - if createUserGame returns null due to ON CONFLICT,
       // another request created it first, so fetch the existing game
       if (!game) {
@@ -277,7 +250,7 @@ export async function execute(interaction) {
       const guesses = game.guesses || [];
       const footer =
         guesses.length === 0
-          ? "Use /wordle guess:<word> to make your first guess!"
+          ? 'Use /wordle guess:<word> to make your first guess!'
           : `Use /wordle guess:<word> to continue. ${CONFIG.MAX_GUESSES - guesses.length} guesses remaining.`;
 
       const embed = createGameEmbed(game, currentWord, footer, COLORS.PLAYING);
@@ -311,11 +284,7 @@ export async function execute(interaction) {
 
     if (won) {
       // Mark word as solved and check if first solver
-      const wordResult = await wordleDb.markWordSolved(
-        currentWord.id,
-        userId,
-        username
-      );
+      const wordResult = await wordleDb.markWordSolved(currentWord.id, userId, username);
       const isFirstSolver = wordResult.is_first_solver;
 
       // Calculate and award reward
@@ -338,15 +307,11 @@ export async function execute(interaction) {
 
       // Roll for NFLmon drop
       if (Math.random() < dropChance) {
-        nflmonDropped = await nflmonService.rollForNflmon(
-          userId,
-          username,
-          "wordle"
-        );
+        nflmonDropped = await nflmonService.rollForNflmon(userId, username, 'wordle');
       }
 
       // Award XP to training NFLmon
-      const xpSource = isFirstSolver ? "wordle_first" : "wordle_win";
+      const xpSource = isFirstSolver ? 'wordle_first' : 'wordle_win';
       xpResult = await nflmonService.addXpToTraining(userId, xpSource);
 
       // Record game result and complete game
@@ -365,7 +330,7 @@ export async function execute(interaction) {
         userId,
         username,
         client: interaction.client,
-      }).catch((err) => console.error("Failed to check wordle achievements:", err));
+      }).catch((err) => console.error('Failed to check wordle achievements:', err));
 
       if (isFirstSolver) {
         checkForAchievements({
@@ -373,15 +338,12 @@ export async function execute(interaction) {
           userId,
           username,
           client: interaction.client,
-        }).catch((err) => console.error("Failed to check first solve achievement:", err));
+        }).catch((err) => console.error('Failed to check first solve achievement:', err));
 
         // Announce first solver
-        announceFirstSolver(
-          interaction.client,
-          userId,
-          currentWord,
-          guesses.length
-        ).catch((err) => console.error("Failed to announce first solver:", err));
+        announceFirstSolver(interaction.client, userId, currentWord, guesses.length).catch((err) =>
+          console.error('Failed to announce first solver:', err)
+        );
       }
 
       // Update game object with completed guesses for embed
@@ -391,21 +353,21 @@ export async function execute(interaction) {
       // Add NFLmon info to embed
       if (nflmonDropped) {
         embed.addFields({
-          name: "NFLmon Caught!",
+          name: 'NFLmon Caught!',
           value: `You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity.name})!\nUse \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`,
         });
       }
 
       if (xpResult && xpResult.results.length > 0) {
         const xpLines = xpResult.results.map((r) => {
-          let line = `${r.player?.name || "Unknown"} +${xpResult.xpAmount} XP`;
+          let line = `${r.player?.name || 'Unknown'} +${xpResult.xpAmount} XP`;
           if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
           if (r.evolved) line += ` EVOLVED!`;
           return line;
         });
         embed.addFields({
-          name: "Training XP",
-          value: xpLines.join("\n"),
+          name: 'Training XP',
+          value: xpLines.join('\n'),
         });
       }
 
@@ -432,13 +394,13 @@ export async function execute(interaction) {
 
     // Game continues
     const remaining = CONFIG.MAX_GUESSES - guesses.length;
-    const footer = `${remaining} guess${remaining === 1 ? "" : "es"} remaining. Use /wordle guess:<word>`;
+    const footer = `${remaining} guess${remaining === 1 ? '' : 'es'} remaining. Use /wordle guess:<word>`;
 
     updatedGame.guesses = guesses;
     const embed = createGameEmbed(updatedGame, currentWord, footer, COLORS.PLAYING);
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("Wordle command error:", error);
+    console.error('Wordle command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });

@@ -1,7 +1,7 @@
-import "dotenv/config";
-import express from "express";
-import fs from "node:fs";
-import path from "node:path";
+import 'dotenv/config';
+import express from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   Client,
   Collection,
@@ -10,11 +10,11 @@ import {
   ActivityType,
   Partials,
   EmbedBuilder,
-} from "discord.js";
-import { fileURLToPath, pathToFileURL } from "url";
-import { TriviaService } from "./trivia/triviaService.js";
-import { TrainingNotificationService } from "./training/trainingNotificationService.js";
-import * as nflmonService from "./nflmon/nflmonService.js";
+} from 'discord.js';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { TriviaService } from './trivia/triviaService.js';
+import { TrainingNotificationService } from './training/trainingNotificationService.js';
+import * as nflmonService from './nflmon/nflmonService.js';
 
 // Create a new client instance
 const client = new Client({
@@ -37,8 +37,8 @@ const trainingNotificationService = new TrainingNotificationService(client);
 client.trainingNotificationService = trainingNotificationService;
 
 // When the client is ready, run this code (only once)
-client.once("ready", () => {
-  console.log("Ready!");
+client.once('ready', () => {
+  console.log('Ready!');
   triviaService.init();
   trainingNotificationService.init();
 });
@@ -49,7 +49,7 @@ client.commands = new Collection();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const foldersPath = path.join(__dirname, "discordCommands");
+const foldersPath = path.join(__dirname, 'discordCommands');
 
 try {
   // Read the content of the discordCommands folder
@@ -63,17 +63,17 @@ try {
     fs.statSync(path.join(foldersPath, entry)).isDirectory()
   );
 
-  console.log("Command Files:", commandFiles);
-  console.log("Command Folders:", commandFolders);
+  console.log('Command Files:', commandFiles);
+  console.log('Command Folders:', commandFolders);
 
   // Process command files in the root of discordCommands
   for (const file of commandFiles) {
-    if (file.endsWith(".js")) {
+    if (file.endsWith('.js')) {
       const filePath = path.join(foldersPath, file);
       const fileUrl = pathToFileURL(filePath).href;
       const command = await import(fileUrl);
       // Set a new item in the Collection with the key as the command name and the value as the exported module
-      if ("data" in command && "execute" in command) {
+      if ('data' in command && 'execute' in command) {
         client.commands.set(command.data.name, command);
       } else {
         console.log(
@@ -86,16 +86,14 @@ try {
   // Process command files in subdirectories
   for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
-    const folderCommandFiles = fs
-      .readdirSync(commandsPath)
-      .filter((file) => file.endsWith(".js"));
+    const folderCommandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
 
     for (const file of folderCommandFiles) {
       const filePath = path.join(commandsPath, file);
       const fileUrl = pathToFileURL(filePath).href;
       const command = await import(fileUrl);
       // Set a new item in the Collection with the key as the command name and the value as the exported module
-      if ("data" in command && "execute" in command) {
+      if ('data' in command && 'execute' in command) {
         client.commands.set(command.data.name, command);
       } else {
         console.log(
@@ -105,7 +103,7 @@ try {
     }
   }
 } catch (err) {
-  console.error("Error reading command folders:", err);
+  console.error('Error reading command folders:', err);
 }
 // Login to Discord with your client's token
 client.login(process.env.DISCORD_TOKEN);
@@ -116,11 +114,11 @@ client.login(process.env.DISCORD_TOKEN);
  */
 async function handleNflmonTradeButton(interaction) {
   try {
-    const [, , action, tradeIdStr] = interaction.customId.split("_");
+    const [, , action, tradeIdStr] = interaction.customId.split('_');
     const tradeId = parseInt(tradeIdStr);
     const userId = interaction.user.id;
 
-    if (action === "accept") {
+    if (action === 'accept') {
       const result = await nflmonService.processTradeAccept(userId, tradeId);
 
       await interaction.update({
@@ -139,10 +137,10 @@ async function handleNflmonTradeButton(interaction) {
             }
           }
         } catch (announceError) {
-          console.log("[NFLMON] Could not announce trade:", announceError.message);
+          console.log('[NFLMON] Could not announce trade:', announceError.message);
         }
       }
-    } else if (action === "reject") {
+    } else if (action === 'reject') {
       const result = await nflmonService.processTradeReject(userId, tradeId);
 
       await interaction.update({
@@ -151,27 +149,27 @@ async function handleNflmonTradeButton(interaction) {
       });
     }
   } catch (error) {
-    console.error("[NFLMON] Trade button error:", error);
+    console.error('[NFLMON] Trade button error:', error);
     try {
       await interaction.update({
         embeds: [
           new EmbedBuilder()
             .setColor(0xff0000)
-            .setTitle("Error")
-            .setDescription("An error occurred processing this trade."),
+            .setTitle('Error')
+            .setDescription('An error occurred processing this trade.'),
         ],
         components: [],
       });
     } catch (updateError) {
       // Button may have already been handled
-      console.log("[NFLMON] Could not update trade button:", updateError.message);
+      console.log('[NFLMON] Could not update trade button:', updateError.message);
     }
   }
 }
 
 client.on(Events.InteractionCreate, async (interaction) => {
   // Handle NFLmon trade button interactions (especially from DMs)
-  if (interaction.isButton() && interaction.customId.startsWith("nflmon_trade_")) {
+  if (interaction.isButton() && interaction.customId.startsWith('nflmon_trade_')) {
     await handleNflmonTradeButton(interaction);
     return;
   }
@@ -191,12 +189,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.error(error);
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
-        content: "There was an error while executing this command!",
+        content: 'There was an error while executing this command!',
         ephemeral: true,
       });
     } else {
       await interaction.reply({
-        content: "There was an error while executing this command!",
+        content: 'There was an error while executing this command!',
         ephemeral: true,
       });
     }
@@ -204,14 +202,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 // Handle DMs for trivia answers
-client.on("messageCreate", async (message) => {
+client.on('messageCreate', async (message) => {
   if (message.guild === null && !message.author.bot) {
     await triviaService.handleDM(message);
   }
 });
 
-client.on("ready", () => {
-  client.user.setActivity("Jaguars Highlights", {
+client.on('ready', () => {
+  client.user.setActivity('Jaguars Highlights', {
     type: ActivityType.Watching,
   });
 });
@@ -219,7 +217,7 @@ client.on("ready", () => {
 const app = express();
 app.use(express.json());
 
-app.get("/", (req, res) => res.send("CommishBot, reporting for duty."));
+app.get('/', (req, res) => res.send('CommishBot, reporting for duty.'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Listening on port ${PORT}...`));

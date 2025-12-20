@@ -1,15 +1,15 @@
 // NFLmon Database Operations
 // CRUD operations for the NFLmon collection system
 
-import { sql, db } from "@vercel/postgres";
-import * as economyDb from "../economy/economyDb.js";
+import { sql, db } from '@vercel/postgres';
+import * as economyDb from '../economy/economyDb.js';
 import {
   getLevelFromXp,
   getEvolutionStage,
   getSellValue,
   TRAINING_CONFIG,
   LEVEL_CONFIG,
-} from "./nflmonConfig.js";
+} from './nflmonConfig.js';
 
 // =============================================================================
 // BENCH OPERATIONS (NFLmon Collection)
@@ -117,7 +117,7 @@ export async function addNflmon(data) {
     ivs,
     acquiredSource,
     acquiredFromUser = null,
-    variant = "standard",
+    variant = 'standard',
     metadata = {},
   } = data;
 
@@ -138,9 +138,9 @@ export async function addNflmon(data) {
 
   if (nflmon) {
     // Update stats
-    await incrementStat(userId, "total_caught", 1);
-    if (rarity === "legendary") {
-      await incrementStat(userId, "legendary_count", 1);
+    await incrementStat(userId, 'total_caught', 1);
+    if (rarity === 'legendary') {
+      await incrementStat(userId, 'legendary_count', 1);
     }
   }
 
@@ -176,7 +176,7 @@ export async function setTrainingSlot(userId, nflmonId, slot) {
   // Validate slot is within user's available slots
   const stats = await getOrCreateStats(userId);
   if (slot < 1 || slot > stats.max_training_slots) {
-    return { success: false, error: "INVALID_SLOT" };
+    return { success: false, error: 'INVALID_SLOT' };
   }
 
   // Check if slot is already occupied
@@ -186,16 +186,16 @@ export async function setTrainingSlot(userId, nflmonId, slot) {
     LIMIT 1
   `;
   if (existing.rows.length > 0) {
-    return { success: false, error: "SLOT_OCCUPIED" };
+    return { success: false, error: 'SLOT_OCCUPIED' };
   }
 
   // Check if NFLmon is already in training
   const nflmon = await getNflmonByUser(userId, nflmonId);
   if (!nflmon) {
-    return { success: false, error: "NOT_FOUND" };
+    return { success: false, error: 'NOT_FOUND' };
   }
   if (nflmon.training_slot !== null) {
-    return { success: false, error: "ALREADY_TRAINING" };
+    return { success: false, error: 'ALREADY_TRAINING' };
   }
 
   // Assign slot (atomic with ownership check)
@@ -207,7 +207,7 @@ export async function setTrainingSlot(userId, nflmonId, slot) {
   `;
 
   if (!result.rows[0]) {
-    return { success: false, error: "UPDATE_FAILED" };
+    return { success: false, error: 'UPDATE_FAILED' };
   }
 
   return { success: true, nflmon: result.rows[0] };
@@ -283,7 +283,7 @@ export async function addXp(nflmonId, amount) {
 
   // Update evolved count if evolved
   if (evolved) {
-    await incrementStat(nflmon.user_id, "total_evolved", 1);
+    await incrementStat(nflmon.user_id, 'total_evolved', 1);
   }
 
   return {
@@ -329,17 +329,17 @@ export async function sellNflmon(userId, nflmonId) {
   // Step 1: Get NFLmon with ownership check
   const nflmon = await getNflmonByUser(userId, nflmonId);
   if (!nflmon) {
-    return { success: false, error: "NOT_FOUND" };
+    return { success: false, error: 'NOT_FOUND' };
   }
 
   // Step 2: Validate not in training
   if (nflmon.training_slot !== null) {
-    return { success: false, error: "IN_TRAINING" };
+    return { success: false, error: 'IN_TRAINING' };
   }
 
   // Step 3: Validate not a favorite (optional safety)
   if (nflmon.is_favorite) {
-    return { success: false, error: "IS_FAVORITE" };
+    return { success: false, error: 'IS_FAVORITE' };
   }
 
   // Step 4: Calculate sell value
@@ -353,7 +353,7 @@ export async function sellNflmon(userId, nflmonId) {
   `;
 
   if (!deleteResult.rows[0]) {
-    return { success: false, error: "DELETE_FAILED" };
+    return { success: false, error: 'DELETE_FAILED' };
   }
 
   // Step 6: Add coins to wallet
@@ -377,7 +377,7 @@ export async function sellNflmon(userId, nflmonId) {
       )
     `;
     console.error(`Rolled back sell: wallet update failed for user ${userId}`);
-    return { success: false, error: "WALLET_FAILED" };
+    return { success: false, error: 'WALLET_FAILED' };
   }
 
   return { success: true, value: sellValue, nflmon };
@@ -416,7 +416,7 @@ export async function incrementStat(userId, stat, amount = 1) {
   await getOrCreateStats(userId);
 
   // Whitelist allowed stats to prevent SQL injection
-  const allowedStats = ["total_caught", "total_evolved", "legendary_count"];
+  const allowedStats = ['total_caught', 'total_evolved', 'legendary_count'];
   if (!allowedStats.includes(stat)) {
     throw new Error(`Invalid stat: ${stat}`);
   }
@@ -458,13 +458,13 @@ export async function purchaseTrainingSlot(userId, cost) {
 
   // Check max slots
   if (stats.max_training_slots >= TRAINING_CONFIG.MAX_SLOTS) {
-    return { success: false, error: "MAX_SLOTS_REACHED" };
+    return { success: false, error: 'MAX_SLOTS_REACHED' };
   }
 
   // Deduct cost from wallet (atomic - fails if insufficient funds)
   const walletResult = await economyDb.deductFromWallet(userId, cost);
   if (!walletResult) {
-    return { success: false, error: "INSUFFICIENT_FUNDS" };
+    return { success: false, error: 'INSUFFICIENT_FUNDS' };
   }
 
   // Increment max_training_slots
@@ -534,13 +534,7 @@ export async function toggleFavorite(userId, nflmonId) {
  * @returns {Promise<object>} Created trade
  */
 export async function createTrade(data) {
-  const {
-    fromUserId,
-    toUserId,
-    fromNflmonId,
-    toNflmonId = null,
-    coinsOffered = 0,
-  } = data;
+  const { fromUserId, toUserId, fromNflmonId, toNflmonId = null, coinsOffered = 0 } = data;
 
   const result = await sql`
     INSERT INTO nflmon_trades (
@@ -636,19 +630,19 @@ export async function acceptTrade(userId, tradeId) {
     const trade = tradeResult.rows[0];
     if (!trade) {
       await client.sql`ROLLBACK`;
-      return { success: false, error: "NOT_FOUND" };
+      return { success: false, error: 'NOT_FOUND' };
     }
     if (trade.to_user_id !== userId) {
       await client.sql`ROLLBACK`;
-      return { success: false, error: "NOT_RECIPIENT" };
+      return { success: false, error: 'NOT_RECIPIENT' };
     }
-    if (trade.status !== "pending") {
+    if (trade.status !== 'pending') {
       await client.sql`ROLLBACK`;
-      return { success: false, error: "NOT_PENDING" };
+      return { success: false, error: 'NOT_PENDING' };
     }
     if (new Date() > new Date(trade.expires_at)) {
       await client.sql`ROLLBACK`;
-      return { success: false, error: "EXPIRED" };
+      return { success: false, error: 'EXPIRED' };
     }
 
     // 2. Validate from_nflmon with lock
@@ -660,11 +654,11 @@ export async function acceptTrade(userId, tradeId) {
     const fromNflmon = fromResult.rows[0];
     if (!fromNflmon) {
       await client.sql`ROLLBACK`;
-      return { success: false, error: "FROM_NFLMON_UNAVAILABLE" };
+      return { success: false, error: 'FROM_NFLMON_UNAVAILABLE' };
     }
     if (fromNflmon.training_slot !== null) {
       await client.sql`ROLLBACK`;
-      return { success: false, error: "FROM_NFLMON_TRAINING" };
+      return { success: false, error: 'FROM_NFLMON_TRAINING' };
     }
 
     // 3. Validate to_nflmon if 1:1 trade (with lock)
@@ -678,11 +672,11 @@ export async function acceptTrade(userId, tradeId) {
       toNflmon = toResult.rows[0];
       if (!toNflmon) {
         await client.sql`ROLLBACK`;
-        return { success: false, error: "TO_NFLMON_UNAVAILABLE" };
+        return { success: false, error: 'TO_NFLMON_UNAVAILABLE' };
       }
       if (toNflmon.training_slot !== null) {
         await client.sql`ROLLBACK`;
-        return { success: false, error: "TO_NFLMON_TRAINING" };
+        return { success: false, error: 'TO_NFLMON_TRAINING' };
       }
     }
 
@@ -696,7 +690,7 @@ export async function acceptTrade(userId, tradeId) {
       const sender = senderResult.rows[0];
       if (!sender || sender.wallet < trade.coins_offered) {
         await client.sql`ROLLBACK`;
-        return { success: false, error: "INSUFFICIENT_COINS" };
+        return { success: false, error: 'INSUFFICIENT_COINS' };
       }
     }
 
@@ -755,8 +749,8 @@ export async function acceptTrade(userId, tradeId) {
   } catch (error) {
     // Rollback on any error
     await client.sql`ROLLBACK`;
-    console.error("[NFLMON] acceptTrade transaction failed:", error);
-    return { success: false, error: "TRANSACTION_FAILED" };
+    console.error('[NFLMON] acceptTrade transaction failed:', error);
+    return { success: false, error: 'TRANSACTION_FAILED' };
   } finally {
     // Always release the client back to the pool
     client.release();
@@ -773,16 +767,16 @@ export async function acceptTrade(userId, tradeId) {
  * @param {number} [limit=10] - Number of entries to return
  * @returns {Promise<Array<{user_id: string, username: string, value: number}>>}
  */
-export async function getLeaderboard(category = "total_caught", limit = 10) {
+export async function getLeaderboard(category = 'total_caught', limit = 10) {
   // Whitelist allowed categories
   const allowedCategories = [
-    "total_caught",
-    "legendary_count",
-    "highest_level_reached",
-    "total_evolved",
+    'total_caught',
+    'legendary_count',
+    'highest_level_reached',
+    'total_evolved',
   ];
   if (!allowedCategories.includes(category)) {
-    category = "total_caught";
+    category = 'total_caught';
   }
 
   const result = await sql.query(
@@ -802,15 +796,15 @@ export async function getLeaderboard(category = "total_caught", limit = 10) {
  * @param {string} [category='total_caught'] - Category to rank by
  * @returns {Promise<{rank: number, value: number}|null>}
  */
-export async function getUserRank(userId, category = "total_caught") {
+export async function getUserRank(userId, category = 'total_caught') {
   const allowedCategories = [
-    "total_caught",
-    "legendary_count",
-    "highest_level_reached",
-    "total_evolved",
+    'total_caught',
+    'legendary_count',
+    'highest_level_reached',
+    'total_evolved',
   ];
   if (!allowedCategories.includes(category)) {
-    category = "total_caught";
+    category = 'total_caught';
   }
 
   const result = await sql.query(
@@ -878,7 +872,7 @@ export async function evolveNflmon(userId, nflmonId, newStageId) {
   `;
 
   if (result.rows[0]) {
-    await incrementStat(userId, "total_evolved", 1);
+    await incrementStat(userId, 'total_evolved', 1);
   }
 
   return result.rows[0] || null;

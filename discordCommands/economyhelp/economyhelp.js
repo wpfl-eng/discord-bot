@@ -1,9 +1,9 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import { CURRENCY_EMOJI } from "../../economy/economyConfig.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { CURRENCY_EMOJI } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("economyhelp")
-  .setDescription("View all economy commands");
+  .setName('economyhelp')
+  .setDescription('View all economy commands');
 
 /**
  * Execute the economyhelp command
@@ -13,27 +13,51 @@ export async function execute(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
     .setTitle(`${CURRENCY_EMOJI} Economy Commands`)
-    .setDescription("A virtual currency system to earn, spend, gamble, and steal coins!")
+    .setDescription('A virtual currency system to earn, spend, gamble, and steal coins!')
     .addFields(
-      { name: "💰 /balance [@user]", value: "Check your or another user's balance", inline: false },
-      { name: "☀️ /daily", value: "Claim your daily reward (streak bonuses!)", inline: false },
-      { name: "💼 /work", value: "Work a random job for coins", inline: false },
-      { name: "🏦 /deposit <amount|all>", value: "Move coins from wallet to bank (safe from robbery)", inline: false },
-      { name: "🏦 /withdraw <amount|all>", value: "Move coins from bank to wallet", inline: false },
-      { name: "🎰 /gamble <amount|all>", value: "50/50 coin flip - double or nothing!", inline: false },
-      { name: "🏈 /slots <amount|all>", value: "Football-themed slot machine!", inline: false },
-      { name: "🃏 /blackjack <amount|all>", value: "Play blackjack - Hit, Stand, or Double Down!", inline: false },
-      { name: "🦹 /rob @user", value: "Attempt to steal from another user's wallet", inline: false },
-      { name: "🏆 /eleaderboard", value: "View the top 10 wealthiest users", inline: false },
-      { name: "🛒 /shop", value: "Buy padlocks, bank expansions, and training supplies", inline: false },
-      { name: "📦 /inventory", value: "View and sell items from your inventory", inline: false },
-      { name: "\u200B", value: "**🏟️ Training Ground**", inline: false },
-      { name: "🏟️ /train view", value: "View your training facility", inline: false },
-      { name: "🔧 /train manage", value: "Manage training slots (setup, hydrate, draft, graduate)", inline: false },
-      { name: "🔔 /train settings", value: "Configure notification settings", inline: false },
-      { name: "📊 /train stats", value: "View your training statistics", inline: false }
+      { name: '💰 /balance [@user]', value: "Check your or another user's balance", inline: false },
+      { name: '☀️ /daily', value: 'Claim your daily reward (streak bonuses!)', inline: false },
+      { name: '💼 /work', value: 'Work a random job for coins', inline: false },
+      {
+        name: '🏦 /deposit <amount|all>',
+        value: 'Move coins from wallet to bank (safe from robbery)',
+        inline: false,
+      },
+      { name: '🏦 /withdraw <amount|all>', value: 'Move coins from bank to wallet', inline: false },
+      {
+        name: '🎰 /gamble <amount|all>',
+        value: '50/50 coin flip - double or nothing!',
+        inline: false,
+      },
+      { name: '🏈 /slots <amount|all>', value: 'Football-themed slot machine!', inline: false },
+      {
+        name: '🃏 /blackjack <amount|all>',
+        value: 'Play blackjack - Hit, Stand, or Double Down!',
+        inline: false,
+      },
+      {
+        name: '🦹 /rob @user',
+        value: "Attempt to steal from another user's wallet",
+        inline: false,
+      },
+      { name: '🏆 /eleaderboard', value: 'View the top 10 wealthiest users', inline: false },
+      {
+        name: '🛒 /shop',
+        value: 'Buy padlocks, bank expansions, and training supplies',
+        inline: false,
+      },
+      { name: '📦 /inventory', value: 'View and sell items from your inventory', inline: false },
+      { name: '\u200B', value: '**🏟️ Training Ground**', inline: false },
+      { name: '🏟️ /train view', value: 'View your training facility', inline: false },
+      {
+        name: '🔧 /train manage',
+        value: 'Manage training slots (setup, hydrate, draft, graduate)',
+        inline: false,
+      },
+      { name: '🔔 /train settings', value: 'Configure notification settings', inline: false },
+      { name: '📊 /train stats', value: 'View your training statistics', inline: false }
     )
-    .setFooter({ text: "Tip: Train rookies and sell them for profit!" })
+    .setFooter({ text: 'Tip: Train rookies and sell them for profit!' })
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed], ephemeral: true });

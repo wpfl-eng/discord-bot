@@ -1,9 +1,9 @@
-import { EmbedBuilder } from "discord.js";
-import * as achievementDb from "./achievementDb.js";
-import { ACHIEVEMENTS, ACTION_TYPES, getAchievement } from "./achievementConfig.js";
-import { CHANNELS, formatCurrency } from "../economy/economyConfig.js";
-import * as economyDb from "../economy/economyDb.js";
-import * as wordleDb from "../wordle/wordleDb.js";
+import { EmbedBuilder } from 'discord.js';
+import * as achievementDb from './achievementDb.js';
+import { ACHIEVEMENTS, ACTION_TYPES, getAchievement } from './achievementConfig.js';
+import { CHANNELS, formatCurrency } from '../economy/economyConfig.js';
+import * as economyDb from '../economy/economyDb.js';
+import * as wordleDb from '../wordle/wordleDb.js';
 
 /**
  * @typedef {Object} ActionMetadata
@@ -21,9 +21,9 @@ import * as wordleDb from "../wordle/wordleDb.js";
  * @type {Object.<string, string[]>}
  */
 const ACTION_TO_ACHIEVEMENTS = {
-  [ACTION_TYPES.ROB_SUCCESS]: ["THIEF"],
-  [ACTION_TYPES.WORDLE_SOLVE]: ["WORDLE_5_SOLVES", "WORDLE_10_SOLVES"],
-  [ACTION_TYPES.WORDLE_FIRST_SOLVE]: ["WORDLE_FIRST_SOLVE"],
+  [ACTION_TYPES.ROB_SUCCESS]: ['THIEF'],
+  [ACTION_TYPES.WORDLE_SOLVE]: ['WORDLE_5_SOLVES', 'WORDLE_10_SOLVES'],
+  [ACTION_TYPES.WORDLE_FIRST_SOLVE]: ['WORDLE_FIRST_SOLVE'],
 };
 
 /**
@@ -84,21 +84,21 @@ export async function checkForAchievements(metadata) {
  */
 async function checkAchievementCriteria(achievementKey, metadata) {
   switch (achievementKey) {
-    case "THIEF":
+    case 'THIEF':
       // THIEF is granted on any successful rob
       return metadata.actionType === ACTION_TYPES.ROB_SUCCESS;
 
-    case "WORDLE_FIRST_SOLVE":
+    case 'WORDLE_FIRST_SOLVE':
       // Granted on first solve of any Wordle puzzle
       return metadata.actionType === ACTION_TYPES.WORDLE_FIRST_SOLVE;
 
-    case "WORDLE_5_SOLVES": {
+    case 'WORDLE_5_SOLVES': {
       // Check if user has solved 5 or more Wordle puzzles
       const stats5 = await wordleDb.getUserStats(metadata.userId);
       return stats5 && stats5.games_won >= 5;
     }
 
-    case "WORDLE_10_SOLVES": {
+    case 'WORDLE_10_SOLVES': {
       // Check if user has solved 10 or more Wordle puzzles
       const stats10 = await wordleDb.getUserStats(metadata.userId);
       return stats10 && stats10.games_won >= 10;
@@ -134,16 +134,16 @@ async function announceAchievement(client, userId, achievementKey) {
 
     const embed = new EmbedBuilder()
       .setColor(0xffd700) // Gold color for achievements
-      .setTitle("Achievement Unlocked!")
+      .setTitle('Achievement Unlocked!')
       .setDescription(`<@${userId}> has earned **${achievement.name}**!`)
       .addFields(
         {
-          name: "Description",
+          name: 'Description',
           value: achievement.description,
           inline: false,
         },
         {
-          name: "Reward",
+          name: 'Reward',
           value: formatCurrency(achievement.rewardValue),
           inline: true,
         }
@@ -152,7 +152,6 @@ async function announceAchievement(client, userId, achievementKey) {
 
     await townSquare.send({ embeds: [embed] });
   } catch (error) {
-    console.error("Failed to announce achievement:", error);
+    console.error('Failed to announce achievement:', error);
   }
 }
-

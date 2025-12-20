@@ -1,13 +1,13 @@
-import { SlashCommandBuilder } from "discord.js";
-import pkg from "espn-fantasy-football-api/node.js";
+import { SlashCommandBuilder } from 'discord.js';
+import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
-import { espnMembers } from "../../constants/espnMembers.js";
-import { formatDistanceToNow, subDays, format } from "date-fns";
+import { espnMembers } from '../../constants/espnMembers.js';
+import { formatDistanceToNow, subDays, format } from 'date-fns';
 
 // Define the slash command
 export const data = new SlashCommandBuilder()
-  .setName("activity")
-  .setDescription("Returns recent league transactions");
+  .setName('activity')
+  .setDescription('Returns recent league transactions');
 
 // Main execution function for the slash command
 export const execute = async (interaction) => {
@@ -15,7 +15,7 @@ export const execute = async (interaction) => {
   const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
   if (!LEAGUE_ID || !ESPN_S2 || !SWID) {
     return await interaction.reply({
-      content: "Missing required environment variables",
+      content: 'Missing required environment variables',
       ephemeral: true,
     });
   }
@@ -40,10 +40,9 @@ export const execute = async (interaction) => {
     // Send the formatted response
     await interaction.editReply({ content: strResponse });
   } catch (error) {
-    console.error("Activity command error:", error);
+    console.error('Activity command error:', error);
     await interaction.editReply({
-      content:
-        "An error occurred while fetching league activity. Please try again later.",
+      content: 'An error occurred while fetching league activity. Please try again later.',
       ephemeral: true,
     });
   }
@@ -52,7 +51,7 @@ export const execute = async (interaction) => {
 // Format the activity data into a readable string
 const formatActivityResponse = (data) => {
   const yesterday = subDays(new Date(), 1);
-  let strResponse = "League Activity in the past 24 hours:\n";
+  let strResponse = 'League Activity in the past 24 hours:\n';
 
   const recentActivity = data
     .flatMap((activity) =>
@@ -63,9 +62,9 @@ const formatActivityResponse = (data) => {
     .filter(Boolean);
 
   if (recentActivity.length > 0) {
-    strResponse += recentActivity.join("");
+    strResponse += recentActivity.join('');
   } else {
-    strResponse = "No activity in the past 24 hours.";
+    strResponse = 'No activity in the past 24 hours.';
   }
 
   return strResponse.trim();
@@ -74,31 +73,28 @@ const formatActivityResponse = (data) => {
 // Generate a response string for a single activity
 const getActivityResponse = (action) => {
   const { team, ids, player, bidAmount, date } = action;
-  const memberName =
-    espnMembers.find((member) => member.id === team.id)?.name ?? "Unknown";
-  const playerName =
-    player.playerPoolEntry?.player.fullName ?? player.player.fullName;
+  const memberName = espnMembers.find((member) => member.id === team.id)?.name ?? 'Unknown';
+  const playerName = player.playerPoolEntry?.player.fullName ?? player.player.fullName;
   const activityTime = format(new Date(date), "MMM d, yyyy 'at' h:mm a");
   const timeAgo = formatDistanceToNow(new Date(date), { addSuffix: true });
 
-  let actionString = "";
+  let actionString = '';
   switch (action.action) {
-    case "FA ADDED":
+    case 'FA ADDED':
       actionString = `${memberName} added ${playerName} from Free Agency`;
       break;
-    case "DROPPED":
+    case 'DROPPED':
       actionString = `${memberName} dropped ${playerName}`;
       break;
-    case "TRADED":
-      const tradedTo =
-        espnMembers.find((member) => member.id === ids.to)?.name ?? "Unknown";
+    case 'TRADED':
+      const tradedTo = espnMembers.find((member) => member.id === ids.to)?.name ?? 'Unknown';
       actionString = `${memberName} traded ${playerName} to ${tradedTo}`;
       break;
-    case "WAIVER ADDED":
+    case 'WAIVER ADDED':
       actionString = `${memberName} added ${playerName} from the waivers for $${bidAmount}`;
       break;
     default:
-      return "";
+      return '';
   }
 
   return `${actionString} (${activityTime}, ${timeAgo})\n`;

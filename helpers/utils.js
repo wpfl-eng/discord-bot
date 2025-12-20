@@ -19,8 +19,8 @@ export const formatNumber = (floatNumber) => {
 };
 
 export const getCurrentNFLWeek = () => {
-  const startDate = new Date("2023-09-07"); // Assuming the NFL season starts on this date
-  const endDate = new Date("2023-12-31"); // Assuming the NFL regular season ends on this date
+  const startDate = new Date('2023-09-07'); // Assuming the NFL season starts on this date
+  const endDate = new Date('2023-12-31'); // Assuming the NFL regular season ends on this date
 
   const today = new Date();
 

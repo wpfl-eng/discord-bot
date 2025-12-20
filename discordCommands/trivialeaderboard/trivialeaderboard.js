@@ -1,9 +1,9 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as triviaDb from "../../trivia/triviaDb.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as triviaDb from '../../trivia/triviaDb.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("trivialeaderboard")
-  .setDescription("View the trivia leaderboard");
+  .setName('trivialeaderboard')
+  .setDescription('View the trivia leaderboard');
 
 export async function execute(interaction) {
   await interaction.deferReply();
@@ -13,12 +13,12 @@ export async function execute(interaction) {
 
     if (leaderboard.length === 0) {
       await interaction.editReply({
-        content: "No trivia scores yet! Be the first to answer a question.",
+        content: 'No trivia scores yet! Be the first to answer a question.',
       });
       return;
     }
 
-    const medals = ["🥇", "🥈", "🥉"];
+    const medals = ['🥇', '🥈', '🥉'];
 
     const leaderboardText = leaderboard
       .map((entry, index) => {
@@ -26,18 +26,18 @@ export async function execute(interaction) {
         // return `${medal} **${entry.username}** - ${entry.total_points} pts (NFL: ${entry.nfl_points} | WPFL: ${entry.wpfl_points})`;
         return `${medal} **${entry.username}** - ${entry.total_points} pts (NFL: ${entry.nfl_points})`;
       })
-      .join("\n");
+      .join('\n');
 
     const embed = new EmbedBuilder()
       .setColor(0xffd700)
-      .setTitle("Trivia Leaderboard")
+      .setTitle('Trivia Leaderboard')
       .setDescription(leaderboardText)
       .setTimestamp()
-      .setFooter({ text: "Top 10 players by total points" });
+      .setFooter({ text: 'Top 10 players by total points' });
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("trivialeaderboard command error:", error);
+    console.error('trivialeaderboard command error:', error);
     await interaction.editReply({
       content: `Error fetching leaderboard: ${error.message}`,
     });

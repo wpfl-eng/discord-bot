@@ -1,10 +1,10 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
-import { formatCurrency, CURRENCY_EMOJI } from "../../economy/economyConfig.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
+import { formatCurrency, CURRENCY_EMOJI } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("eleaderboard")
-  .setDescription("View the economy leaderboard");
+  .setName('eleaderboard')
+  .setDescription('View the economy leaderboard');
 
 /**
  * Execute the eleaderboard command
@@ -25,8 +25,7 @@ export async function execute(interaction) {
 
     if (leaderboard.length === 0) {
       await interaction.editReply({
-        content:
-          "No one has any coins yet! Use `/daily` or `/work` to start earning.",
+        content: 'No one has any coins yet! Use `/daily` or `/work` to start earning.',
       });
       return;
     }
@@ -36,15 +35,15 @@ export async function execute(interaction) {
     const totalUsers = await economyDb.getTotalUsers();
 
     // Build leaderboard text
-    const medals = ["🥇", "🥈", "🥉"];
+    const medals = ['🥇', '🥈', '🥉'];
     const leaderboardText = leaderboard
       .map((entry, index) => {
         const medal = medals[index] || `${index + 1}.`;
         const isCurrentUser = entry.user_id === userId;
-        const highlight = isCurrentUser ? "**" : "";
+        const highlight = isCurrentUser ? '**' : '';
         return `${medal} ${highlight}${entry.username}${highlight} - ${formatCurrency(entry.total_wealth)}`;
       })
-      .join("\n");
+      .join('\n');
 
     const embed = new EmbedBuilder()
       .setColor(0xffd700)
@@ -59,7 +58,7 @@ export async function execute(interaction) {
       const currentUser = await economyDb.getUser(userId);
       const totalWealth = currentUser.wallet + currentUser.bank;
       embed.addFields({
-        name: "Your Position",
+        name: 'Your Position',
         value: `#${userRank} - ${formatCurrency(totalWealth)}`,
         inline: false,
       });
@@ -67,7 +66,7 @@ export async function execute(interaction) {
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("eleaderboard command error:", error);
+    console.error('eleaderboard command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });

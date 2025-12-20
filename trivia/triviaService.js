@@ -1,13 +1,13 @@
-import cron from "node-cron";
-import crypto from "crypto";
-import { EmbedBuilder } from "discord.js";
-import * as triviaDb from "./triviaDb.js";
-import { checkAnswer } from "./answerMatcher.js";
-import * as economyDb from "../economy/economyDb.js";
-import nflQuestions from "./nflQuestions.json" with { type: "json" };
-import wpflQuestions from "./wpflQuestions.json" with { type: "json" };
-import * as nflmonService from "../nflmon/nflmonService.js";
-import { DROP_CONFIG } from "../nflmon/nflmonConfig.js";
+import cron from 'node-cron';
+import crypto from 'crypto';
+import { EmbedBuilder } from 'discord.js';
+import * as triviaDb from './triviaDb.js';
+import { checkAnswer } from './answerMatcher.js';
+import * as economyDb from '../economy/economyDb.js';
+import nflQuestions from './nflQuestions.json' with { type: 'json' };
+import wpflQuestions from './wpflQuestions.json' with { type: 'json' };
+import * as nflmonService from '../nflmon/nflmonService.js';
+import { DROP_CONFIG } from '../nflmon/nflmonConfig.js';
 
 export class TriviaService {
   constructor(client) {
@@ -25,10 +25,10 @@ export class TriviaService {
       cron.schedule(
         `0 ${hour} * * *`,
         async () => {
-          await this.sendQuestion("nfl");
+          await this.sendQuestion('nfl');
           // await this.sendQuestion("wpfl");
         },
-        { timezone: "America/New_York" }
+        { timezone: 'America/New_York' }
       );
 
       // Close windows 2 hours later (handle 23:00 edge case)
@@ -37,15 +37,15 @@ export class TriviaService {
         cron.schedule(
           `0 ${closeHour} * * *`,
           async () => {
-            await this.closeWindow("nfl");
+            await this.closeWindow('nfl');
             // await this.closeWindow("wpfl");
           },
-          { timezone: "America/New_York" }
+          { timezone: 'America/New_York' }
         );
       }
     });
 
-    console.log("[TRIVIA] Scheduler initialized (9am-9pm EST, every 2 hours)");
+    console.log('[TRIVIA] Scheduler initialized (9am-9pm EST, every 2 hours)');
   }
 
   /**
@@ -56,18 +56,18 @@ export class TriviaService {
     try {
       const channelId = process.env.TRIVIA_CHANNEL_ID;
       if (!channelId) {
-        console.error("[TRIVIA] TRIVIA_CHANNEL_ID not set");
+        console.error('[TRIVIA] TRIVIA_CHANNEL_ID not set');
         return;
       }
 
       const channel = await this.client.channels.fetch(channelId);
       if (!channel) {
-        console.error("[TRIVIA] Could not find trivia channel");
+        console.error('[TRIVIA] Could not find trivia channel');
         return;
       }
 
       // Get questions for category
-      const questions = category === "nfl" ? nflQuestions : wpflQuestions;
+      const questions = category === 'nfl' ? nflQuestions : wpflQuestions;
 
       // Build list of unasked questions with their hashes
       const unaskedQuestions = [];
@@ -77,14 +77,11 @@ export class TriviaService {
         // NFL: use question.id
         // WPFL: hash source_data if exists, otherwise fall back to question.id
         let hash;
-        if (category === "nfl") {
+        if (category === 'nfl') {
           hash = q.id;
         } else {
           hash = q.source_data
-            ? crypto
-                .createHash("md5")
-                .update(JSON.stringify(q.source_data))
-                .digest("hex")
+            ? crypto.createHash('md5').update(JSON.stringify(q.source_data)).digest('hex')
             : q.id; // Fallback to id if no source_data
         }
 
@@ -156,13 +153,11 @@ export class TriviaService {
     const wpflMatch = content.match(/^wpfl:\s*(.+)$/i);
 
     if (!nflMatch && !wpflMatch) {
-      await message.reply(
-        "Please use the format: `nfl: your answer` or `wpfl: your answer`"
-      );
+      await message.reply('Please use the format: `nfl: your answer` or `wpfl: your answer`');
       return;
     }
 
-    const category = nflMatch ? "nfl" : "wpfl";
+    const category = nflMatch ? 'nfl' : 'wpfl';
     const userAnswer = (nflMatch || wpflMatch)[1].trim();
 
     // Get active question
@@ -175,19 +170,16 @@ export class TriviaService {
 
     // Check if window is still open
     if (activeQuestion.is_closed || new Date() > new Date(activeQuestion.window_closes_at)) {
-      await message.reply("The answer window has closed for this question!");
+      await message.reply('The answer window has closed for this question!');
       return;
     }
 
     // Check if user already answered
-    const existingAnswer = await triviaDb.getUserAnswer(
-      activeQuestion.id,
-      message.author.id
-    );
+    const existingAnswer = await triviaDb.getUserAnswer(activeQuestion.id, message.author.id);
 
     // If already correct, don't allow more attempts
     if (existingAnswer && existingAnswer.is_correct) {
-      await message.reply("You already got this one! Wait for the next question.");
+      await message.reply('You already got this one! Wait for the next question.');
       return;
     }
 
@@ -227,7 +219,7 @@ export class TriviaService {
           category
         );
       } catch (error) {
-        console.error("[TRIVIA] Error awarding points:", error);
+        console.error('[TRIVIA] Error awarding points:', error);
         pointsAwarded = false;
       }
 
@@ -240,7 +232,7 @@ export class TriviaService {
           await economyDb.addToWallet(message.author.id, coinReward);
           coinsAwarded = coinReward;
         } catch (error) {
-          console.error("[TRIVIA] Error awarding coins:", error);
+          console.error('[TRIVIA] Error awarding coins:', error);
         }
       }
 
@@ -253,21 +245,18 @@ export class TriviaService {
         nflmonDropped = await nflmonService.rollForNflmon(
           message.author.id,
           message.author.username,
-          "trivia"
+          'trivia'
         );
       }
 
       // Award XP to training NFLmon
-      xpResult = await nflmonService.addXpToTraining(
-        message.author.id,
-        "trivia_correct"
-      );
+      xpResult = await nflmonService.addXpToTraining(message.author.id, 'trivia_correct');
 
       // Build combined reply message
       let replyParts = [];
 
       if (pointsAwarded) {
-        const coinText = coinsAwarded > 0 ? ` and 🪙 ${coinsAwarded} coins` : "";
+        const coinText = coinsAwarded > 0 ? ` and 🪙 ${coinsAwarded} coins` : '';
         replyParts.push(`Correct! +${activeQuestion.point_value} point(s)${coinText} added!`);
       } else {
         replyParts.push(`Correct! There was an issue adding points - please contact an admin.`);
@@ -283,24 +272,28 @@ export class TriviaService {
       // Add training XP info to same message
       if (xpResult && xpResult.results.length > 0) {
         const xpLines = xpResult.results.map((r) => {
-          let line = `${r.player?.name || "Unknown"} +${xpResult.xpAmount} XP`;
+          let line = `${r.player?.name || 'Unknown'} +${xpResult.xpAmount} XP`;
           if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
           if (r.evolved) line += ` EVOLVED!`;
           return line;
         });
-        replyParts.push(`**Training XP:** ${xpLines.join(", ")}`);
+        replyParts.push(`**Training XP:** ${xpLines.join(', ')}`);
       }
 
-      await message.reply(replyParts.join("\n"));
+      await message.reply(replyParts.join('\n'));
 
       // Announce in channel (no answer reveal)
       await this.announceCorrectAnswer(activeQuestion, message.author.username);
     } else {
       const attemptsLeft = MAX_GUESSES - recorded.attempt_count;
       if (attemptsLeft > 0) {
-        await message.reply(`Incorrect. You have ${attemptsLeft} guess${attemptsLeft === 1 ? "" : "es"} left.`);
+        await message.reply(
+          `Incorrect. You have ${attemptsLeft} guess${attemptsLeft === 1 ? '' : 'es'} left.`
+        );
       } else {
-        await message.reply(`Incorrect. No guesses remaining for this question.\n\nThe answer was: **${activeQuestion.answer}**`);
+        await message.reply(
+          `Incorrect. No guesses remaining for this question.\n\nThe answer was: **${activeQuestion.answer}**`
+        );
         // Announce failure with roast
         await this.announceExhaustedGuesses(activeQuestion, message.author.username);
       }
@@ -355,7 +348,7 @@ export class TriviaService {
         await channel.send(`**${username}** got the answer correct!`);
       }
     } catch (error) {
-      console.error("[TRIVIA] Error announcing correct answer:", error);
+      console.error('[TRIVIA] Error announcing correct answer:', error);
     }
   }
 
@@ -380,7 +373,7 @@ export class TriviaService {
         await channel.send(roast);
       }
     } catch (error) {
-      console.error("[TRIVIA] Error announcing exhausted guesses:", error);
+      console.error('[TRIVIA] Error announcing exhausted guesses:', error);
     }
   }
 
@@ -392,25 +385,25 @@ export class TriviaService {
    * @returns {EmbedBuilder}
    */
   buildQuestionEmbed(question, category, windowClosesAt) {
-    const color = category === "nfl" ? 0x013369 : 0x00ff88;
-    const title = category === "nfl" ? "NFL Trivia" : "WPFL Trivia";
+    const color = category === 'nfl' ? 0x013369 : 0x00ff88;
+    const title = category === 'nfl' ? 'NFL Trivia' : 'WPFL Trivia';
 
     return new EmbedBuilder()
       .setColor(color)
       .setTitle(title)
       .setDescription(question.question)
       .addFields({
-        name: "How to Answer",
+        name: 'How to Answer',
         value: `DM me with \`${category}: your answer\``,
         inline: false,
       })
       .addFields({
-        name: "Points",
+        name: 'Points',
         value: `${question.point_value || 1}`,
         inline: true,
       })
       .addFields({
-        name: "Window Closes",
+        name: 'Window Closes',
         value: `<t:${Math.floor(windowClosesAt.getTime() / 1000)}:R>`,
         inline: true,
       })
@@ -425,24 +418,22 @@ export class TriviaService {
    * @returns {EmbedBuilder}
    */
   buildResultsEmbed(question, winners, category) {
-    const color = category === "nfl" ? 0x013369 : 0x00ff88;
-    const title = category === "nfl" ? "NFL Trivia Results" : "WPFL Trivia Results";
+    const color = category === 'nfl' ? 0x013369 : 0x00ff88;
+    const title = category === 'nfl' ? 'NFL Trivia Results' : 'WPFL Trivia Results';
 
     const winnerList =
-      winners.length > 0
-        ? winners.map((w) => w.username).join(", ")
-        : "No one got it!";
+      winners.length > 0 ? winners.map((w) => w.username).join(', ') : 'No one got it!';
 
     return new EmbedBuilder()
       .setColor(color)
       .setTitle(title)
       .addFields({
-        name: "Question",
+        name: 'Question',
         value: question.question,
         inline: false,
       })
       .addFields({
-        name: "Answer",
+        name: 'Answer',
         value: question.answer,
         inline: false,
       })

@@ -1,23 +1,23 @@
 // standings.js
-import { SlashCommandBuilder } from "discord.js";
-import { Client } from "../../espnClient.cjs";
-import { espnMembers } from "../../constants/espnMembers.js";
+import { SlashCommandBuilder } from 'discord.js';
+import { Client } from '../../espnClient.cjs';
+import { espnMembers } from '../../constants/espnMembers.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("standings")
-  .setDescription("Returns standings by week and year")
+  .setName('standings')
+  .setDescription('Returns standings by week and year')
   .addIntegerOption((option) =>
     option
-      .setName("week")
-      .setDescription("Input week of standings")
+      .setName('week')
+      .setDescription('Input week of standings')
       .setRequired(true)
       .setMinValue(1)
       .setMaxValue(18)
   )
   .addIntegerOption((option) =>
     option
-      .setName("year")
-      .setDescription("Input year of standings")
+      .setName('year')
+      .setDescription('Input year of standings')
       .setRequired(true)
       .setMinValue(2018)
       .setMaxValue(new Date().getFullYear())
@@ -31,14 +31,13 @@ export const getStandings = async (espnClient, matchupYear, matchupWeek) => {
 
   const sortedTeams = teams.sort(
     (a, b) =>
-      (a.finalStandingsPosition || a.playoffSeed) -
-      (b.finalStandingsPosition || b.playoffSeed)
+      (a.finalStandingsPosition || a.playoffSeed) - (b.finalStandingsPosition || b.playoffSeed)
   );
 
   return sortedTeams
     .map((team, index) => {
       const member = espnMembers.find((member) => member.id === team.id);
-      const memberName = member?.name ?? "Unknown";
+      const memberName = member?.name ?? 'Unknown';
       const position = index + 1;
       const record = `(${team.wins}-${team.losses}-${team.ties})`;
 
@@ -51,17 +50,17 @@ export const getStandings = async (espnClient, matchupYear, matchupWeek) => {
           return `#${position} ${memberName} ${record}`;
       }
     })
-    .join("\n");
+    .join('\n');
 };
 
 export const execute = async (interaction) => {
-  const matchupWeek = interaction.options.getInteger("week");
-  const matchupYear = interaction.options.getInteger("year");
+  const matchupWeek = interaction.options.getInteger('week');
+  const matchupYear = interaction.options.getInteger('year');
 
   const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
   if (!LEAGUE_ID || !ESPN_S2 || !SWID) {
     return await interaction.reply({
-      content: "Missing required environment variables",
+      content: 'Missing required environment variables',
       ephemeral: true,
     });
   }
@@ -76,7 +75,7 @@ export const execute = async (interaction) => {
 
     await interaction.editReply({ content: response });
   } catch (error) {
-    console.error("Standings command error:", error);
+    console.error('Standings command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
       ephemeral: true,

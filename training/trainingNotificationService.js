@@ -1,6 +1,6 @@
-import cron from "node-cron";
-import { EmbedBuilder } from "discord.js";
-import * as trainingDb from "./trainingDb.js";
+import cron from 'node-cron';
+import { EmbedBuilder } from 'discord.js';
+import * as trainingDb from './trainingDb.js';
 
 /**
  * Background service for sending training notifications
@@ -16,8 +16,8 @@ export class TrainingNotificationService {
    */
   init() {
     // Check every 2 minutes
-    cron.schedule("*/2 * * * *", () => this.checkReadyPlayers());
-    console.log("[TRAINING] Notification service initialized (every 2 min)");
+    cron.schedule('*/2 * * * *', () => this.checkReadyPlayers());
+    console.log('[TRAINING] Notification service initialized (every 2 min)');
   }
 
   /**
@@ -35,7 +35,7 @@ export class TrainingNotificationService {
         console.log(`[TRAINING] Sent ${users.length} notification(s)`);
       }
     } catch (error) {
-      console.error("[TRAINING] Notification check error:", error);
+      console.error('[TRAINING] Notification check error:', error);
     }
   }
 
@@ -71,12 +71,12 @@ export class TrainingNotificationService {
   buildNotificationEmbed(readyCount) {
     return new EmbedBuilder()
       .setColor(0xf1c40f)
-      .setTitle("⭐ Rookies Ready to Graduate!")
+      .setTitle('⭐ Rookies Ready to Graduate!')
       .setDescription(
-        `You have **${readyCount}** player${readyCount > 1 ? "s" : ""} ready to graduate!\n\n` +
+        `You have **${readyCount}** player${readyCount > 1 ? 's' : ''} ready to graduate!\n\n` +
           `Use \`/train manage\` to graduate them before they bust!`
       )
-      .setFooter({ text: "Disable these notifications with /train settings" })
+      .setFooter({ text: 'Disable these notifications with /train settings' })
       .setTimestamp();
   }
 }

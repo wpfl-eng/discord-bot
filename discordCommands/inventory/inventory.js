@@ -5,14 +5,11 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-} from "discord.js";
-import * as inventoryDb from "../../inventory/inventoryDb.js";
-import * as economyDb from "../../economy/economyDb.js";
-import {
-  ITEM_CATEGORIES,
-  getItemDefinition,
-} from "../../inventory/inventoryConfig.js";
-import { formatCurrency } from "../../economy/economyConfig.js";
+} from 'discord.js';
+import * as inventoryDb from '../../inventory/inventoryDb.js';
+import * as economyDb from '../../economy/economyDb.js';
+import { ITEM_CATEGORIES, getItemDefinition } from '../../inventory/inventoryConfig.js';
+import { formatCurrency } from '../../economy/economyConfig.js';
 
 /**
  * Build the inventory embed (shared between view and refresh)
@@ -28,7 +25,7 @@ function buildInventoryEmbed(username, inventory) {
 
   if (inventory.length === 0) {
     embed.setDescription(
-      "Your inventory is empty!\n\nYou can get items from the `/shop` or by training rookies."
+      'Your inventory is empty!\n\nYou can get items from the `/shop` or by training rookies.'
     );
     return { embed, sellableItems: [] };
   }
@@ -46,9 +43,7 @@ function buildInventoryEmbed(username, inventory) {
     }
 
     const valueText =
-      def.sellable && item.item_value
-        ? ` (${formatCurrency(item.item_value)} each)`
-        : "";
+      def.sellable && item.item_value ? ` (${formatCurrency(item.item_value)} each)` : '';
 
     itemsByCategory[category].push(
       `${def.emoji} **${def.displayName}** x${item.quantity}${valueText}`
@@ -70,7 +65,7 @@ function buildInventoryEmbed(username, inventory) {
 
     embed.addFields({
       name: categoryName,
-      value: itemsByCategory[category].join("\n"),
+      value: itemsByCategory[category].join('\n'),
       inline: false,
     });
   }
@@ -103,7 +98,7 @@ function buildSellButtons(sellableItems) {
     return new ButtonBuilder()
       .setCustomId(`inv_sell_${item.item_type}`)
       .setLabel(`Sell ${def.displayName}`)
-      .setEmoji("💰")
+      .setEmoji('💰')
       .setStyle(ButtonStyle.Success);
   });
 
@@ -111,27 +106,22 @@ function buildSellButtons(sellableItems) {
 }
 
 export const data = new SlashCommandBuilder()
-  .setName("inventory")
-  .setDescription("View and manage your inventory")
-  .addSubcommand((subcommand) =>
-    subcommand.setName("view").setDescription("View your inventory")
-  )
+  .setName('inventory')
+  .setDescription('View and manage your inventory')
+  .addSubcommand((subcommand) => subcommand.setName('view').setDescription('View your inventory'))
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("sell")
-      .setDescription("Sell items from your inventory")
+      .setName('sell')
+      .setDescription('Sell items from your inventory')
       .addStringOption((option) =>
         option
-          .setName("item")
-          .setDescription("Item to sell")
+          .setName('item')
+          .setDescription('Item to sell')
           .setRequired(true)
           .setAutocomplete(true)
       )
       .addIntegerOption((option) =>
-        option
-          .setName("quantity")
-          .setDescription("Quantity to sell (default: 1)")
-          .setMinValue(1)
+        option.setName('quantity').setDescription('Quantity to sell (default: 1)').setMinValue(1)
       )
   );
 
@@ -142,9 +132,9 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
-  if (subcommand === "view") {
+  if (subcommand === 'view') {
     await handleView(interaction);
-  } else if (subcommand === "sell") {
+  } else if (subcommand === 'sell') {
     await handleSell(interaction);
   }
 }
@@ -181,22 +171,22 @@ async function handleView(interaction) {
         filter: (i) => i.user.id === userId,
       });
 
-      collector.on("collect", async (buttonInteraction) => {
-        const itemType = buttonInteraction.customId.replace("inv_sell_", "");
+      collector.on('collect', async (buttonInteraction) => {
+        const itemType = buttonInteraction.customId.replace('inv_sell_', '');
 
         // Sell 1 of the item
         const result = await inventoryDb.sellItem(userId, itemType, 1);
 
         if (!result.success) {
           const errorMessages = {
-            NOT_SELLABLE: "This item cannot be sold!",
+            NOT_SELLABLE: 'This item cannot be sold!',
             INSUFFICIENT_QUANTITY: "You don't have any of this item to sell!",
-            REMOVE_FAILED: "Failed to remove item from inventory.",
-            WALLET_UPDATE_FAILED: "Failed to add coins to your wallet.",
+            REMOVE_FAILED: 'Failed to remove item from inventory.',
+            WALLET_UPDATE_FAILED: 'Failed to add coins to your wallet.',
           };
 
           await buttonInteraction.reply({
-            content: errorMessages[result.error] || "Sale failed!",
+            content: errorMessages[result.error] || 'Sale failed!',
             ephemeral: true,
           });
           return;
@@ -207,12 +197,12 @@ async function handleView(interaction) {
         // Create success embed
         const saleEmbed = new EmbedBuilder()
           .setColor(0x2ecc71)
-          .setTitle("💰 Sale Successful!")
+          .setTitle('💰 Sale Successful!')
           .setDescription(
             `Sold **1x ${def.emoji} ${def.displayName}** for ${formatCurrency(result.earnings)}!`
           )
           .addFields({
-            name: "New Balance",
+            name: 'New Balance',
             value: formatCurrency(result.newBalance),
             inline: true,
           });
@@ -221,18 +211,23 @@ async function handleView(interaction) {
 
         // Refresh the inventory display with fresh data
         const newInventory = await inventoryDb.getInventory(userId);
-        const { embed: newEmbed, sellableItems: newSellable } = buildInventoryEmbed(username, newInventory);
+        const { embed: newEmbed, sellableItems: newSellable } = buildInventoryEmbed(
+          username,
+          newInventory
+        );
         const newComponents = buildSellButtons(newSellable);
-        await interaction.editReply({ embeds: [newEmbed], components: newComponents }).catch(() => {});
+        await interaction
+          .editReply({ embeds: [newEmbed], components: newComponents })
+          .catch(() => {});
       });
 
-      collector.on("end", async () => {
+      collector.on('end', async () => {
         // Remove all buttons when collector ends (avoids stale button issues)
         await interaction.editReply({ components: [] }).catch(() => {});
       });
     }
   } catch (error) {
-    console.error("inventory view error:", error);
+    console.error('inventory view error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -249,8 +244,8 @@ async function handleSell(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const itemType = interaction.options.getString("item");
-    const quantity = interaction.options.getInteger("quantity") || 1;
+    const itemType = interaction.options.getString('item');
+    const quantity = interaction.options.getInteger('quantity') || 1;
 
     // Ensure user exists
     await economyDb.getOrCreateUser(userId, username);
@@ -285,15 +280,15 @@ async function handleSell(interaction) {
 
     if (!result.success) {
       const errorMessages = {
-        NOT_SELLABLE: "This item cannot be sold!",
+        NOT_SELLABLE: 'This item cannot be sold!',
         INSUFFICIENT_QUANTITY: "You don't have enough of this item!",
-        REMOVE_FAILED: "Failed to remove item from inventory.",
-        WALLET_UPDATE_FAILED: "Failed to add coins to your wallet.",
-        INVALID_QUANTITY: "Invalid quantity specified.",
+        REMOVE_FAILED: 'Failed to remove item from inventory.',
+        WALLET_UPDATE_FAILED: 'Failed to add coins to your wallet.',
+        INVALID_QUANTITY: 'Invalid quantity specified.',
       };
 
       await interaction.editReply({
-        content: errorMessages[result.error] || "Sale failed!",
+        content: errorMessages[result.error] || 'Sale failed!',
       });
       return;
     }
@@ -301,23 +296,23 @@ async function handleSell(interaction) {
     // Success embed
     const embed = new EmbedBuilder()
       .setColor(0x2ecc71)
-      .setTitle("💰 Sale Successful!")
+      .setTitle('💰 Sale Successful!')
       .setDescription(
         `Sold **${quantity}x ${def.emoji} ${def.displayName}** for ${formatCurrency(result.earnings)}!`
       )
       .addFields(
         {
-          name: "Price per Item",
+          name: 'Price per Item',
           value: formatCurrency(result.earnings / quantity),
           inline: true,
         },
         {
-          name: "Total Earned",
+          name: 'Total Earned',
           value: formatCurrency(result.earnings),
           inline: true,
         },
         {
-          name: "New Balance",
+          name: 'New Balance',
           value: formatCurrency(result.newBalance),
           inline: true,
         }
@@ -326,7 +321,7 @@ async function handleSell(interaction) {
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("inventory sell error:", error);
+    console.error('inventory sell error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -341,7 +336,7 @@ export async function autocomplete(interaction) {
   try {
     const focusedOption = interaction.options.getFocused(true);
 
-    if (focusedOption.name === "item") {
+    if (focusedOption.name === 'item') {
       const userId = interaction.user.id;
       const searchValue = focusedOption.value.toLowerCase();
 
@@ -355,9 +350,7 @@ export async function autocomplete(interaction) {
           if (!def || !def.sellable) return false;
 
           // Match against display name or item type
-          const matchesName = def.displayName
-            .toLowerCase()
-            .includes(searchValue);
+          const matchesName = def.displayName.toLowerCase().includes(searchValue);
           const matchesType = item.item_type.toLowerCase().includes(searchValue);
           return matchesName || matchesType;
         })
@@ -374,7 +367,7 @@ export async function autocomplete(interaction) {
       await interaction.respond(choices);
     }
   } catch (error) {
-    console.error("inventory autocomplete error:", error);
+    console.error('inventory autocomplete error:', error);
     await interaction.respond([]);
   }
 }

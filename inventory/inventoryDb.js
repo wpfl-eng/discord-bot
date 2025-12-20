@@ -1,6 +1,11 @@
-import { sql } from "@vercel/postgres";
-import * as economyDb from "../economy/economyDb.js";
-import { getItemDefinition, getItemDisplayName, getItemBaseValue, isItemSellable } from "./inventoryConfig.js";
+import { sql } from '@vercel/postgres';
+import * as economyDb from '../economy/economyDb.js';
+import {
+  getItemDefinition,
+  getItemDisplayName,
+  getItemBaseValue,
+  isItemSellable,
+} from './inventoryConfig.js';
 
 // ============ Read Operations ============
 
@@ -179,18 +184,18 @@ export async function setItemQuantity(userId, itemType, quantity) {
  */
 export async function sellItem(userId, itemType, quantity = 1) {
   if (quantity <= 0) {
-    return { success: false, error: "INVALID_QUANTITY" };
+    return { success: false, error: 'INVALID_QUANTITY' };
   }
 
   // Check if item is sellable
   if (!isItemSellable(itemType)) {
-    return { success: false, error: "NOT_SELLABLE" };
+    return { success: false, error: 'NOT_SELLABLE' };
   }
 
   // Get current item to check quantity and value
   const currentItem = await getItem(userId, itemType);
   if (!currentItem || currentItem.quantity < quantity) {
-    return { success: false, error: "INSUFFICIENT_QUANTITY" };
+    return { success: false, error: 'INSUFFICIENT_QUANTITY' };
   }
 
   // Calculate earnings (use item_value from DB if set, otherwise base value)
@@ -200,7 +205,7 @@ export async function sellItem(userId, itemType, quantity = 1) {
   // Remove items from inventory (atomic)
   const removedItem = await removeItem(userId, itemType, quantity);
   if (!removedItem) {
-    return { success: false, error: "REMOVE_FAILED" };
+    return { success: false, error: 'REMOVE_FAILED' };
   }
 
   // Add earnings to wallet
@@ -208,8 +213,10 @@ export async function sellItem(userId, itemType, quantity = 1) {
   if (!updatedUser) {
     // Rollback: re-add the items that were removed
     await addItem(userId, itemType, quantity, valuePerItem);
-    console.error(`Rolled back sale: Failed to add ${totalEarnings} to wallet for user ${userId} after selling ${quantity}x ${itemType}`);
-    return { success: false, error: "WALLET_UPDATE_FAILED" };
+    console.error(
+      `Rolled back sale: Failed to add ${totalEarnings} to wallet for user ${userId} after selling ${quantity}x ${itemType}`
+    );
+    return { success: false, error: 'WALLET_UPDATE_FAILED' };
   }
 
   return {
@@ -231,13 +238,13 @@ export async function sellItem(userId, itemType, quantity = 1) {
  */
 export async function transferItem(fromUserId, toUserId, itemType, quantity = 1) {
   if (quantity <= 0) {
-    return { success: false, error: "INVALID_QUANTITY" };
+    return { success: false, error: 'INVALID_QUANTITY' };
   }
 
   // Remove from source user
   const removed = await removeItem(fromUserId, itemType, quantity);
   if (!removed) {
-    return { success: false, error: "INSUFFICIENT_QUANTITY" };
+    return { success: false, error: 'INSUFFICIENT_QUANTITY' };
   }
 
   // Get value from removed item to preserve it
@@ -248,7 +255,7 @@ export async function transferItem(fromUserId, toUserId, itemType, quantity = 1)
   if (!added) {
     // Rollback - add items back to source
     await addItem(fromUserId, itemType, quantity, itemValue);
-    return { success: false, error: "ADD_FAILED" };
+    return { success: false, error: 'ADD_FAILED' };
   }
 
   return { success: true };

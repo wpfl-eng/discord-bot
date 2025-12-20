@@ -1,4 +1,4 @@
-import { sql } from "@vercel/postgres";
+import { sql } from '@vercel/postgres';
 
 /**
  * Check if a user has already earned a specific achievement

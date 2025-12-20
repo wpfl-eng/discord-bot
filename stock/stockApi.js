@@ -1,7 +1,7 @@
 // Finnhub API Integration
 // Handles fetching real-time stock quotes
 
-import { STOCK_CONFIG, STOCK_MESSAGES } from "./stockConfig.js";
+import { STOCK_CONFIG, STOCK_MESSAGES } from './stockConfig.js';
 
 /**
  * Fetch current stock quote from Finnhub API
@@ -23,7 +23,7 @@ export async function getQuote(ticker) {
   const apiKey = process.env.FINNHUB_API_KEY;
 
   if (!apiKey) {
-    console.error("FINNHUB_API_KEY not configured");
+    console.error('FINNHUB_API_KEY not configured');
     return { success: false, error: STOCK_MESSAGES.API_NOT_CONFIGURED };
   }
 
@@ -64,11 +64,11 @@ export async function getQuote(ticker) {
       },
     };
   } catch (error) {
-    if (error.name === "AbortError") {
-      console.error("Finnhub API request timed out");
-      return { success: false, error: "Request timed out. Please try again." };
+    if (error.name === 'AbortError') {
+      console.error('Finnhub API request timed out');
+      return { success: false, error: 'Request timed out. Please try again.' };
     }
-    console.error("Finnhub API error:", error);
+    console.error('Finnhub API error:', error);
     return { success: false, error: STOCK_MESSAGES.API_ERROR };
   }
 }
@@ -80,7 +80,7 @@ export async function getQuote(ticker) {
  * @returns {boolean} - True if valid format
  */
 export function isValidTickerFormat(ticker) {
-  if (!ticker || typeof ticker !== "string") {
+  if (!ticker || typeof ticker !== 'string') {
     return false;
   }
   const tickerRegex = /^[A-Za-z]{1,5}$/;

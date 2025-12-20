@@ -24,7 +24,7 @@ export const REWARDS = {
   FIRST_SOLVER_BONUS: 200,
 
   // Item awarded to first solver
-  FIRST_SOLVER_ITEM: "wordle_lucky_letter",
+  FIRST_SOLVER_ITEM: 'wordle_lucky_letter',
 };
 
 /**
@@ -42,19 +42,19 @@ export const COLORS = {
  * Wordle grid emojis
  */
 export const EMOJIS = {
-  CORRECT: "🟩", // Letter in correct position (green)
-  PRESENT: "🟨", // Letter in word but wrong position (yellow)
-  ABSENT: "⬛", // Letter not in word (black/gray)
-  EMPTY: "⬜", // Unused guess slot (white)
+  CORRECT: '🟩', // Letter in correct position (green)
+  PRESENT: '🟨', // Letter in word but wrong position (yellow)
+  ABSENT: '⬛', // Letter not in word (black/gray)
+  EMPTY: '⬜', // Unused guess slot (white)
 };
 
 /**
  * Feedback types for letter evaluation
  */
 export const FEEDBACK_TYPES = {
-  CORRECT: "correct",
-  PRESENT: "present",
-  ABSENT: "absent",
+  CORRECT: 'correct',
+  PRESENT: 'present',
+  ABSENT: 'absent',
 };
 
 /**

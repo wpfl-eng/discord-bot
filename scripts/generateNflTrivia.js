@@ -3,9 +3,9 @@
  * Fetches player stats from nflverse and generates trivia questions
  */
 
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,8 +24,8 @@ const END_YEAR = 2024;
  * @returns {Array<Object>} - Array of row objects
  */
 function parseCSV(csvString) {
-  const lines = csvString.trim().split("\n");
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
+  const lines = csvString.trim().split('\n');
+  const headers = lines[0].split(',').map((h) => h.trim().replace(/"/g, ''));
 
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
@@ -48,16 +48,16 @@ function parseCSV(csvString) {
  */
 function parseCSVLine(line) {
   const values = [];
-  let current = "";
+  let current = '';
   let inQuotes = false;
 
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
     if (char === '"') {
       inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
+    } else if (char === ',' && !inQuotes) {
       values.push(current.trim());
-      current = "";
+      current = '';
     } else {
       current += char;
     }
@@ -77,9 +77,9 @@ async function fetchPlayerStats(year) {
 
   try {
     const response = await fetch(url, {
-      redirect: "follow",
+      redirect: 'follow',
       headers: {
-        Accept: "text/csv,application/csv,*/*",
+        Accept: 'text/csv,application/csv,*/*',
       },
     });
 
@@ -106,7 +106,7 @@ function aggregateSeasonStats(weeklyStats, year) {
 
   for (const week of weeklyStats) {
     // Only include regular season games
-    if (week.season_type !== "REG") continue;
+    if (week.season_type !== 'REG') continue;
 
     const playerId = week.player_id;
     if (!playerId) continue;
@@ -182,7 +182,7 @@ function generateAcceptableAnswers(playerName) {
   if (!playerName) return [];
 
   const acceptable = [playerName];
-  const parts = playerName.split(" ");
+  const parts = playerName.split(' ');
 
   // Add last name only
   if (parts.length >= 2) {
@@ -202,59 +202,59 @@ function generateAcceptableAnswers(playerName) {
  */
 const QUESTION_TEMPLATES = [
   {
-    category: "passing_yards",
+    category: 'passing_yards',
     template: (year) => `Who led the NFL in passing yards in ${year}?`,
-    statField: "passing_yards",
+    statField: 'passing_yards',
     positionFilter: null,
     pointValue: 2,
   },
   {
-    category: "rushing_yards",
+    category: 'rushing_yards',
     template: (year) => `Who led the NFL in rushing yards in ${year}?`,
-    statField: "rushing_yards",
+    statField: 'rushing_yards',
     positionFilter: null,
     pointValue: 2,
   },
   {
-    category: "receiving_yards",
+    category: 'receiving_yards',
     template: (year) => `Who led the NFL in receiving yards in ${year}?`,
-    statField: "receiving_yards",
+    statField: 'receiving_yards',
     positionFilter: null,
     pointValue: 2,
   },
   {
-    category: "passing_tds",
+    category: 'passing_tds',
     template: (year) => `Which quarterback threw the most touchdown passes in ${year}?`,
-    statField: "passing_tds",
-    positionFilter: "QB",
+    statField: 'passing_tds',
+    positionFilter: 'QB',
     pointValue: 2,
   },
   {
-    category: "rushing_tds",
+    category: 'rushing_tds',
     template: (year) => `Who scored the most rushing touchdowns in ${year}?`,
-    statField: "rushing_tds",
+    statField: 'rushing_tds',
     positionFilter: null,
     pointValue: 2,
   },
   {
-    category: "receiving_tds",
+    category: 'receiving_tds',
     template: (year) => `Who scored the most receiving touchdowns in ${year}?`,
-    statField: "receiving_tds",
+    statField: 'receiving_tds',
     positionFilter: null,
     pointValue: 2,
   },
   {
-    category: "receptions",
+    category: 'receptions',
     template: (year) => `Who led the NFL in receptions in ${year}?`,
-    statField: "receptions",
+    statField: 'receptions',
     positionFilter: null,
     pointValue: 2,
   },
   {
-    category: "interceptions",
+    category: 'interceptions',
     template: (year) => `Which quarterback threw the most interceptions in ${year}?`,
-    statField: "interceptions",
-    positionFilter: "QB",
+    statField: 'interceptions',
+    positionFilter: 'QB',
     pointValue: 3,
   },
 ];
@@ -295,7 +295,7 @@ function generateQuestionsForYear(playerStats, year) {
  * Main function to generate all trivia questions
  */
 async function main() {
-  console.log("=== NFL Trivia Question Generator ===\n");
+  console.log('=== NFL Trivia Question Generator ===\n');
 
   const allQuestions = [];
 
@@ -327,15 +327,15 @@ async function main() {
   });
 
   // Write to file
-  const outputPath = path.join(__dirname, "..", "trivia", "nflQuestions.json");
+  const outputPath = path.join(__dirname, '..', 'trivia', 'nflQuestions.json');
   fs.writeFileSync(outputPath, JSON.stringify(allQuestions, null, 2));
 
-  console.log("=== Summary ===");
+  console.log('=== Summary ===');
   console.log(`Total questions generated: ${allQuestions.length}`);
   console.log(`Output written to: ${outputPath}`);
 
   // Print sample questions
-  console.log("\n=== Sample Questions ===");
+  console.log('\n=== Sample Questions ===');
   const samples = allQuestions.slice(0, 5);
   for (const q of samples) {
     console.log(`\nQ: ${q.question}`);

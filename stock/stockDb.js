@@ -1,8 +1,8 @@
 // Stock Holdings Database Operations
 // Handles buying, selling, and querying stock positions
 
-import { sql } from "@vercel/postgres";
-import * as economyDb from "../economy/economyDb.js";
+import { sql } from '@vercel/postgres';
+import * as economyDb from '../economy/economyDb.js';
 
 // ============ Read Operations ============
 
@@ -56,7 +56,7 @@ export async function buyShares(userId, ticker, shares, pricePerShare, totalCost
   const updatedUser = await economyDb.deductFromWallet(userId, Math.floor(totalCost));
 
   if (!updatedUser) {
-    return { success: false, error: "INSUFFICIENT_FUNDS" };
+    return { success: false, error: 'INSUFFICIENT_FUNDS' };
   }
 
   // Get existing holding to calculate new average cost
@@ -114,13 +114,13 @@ export async function sellShares(userId, ticker, sharesToSell, pricePerShare) {
   const existingHolding = await getHolding(userId, normalizedTicker);
 
   if (!existingHolding) {
-    return { success: false, error: "NO_HOLDING" };
+    return { success: false, error: 'NO_HOLDING' };
   }
 
   const currentShares = parseFloat(existingHolding.shares);
 
   if (currentShares < sharesToSell) {
-    return { success: false, error: "INSUFFICIENT_SHARES" };
+    return { success: false, error: 'INSUFFICIENT_SHARES' };
   }
 
   // Calculate proceeds and profit/loss
@@ -169,7 +169,7 @@ export async function sellShares(userId, ticker, sharesToSell, pricePerShare) {
         shares = stock_holdings.shares + ${sharesToSell},
         last_updated_at = NOW()
     `;
-    return { success: false, error: "WALLET_UPDATE_FAILED" };
+    return { success: false, error: 'WALLET_UPDATE_FAILED' };
   }
 
   return {

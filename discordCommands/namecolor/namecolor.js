@@ -1,26 +1,26 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 
 /**
  * Predefined color map for easy color selection
  * @type {Record<string, string>}
  */
 const PREDEFINED_COLORS = {
-  red: "#E74C3C",
-  blue: "#3498DB",
-  green: "#2ECC71",
-  purple: "#9B59B6",
-  orange: "#E67E22",
-  pink: "#E91E63",
-  cyan: "#00BCD4",
-  gold: "#F1C40F",
-  white: "#FFFFFF",
+  red: '#E74C3C',
+  blue: '#3498DB',
+  green: '#2ECC71',
+  purple: '#9B59B6',
+  orange: '#E67E22',
+  pink: '#E91E63',
+  cyan: '#00BCD4',
+  gold: '#F1C40F',
+  white: '#FFFFFF',
 };
 
 /**
  * Role name prefix for color roles
  * @type {string}
  */
-const COLOR_ROLE_PREFIX = "color-";
+const COLOR_ROLE_PREFIX = 'color-';
 
 /**
  * Parse a color input string into a valid hex color
@@ -39,15 +39,15 @@ function parseColor(input) {
   let hexValue = normalizedInput;
 
   // Remove common prefixes
-  if (hexValue.startsWith("#")) {
+  if (hexValue.startsWith('#')) {
     hexValue = hexValue.slice(1);
-  } else if (hexValue.startsWith("0x")) {
+  } else if (hexValue.startsWith('0x')) {
     hexValue = hexValue.slice(2);
   }
 
   // Validate hex format (must be 6 characters, valid hex)
   if (!/^[0-9a-f]{6}$/i.test(hexValue)) {
-    const colorNames = Object.keys(PREDEFINED_COLORS).join(", ");
+    const colorNames = Object.keys(PREDEFINED_COLORS).join(', ');
     return {
       valid: false,
       error: `Invalid color. Use a hex code (e.g., #FF5733) or a color name: ${colorNames}`,
@@ -67,24 +67,26 @@ function getColorRoleName(userId) {
 }
 
 export const data = new SlashCommandBuilder()
-  .setName("namecolor")
-  .setDescription("Change your display name color in the server")
+  .setName('namecolor')
+  .setDescription('Change your display name color in the server')
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("set")
-      .setDescription("Set your name color")
+      .setName('set')
+      .setDescription('Set your name color')
       .addStringOption((option) =>
         option
-          .setName("color")
-          .setDescription("Hex code (#FF5733) or color name (red, blue, green, purple, orange, pink, cyan, gold)")
+          .setName('color')
+          .setDescription(
+            'Hex code (#FF5733) or color name (red, blue, green, purple, orange, pink, cyan, gold)'
+          )
           .setRequired(true)
       )
   )
   .addSubcommand((subcommand) =>
-    subcommand.setName("remove").setDescription("Remove your custom name color")
+    subcommand.setName('remove').setDescription('Remove your custom name color')
   )
   .addSubcommand((subcommand) =>
-    subcommand.setName("list").setDescription("Show available predefined colors")
+    subcommand.setName('list').setDescription('Show available predefined colors')
   );
 
 /**
@@ -95,13 +97,13 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   switch (subcommand) {
-    case "set":
+    case 'set':
       await handleSet(interaction);
       break;
-    case "remove":
+    case 'remove':
       await handleRemove(interaction);
       break;
-    case "list":
+    case 'list':
       await handleList(interaction);
       break;
   }
@@ -114,7 +116,7 @@ export async function execute(interaction) {
 async function handleSet(interaction) {
   if (!interaction.guild) {
     await interaction.reply({
-      content: "This command can only be used in a server.",
+      content: 'This command can only be used in a server.',
       ephemeral: true,
     });
     return;
@@ -127,12 +129,13 @@ async function handleSet(interaction) {
     const botMember = interaction.guild.members.me;
     if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
       await interaction.editReply({
-        content: "I don't have permission to manage roles. Please ask a server admin to grant me the 'Manage Roles' permission.",
+        content:
+          "I don't have permission to manage roles. Please ask a server admin to grant me the 'Manage Roles' permission.",
       });
       return;
     }
 
-    const colorInput = interaction.options.getString("color");
+    const colorInput = interaction.options.getString('color');
     const parseResult = parseColor(colorInput);
 
     if (!parseResult.valid) {
@@ -146,15 +149,14 @@ async function handleSet(interaction) {
     const member = interaction.member;
 
     // Find existing color role for this user
-    let colorRole = interaction.guild.roles.cache.find(
-      (role) => role.name === colorRoleName
-    );
+    let colorRole = interaction.guild.roles.cache.find((role) => role.name === colorRoleName);
 
     if (colorRole) {
       // Check if bot can modify this role (role hierarchy)
       if (colorRole.position >= botMember.roles.highest.position) {
         await interaction.editReply({
-          content: "I can't modify your color role because it's positioned higher than my role. Please ask a server admin to move my role higher.",
+          content:
+            "I can't modify your color role because it's positioned higher than my role. Please ask a server admin to move my role higher.",
         });
         return;
       }
@@ -176,20 +178,20 @@ async function handleSet(interaction) {
 
     // Ensure user has the role
     if (!member.roles.cache.has(colorRole.id)) {
-      await member.roles.add(colorRole, "Assigned custom name color");
+      await member.roles.add(colorRole, 'Assigned custom name color');
     }
 
     // Build success embed
     const embed = new EmbedBuilder()
       .setColor(hex)
-      .setTitle("Name Color Updated")
+      .setTitle('Name Color Updated')
       .setDescription(`Your name color has been set to **${hex}**`)
-      .setFooter({ text: "Use /namecolor remove to remove your custom color" })
+      .setFooter({ text: 'Use /namecolor remove to remove your custom color' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("namecolor set error:", error);
+    console.error('namecolor set error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -203,7 +205,7 @@ async function handleSet(interaction) {
 async function handleRemove(interaction) {
   if (!interaction.guild) {
     await interaction.reply({
-      content: "This command can only be used in a server.",
+      content: 'This command can only be used in a server.',
       ephemeral: true,
     });
     return;
@@ -216,7 +218,8 @@ async function handleRemove(interaction) {
     const botMember = interaction.guild.members.me;
     if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
       await interaction.editReply({
-        content: "I don't have permission to manage roles. Please ask a server admin to grant me the 'Manage Roles' permission.",
+        content:
+          "I don't have permission to manage roles. Please ask a server admin to grant me the 'Manage Roles' permission.",
       });
       return;
     }
@@ -225,9 +228,7 @@ async function handleRemove(interaction) {
     const colorRoleName = getColorRoleName(userId);
 
     // Find the user's color role - ONLY match exact name with our prefix
-    const colorRole = interaction.guild.roles.cache.find(
-      (role) => role.name === colorRoleName
-    );
+    const colorRole = interaction.guild.roles.cache.find((role) => role.name === colorRoleName);
 
     if (!colorRole) {
       await interaction.editReply({
@@ -247,7 +248,8 @@ async function handleRemove(interaction) {
     // Check if bot can delete this role (role hierarchy)
     if (colorRole.position >= botMember.roles.highest.position) {
       await interaction.editReply({
-        content: "I can't delete your color role because it's positioned higher than my role. Please ask a server admin to move my role higher.",
+        content:
+          "I can't delete your color role because it's positioned higher than my role. Please ask a server admin to move my role higher.",
       });
       return;
     }
@@ -257,14 +259,14 @@ async function handleRemove(interaction) {
 
     const embed = new EmbedBuilder()
       .setColor(0x3498db)
-      .setTitle("Name Color Removed")
-      .setDescription("Your custom name color has been removed.")
-      .setFooter({ text: "Use /namecolor set <color> to set a new color" })
+      .setTitle('Name Color Removed')
+      .setDescription('Your custom name color has been removed.')
+      .setFooter({ text: 'Use /namecolor set <color> to set a new color' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("namecolor remove error:", error);
+    console.error('namecolor remove error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -278,19 +280,19 @@ async function handleRemove(interaction) {
 async function handleList(interaction) {
   const colorList = Object.entries(PREDEFINED_COLORS)
     .map(([name, hex]) => `**${name}** - \`${hex}\``)
-    .join("\n");
+    .join('\n');
 
   const embed = new EmbedBuilder()
     .setColor(0x3498db)
-    .setTitle("Available Colors")
+    .setTitle('Available Colors')
     .setDescription(
       `You can use any of these color names or enter a custom hex code:\n\n${colorList}`
     )
     .addFields({
-      name: "Custom Colors",
-      value: "You can also use any hex code like `#FF5733` or `FF5733`",
+      name: 'Custom Colors',
+      value: 'You can also use any hex code like `#FF5733` or `FF5733`',
     })
-    .setFooter({ text: "Use /namecolor set <color> to set your color" })
+    .setFooter({ text: 'Use /namecolor set <color> to set your color' })
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed], ephemeral: true });

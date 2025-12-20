@@ -1,23 +1,20 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
 import {
   CONFIG,
   formatCurrency,
   isCooldownOver,
   CURRENCY_EMOJI,
   CHANNELS,
-} from "../../economy/economyConfig.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
+} from '../../economy/economyConfig.js';
+import { checkForAchievements } from '../../achievements/achievementService.js';
+import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("rob")
-  .setDescription("Attempt to intercept coins from another player")
+  .setName('rob')
+  .setDescription('Attempt to intercept coins from another player')
   .addUserOption((option) =>
-    option
-      .setName("target")
-      .setDescription("The player to pick off")
-      .setRequired(true)
+    option.setName('target').setDescription('The player to pick off').setRequired(true)
   );
 
 /**
@@ -30,7 +27,7 @@ export async function execute(interaction) {
   try {
     const attackerId = interaction.user.id;
     const attackerUsername = interaction.user.username;
-    const targetUser = interaction.options.getUser("target");
+    const targetUser = interaction.options.getUser('target');
 
     // Can't rob yourself
     if (targetUser.id === attackerId) {
@@ -49,14 +46,8 @@ export async function execute(interaction) {
     }
 
     // Get or create both users
-    const attackerData = await economyDb.getOrCreateUser(
-      attackerId,
-      attackerUsername
-    );
-    const targetData = await economyDb.getOrCreateUser(
-      targetUser.id,
-      targetUser.username
-    );
+    const attackerData = await economyDb.getOrCreateUser(attackerId, attackerUsername);
+    const targetData = await economyDb.getOrCreateUser(targetUser.id, targetUser.username);
 
     // Check attacker cooldown
     const robCooldownMs = CONFIG.ROB_COOLDOWN_MINUTES * 60 * 1000;
@@ -66,7 +57,7 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🏈 Interception Failed")
+        .setTitle('🏈 Interception Failed')
         .setDescription(
           `You're still reviewing film from your last pick attempt!\n\nBack on the field <t:${discordTimestamp}:R>`
         )
@@ -81,7 +72,7 @@ export async function execute(interaction) {
     if (!isCooldownOver(targetData.last_robbed_at, victimCooldownMs)) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🏈 Interception Failed")
+        .setTitle('🏈 Interception Failed')
         .setDescription(
           `**${targetUser.username}** just got picked off and is protecting the ball!\n\nFind another target.`
         )
@@ -95,7 +86,7 @@ export async function execute(interaction) {
     if (targetData.wallet < CONFIG.ROB_MIN_WALLET) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🏈 Interception Failed")
+        .setTitle('🏈 Interception Failed')
         .setDescription(
           `**${targetUser.username}** isn't carrying enough to be worth the risk.\n\nThey need at least ${formatCurrency(CONFIG.ROB_MIN_WALLET)} in their wallet.`
         )
@@ -109,7 +100,7 @@ export async function execute(interaction) {
     if (attackerData.wallet < CONFIG.ROB_FAIL_FINE) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🏈 Interception Failed")
+        .setTitle('🏈 Interception Failed')
         .setDescription(
           `You need at least ${formatCurrency(CONFIG.ROB_FAIL_FINE)} in your wallet to attempt an interception (in case you get flagged for pass interference).`
         )
@@ -129,7 +120,7 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🛡️ Pass Defended!")
+        .setTitle('🛡️ Pass Defended!')
         .setDescription(
           `**${targetUser.username}**'s offensive line blocked your attempt!\n\nTheir protection has been used up.`
         )
@@ -154,19 +145,21 @@ export async function execute(interaction) {
     if (isSuccess) {
       // Calculate stolen amount (10-30% of target's wallet)
       const stealPercent =
-        CONFIG.ROB_MIN_PERCENT +
-        Math.random() * (CONFIG.ROB_MAX_PERCENT - CONFIG.ROB_MIN_PERCENT);
+        CONFIG.ROB_MIN_PERCENT + Math.random() * (CONFIG.ROB_MAX_PERCENT - CONFIG.ROB_MIN_PERCENT);
       const stolenAmount = Math.floor(targetData.wallet * stealPercent);
 
       // Transfer money atomically
-      const { from: updatedVictim, to: updatedAttacker } =
-        await economyDb.transferBetweenUsers(targetUser.id, attackerId, stolenAmount);
+      const { from: updatedVictim, to: updatedAttacker } = await economyDb.transferBetweenUsers(
+        targetUser.id,
+        attackerId,
+        stolenAmount
+      );
 
       // If transfer failed (victim didn't have enough), handle gracefully
       if (!updatedVictim || !updatedAttacker) {
         const embed = new EmbedBuilder()
           .setColor(0xe74c3c)
-          .setTitle("🏈 Interception Failed")
+          .setTitle('🏈 Interception Failed')
           .setDescription(
             `**${targetUser.username}** threw the ball away just in time! Nothing to intercept.`
           )
@@ -181,18 +174,18 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setTitle("🏈 PICK SIX!")
+        .setTitle('🏈 PICK SIX!')
         .setDescription(
           `You intercepted ${formatCurrency(stolenAmount)} from **${targetUser.username}** and took it to the house!`
         )
         .addFields(
           {
-            name: "Intercepted",
+            name: 'Intercepted',
             value: formatCurrency(stolenAmount),
             inline: true,
           },
           {
-            name: "Your New Balance",
+            name: 'Your New Balance',
             value: formatCurrency(updatedAttacker.wallet),
             inline: true,
           }
@@ -205,7 +198,7 @@ export async function execute(interaction) {
       // PUBLIC ANNOUNCEMENT - Send to town-square channel
       const announcementEmbed = new EmbedBuilder()
         .setColor(0xff0000)
-        .setTitle("🚨 TURNOVER!")
+        .setTitle('🚨 TURNOVER!')
         .setDescription(
           `<@${targetUser.id}> just got picked off by **${attackerUsername}** for ${formatCurrency(stolenAmount)}!`
         )
@@ -218,7 +211,7 @@ export async function execute(interaction) {
             await townSquare.send({ embeds: [announcementEmbed] });
           }
         } catch (err) {
-          console.error("Failed to send robbery announcement to town-square:", err);
+          console.error('Failed to send robbery announcement to town-square:', err);
         }
       }
 
@@ -231,7 +224,7 @@ export async function execute(interaction) {
         amount: stolenAmount,
         targetUserId: targetUser.id,
         targetUsername: targetUser.username,
-      }).catch((err) => console.error("Failed to check achievements:", err));
+      }).catch((err) => console.error('Failed to check achievements:', err));
     } else {
       // Failed - pay fine using atomic operation
       const updatedAttacker = await economyDb.payRobFine(attackerId, CONFIG.ROB_FAIL_FINE);
@@ -239,30 +232,30 @@ export async function execute(interaction) {
       // If they couldn't pay the fine (shouldn't happen due to check above)
       if (!updatedAttacker) {
         await interaction.editReply({
-          content: "Something went wrong. Please try again.",
+          content: 'Something went wrong. Please try again.',
         });
         return;
       }
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🚩 Pass Interference!")
+        .setTitle('🚩 Pass Interference!')
         .setDescription(
           `You got flagged trying to pick off **${targetUser.username}**!\n\nYou paid a ${formatCurrency(CONFIG.ROB_FAIL_FINE)} penalty.`
         )
         .addFields(
           {
-            name: "Penalty",
+            name: 'Penalty',
             value: formatCurrency(CONFIG.ROB_FAIL_FINE),
             inline: true,
           },
           {
-            name: "Your New Balance",
+            name: 'Your New Balance',
             value: formatCurrency(updatedAttacker.wallet),
             inline: true,
           }
         )
-        .setFooter({ text: "The refs saw everything!" })
+        .setFooter({ text: 'The refs saw everything!' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -276,10 +269,10 @@ export async function execute(interaction) {
         amount: CONFIG.ROB_FAIL_FINE,
         targetUserId: targetUser.id,
         targetUsername: targetUser.username,
-      }).catch((err) => console.error("Failed to check achievements:", err));
+      }).catch((err) => console.error('Failed to check achievements:', err));
     }
   } catch (error) {
-    console.error("rob command error:", error);
+    console.error('rob command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });

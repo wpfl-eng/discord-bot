@@ -5,13 +5,9 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-} from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
-import {
-  CONFIG,
-  formatCurrency,
-  CHANNELS,
-} from "../../economy/economyConfig.js";
+} from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
+import { CONFIG, formatCurrency, CHANNELS } from '../../economy/economyConfig.js';
 import {
   createDeck,
   calculateHandValue,
@@ -20,10 +16,10 @@ import {
   formatHand,
   drawCard,
   getVisibleDealerValue,
-} from "./blackjackUtils.js";
-import * as blackjackDb from "../../blackjack/blackjackDb.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
+} from './blackjackUtils.js';
+import * as blackjackDb from '../../blackjack/blackjackDb.js';
+import { checkForAchievements } from '../../achievements/achievementService.js';
+import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 
 // In-memory state tracking (resets on bot restart)
 const activeGames = new Map();
@@ -41,13 +37,10 @@ function formatHandValue(hand) {
 }
 
 export const data = new SlashCommandBuilder()
-  .setName("blackjack")
-  .setDescription("Play a game of blackjack!")
+  .setName('blackjack')
+  .setDescription('Play a game of blackjack!')
   .addStringOption((option) =>
-    option
-      .setName("amount")
-      .setDescription("Amount to bet (number or 'all')")
-      .setRequired(true)
+    option.setName('amount').setDescription("Amount to bet (number or 'all')").setRequired(true)
   );
 
 /**
@@ -68,12 +61,12 @@ function createGameEmbed(game, status, color, hideDealer = true) {
 
   const embed = new EmbedBuilder()
     .setColor(color)
-    .setTitle("🃏 Blackjack")
+    .setTitle('🃏 Blackjack')
     .setDescription(
       `**Dealer's Hand:**\n${formatHand(game.dealerHand, hideDealer)} *(${dealerValueText})*\n\n` +
         `**Your Hand:**\n${formatHand(game.playerHand)} *(${playerValueText})*`
     )
-    .addFields({ name: "Bet", value: formatCurrency(game.bet), inline: true })
+    .addFields({ name: 'Bet', value: formatCurrency(game.bet), inline: true })
     .setFooter({ text: status })
     .setTimestamp();
 
@@ -90,26 +83,26 @@ function createGameEmbed(game, status, color, hideDealer = true) {
  */
 function createButtons(game, canDoubleDown = true, disabled = false, canSurrender = false) {
   const hitButton = new ButtonBuilder()
-    .setCustomId("blackjack_hit")
-    .setLabel("Hit")
+    .setCustomId('blackjack_hit')
+    .setLabel('Hit')
     .setStyle(ButtonStyle.Primary)
     .setDisabled(disabled);
 
   const standButton = new ButtonBuilder()
-    .setCustomId("blackjack_stand")
-    .setLabel("Stand")
+    .setCustomId('blackjack_stand')
+    .setLabel('Stand')
     .setStyle(ButtonStyle.Secondary)
     .setDisabled(disabled);
 
   const doubleButton = new ButtonBuilder()
-    .setCustomId("blackjack_double")
-    .setLabel("Double Down")
+    .setCustomId('blackjack_double')
+    .setLabel('Double Down')
     .setStyle(ButtonStyle.Success)
     .setDisabled(disabled || !canDoubleDown);
 
   const surrenderButton = new ButtonBuilder()
-    .setCustomId("blackjack_surrender")
-    .setLabel("Surrender")
+    .setCustomId('blackjack_surrender')
+    .setLabel('Surrender')
     .setStyle(ButtonStyle.Danger)
     .setDisabled(disabled || !canSurrender);
 
@@ -160,7 +153,7 @@ function determineOutcome(game) {
   // Both have blackjack - push
   if (playerBJ && dealerBJ) {
     return {
-      outcome: "Push! Both have Blackjack",
+      outcome: 'Push! Both have Blackjack',
       payout: game.bet,
       color: 0x3498db,
       isWin: false,
@@ -173,7 +166,7 @@ function determineOutcome(game) {
   // Player has blackjack - 3:2 payout
   if (playerBJ) {
     return {
-      outcome: "Blackjack! You win 3:2!",
+      outcome: 'Blackjack! You win 3:2!',
       payout: Math.floor(game.bet * 2.5),
       color: 0xf1c40f,
       isBigWin: true,
@@ -187,7 +180,7 @@ function determineOutcome(game) {
   // Dealer has blackjack - player loses
   if (dealerBJ) {
     return {
-      outcome: "Dealer has Blackjack! You lose.",
+      outcome: 'Dealer has Blackjack! You lose.',
       payout: 0,
       color: 0xe74c3c,
       isWin: false,
@@ -200,7 +193,7 @@ function determineOutcome(game) {
   // Player busted
   if (playerValue > 21) {
     return {
-      outcome: "Bust! You went over 21.",
+      outcome: 'Bust! You went over 21.',
       payout: 0,
       color: 0xe74c3c,
       isWin: false,
@@ -213,7 +206,7 @@ function determineOutcome(game) {
   // Dealer busted
   if (dealerValue > 21) {
     return {
-      outcome: "Dealer busts! You win!",
+      outcome: 'Dealer busts! You win!',
       payout: game.bet * 2,
       color: 0x2ecc71,
       isWin: true,
@@ -226,7 +219,7 @@ function determineOutcome(game) {
   // Compare hands
   if (playerValue > dealerValue) {
     return {
-      outcome: "You win!",
+      outcome: 'You win!',
       payout: game.bet * 2,
       color: 0x2ecc71,
       isWin: true,
@@ -236,7 +229,7 @@ function determineOutcome(game) {
     };
   } else if (dealerValue > playerValue) {
     return {
-      outcome: "Dealer wins!",
+      outcome: 'Dealer wins!',
       payout: 0,
       color: 0xe74c3c,
       isWin: false,
@@ -264,7 +257,8 @@ function determineOutcome(game) {
  * @param {string} userId - User ID
  */
 async function resolveGame(interaction, game, userId) {
-  const { outcome, payout, color, isBigWin, isWin, isPush, isBust, isBlackjack } = determineOutcome(game);
+  const { outcome, payout, color, isBigWin, isWin, isPush, isBust, isBlackjack } =
+    determineOutcome(game);
 
   // Award payout if any
   let updatedUser;
@@ -277,7 +271,7 @@ async function resolveGame(interaction, game, userId) {
   // Record stats (non-blocking - don't let stats failure break game)
   let stats = null;
   try {
-    const statsOutcome = isWin ? "win" : isPush ? "push" : "loss";
+    const statsOutcome = isWin ? 'win' : isPush ? 'push' : 'loss';
     stats = await blackjackDb.recordGameResult({
       userId,
       username: interaction.user.username,
@@ -292,7 +286,7 @@ async function resolveGame(interaction, game, userId) {
       wasSurrender: false,
     });
   } catch (statsError) {
-    console.error("Failed to record blackjack stats:", statsError);
+    console.error('Failed to record blackjack stats:', statsError);
   }
 
   // Check for achievements (non-blocking)
@@ -304,7 +298,7 @@ async function resolveGame(interaction, game, userId) {
       username: interaction.user.username,
       client: interaction.client,
       amount: isWin ? payout : game.bet,
-    }).catch((err) => console.error("Failed to check achievements:", err));
+    }).catch((err) => console.error('Failed to check achievements:', err));
   }
 
   const embed = createGameEmbed(game, outcome, color, false);
@@ -312,13 +306,13 @@ async function resolveGame(interaction, game, userId) {
   // Update fields with payout info
   embed.spliceFields(0, 1); // Remove old bet field
   embed.addFields(
-    { name: "Bet", value: formatCurrency(game.bet), inline: true },
+    { name: 'Bet', value: formatCurrency(game.bet), inline: true },
     {
-      name: payout > 0 ? "Payout" : "Lost",
+      name: payout > 0 ? 'Payout' : 'Lost',
       value: payout > 0 ? formatCurrency(payout) : formatCurrency(game.bet),
       inline: true,
     },
-    { name: "Balance", value: formatCurrency(updatedUser.wallet), inline: true }
+    { name: 'Balance', value: formatCurrency(updatedUser.wallet), inline: true }
   );
 
   // Build footer with outcome and streak
@@ -350,10 +344,10 @@ async function resolveGame(interaction, game, userId) {
     const replayCollector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 30000, // 30 seconds
-      filter: (i) => i.user.id === userId && i.customId.startsWith("blackjack_replay_"),
+      filter: (i) => i.user.id === userId && i.customId.startsWith('blackjack_replay_'),
     });
 
-    replayCollector.on("collect", async (buttonInteraction) => {
+    replayCollector.on('collect', async (buttonInteraction) => {
       // Check cooldown
       const lastGame = blackjackCooldowns.get(userId);
       if (lastGame) {
@@ -372,7 +366,7 @@ async function resolveGame(interaction, game, userId) {
       // Check for existing game
       if (activeGames.has(userId)) {
         await buttonInteraction.reply({
-          content: "You already have a blackjack game in progress!",
+          content: 'You already have a blackjack game in progress!',
           ephemeral: true,
         });
         return;
@@ -389,7 +383,7 @@ async function resolveGame(interaction, game, userId) {
       }
 
       // Remove Play Again button
-      replayCollector.stop("replaying");
+      replayCollector.stop('replaying');
 
       // Disable the button visually
       await buttonInteraction.update({
@@ -402,7 +396,7 @@ async function resolveGame(interaction, game, userId) {
         ...interaction,
         client: interaction.client,
         options: {
-          getString: (name) => (name === "amount" ? game.originalBet.toString() : null),
+          getString: (name) => (name === 'amount' ? game.originalBet.toString() : null),
         },
         deferReply: async () => {},
         editReply: interaction.editReply.bind(interaction),
@@ -413,8 +407,8 @@ async function resolveGame(interaction, game, userId) {
       await executeNewGame(fakeInteraction, game.originalBet);
     });
 
-    replayCollector.on("end", async (collected, reason) => {
-      if (reason === "time") {
+    replayCollector.on('end', async (collected, reason) => {
+      if (reason === 'time') {
         // Remove Play Again button after timeout
         try {
           await interaction.editReply({
@@ -435,7 +429,7 @@ async function resolveGame(interaction, game, userId) {
       if (casinoChannel) {
         const announcementEmbed = new EmbedBuilder()
           .setColor(0xf1c40f)
-          .setTitle("🃏 BLACKJACK! 🃏")
+          .setTitle('🃏 BLACKJACK! 🃏')
           .setDescription(
             `<@${userId}> just hit **Natural Blackjack**!\n\nWon ${formatCurrency(payout)} on a ${formatCurrency(game.originalBet)} bet!`
           )
@@ -444,7 +438,7 @@ async function resolveGame(interaction, game, userId) {
         await casinoChannel.send({ embeds: [announcementEmbed] });
       }
     } catch (error) {
-      console.error("Failed to send casino announcement:", error);
+      console.error('Failed to send casino announcement:', error);
     }
   }
 
@@ -464,7 +458,7 @@ async function executeNewGame(interaction, amount) {
   const betResult = await economyDb.gambleLose(userId, amount);
   if (!betResult) {
     await interaction.editReply({
-      content: "Something went wrong placing your bet. Please try again.",
+      content: 'Something went wrong placing your bet. Please try again.',
     });
     return;
   }
@@ -480,7 +474,7 @@ async function executeNewGame(interaction, amount) {
     dealerHand: [drawCard(deck), drawCard(deck)],
     bet: amount,
     originalBet: amount,
-    phase: "playing",
+    phase: 'playing',
     doubledDown: false,
     hasHit: false,
     canSurrender: true,
@@ -501,7 +495,12 @@ async function executeNewGame(interaction, amount) {
   const canDoubleDown = betResult.wallet >= amount;
 
   // Show game with buttons
-  const embed = createGameEmbed(game, "Your turn - Hit, Stand, Double Down, or Surrender?", 0xf1c40f, true);
+  const embed = createGameEmbed(
+    game,
+    'Your turn - Hit, Stand, Double Down, or Surrender?',
+    0xf1c40f,
+    true
+  );
   const row = createButtons(game, canDoubleDown, false, game.canSurrender);
 
   const response = await interaction.editReply({
@@ -513,14 +512,14 @@ async function executeNewGame(interaction, amount) {
   const collector = response.createMessageComponentCollector({
     componentType: ComponentType.Button,
     time: CONFIG.BLACKJACK_TIMEOUT_SECONDS * 1000,
-    filter: (i) => i.user.id === userId && !i.customId.startsWith("blackjack_replay_"),
+    filter: (i) => i.user.id === userId && !i.customId.startsWith('blackjack_replay_'),
   });
 
-  collector.on("collect", async (buttonInteraction) => {
+  collector.on('collect', async (buttonInteraction) => {
     const currentGame = activeGames.get(userId);
-    if (!currentGame || currentGame.phase !== "playing") {
+    if (!currentGame || currentGame.phase !== 'playing') {
       await buttonInteraction.reply({
-        content: "This game is no longer active.",
+        content: 'This game is no longer active.',
         ephemeral: true,
       });
       return;
@@ -528,7 +527,7 @@ async function executeNewGame(interaction, amount) {
 
     const action = buttonInteraction.customId;
 
-    if (action === "blackjack_hit") {
+    if (action === 'blackjack_hit') {
       currentGame.playerHand.push(drawCard(currentGame.deck));
       currentGame.hasHit = true;
       currentGame.canSurrender = false;
@@ -536,33 +535,38 @@ async function executeNewGame(interaction, amount) {
       const playerValue = calculateHandValue(currentGame.playerHand);
 
       if (playerValue > 21) {
-        currentGame.phase = "finished";
-        collector.stop("bust");
+        currentGame.phase = 'finished';
+        collector.stop('bust');
         await buttonInteraction.deferUpdate();
         await resolveGame(interaction, currentGame, userId);
       } else if (playerValue === 21) {
-        currentGame.phase = "dealer_turn";
+        currentGame.phase = 'dealer_turn';
         playDealerTurn(currentGame);
-        currentGame.phase = "finished";
-        collector.stop("21");
+        currentGame.phase = 'finished';
+        collector.stop('21');
         await buttonInteraction.deferUpdate();
         await resolveGame(interaction, currentGame, userId);
       } else {
-        const embedUpdate = createGameEmbed(currentGame, "Your turn - Hit or Stand?", 0xf1c40f, true);
+        const embedUpdate = createGameEmbed(
+          currentGame,
+          'Your turn - Hit or Stand?',
+          0xf1c40f,
+          true
+        );
         const rowUpdate = createButtons(currentGame, false, false, false);
         await buttonInteraction.update({ embeds: [embedUpdate], components: [rowUpdate] });
       }
-    } else if (action === "blackjack_stand") {
-      currentGame.phase = "dealer_turn";
+    } else if (action === 'blackjack_stand') {
+      currentGame.phase = 'dealer_turn';
       playDealerTurn(currentGame);
-      currentGame.phase = "finished";
-      collector.stop("stand");
+      currentGame.phase = 'finished';
+      collector.stop('stand');
       await buttonInteraction.deferUpdate();
       await resolveGame(interaction, currentGame, userId);
-    } else if (action === "blackjack_double") {
+    } else if (action === 'blackjack_double') {
       if (currentGame.hasHit) {
         await buttonInteraction.reply({
-          content: "You can only double down on your first two cards!",
+          content: 'You can only double down on your first two cards!',
           ephemeral: true,
         });
         return;
@@ -580,7 +584,7 @@ async function executeNewGame(interaction, amount) {
       const doubleResult = await economyDb.gambleLose(userId, currentGame.originalBet);
       if (!doubleResult) {
         await buttonInteraction.reply({
-          content: "Insufficient funds to double down!",
+          content: 'Insufficient funds to double down!',
           ephemeral: true,
         });
         return;
@@ -593,22 +597,22 @@ async function executeNewGame(interaction, amount) {
       const playerValue = calculateHandValue(currentGame.playerHand);
 
       if (playerValue > 21) {
-        currentGame.phase = "finished";
-        collector.stop("bust_double");
+        currentGame.phase = 'finished';
+        collector.stop('bust_double');
         await buttonInteraction.deferUpdate();
         await resolveGame(interaction, currentGame, userId);
       } else {
-        currentGame.phase = "dealer_turn";
+        currentGame.phase = 'dealer_turn';
         playDealerTurn(currentGame);
-        currentGame.phase = "finished";
-        collector.stop("double");
+        currentGame.phase = 'finished';
+        collector.stop('double');
         await buttonInteraction.deferUpdate();
         await resolveGame(interaction, currentGame, userId);
       }
-    } else if (action === "blackjack_surrender") {
+    } else if (action === 'blackjack_surrender') {
       if (!currentGame.canSurrender) {
         await buttonInteraction.reply({
-          content: "You can only surrender before taking any action!",
+          content: 'You can only surrender before taking any action!',
           ephemeral: true,
         });
         return;
@@ -618,22 +622,22 @@ async function executeNewGame(interaction, amount) {
       const refundResult = await economyDb.gambleWin(userId, refundAmount);
       if (!refundResult) {
         await buttonInteraction.reply({
-          content: "Something went wrong processing your surrender.",
+          content: 'Something went wrong processing your surrender.',
           ephemeral: true,
         });
         return;
       }
 
-      currentGame.phase = "finished";
+      currentGame.phase = 'finished';
       currentGame.surrendered = true;
-      collector.stop("surrender");
+      collector.stop('surrender');
 
       // Record surrender in stats
       try {
         await blackjackDb.recordGameResult({
           userId,
           username: interaction.user.username,
-          outcome: "loss",
+          outcome: 'loss',
           bet: currentGame.bet,
           payout: refundAmount,
           wasBlackjack: false,
@@ -644,22 +648,22 @@ async function executeNewGame(interaction, amount) {
           wasSurrender: true,
         });
       } catch (statsError) {
-        console.error("Failed to record surrender stats:", statsError);
+        console.error('Failed to record surrender stats:', statsError);
       }
 
       const finalEmbed = new EmbedBuilder()
         .setColor(0x9b59b6)
-        .setTitle("🃏 Blackjack - Surrendered")
+        .setTitle('🃏 Blackjack - Surrendered')
         .setDescription(
           `**Dealer's Hand:**\n${formatHand(currentGame.dealerHand, false)} *(${calculateHandValue(currentGame.dealerHand)})*\n\n` +
             `**Your Hand:**\n${formatHand(currentGame.playerHand)} *(${formatHandValue(currentGame.playerHand)})*`
         )
         .addFields(
-          { name: "Bet", value: formatCurrency(currentGame.bet), inline: true },
-          { name: "Refunded", value: formatCurrency(refundAmount), inline: true },
-          { name: "Balance", value: formatCurrency(refundResult.wallet), inline: true }
+          { name: 'Bet', value: formatCurrency(currentGame.bet), inline: true },
+          { name: 'Refunded', value: formatCurrency(refundAmount), inline: true },
+          { name: 'Balance', value: formatCurrency(refundResult.wallet), inline: true }
         )
-        .setFooter({ text: "You surrendered and got half your bet back." })
+        .setFooter({ text: 'You surrendered and got half your bet back.' })
         .setTimestamp();
 
       // Add play again button if can afford
@@ -681,10 +685,10 @@ async function executeNewGame(interaction, amount) {
         const replayCollector = response.createMessageComponentCollector({
           componentType: ComponentType.Button,
           time: 30000,
-          filter: (i) => i.user.id === userId && i.customId.startsWith("blackjack_replay_"),
+          filter: (i) => i.user.id === userId && i.customId.startsWith('blackjack_replay_'),
         });
 
-        replayCollector.on("collect", async (replayInteraction) => {
+        replayCollector.on('collect', async (replayInteraction) => {
           const lastGameCheck = blackjackCooldowns.get(userId);
           if (lastGameCheck) {
             const elapsed = Date.now() - lastGameCheck;
@@ -701,7 +705,7 @@ async function executeNewGame(interaction, amount) {
 
           if (activeGames.has(userId)) {
             await replayInteraction.reply({
-              content: "You already have a blackjack game in progress!",
+              content: 'You already have a blackjack game in progress!',
               ephemeral: true,
             });
             return;
@@ -716,15 +720,15 @@ async function executeNewGame(interaction, amount) {
             return;
           }
 
-          replayCollector.stop("replaying");
+          replayCollector.stop('replaying');
           await replayInteraction.update({
             components: [createButtons(currentGame, false, true, false)],
           });
           await executeNewGame(interaction, currentGame.originalBet);
         });
 
-        replayCollector.on("end", async (collected, reason) => {
-          if (reason === "time") {
+        replayCollector.on('end', async (collected, reason) => {
+          if (reason === 'time') {
             try {
               await interaction.editReply({
                 embeds: [finalEmbed],
@@ -739,14 +743,19 @@ async function executeNewGame(interaction, amount) {
     }
   });
 
-  collector.on("end", async (collected, reason) => {
+  collector.on('end', async (collected, reason) => {
     const currentGame = activeGames.get(userId);
-    if (reason === "time" && currentGame && currentGame.phase === "playing") {
-      currentGame.phase = "dealer_turn";
+    if (reason === 'time' && currentGame && currentGame.phase === 'playing') {
+      currentGame.phase = 'dealer_turn';
       playDealerTurn(currentGame);
-      currentGame.phase = "finished";
+      currentGame.phase = 'finished';
 
-      const timeoutEmbed = createGameEmbed(currentGame, "Time's up! Auto-standing...", 0xf1c40f, false);
+      const timeoutEmbed = createGameEmbed(
+        currentGame,
+        "Time's up! Auto-standing...",
+        0xf1c40f,
+        false
+      );
       await interaction.editReply({
         embeds: [timeoutEmbed],
         components: [createButtons(currentGame, false, true, false)],
@@ -767,7 +776,7 @@ export async function execute(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const amountStr = interaction.options.getString("amount").toLowerCase();
+    const amountStr = interaction.options.getString('amount').toLowerCase();
 
     // Check cooldown
     const lastGame = blackjackCooldowns.get(userId);
@@ -786,7 +795,7 @@ export async function execute(interaction) {
     // Check for existing game
     if (activeGames.has(userId)) {
       await interaction.editReply({
-        content: "You already have a blackjack game in progress! Finish it first.",
+        content: 'You already have a blackjack game in progress! Finish it first.',
       });
       return;
     }
@@ -798,7 +807,7 @@ export async function execute(interaction) {
     let amount;
     let isAllIn = false;
 
-    if (amountStr === "all" || amountStr === "max") {
+    if (amountStr === 'all' || amountStr === 'max') {
       amount = userData.wallet;
       isAllIn = true;
     } else {
@@ -832,11 +841,11 @@ export async function execute(interaction) {
     if (userData.wallet < amount) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🃏 Blackjack Failed")
+        .setTitle('🃏 Blackjack Failed')
         .setDescription(
           `You don't have enough coins in your wallet!\n\nYour wallet: ${formatCurrency(userData.wallet)}\nBet amount: ${formatCurrency(amount)}`
         )
-        .setFooter({ text: "Tip: Use /withdraw to get coins from your bank" })
+        .setFooter({ text: 'Tip: Use /withdraw to get coins from your bank' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -846,7 +855,7 @@ export async function execute(interaction) {
     // Start the game
     await executeNewGame(interaction, amount);
   } catch (error) {
-    console.error("blackjack command error:", error);
+    console.error('blackjack command error:', error);
     activeGames.delete(interaction.user.id);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,

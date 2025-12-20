@@ -1,15 +1,15 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
 import {
   CONFIG,
   formatCurrency,
   isCooldownOver,
   CURRENCY_EMOJI,
-} from "../../economy/economyConfig.js";
+} from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("daily")
-  .setDescription("Collect your game day check");
+  .setName('daily')
+  .setDescription('Collect your game day check');
 
 /**
  * Execute the daily command
@@ -35,7 +35,7 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🏈 Game Day Bonus")
+        .setTitle('🏈 Game Day Bonus')
         .setDescription(
           `You already collected your game check!\n\nNext payday <t:${discordTimestamp}:R>`
         )
@@ -50,8 +50,7 @@ export async function execute(interaction) {
     const streakExpireMs = CONFIG.DAILY_STREAK_EXPIRE_HOURS * 60 * 60 * 1000;
 
     if (userData.last_daily) {
-      const timeSinceLastDaily =
-        Date.now() - new Date(userData.last_daily).getTime();
+      const timeSinceLastDaily = Date.now() - new Date(userData.last_daily).getTime();
 
       // If within streak window, increment streak
       if (timeSinceLastDaily < streakExpireMs) {
@@ -75,39 +74,39 @@ export async function execute(interaction) {
     const discordTimestamp = Math.floor(nextClaimTime / 1000);
 
     // Build response embed
-    const streakEmoji = newStreak >= 5 ? "🔥" : "🏆";
+    const streakEmoji = newStreak >= 5 ? '🔥' : '🏆';
     const embed = new EmbedBuilder()
       .setColor(0xf1c40f)
       .setTitle(`🏈 Game Check Collected!`)
       .addFields(
         {
-          name: "Base Salary",
+          name: 'Base Salary',
           value: formatCurrency(CONFIG.DAILY_AMOUNT),
           inline: true,
         },
         {
-          name: "Win Streak Bonus",
+          name: 'Win Streak Bonus',
           value: `${formatCurrency(streakBonus)} (${newStreak} games ${streakEmoji})`,
           inline: true,
         },
         {
-          name: "\u200b",
-          value: "\u200b",
+          name: '\u200b',
+          value: '\u200b',
           inline: true,
         },
         {
-          name: "Total Earnings",
+          name: 'Total Earnings',
           value: formatCurrency(totalReward),
           inline: true,
         },
         {
-          name: "Bank Account",
+          name: 'Bank Account',
           value: formatCurrency(updatedUser.wallet),
           inline: true,
         },
         {
-          name: "\u200b",
-          value: "\u200b",
+          name: '\u200b',
+          value: '\u200b',
           inline: true,
         }
       )
@@ -119,7 +118,7 @@ export async function execute(interaction) {
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("daily command error:", error);
+    console.error('daily command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });

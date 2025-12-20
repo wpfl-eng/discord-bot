@@ -5,18 +5,18 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-} from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
+} from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
 import {
   CONFIG,
   formatCurrency,
   randomInt,
   REDZONE_FIELD_POSITIONS,
   CHANNELS,
-} from "../../economy/economyConfig.js";
-import * as redzoneDb from "../../redzone/redzoneDb.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
+} from '../../economy/economyConfig.js';
+import * as redzoneDb from '../../redzone/redzoneDb.js';
+import { checkForAchievements } from '../../achievements/achievementService.js';
+import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 
 /** @type {Map<string, object>} */
 const activeGames = new Map();
@@ -24,11 +24,11 @@ const activeGames = new Map();
 const redzoneCooldowns = new Map();
 
 export const data = new SlashCommandBuilder()
-  .setName("redzone")
-  .setDescription("Push your luck football game - drive for a touchdown!")
+  .setName('redzone')
+  .setDescription('Push your luck football game - drive for a touchdown!')
   .addStringOption((option) =>
     option
-      .setName("bet")
+      .setName('bet')
       .setDescription("Amount to bet (10-10000, or 'all'/'max')")
       .setRequired(true)
   );
@@ -57,14 +57,14 @@ function renderField(yardLine) {
   const filled = Math.floor((progress / totalYards) * barLength);
 
   // Create progress bar with football marker
-  let bar = "";
+  let bar = '';
   for (let i = 0; i < barLength; i++) {
     if (i < filled) {
-      bar += "=";
+      bar += '=';
     } else if (i === filled) {
-      bar += ">";
+      bar += '>';
     } else {
-      bar += " ";
+      bar += ' ';
     }
   }
 
@@ -77,11 +77,11 @@ function renderField(yardLine) {
  * @returns {string}
  */
 function getFieldDescription(yardLine) {
-  if (yardLine >= 100) return "TOUCHDOWN!";
+  if (yardLine >= 100) return 'TOUCHDOWN!';
   if (yardLine >= 80) return `Opp ${100 - yardLine} - RED ZONE`;
   if (yardLine >= 50) return `Opp ${100 - yardLine}`;
   if (yardLine > 20) return `Own ${yardLine}`;
-  return "Own 20 - Starting Position";
+  return 'Own 20 - Starting Position';
 }
 
 /**
@@ -98,17 +98,17 @@ function createGameEmbed(game, status, color) {
 
   const embed = new EmbedBuilder()
     .setColor(color)
-    .setTitle("🏈 RED ZONE 🏈")
+    .setTitle('🏈 RED ZONE 🏈')
     .setDescription(
       `${renderField(game.yardLine)}\n` +
-      `**${getFieldDescription(game.yardLine)}**\n\n` +
-      `Current Multiplier: **${position.multiplier}x**\n` +
-      `Potential Payout: **${formatCurrency(potentialPayout)}** (+${formatCurrency(profit)})\n\n` +
-      `Fumble Risk: **${Math.round(position.fumbleChance * 100)}%**`
+        `**${getFieldDescription(game.yardLine)}**\n\n` +
+        `Current Multiplier: **${position.multiplier}x**\n` +
+        `Potential Payout: **${formatCurrency(potentialPayout)}** (+${formatCurrency(profit)})\n\n` +
+        `Fumble Risk: **${Math.round(position.fumbleChance * 100)}%**`
     )
     .addFields(
-      { name: "Bet", value: formatCurrency(game.bet), inline: true },
-      { name: "Yards Gained", value: `${game.yardsGained}`, inline: true }
+      { name: 'Bet', value: formatCurrency(game.bet), inline: true },
+      { name: 'Yards Gained', value: `${game.yardsGained}`, inline: true }
     )
     .setFooter({ text: status })
     .setTimestamp();
@@ -123,14 +123,14 @@ function createGameEmbed(game, status, color) {
  */
 function createButtons(disabled = false) {
   const runButton = new ButtonBuilder()
-    .setCustomId("redzone_run")
-    .setLabel("🏈 Run Play")
+    .setCustomId('redzone_run')
+    .setLabel('🏈 Run Play')
     .setStyle(ButtonStyle.Primary)
     .setDisabled(disabled);
 
   const cashOutButton = new ButtonBuilder()
-    .setCustomId("redzone_cashout")
-    .setLabel("💰 Cash Out")
+    .setCustomId('redzone_cashout')
+    .setLabel('💰 Cash Out')
     .setStyle(ButtonStyle.Success)
     .setDisabled(disabled);
 
@@ -193,25 +193,25 @@ async function resolveGame(interaction, game, userId, outcome) {
   let isBigWin = false;
 
   switch (outcome) {
-    case "touchdown":
+    case 'touchdown':
       payout = Math.floor(game.bet * 10.0); // 10x for touchdown
       color = 0x2ecc71; // Green
-      title = "🏆 TOUCHDOWN!!! 🏆";
+      title = '🏆 TOUCHDOWN!!! 🏆';
       description = `You drove 80 yards for the score!\n\n**10x PAYOUT!**`;
       isBigWin = true;
       break;
 
-    case "fumble":
+    case 'fumble':
       payout = 0;
       color = 0xe74c3c; // Red
-      title = "💥 FUMBLE! 💥";
+      title = '💥 FUMBLE! 💥';
       description = `The defense recovers at the ${getFieldDescription(game.yardLine)}!\n\nYou lost your bet.`;
       break;
 
-    case "cashout":
+    case 'cashout':
       payout = Math.floor(game.bet * position.multiplier);
       color = 0x3498db; // Blue
-      title = "💰 Cashed Out! 💰";
+      title = '💰 Cashed Out! 💰';
       description = `Smart play! You cashed out at **${position.multiplier}x**`;
       break;
   }
@@ -238,12 +238,12 @@ async function resolveGame(interaction, game, userId, outcome) {
       yardsGained: game.yardsGained,
     });
   } catch (statsError) {
-    console.error("Failed to record redzone stats:", statsError);
+    console.error('Failed to record redzone stats:', statsError);
   }
 
   // Check for achievements (non-blocking)
   // Touchdown and cashout with profit are wins, fumble is a loss
-  const isWin = outcome === "touchdown" || (outcome === "cashout" && payout > game.bet);
+  const isWin = outcome === 'touchdown' || (outcome === 'cashout' && payout > game.bet);
   checkForAchievements({
     actionType: isWin ? ACTION_TYPES.REDZONE_WIN : ACTION_TYPES.REDZONE_LOSE,
     userId,
@@ -252,33 +252,33 @@ async function resolveGame(interaction, game, userId, outcome) {
     amount: isWin ? payout : game.bet,
     outcome,
     yardsGained: game.yardsGained,
-  }).catch((err) => console.error("Failed to check achievements:", err));
+  }).catch((err) => console.error('Failed to check achievements:', err));
 
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(title)
-    .setDescription(
-      `${renderField(game.yardLine)}\n\n` +
-      description
-    )
+    .setDescription(`${renderField(game.yardLine)}\n\n` + description)
     .addFields(
-      { name: "Bet", value: formatCurrency(game.bet), inline: true },
+      { name: 'Bet', value: formatCurrency(game.bet), inline: true },
       {
-        name: payout > 0 ? "Payout" : "Lost",
-        value: payout > 0 ? `${formatCurrency(payout)} (+${formatCurrency(profit)})` : formatCurrency(game.bet),
+        name: payout > 0 ? 'Payout' : 'Lost',
+        value:
+          payout > 0
+            ? `${formatCurrency(payout)} (+${formatCurrency(profit)})`
+            : formatCurrency(game.bet),
         inline: true,
       },
-      { name: "Balance", value: formatCurrency(updatedUser.wallet), inline: true },
-      { name: "Yards Gained", value: `${game.yardsGained}`, inline: true }
+      { name: 'Balance', value: formatCurrency(updatedUser.wallet), inline: true },
+      { name: 'Yards Gained', value: `${game.yardsGained}`, inline: true }
     )
     .setTimestamp();
 
   // Add streak info to footer
-  let footerText = "";
+  let footerText = '';
   if (stats) {
-    if (outcome === "touchdown" && stats.current_td_streak > 1) {
+    if (outcome === 'touchdown' && stats.current_td_streak > 1) {
       footerText = `${stats.current_td_streak} touchdown streak! 🔥`;
-    } else if (outcome === "fumble" && stats.current_td_streak < -1) {
+    } else if (outcome === 'fumble' && stats.current_td_streak < -1) {
       footerText = `${Math.abs(stats.current_td_streak)} fumble streak 😔`;
     }
   }
@@ -306,10 +306,10 @@ async function resolveGame(interaction, game, userId, outcome) {
     const replayCollector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 30000,
-      filter: (i) => i.user.id === userId && i.customId.startsWith("redzone_replay_"),
+      filter: (i) => i.user.id === userId && i.customId.startsWith('redzone_replay_'),
     });
 
-    replayCollector.on("collect", async (buttonInteraction) => {
+    replayCollector.on('collect', async (buttonInteraction) => {
       // Check cooldown
       const lastGame = redzoneCooldowns.get(userId);
       if (lastGame) {
@@ -328,7 +328,7 @@ async function resolveGame(interaction, game, userId, outcome) {
       // Check for existing game
       if (activeGames.has(userId)) {
         await buttonInteraction.reply({
-          content: "You already have a Red Zone game in progress!",
+          content: 'You already have a Red Zone game in progress!',
           ephemeral: true,
         });
         return;
@@ -345,15 +345,15 @@ async function resolveGame(interaction, game, userId, outcome) {
       }
 
       // Stop collector and start new game
-      replayCollector.stop("replaying");
+      replayCollector.stop('replaying');
       await buttonInteraction.update({
         components: [createButtons(true)],
       });
       await executeNewGame(interaction, game.originalBet);
     });
 
-    replayCollector.on("end", async (collected, reason) => {
-      if (reason === "time") {
+    replayCollector.on('end', async (collected, reason) => {
+      if (reason === 'time') {
         try {
           await interaction.editReply({
             embeds: [embed],
@@ -373,18 +373,20 @@ async function resolveGame(interaction, game, userId, outcome) {
       if (casinoChannel) {
         const announcementEmbed = new EmbedBuilder()
           .setColor(0x2ecc71)
-          .setTitle("🏆 TOUCHDOWN! 🏆")
+          .setTitle('🏆 TOUCHDOWN! 🏆')
           .setDescription(
             `<@${userId}> just scored a **TOUCHDOWN** in Red Zone!\n\n` +
-            `Won ${formatCurrency(payout)} on a ${formatCurrency(game.originalBet)} bet! (10x)` +
-            (stats && stats.best_td_streak > 1 ? `\n\nBest TD streak: ${stats.best_td_streak}` : "")
+              `Won ${formatCurrency(payout)} on a ${formatCurrency(game.originalBet)} bet! (10x)` +
+              (stats && stats.best_td_streak > 1
+                ? `\n\nBest TD streak: ${stats.best_td_streak}`
+                : '')
           )
           .setTimestamp();
 
         await casinoChannel.send({ embeds: [announcementEmbed] });
       }
     } catch (error) {
-      console.error("Failed to send casino announcement:", error);
+      console.error('Failed to send casino announcement:', error);
     }
   }
 
@@ -404,7 +406,7 @@ async function executeNewGame(interaction, amount) {
   const betResult = await economyDb.gambleLose(userId, amount);
   if (!betResult) {
     await interaction.editReply({
-      content: "Something went wrong placing your bet. Please try again.",
+      content: 'Something went wrong placing your bet. Please try again.',
     });
     return;
   }
@@ -418,13 +420,17 @@ async function executeNewGame(interaction, amount) {
     originalBet: amount,
     yardLine: 20, // Start at own 20
     yardsGained: 0,
-    phase: "playing",
+    phase: 'playing',
   };
 
   activeGames.set(userId, game);
 
   // Show initial game state
-  const embed = createGameEmbed(game, "Your ball at your own 20. Run a play or cash out!", 0xf1c40f);
+  const embed = createGameEmbed(
+    game,
+    'Your ball at your own 20. Run a play or cash out!',
+    0xf1c40f
+  );
   const row = createButtons(false);
 
   const response = await interaction.editReply({
@@ -436,14 +442,14 @@ async function executeNewGame(interaction, amount) {
   const collector = response.createMessageComponentCollector({
     componentType: ComponentType.Button,
     time: CONFIG.REDZONE_TIMEOUT_SECONDS * 1000,
-    filter: (i) => i.user.id === userId && !i.customId.startsWith("redzone_replay_"),
+    filter: (i) => i.user.id === userId && !i.customId.startsWith('redzone_replay_'),
   });
 
-  collector.on("collect", async (buttonInteraction) => {
+  collector.on('collect', async (buttonInteraction) => {
     const currentGame = activeGames.get(userId);
-    if (!currentGame || currentGame.phase !== "playing") {
+    if (!currentGame || currentGame.phase !== 'playing') {
       await buttonInteraction.reply({
-        content: "This game is no longer active.",
+        content: 'This game is no longer active.',
         ephemeral: true,
       });
       return;
@@ -451,19 +457,19 @@ async function executeNewGame(interaction, amount) {
 
     const action = buttonInteraction.customId;
 
-    if (action === "redzone_run") {
+    if (action === 'redzone_run') {
       const result = runPlay(currentGame);
 
       if (result.fumbled) {
-        currentGame.phase = "finished";
-        collector.stop("fumble");
+        currentGame.phase = 'finished';
+        collector.stop('fumble');
         await buttonInteraction.deferUpdate();
-        await resolveGame(interaction, currentGame, userId, "fumble");
+        await resolveGame(interaction, currentGame, userId, 'fumble');
       } else if (result.touchdown) {
-        currentGame.phase = "finished";
-        collector.stop("touchdown");
+        currentGame.phase = 'finished';
+        collector.stop('touchdown');
         await buttonInteraction.deferUpdate();
-        await resolveGame(interaction, currentGame, userId, "touchdown");
+        await resolveGame(interaction, currentGame, userId, 'touchdown');
       } else {
         // Continue playing - show updated position
         const position = getFieldPosition(currentGame.yardLine);
@@ -474,20 +480,20 @@ async function executeNewGame(interaction, amount) {
           components: [createButtons(false)],
         });
       }
-    } else if (action === "redzone_cashout") {
-      currentGame.phase = "finished";
-      collector.stop("cashout");
+    } else if (action === 'redzone_cashout') {
+      currentGame.phase = 'finished';
+      collector.stop('cashout');
       await buttonInteraction.deferUpdate();
-      await resolveGame(interaction, currentGame, userId, "cashout");
+      await resolveGame(interaction, currentGame, userId, 'cashout');
     }
   });
 
-  collector.on("end", async (collected, reason) => {
+  collector.on('end', async (collected, reason) => {
     const currentGame = activeGames.get(userId);
-    if (reason === "time" && currentGame && currentGame.phase === "playing") {
+    if (reason === 'time' && currentGame && currentGame.phase === 'playing') {
       // Auto cash out on timeout
-      currentGame.phase = "finished";
-      await resolveGame(interaction, currentGame, userId, "cashout");
+      currentGame.phase = 'finished';
+      await resolveGame(interaction, currentGame, userId, 'cashout');
     }
   });
 }
@@ -502,7 +508,7 @@ export async function execute(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const betStr = interaction.options.getString("bet").toLowerCase();
+    const betStr = interaction.options.getString('bet').toLowerCase();
 
     // Check cooldown
     const lastGame = redzoneCooldowns.get(userId);
@@ -521,7 +527,7 @@ export async function execute(interaction) {
     // Check for existing game
     if (activeGames.has(userId)) {
       await interaction.editReply({
-        content: "You already have a Red Zone game in progress! Finish it first.",
+        content: 'You already have a Red Zone game in progress! Finish it first.',
       });
       return;
     }
@@ -531,7 +537,7 @@ export async function execute(interaction) {
 
     // Parse bet amount
     let amount;
-    if (betStr === "all" || betStr === "max") {
+    if (betStr === 'all' || betStr === 'max') {
       amount = userData.wallet;
     } else {
       amount = parseInt(betStr);
@@ -564,13 +570,13 @@ export async function execute(interaction) {
     if (userData.wallet < amount) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🏈 Red Zone - Insufficient Funds")
+        .setTitle('🏈 Red Zone - Insufficient Funds')
         .setDescription(
           `You don't have enough coins in your wallet!\n\n` +
-          `Your wallet: ${formatCurrency(userData.wallet)}\n` +
-          `Bet amount: ${formatCurrency(amount)}`
+            `Your wallet: ${formatCurrency(userData.wallet)}\n` +
+            `Bet amount: ${formatCurrency(amount)}`
         )
-        .setFooter({ text: "Tip: Use /withdraw to get coins from your bank" })
+        .setFooter({ text: 'Tip: Use /withdraw to get coins from your bank' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -580,7 +586,7 @@ export async function execute(interaction) {
     // Start the game
     await executeNewGame(interaction, amount);
   } catch (error) {
-    console.error("redzone command error:", error);
+    console.error('redzone command error:', error);
     activeGames.delete(interaction.user.id);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,

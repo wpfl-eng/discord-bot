@@ -1,58 +1,58 @@
 export const espnMembers = [
   {
     id: 1,
-    name: "Nixon",
+    name: 'Nixon',
   },
   {
     id: 3,
-    name: "Forrest",
+    name: 'Forrest',
   },
   {
     id: 4,
-    name: "AJ",
+    name: 'AJ',
   },
   {
     id: 5,
-    name: "Jimmy",
+    name: 'Jimmy',
   },
   {
     id: 6,
-    name: "Dave",
+    name: 'Dave',
   },
   {
     id: 7,
-    name: "Ryan",
+    name: 'Ryan',
   },
   {
     id: 8,
-    name: "Mike S",
+    name: 'Mike S',
   },
   {
     id: 9,
-    name: "Todd",
+    name: 'Todd',
   },
   {
     id: 10,
-    name: "Adler",
+    name: 'Adler',
   },
   {
     id: 11,
-    name: "Neill",
+    name: 'Neill',
   },
   {
     id: 12,
-    name: "Doug",
+    name: 'Doug',
   },
   {
     id: 13,
-    name: "Rick",
+    name: 'Rick',
   },
   {
     id: 14,
-    name: "Mike H",
+    name: 'Mike H',
   },
   {
     id: 15,
-    name: "Mims",
+    name: 'Mims',
   },
 ];

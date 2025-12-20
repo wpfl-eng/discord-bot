@@ -16,7 +16,6 @@ export function checkAnswer(userAnswer, question) {
   // 2. User answer contains the FULL acceptable answer
   // (NOT the reverse - prevents single letter matches)
   return acceptables.some(
-    (acceptable) =>
-      normalized === acceptable || normalized.includes(acceptable)
+    (acceptable) => normalized === acceptable || normalized.includes(acceptable)
   );
 }

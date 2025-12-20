@@ -9,107 +9,107 @@
 @tailwind utilities;
 
 @layer base {
-	:root {
-		--color-bg: #1e1f22;
-		--color-sidebar: #2b2d31;
-		--color-card: #313338;
-		--color-hover: #404249;
-		--color-border: #3f4147;
-		--color-text: #e6e6e7;
-		--color-text-muted: #86878c;
-		--color-accent: #5865f2;
-	}
+  :root {
+    --color-bg: #1e1f22;
+    --color-sidebar: #2b2d31;
+    --color-card: #313338;
+    --color-hover: #404249;
+    --color-border: #3f4147;
+    --color-text: #e6e6e7;
+    --color-text-muted: #86878c;
+    --color-accent: #5865f2;
+  }
 
-	html {
-		scroll-behavior: smooth;
-	}
+  html {
+    scroll-behavior: smooth;
+  }
 
-	body {
-		@apply bg-dark-bg text-dark-100 font-sans antialiased;
-	}
+  body {
+    @apply bg-dark-bg text-dark-100 font-sans antialiased;
+  }
 
-	/* Scrollbar styling */
-	::-webkit-scrollbar {
-		width: 8px;
-		height: 8px;
-	}
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
 
-	::-webkit-scrollbar-track {
-		@apply bg-dark-bg;
-	}
+  ::-webkit-scrollbar-track {
+    @apply bg-dark-bg;
+  }
 
-	::-webkit-scrollbar-thumb {
-		@apply bg-dark-600 rounded-full;
-	}
+  ::-webkit-scrollbar-thumb {
+    @apply bg-dark-600 rounded-full;
+  }
 
-	::-webkit-scrollbar-thumb:hover {
-		@apply bg-dark-500;
-	}
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-dark-500;
+  }
 
-	/* Selection styling */
-	::selection {
-		@apply bg-accent-primary/30 text-white;
-	}
+  /* Selection styling */
+  ::selection {
+    @apply bg-accent-primary/30 text-white;
+  }
 }
 
 @layer components {
-	.btn {
-		@apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-dark-bg;
-	}
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-dark-bg;
+  }
 
-	.btn-primary {
-		@apply bg-accent-primary text-white hover:bg-accent-primary-hover;
-	}
+  .btn-primary {
+    @apply bg-accent-primary text-white hover:bg-accent-primary-hover;
+  }
 
-	.btn-secondary {
-		@apply bg-dark-card text-dark-100 hover:bg-dark-hover border border-dark-border;
-	}
+  .btn-secondary {
+    @apply bg-dark-card text-dark-100 hover:bg-dark-hover border border-dark-border;
+  }
 
-	.card {
-		@apply bg-dark-card rounded-xl border border-dark-border p-6;
-	}
+  .card {
+    @apply bg-dark-card rounded-xl border border-dark-border p-6;
+  }
 
-	.input {
-		@apply w-full px-4 py-2 bg-dark-bg border border-dark-border rounded-lg text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent;
-	}
+  .input {
+    @apply w-full px-4 py-2 bg-dark-bg border border-dark-border rounded-lg text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent;
+  }
 
-	.link {
-		@apply text-accent-primary hover:text-accent-primary-hover underline-offset-2 hover:underline transition-colors;
-	}
+  .link {
+    @apply text-accent-primary hover:text-accent-primary-hover underline-offset-2 hover:underline transition-colors;
+  }
 
-	.badge {
-		@apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-	}
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
 
-	.badge-category {
-		@apply bg-accent-primary/20 text-accent-primary;
-	}
+  .badge-category {
+    @apply bg-accent-primary/20 text-accent-primary;
+  }
 
-	.badge-required {
-		@apply bg-accent-danger/20 text-accent-danger;
-	}
+  .badge-required {
+    @apply bg-accent-danger/20 text-accent-danger;
+  }
 
-	.badge-optional {
-		@apply bg-dark-600 text-dark-300;
-	}
+  .badge-optional {
+    @apply bg-dark-600 text-dark-300;
+  }
 
-	.badge-type {
-		@apply bg-accent-info/20 text-accent-info;
-	}
+  .badge-type {
+    @apply bg-accent-info/20 text-accent-info;
+  }
 
-	/* Code blocks */
-	.code-block {
-		@apply bg-dark-bg rounded-lg p-4 font-mono text-sm overflow-x-auto border border-dark-border;
-	}
+  /* Code blocks */
+  .code-block {
+    @apply bg-dark-bg rounded-lg p-4 font-mono text-sm overflow-x-auto border border-dark-border;
+  }
 
-	/* Navigation active state */
-	.nav-link-active {
-		@apply bg-accent-primary/10 text-accent-primary border-l-2 border-accent-primary;
-	}
+  /* Navigation active state */
+  .nav-link-active {
+    @apply bg-accent-primary/10 text-accent-primary border-l-2 border-accent-primary;
+  }
 }
 
 @layer utilities {
-	.text-balance {
-		text-wrap: balance;
-	}
+  .text-balance {
+    text-wrap: balance;
+  }
 }

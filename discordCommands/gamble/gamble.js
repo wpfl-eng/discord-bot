@@ -1,17 +1,14 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
-import { CONFIG, formatCurrency, CURRENCY_EMOJI } from "../../economy/economyConfig.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
+import { CONFIG, formatCurrency, CURRENCY_EMOJI } from '../../economy/economyConfig.js';
+import { checkForAchievements } from '../../achievements/achievementService.js';
+import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("gamble")
-  .setDescription("Gamble your coins on a coin flip")
+  .setName('gamble')
+  .setDescription('Gamble your coins on a coin flip')
   .addStringOption((option) =>
-    option
-      .setName("amount")
-      .setDescription("Amount to gamble (number or 'all')")
-      .setRequired(true)
+    option.setName('amount').setDescription("Amount to gamble (number or 'all')").setRequired(true)
   );
 
 /**
@@ -24,7 +21,7 @@ export async function execute(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const amountStr = interaction.options.getString("amount").toLowerCase();
+    const amountStr = interaction.options.getString('amount').toLowerCase();
 
     // Get or create user
     const userData = await economyDb.getOrCreateUser(userId, username);
@@ -33,7 +30,7 @@ export async function execute(interaction) {
     let amount;
     let isAllIn = false;
 
-    if (amountStr === "all" || amountStr === "max") {
+    if (amountStr === 'all' || amountStr === 'max') {
       amount = userData.wallet;
       isAllIn = true;
     } else {
@@ -67,11 +64,11 @@ export async function execute(interaction) {
     if (userData.wallet < amount) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🎰 Gamble Failed")
+        .setTitle('🎰 Gamble Failed')
         .setDescription(
           `You don't have enough coins in your wallet!\n\nYour wallet: ${formatCurrency(userData.wallet)}\nBet amount: ${formatCurrency(amount)}`
         )
-        .setFooter({ text: "Tip: Use /withdraw to get coins from your bank" })
+        .setFooter({ text: 'Tip: Use /withdraw to get coins from your bank' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -80,8 +77,8 @@ export async function execute(interaction) {
 
     // Flip the coin
     const isWin = Math.random() < 0.5;
-    const coinResult = isWin ? "Heads" : "Tails";
-    const allInText = isAllIn ? " 🎲 ALL IN!" : "";
+    const coinResult = isWin ? 'Heads' : 'Tails';
+    const allInText = isAllIn ? ' 🎲 ALL IN!' : '';
 
     if (isWin) {
       // Win - use atomic gambleWin
@@ -95,17 +92,17 @@ export async function execute(interaction) {
         )
         .addFields(
           {
-            name: "Bet",
+            name: 'Bet',
             value: formatCurrency(amount),
             inline: true,
           },
           {
-            name: "Winnings",
+            name: 'Winnings',
             value: `+${formatCurrency(amount)}`,
             inline: true,
           },
           {
-            name: "New Balance",
+            name: 'New Balance',
             value: formatCurrency(updatedUser.wallet),
             inline: true,
           }
@@ -121,7 +118,7 @@ export async function execute(interaction) {
         username,
         client: interaction.client,
         amount,
-      }).catch((err) => console.error("Failed to check achievements:", err));
+      }).catch((err) => console.error('Failed to check achievements:', err));
     } else {
       // Lose - use atomic gambleLose
       const updatedUser = await economyDb.gambleLose(userId, amount);
@@ -129,12 +126,12 @@ export async function execute(interaction) {
       // This should never be null due to our check above, but handle it anyway
       if (!updatedUser) {
         await interaction.editReply({
-          content: "Something went wrong. Please try again.",
+          content: 'Something went wrong. Please try again.',
         });
         return;
       }
 
-      const brokeText = updatedUser.wallet === 0 ? "\n\n💸 You're broke!" : "";
+      const brokeText = updatedUser.wallet === 0 ? "\n\n💸 You're broke!" : '';
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
@@ -144,22 +141,22 @@ export async function execute(interaction) {
         )
         .addFields(
           {
-            name: "Bet",
+            name: 'Bet',
             value: formatCurrency(amount),
             inline: true,
           },
           {
-            name: "Lost",
+            name: 'Lost',
             value: `-${formatCurrency(amount)}`,
             inline: true,
           },
           {
-            name: "New Balance",
+            name: 'New Balance',
             value: formatCurrency(updatedUser.wallet),
             inline: true,
           }
         )
-        .setFooter({ text: "Better luck next time!" })
+        .setFooter({ text: 'Better luck next time!' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -171,10 +168,10 @@ export async function execute(interaction) {
         username,
         client: interaction.client,
         amount,
-      }).catch((err) => console.error("Failed to check achievements:", err));
+      }).catch((err) => console.error('Failed to check achievements:', err));
     }
   } catch (error) {
-    console.error("gamble command error:", error);
+    console.error('gamble command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });

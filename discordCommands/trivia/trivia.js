@@ -1,16 +1,16 @@
-import { SlashCommandBuilder } from "discord.js";
-import * as triviaDb from "../../trivia/triviaDb.js";
+import { SlashCommandBuilder } from 'discord.js';
+import * as triviaDb from '../../trivia/triviaDb.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("trivia")
-  .setDescription("Manually trigger a trivia question")
+  .setName('trivia')
+  .setDescription('Manually trigger a trivia question')
   .addStringOption((option) =>
     option
-      .setName("category")
-      .setDescription("Which trivia to trigger")
+      .setName('category')
+      .setDescription('Which trivia to trigger')
       .setRequired(true)
       .addChoices(
-        { name: "NFL", value: "nfl" },
+        { name: 'NFL', value: 'nfl' }
         // { name: "WPFL", value: "wpfl" }
       )
   );
@@ -28,12 +28,12 @@ export async function execute(interaction) {
 
   await interaction.deferReply({ ephemeral: true });
 
-  const category = interaction.options.getString("category");
+  const category = interaction.options.getString('category');
   const triviaService = interaction.client.triviaService;
 
   if (!triviaService) {
     await interaction.editReply({
-      content: "Trivia service not initialized!",
+      content: 'Trivia service not initialized!',
     });
     return;
   }
@@ -65,7 +65,7 @@ export async function execute(interaction) {
       content: `${category.toUpperCase()} trivia question posted!`,
     });
   } catch (error) {
-    console.error("trivia command error:", error);
+    console.error('trivia command error:', error);
     await interaction.editReply({
       content: `Error posting trivia: ${error.message}`,
     });

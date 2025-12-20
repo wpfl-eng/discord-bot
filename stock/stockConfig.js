@@ -10,7 +10,7 @@ export const STOCK_CONFIG = {
   TRADE_COOLDOWN_SECONDS: 30,
 
   // API configuration
-  API_BASE_URL: "https://finnhub.io/api/v1",
+  API_BASE_URL: 'https://finnhub.io/api/v1',
   API_TIMEOUT_MS: 5000,
 
   // Display precision
@@ -21,9 +21,9 @@ export const STOCK_CONFIG = {
 // Error messages
 export const STOCK_MESSAGES = {
   INVALID_TICKER:
-    "Could not find stock ticker. Please use a valid US stock symbol (e.g., AAPL, MSFT, GOOGL).",
-  API_ERROR: "Unable to fetch stock price. Please try again later.",
-  API_NOT_CONFIGURED: "Stock trading is not configured. Please contact an admin.",
+    'Could not find stock ticker. Please use a valid US stock symbol (e.g., AAPL, MSFT, GOOGL).',
+  API_ERROR: 'Unable to fetch stock price. Please try again later.',
+  API_NOT_CONFIGURED: 'Stock trading is not configured. Please contact an admin.',
   INSUFFICIENT_FUNDS: "You don't have enough coins in your wallet!",
   INSUFFICIENT_SHARES: "You don't own enough shares to sell!",
   NO_HOLDINGS: "You don't own any shares of this stock.",
@@ -45,7 +45,7 @@ export function formatShares(shares) {
  * @returns {string} - Formatted price string
  */
 export function formatPrice(price) {
-  return price.toLocaleString("en-US", {
+  return price.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });

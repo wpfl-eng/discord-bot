@@ -12,3 +12,13 @@ node_modules
 .#*
 
 config.js
+
+# TypeScript
+*.tsbuildinfo
+dist/
+
+# ESLint
+.eslintcache
+
+# Coverage
+coverage/

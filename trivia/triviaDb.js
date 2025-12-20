@@ -1,4 +1,4 @@
-import { sql } from "@vercel/postgres";
+import { sql } from '@vercel/postgres';
 
 // ============ Active Questions ============
 
@@ -134,8 +134,8 @@ export async function getCorrectAnswers(questionId) {
  * @param {string} category - 'nfl' or 'wpfl'
  */
 export async function addPoints(userId, username, points, category) {
-  const nflPoints = category === "nfl" ? points : 0;
-  const wpflPoints = category === "wpfl" ? points : 0;
+  const nflPoints = category === 'nfl' ? points : 0;
+  const wpflPoints = category === 'wpfl' ? points : 0;
 
   await sql`
     INSERT INTO trivia_scores (user_id, username, total_points, nfl_points, wpfl_points, last_correct_at)

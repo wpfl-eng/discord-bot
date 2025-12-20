@@ -1,6 +1,6 @@
-import { sql } from "@vercel/postgres";
-import * as inventoryDb from "../inventory/inventoryDb.js";
-import { TRAINING_CONFIG, getPosition, calculateGraduationValue } from "./trainingConfig.js";
+import { sql } from '@vercel/postgres';
+import * as inventoryDb from '../inventory/inventoryDb.js';
+import { TRAINING_CONFIG, getPosition, calculateGraduationValue } from './trainingConfig.js';
 
 // ============ Read Operations ============
 
@@ -120,7 +120,14 @@ export async function getOrCreateTrainingGround(userId, username) {
  * @param {object|null} timestamps - { planted_at, ready_at, wilts_at }
  * @returns {Promise<object|null>}
  */
-export async function updateSlotState(userId, slotIndex, fromState, toState, rookieType = null, timestamps = null) {
+export async function updateSlotState(
+  userId,
+  slotIndex,
+  fromState,
+  toState,
+  rookieType = null,
+  timestamps = null
+) {
   const result = await sql`
     UPDATE training_slots
     SET
@@ -145,33 +152,39 @@ export async function updateSlotState(userId, slotIndex, fromState, toState, roo
  */
 export async function setupSlots(userId, slotIndexes) {
   if (slotIndexes.length === 0) {
-    return { success: false, updated: 0, error: "NO_SLOTS_SELECTED" };
+    return { success: false, updated: 0, error: 'NO_SLOTS_SELECTED' };
   }
 
   // Check tool quantity
-  const quantity = await inventoryDb.getItemQuantity(userId, "tool_setup_kit");
+  const quantity = await inventoryDb.getItemQuantity(userId, 'tool_setup_kit');
   if (quantity < slotIndexes.length) {
-    return { success: false, updated: 0, error: "INSUFFICIENT_TOOLS", needed: slotIndexes.length, have: quantity };
+    return {
+      success: false,
+      updated: 0,
+      error: 'INSUFFICIENT_TOOLS',
+      needed: slotIndexes.length,
+      have: quantity,
+    };
   }
 
   // Update each slot atomically, track which ones succeeded
   const updatedIndexes = [];
   for (const slotIndex of slotIndexes) {
-    const result = await updateSlotState(userId, slotIndex, "empty", "prepared");
+    const result = await updateSlotState(userId, slotIndex, 'empty', 'prepared');
     if (result) updatedIndexes.push(slotIndex);
   }
 
   if (updatedIndexes.length === 0) {
-    return { success: false, updated: 0, error: "NO_EMPTY_SLOTS" };
+    return { success: false, updated: 0, error: 'NO_EMPTY_SLOTS' };
   }
 
   // Consume tools - rollback on failure
   try {
-    await inventoryDb.removeItem(userId, "tool_setup_kit", updatedIndexes.length);
+    await inventoryDb.removeItem(userId, 'tool_setup_kit', updatedIndexes.length);
   } catch (error) {
     // Rollback: revert slots to empty
     for (const idx of updatedIndexes) {
-      await updateSlotState(userId, idx, "prepared", "empty");
+      await updateSlotState(userId, idx, 'prepared', 'empty');
     }
     throw error;
   }
@@ -187,33 +200,39 @@ export async function setupSlots(userId, slotIndexes) {
  */
 export async function hydrateSlots(userId, slotIndexes) {
   if (slotIndexes.length === 0) {
-    return { success: false, updated: 0, error: "NO_SLOTS_SELECTED" };
+    return { success: false, updated: 0, error: 'NO_SLOTS_SELECTED' };
   }
 
   // Check tool quantity
-  const quantity = await inventoryDb.getItemQuantity(userId, "tool_water_cooler");
+  const quantity = await inventoryDb.getItemQuantity(userId, 'tool_water_cooler');
   if (quantity < slotIndexes.length) {
-    return { success: false, updated: 0, error: "INSUFFICIENT_TOOLS", needed: slotIndexes.length, have: quantity };
+    return {
+      success: false,
+      updated: 0,
+      error: 'INSUFFICIENT_TOOLS',
+      needed: slotIndexes.length,
+      have: quantity,
+    };
   }
 
   // Update each slot atomically, track which ones succeeded
   const updatedIndexes = [];
   for (const slotIndex of slotIndexes) {
-    const result = await updateSlotState(userId, slotIndex, "prepared", "hydrated");
+    const result = await updateSlotState(userId, slotIndex, 'prepared', 'hydrated');
     if (result) updatedIndexes.push(slotIndex);
   }
 
   if (updatedIndexes.length === 0) {
-    return { success: false, updated: 0, error: "NO_PREPARED_SLOTS" };
+    return { success: false, updated: 0, error: 'NO_PREPARED_SLOTS' };
   }
 
   // Consume tools - rollback on failure
   try {
-    await inventoryDb.removeItem(userId, "tool_water_cooler", updatedIndexes.length);
+    await inventoryDb.removeItem(userId, 'tool_water_cooler', updatedIndexes.length);
   } catch (error) {
     // Rollback: revert slots to prepared
     for (const idx of updatedIndexes) {
-      await updateSlotState(userId, idx, "hydrated", "prepared");
+      await updateSlotState(userId, idx, 'hydrated', 'prepared');
     }
     throw error;
   }
@@ -231,13 +250,13 @@ export async function hydrateSlots(userId, slotIndexes) {
 export async function draftRookie(userId, slotIndex, position) {
   const posConfig = getPosition(position);
   if (!posConfig) {
-    return { success: false, error: "INVALID_POSITION" };
+    return { success: false, error: 'INVALID_POSITION' };
   }
 
   // Check contract
   const contractQty = await inventoryDb.getItemQuantity(userId, posConfig.contractItemType);
   if (contractQty < 1) {
-    return { success: false, error: "NO_CONTRACT", position };
+    return { success: false, error: 'NO_CONTRACT', position };
   }
 
   // Calculate timestamps
@@ -246,14 +265,14 @@ export async function draftRookie(userId, slotIndex, position) {
   const wiltsAt = new Date(readyAt.getTime() + posConfig.wiltWindowMinutes * 60 * 1000);
 
   // Update slot
-  const slot = await updateSlotState(userId, slotIndex, "hydrated", "training", position, {
+  const slot = await updateSlotState(userId, slotIndex, 'hydrated', 'training', position, {
     planted_at: now,
     ready_at: readyAt,
     wilts_at: wiltsAt,
   });
 
   if (!slot) {
-    return { success: false, error: "SLOT_NOT_HYDRATED" };
+    return { success: false, error: 'SLOT_NOT_HYDRATED' };
   }
 
   // Consume contract - rollback on failure
@@ -261,7 +280,7 @@ export async function draftRookie(userId, slotIndex, position) {
     await inventoryDb.removeItem(userId, posConfig.contractItemType, 1);
   } catch (error) {
     // Rollback: revert slot to hydrated
-    await updateSlotState(userId, slotIndex, "training", "hydrated", null, null);
+    await updateSlotState(userId, slotIndex, 'training', 'hydrated', null, null);
     throw error;
   }
 
@@ -277,23 +296,23 @@ export async function draftRookie(userId, slotIndex, position) {
 export async function graduateSlot(userId, slotIndex) {
   // Get current slot
   const slot = await getSlot(userId, slotIndex);
-  if (!slot || slot.state !== "ready") {
-    return { success: false, error: "NOT_READY" };
+  if (!slot || slot.state !== 'ready') {
+    return { success: false, error: 'NOT_READY' };
   }
 
   const position = slot.rookie_type;
   const posConfig = getPosition(position);
   if (!posConfig) {
-    return { success: false, error: "INVALID_POSITION" };
+    return { success: false, error: 'INVALID_POSITION' };
   }
 
   // Calculate random graduation value
   const value = calculateGraduationValue(position);
 
   // Clear slot FIRST (atomic - prevents duplicate graduation)
-  const cleared = await updateSlotState(userId, slotIndex, "ready", "empty", null, null);
+  const cleared = await updateSlotState(userId, slotIndex, 'ready', 'empty', null, null);
   if (!cleared) {
-    return { success: false, error: "NOT_READY" };
+    return { success: false, error: 'NOT_READY' };
   }
 
   // Increment total_graduated
@@ -316,10 +335,10 @@ export async function graduateSlot(userId, slotIndex) {
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function clearBustedSlot(userId, slotIndex) {
-  const slot = await updateSlotState(userId, slotIndex, "busted", "empty", null, null);
+  const slot = await updateSlotState(userId, slotIndex, 'busted', 'empty', null, null);
 
   if (!slot) {
-    return { success: false, error: "NOT_BUSTED" };
+    return { success: false, error: 'NOT_BUSTED' };
   }
 
   return { success: true };

@@ -1,20 +1,20 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as triviaDb from "../../trivia/triviaDb.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as triviaDb from '../../trivia/triviaDb.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("triviastats")
-  .setDescription("View trivia stats for yourself or another user")
+  .setName('triviastats')
+  .setDescription('View trivia stats for yourself or another user')
   .addUserOption((option) =>
     option
-      .setName("user")
-      .setDescription("User to view stats for (defaults to yourself)")
+      .setName('user')
+      .setDescription('User to view stats for (defaults to yourself)')
       .setRequired(false)
   );
 
 export async function execute(interaction) {
   await interaction.deferReply();
 
-  const targetUser = interaction.options.getUser("user") || interaction.user;
+  const targetUser = interaction.options.getUser('user') || interaction.user;
 
   try {
     const stats = await triviaDb.getUserStats(targetUser.id);
@@ -32,15 +32,15 @@ export async function execute(interaction) {
       .setThumbnail(targetUser.displayAvatarURL())
       .addFields(
         {
-          name: "Total Points",
+          name: 'Total Points',
           value: `${stats.total_points}`,
           inline: true,
         },
         {
-          name: "NFL Points",
+          name: 'NFL Points',
           value: `${stats.nfl_points}`,
           inline: true,
-        },
+        }
         // {
         //   name: "WPFL Points",
         //   value: `${stats.wpfl_points}`,
@@ -57,7 +57,7 @@ export async function execute(interaction) {
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("triviastats command error:", error);
+    console.error('triviastats command error:', error);
     await interaction.editReply({
       content: `Error fetching stats: ${error.message}`,
     });

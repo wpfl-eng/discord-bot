@@ -58,36 +58,81 @@ export const CONFIG = {
 };
 
 export const WORK_JOBS = [
-  { success: "You ran routes at practice and earned", fail: "You ran the wrong route and got benched. No bonus today" },
-  { success: "You hit the weight room and earned", fail: "You dropped the bar on your foot. Coach is not impressed" },
-  { success: "You studied game film and earned", fail: "You fell asleep during film study. Coach saw everything" },
-  { success: "You signed autographs for fans and earned", fail: "You signed the wrong name. Security escorted you out" },
-  { success: "You did a press conference and earned", fail: "You said 'we're on to Cincinnati' 47 times. Media hated it" },
-  { success: "You filmed a commercial and earned", fail: "You forgot your lines and they cut you from the ad" },
-  { success: "You attended a charity event and earned", fail: "You showed up to the wrong charity. Awkward" },
-  { success: "You ran cone drills and earned", fail: "You tripped over a cone and went viral for the wrong reasons" },
-  { success: "You did blocking drills and earned", fail: "The tackling dummy knocked you over. Embarrassing" },
-  { success: "You attended team meetings and earned", fail: "Your phone went off in the meeting. $10K fine from coach" },
-  { success: "You did conditioning and earned", fail: "You failed the conditioning test. Extra laps tomorrow" },
-  { success: "You practiced celebrations and earned", fail: "You pulled a muscle doing your celebration. Injured reserve" },
-  { success: "You mentored a rookie and earned", fail: "The rookie outperformed you. Coach noticed" },
-  { success: "You did a podcast interview and earned", fail: "You accidentally revealed the playbook. Front office is furious" },
-  { success: "You worked on your footwork and earned", fail: "You stepped on a sprinkler head. Ankle is questionable" },
+  {
+    success: 'You ran routes at practice and earned',
+    fail: 'You ran the wrong route and got benched. No bonus today',
+  },
+  {
+    success: 'You hit the weight room and earned',
+    fail: 'You dropped the bar on your foot. Coach is not impressed',
+  },
+  {
+    success: 'You studied game film and earned',
+    fail: 'You fell asleep during film study. Coach saw everything',
+  },
+  {
+    success: 'You signed autographs for fans and earned',
+    fail: 'You signed the wrong name. Security escorted you out',
+  },
+  {
+    success: 'You did a press conference and earned',
+    fail: "You said 'we're on to Cincinnati' 47 times. Media hated it",
+  },
+  {
+    success: 'You filmed a commercial and earned',
+    fail: 'You forgot your lines and they cut you from the ad',
+  },
+  {
+    success: 'You attended a charity event and earned',
+    fail: 'You showed up to the wrong charity. Awkward',
+  },
+  {
+    success: 'You ran cone drills and earned',
+    fail: 'You tripped over a cone and went viral for the wrong reasons',
+  },
+  {
+    success: 'You did blocking drills and earned',
+    fail: 'The tackling dummy knocked you over. Embarrassing',
+  },
+  {
+    success: 'You attended team meetings and earned',
+    fail: 'Your phone went off in the meeting. $10K fine from coach',
+  },
+  {
+    success: 'You did conditioning and earned',
+    fail: 'You failed the conditioning test. Extra laps tomorrow',
+  },
+  {
+    success: 'You practiced celebrations and earned',
+    fail: 'You pulled a muscle doing your celebration. Injured reserve',
+  },
+  {
+    success: 'You mentored a rookie and earned',
+    fail: 'The rookie outperformed you. Coach noticed',
+  },
+  {
+    success: 'You did a podcast interview and earned',
+    fail: 'You accidentally revealed the playbook. Front office is furious',
+  },
+  {
+    success: 'You worked on your footwork and earned',
+    fail: 'You stepped on a sprinkler head. Ankle is questionable',
+  },
 ];
 
-export const CURRENCY_EMOJI = "🪙";
-export const CURRENCY_NAME = "coins";
+export const CURRENCY_EMOJI = '🪙';
+export const CURRENCY_NAME = 'coins';
 
 // Slots symbols - football themed
 export const SLOTS_SYMBOLS = [
-  { emoji: "🏈", name: "Football", weight: 25, tier: "common" },
-  { emoji: "⚽", name: "Ball", weight: 20, tier: "common" },
-  { emoji: "🎯", name: "Target", weight: 15, tier: "common" },
-  { emoji: "🏟️", name: "Stadium", weight: 15, tier: "uncommon" },
-  { emoji: "⭐", name: "Star", weight: 10, tier: "uncommon" },
-  { emoji: "🥇", name: "Gold", weight: 8, tier: "rare" },
-  { emoji: "🏆", name: "Trophy", weight: 5, tier: "rare" },
-  { emoji: "🎰", name: "Jackpot", weight: 2, tier: "legendary" },
+  { emoji: '🏈', name: 'Football', weight: 25, tier: 'common' },
+  { emoji: '⚽', name: 'Ball', weight: 20, tier: 'common' },
+  { emoji: '🎯', name: 'Target', weight: 15, tier: 'common' },
+  { emoji: '🏟️', name: 'Stadium', weight: 15, tier: 'uncommon' },
+  { emoji: '⭐', name: 'Star', weight: 10, tier: 'uncommon' },
+  { emoji: '🥇', name: 'Gold', weight: 8, tier: 'rare' },
+  { emoji: '🏆', name: 'Trophy', weight: 5, tier: 'rare' },
+  { emoji: '🎰', name: 'Jackpot', weight: 2, tier: 'legendary' },
 ];
 
 // Slots payout multipliers
@@ -105,15 +150,15 @@ export const SLOTS_PAYOUTS = {
 // Red Zone field positions - yard line -> { multiplier, fumbleChance }
 // Tuned for moderate difficulty - reduced multipliers, increased fumble risk
 export const REDZONE_FIELD_POSITIONS = {
-  20: { multiplier: 1.0, fumbleChance: 0.05, label: "Own 20" },
-  30: { multiplier: 1.1, fumbleChance: 0.15, label: "Own 30" },
-  40: { multiplier: 1.3, fumbleChance: 0.20, label: "Own 40" },
-  50: { multiplier: 1.6, fumbleChance: 0.25, label: "Midfield" },
-  60: { multiplier: 2.2, fumbleChance: 0.32, label: "Opp 40" },
-  70: { multiplier: 3.0, fumbleChance: 0.40, label: "Opp 30" },
-  80: { multiplier: 4.0, fumbleChance: 0.50, label: "Red Zone" },
-  90: { multiplier: 5.5, fumbleChance: 0.60, label: "Opp 10" },
-  100: { multiplier: 8.0, fumbleChance: 0, label: "Touchdown!" },
+  20: { multiplier: 1.0, fumbleChance: 0.05, label: 'Own 20' },
+  30: { multiplier: 1.1, fumbleChance: 0.15, label: 'Own 30' },
+  40: { multiplier: 1.3, fumbleChance: 0.2, label: 'Own 40' },
+  50: { multiplier: 1.6, fumbleChance: 0.25, label: 'Midfield' },
+  60: { multiplier: 2.2, fumbleChance: 0.32, label: 'Opp 40' },
+  70: { multiplier: 3.0, fumbleChance: 0.4, label: 'Opp 30' },
+  80: { multiplier: 4.0, fumbleChance: 0.5, label: 'Red Zone' },
+  90: { multiplier: 5.5, fumbleChance: 0.6, label: 'Opp 10' },
+  100: { multiplier: 8.0, fumbleChance: 0, label: 'Touchdown!' },
 };
 
 // Channel IDs from environment variables

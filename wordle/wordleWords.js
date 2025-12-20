@@ -1,9 +1,9 @@
 // Wordle Word Lists
 // Loads words from text files for the Wordle game
 
-import { readFileSync } from "fs";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,9 +16,9 @@ const __dirname = dirname(__filename);
 function loadWordsFromFile(filename) {
   try {
     const filePath = join(__dirname, filename);
-    const content = readFileSync(filePath, "utf-8");
+    const content = readFileSync(filePath, 'utf-8');
     return content
-      .split("\n")
+      .split('\n')
       .map((word) => word.trim().toLowerCase())
       .filter((word) => word.length === 5);
   } catch (error) {
@@ -31,13 +31,13 @@ function loadWordsFromFile(filename) {
  * Answer words - Common, recognizable 5-letter words that can be THE answer
  * Loaded from wordleAnswers.txt
  */
-export const ANSWER_WORDS = loadWordsFromFile("wordleAnswers.txt");
+export const ANSWER_WORDS = loadWordsFromFile('wordleAnswers.txt');
 
 /**
  * Valid guesses - Additional words that can be guessed but won't be answers
  * Loaded from wordleGuesses.txt
  */
-export const VALID_GUESSES = loadWordsFromFile("wordleGuesses.txt");
+export const VALID_GUESSES = loadWordsFromFile('wordleGuesses.txt');
 
 // Pre-compute Sets for O(1) lookup performance
 const answerSet = new Set(ANSWER_WORDS);
@@ -49,7 +49,7 @@ const validSet = new Set([...ANSWER_WORDS, ...VALID_GUESSES]);
  * @returns {boolean} True if the word is valid
  */
 export function isValidWord(word) {
-  if (!word || typeof word !== "string") {
+  if (!word || typeof word !== 'string') {
     return false;
   }
   return validSet.has(word.toLowerCase());
@@ -61,7 +61,7 @@ export function isValidWord(word) {
  * @returns {boolean} True if the word can be an answer
  */
 export function isAnswerWord(word) {
-  if (!word || typeof word !== "string") {
+  if (!word || typeof word !== 'string') {
     return false;
   }
   return answerSet.has(word.toLowerCase());
@@ -78,7 +78,7 @@ export function getRandomWord(excludeWords = []) {
 
   if (available.length === 0) {
     // Fallback: if all words exhausted, pick from full list (unlikely but safe)
-    console.warn("All answer words have been used, recycling...");
+    console.warn('All answer words have been used, recycling...');
     return ANSWER_WORDS[Math.floor(Math.random() * ANSWER_WORDS.length)];
   }
 

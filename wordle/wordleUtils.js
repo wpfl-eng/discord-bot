@@ -1,7 +1,7 @@
 // Wordle Utility Functions
 // Grid rendering, feedback calculation, and game logic helpers
 
-import { CONFIG, EMOJIS, FEEDBACK_TYPES, getFeedbackEmoji } from "./wordleConfig.js";
+import { CONFIG, EMOJIS, FEEDBACK_TYPES, getFeedbackEmoji } from './wordleConfig.js';
 
 /**
  * Calculate feedback for a guess against the answer
@@ -19,8 +19,8 @@ export function calculateFeedback(guess, answer) {
   const answerLower = answer.toLowerCase();
 
   const result = new Array(CONFIG.WORD_LENGTH).fill(FEEDBACK_TYPES.ABSENT);
-  const answerLetters = answerLower.split("");
-  const guessLetters = guessLower.split("");
+  const answerLetters = answerLower.split('');
+  const guessLetters = guessLower.split('');
 
   // First pass: mark exact matches (CORRECT)
   // Remove matched letters from consideration for PRESENT matching
@@ -57,12 +57,12 @@ export function calculateFeedback(guess, answer) {
  * @returns {string} Formatted row string
  */
 export function renderGuessRow(guess, feedback) {
-  const emojis = feedback.map((f) => getFeedbackEmoji(f)).join("");
+  const emojis = feedback.map((f) => getFeedbackEmoji(f)).join('');
   const letters = guess
     .toUpperCase()
-    .split("")
+    .split('')
     .map((l) => `\`${l}\``)
-    .join(" ");
+    .join(' ');
 
   return `${emojis}  ${letters}`;
 }
@@ -96,7 +96,7 @@ export function renderBoard(guesses, answer) {
     }
   }
 
-  return rows.join("\n");
+  return rows.join('\n');
 }
 
 /**
@@ -168,14 +168,14 @@ export function formatGuessCount(current) {
  * @returns {string} Shareable text
  */
 export function generateShareText(guesses, answer, wordNumber, won) {
-  const header = `Wordle #${wordNumber} ${won ? guesses.length : "X"}/${CONFIG.MAX_GUESSES}`;
+  const header = `Wordle #${wordNumber} ${won ? guesses.length : 'X'}/${CONFIG.MAX_GUESSES}`;
 
   const grid = guesses
     .map((guess) => {
       const feedback = calculateFeedback(guess, answer);
-      return feedback.map((f) => getFeedbackEmoji(f)).join("");
+      return feedback.map((f) => getFeedbackEmoji(f)).join('');
     })
-    .join("\n");
+    .join('\n');
 
   return `${header}\n\n${grid}`;
 }
@@ -200,7 +200,7 @@ export function getKeyboardState(guesses, answer) {
 
   for (const guess of guesses) {
     const feedback = calculateFeedback(guess, answer);
-    const letters = guess.toLowerCase().split("");
+    const letters = guess.toLowerCase().split('');
 
     for (let i = 0; i < letters.length; i++) {
       const letter = letters[i];

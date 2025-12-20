@@ -1,32 +1,37 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
-import * as stockDb from "../../stock/stockDb.js";
-import * as stockApi from "../../stock/stockApi.js";
-import { formatCurrency } from "../../economy/economyConfig.js";
-import { STOCK_CONFIG, STOCK_MESSAGES, formatShares, formatPrice } from "../../stock/stockConfig.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
+import * as stockDb from '../../stock/stockDb.js';
+import * as stockApi from '../../stock/stockApi.js';
+import { formatCurrency } from '../../economy/economyConfig.js';
+import {
+  STOCK_CONFIG,
+  STOCK_MESSAGES,
+  formatShares,
+  formatPrice,
+} from '../../stock/stockConfig.js';
+import { checkForAchievements } from '../../achievements/achievementService.js';
+import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 
 // In-memory cooldown tracking (resets on bot restart - acceptable for 30s cooldown)
 const tradeCooldowns = new Map();
 
 export const data = new SlashCommandBuilder()
-  .setName("stock")
-  .setDescription("Buy and sell stocks with your coins")
+  .setName('stock')
+  .setDescription('Buy and sell stocks with your coins')
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("buy")
-      .setDescription("Buy shares of a stock")
+      .setName('buy')
+      .setDescription('Buy shares of a stock')
       .addStringOption((option) =>
         option
-          .setName("ticker")
-          .setDescription("Stock ticker symbol (e.g., AAPL, MSFT)")
+          .setName('ticker')
+          .setDescription('Stock ticker symbol (e.g., AAPL, MSFT)')
           .setRequired(true)
       )
       .addIntegerOption((option) =>
         option
-          .setName("amount")
-          .setDescription("Amount of coins to spend")
+          .setName('amount')
+          .setDescription('Amount of coins to spend')
           .setRequired(true)
           .setMinValue(STOCK_CONFIG.TRADE_MIN)
           .setMaxValue(STOCK_CONFIG.TRADE_MAX)
@@ -34,31 +39,31 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("sell")
-      .setDescription("Sell shares of a stock")
+      .setName('sell')
+      .setDescription('Sell shares of a stock')
       .addStringOption((option) =>
         option
-          .setName("ticker")
-          .setDescription("Stock ticker symbol (e.g., AAPL, MSFT)")
+          .setName('ticker')
+          .setDescription('Stock ticker symbol (e.g., AAPL, MSFT)')
           .setRequired(true)
       )
       .addNumberOption((option) =>
         option
-          .setName("shares")
-          .setDescription("Number of shares to sell")
+          .setName('shares')
+          .setDescription('Number of shares to sell')
           .setRequired(true)
           .setMinValue(0.000001)
       )
   )
   .addSubcommand((subcommand) =>
-    subcommand.setName("portfolio").setDescription("View your stock portfolio")
+    subcommand.setName('portfolio').setDescription('View your stock portfolio')
   )
   .addSubcommand((subcommand) =>
     subcommand
-      .setName("quote")
-      .setDescription("Get the current price of a stock")
+      .setName('quote')
+      .setDescription('Get the current price of a stock')
       .addStringOption((option) =>
-        option.setName("ticker").setDescription("Stock ticker symbol").setRequired(true)
+        option.setName('ticker').setDescription('Stock ticker symbol').setRequired(true)
       )
   );
 
@@ -70,16 +75,16 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   switch (subcommand) {
-    case "buy":
+    case 'buy':
       await handleBuy(interaction);
       break;
-    case "sell":
+    case 'sell':
       await handleSell(interaction);
       break;
-    case "portfolio":
+    case 'portfolio':
       await handlePortfolio(interaction);
       break;
-    case "quote":
+    case 'quote':
       await handleQuote(interaction);
       break;
   }
@@ -115,8 +120,8 @@ async function handleBuy(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const ticker = interaction.options.getString("ticker");
-    const amount = interaction.options.getInteger("amount");
+    const ticker = interaction.options.getString('ticker');
+    const amount = interaction.options.getInteger('amount');
 
     // Check cooldown
     const cooldown = checkCooldown(userId);
@@ -142,11 +147,11 @@ async function handleBuy(interaction) {
     if (userData.wallet < amount) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("Stock Purchase Failed")
+        .setTitle('Stock Purchase Failed')
         .setDescription(
           `${STOCK_MESSAGES.INSUFFICIENT_FUNDS}\n\nYour wallet: ${formatCurrency(userData.wallet)}\nTrade amount: ${formatCurrency(amount)}`
         )
-        .setFooter({ text: "Tip: Use /withdraw to get coins from your bank" })
+        .setFooter({ text: 'Tip: Use /withdraw to get coins from your bank' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -180,7 +185,7 @@ async function handleBuy(interaction) {
         INSUFFICIENT_FUNDS: STOCK_MESSAGES.INSUFFICIENT_FUNDS,
       };
       await interaction.editReply({
-        content: errorMessages[buyResult.error] || "Purchase failed. Please try again.",
+        content: errorMessages[buyResult.error] || 'Purchase failed. Please try again.',
       });
       return;
     }
@@ -193,18 +198,18 @@ async function handleBuy(interaction) {
         `Successfully purchased ${formatShares(shares)} shares of **${quote.ticker}**`
       )
       .addFields(
-        { name: "Shares Purchased", value: formatShares(shares), inline: true },
-        { name: "Price per Share", value: `$${formatPrice(quote.currentPrice)}`, inline: true },
-        { name: "Total Cost", value: formatCurrency(amount), inline: true },
-        { name: "New Wallet Balance", value: formatCurrency(buyResult.user.wallet), inline: true },
+        { name: 'Shares Purchased', value: formatShares(shares), inline: true },
+        { name: 'Price per Share', value: `$${formatPrice(quote.currentPrice)}`, inline: true },
+        { name: 'Total Cost', value: formatCurrency(amount), inline: true },
+        { name: 'New Wallet Balance', value: formatCurrency(buyResult.user.wallet), inline: true },
         {
-          name: "Your Position",
+          name: 'Your Position',
           value: `${formatShares(parseFloat(buyResult.holding.shares))} shares @ $${formatPrice(parseFloat(buyResult.holding.average_cost))} avg`,
           inline: true,
         }
       )
       .setTimestamp()
-      .setFooter({ text: "Use /stock portfolio to view all holdings" });
+      .setFooter({ text: 'Use /stock portfolio to view all holdings' });
 
     await interaction.editReply({ embeds: [embed] });
 
@@ -217,9 +222,9 @@ async function handleBuy(interaction) {
       amount,
       ticker: quote.ticker,
       shares,
-    }).catch((err) => console.error("Failed to check achievements:", err));
+    }).catch((err) => console.error('Failed to check achievements:', err));
   } catch (error) {
-    console.error("stock buy error:", error);
+    console.error('stock buy error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -236,8 +241,8 @@ async function handleSell(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const ticker = interaction.options.getString("ticker");
-    const sharesToSell = interaction.options.getNumber("shares");
+    const ticker = interaction.options.getString('ticker');
+    const sharesToSell = interaction.options.getNumber('shares');
 
     // Check cooldown
     const cooldown = checkCooldown(userId);
@@ -289,23 +294,28 @@ async function handleSell(interaction) {
     tradeCooldowns.set(userId, Date.now());
 
     // Execute sale
-    const sellResult = await stockDb.sellShares(userId, quote.ticker, sharesToSell, quote.currentPrice);
+    const sellResult = await stockDb.sellShares(
+      userId,
+      quote.ticker,
+      sharesToSell,
+      quote.currentPrice
+    );
 
     if (!sellResult.success) {
       const errorMessages = {
         NO_HOLDING: STOCK_MESSAGES.NO_HOLDINGS,
         INSUFFICIENT_SHARES: STOCK_MESSAGES.INSUFFICIENT_SHARES,
-        WALLET_UPDATE_FAILED: "Failed to add proceeds to wallet.",
+        WALLET_UPDATE_FAILED: 'Failed to add proceeds to wallet.',
       };
       await interaction.editReply({
-        content: errorMessages[sellResult.error] || "Sale failed. Please try again.",
+        content: errorMessages[sellResult.error] || 'Sale failed. Please try again.',
       });
       return;
     }
 
     // Determine profit/loss color and emoji
     const isProfitable = sellResult.profit >= 0;
-    const profitEmoji = isProfitable ? "+" : "";
+    const profitEmoji = isProfitable ? '+' : '';
     const profitColor = isProfitable ? 0x2ecc71 : 0xe74c3c;
 
     // Build success embed
@@ -316,27 +326,27 @@ async function handleSell(interaction) {
         `Successfully sold ${formatShares(sharesToSell)} shares of **${quote.ticker}**`
       )
       .addFields(
-        { name: "Shares Sold", value: formatShares(sharesToSell), inline: true },
-        { name: "Price per Share", value: `$${formatPrice(quote.currentPrice)}`, inline: true },
-        { name: "Proceeds", value: formatCurrency(sellResult.proceeds), inline: true },
+        { name: 'Shares Sold', value: formatShares(sharesToSell), inline: true },
+        { name: 'Price per Share', value: `$${formatPrice(quote.currentPrice)}`, inline: true },
+        { name: 'Proceeds', value: formatCurrency(sellResult.proceeds), inline: true },
         {
-          name: "Profit/Loss",
+          name: 'Profit/Loss',
           value: `${profitEmoji}${formatCurrency(Math.floor(sellResult.profit))}`,
           inline: true,
         },
-        { name: "New Wallet Balance", value: formatCurrency(sellResult.user.wallet), inline: true }
+        { name: 'New Wallet Balance', value: formatCurrency(sellResult.user.wallet), inline: true }
       )
       .setTimestamp();
 
     // Add remaining position if any
     if (sellResult.holding) {
       embed.addFields({
-        name: "Remaining Position",
+        name: 'Remaining Position',
         value: `${formatShares(parseFloat(sellResult.holding.shares))} shares`,
         inline: true,
       });
     } else {
-      embed.setFooter({ text: "Position closed" });
+      embed.setFooter({ text: 'Position closed' });
     }
 
     await interaction.editReply({ embeds: [embed] });
@@ -351,9 +361,9 @@ async function handleSell(interaction) {
       ticker: quote.ticker,
       shares: sharesToSell,
       profit: sellResult.profit,
-    }).catch((err) => console.error("Failed to check achievements:", err));
+    }).catch((err) => console.error('Failed to check achievements:', err));
   } catch (error) {
-    console.error("stock sell error:", error);
+    console.error('stock sell error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -399,22 +409,26 @@ async function handlePortfolio(interaction) {
 
         return `**${h.ticker}**: ${formatShares(shares)} shares @ $${formatPrice(avgCost)} avg (${formatCurrency(Math.floor(costBasis))})`;
       })
-      .join("\n");
+      .join('\n');
 
     const embed = new EmbedBuilder()
       .setColor(0x3498db)
       .setTitle(`${username}'s Stock Portfolio`)
       .setDescription(holdingsText)
       .addFields(
-        { name: "Total Positions", value: portfolio.length.toString(), inline: true },
-        { name: "Total Cost Basis", value: formatCurrency(Math.floor(totalCostBasis)), inline: true }
+        { name: 'Total Positions', value: portfolio.length.toString(), inline: true },
+        {
+          name: 'Total Cost Basis',
+          value: formatCurrency(Math.floor(totalCostBasis)),
+          inline: true,
+        }
       )
-      .setFooter({ text: "Use /stock quote <ticker> to check current prices" })
+      .setFooter({ text: 'Use /stock quote <ticker> to check current prices' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("stock portfolio error:", error);
+    console.error('stock portfolio error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -429,7 +443,7 @@ async function handleQuote(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const ticker = interaction.options.getString("ticker");
+    const ticker = interaction.options.getString('ticker');
 
     if (!stockApi.isValidTickerFormat(ticker)) {
       await interaction.editReply({
@@ -446,7 +460,7 @@ async function handleQuote(interaction) {
 
     const { data: quote } = quoteResult;
     const isPositive = quote.change >= 0;
-    const changeEmoji = isPositive ? "+" : "";
+    const changeEmoji = isPositive ? '+' : '';
     const changeColor = isPositive ? 0x2ecc71 : 0xe74c3c;
 
     const embed = new EmbedBuilder()
@@ -455,23 +469,23 @@ async function handleQuote(interaction) {
       .setDescription(`Current Price: **$${formatPrice(quote.currentPrice)}**`)
       .addFields(
         {
-          name: "Change",
+          name: 'Change',
           value: `${changeEmoji}$${formatPrice(quote.change)} (${changeEmoji}${quote.changePercent?.toFixed(2)}%)`,
           inline: true,
         },
         {
-          name: "Day Range",
+          name: 'Day Range',
           value: `$${formatPrice(quote.low)} - $${formatPrice(quote.high)}`,
           inline: true,
         },
-        { name: "Previous Close", value: `$${formatPrice(quote.previousClose)}`, inline: true }
+        { name: 'Previous Close', value: `$${formatPrice(quote.previousClose)}`, inline: true }
       )
       .setTimestamp()
-      .setFooter({ text: "Data from Finnhub" });
+      .setFooter({ text: 'Data from Finnhub' });
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("stock quote error:", error);
+    console.error('stock quote error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });

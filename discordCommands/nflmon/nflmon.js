@@ -8,16 +8,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-} from "discord.js";
-import * as nflmonDb from "../../nflmon/nflmonDb.js";
-import * as nflmonService from "../../nflmon/nflmonService.js";
-import { TRADE_ERRORS } from "../../nflmon/nflmonService.js";
-import {
-  getSellValue,
-  formatRarity,
-  TRAINING_CONFIG,
-} from "../../nflmon/nflmonConfig.js";
-import { formatCurrency } from "../../economy/economyConfig.js";
+} from 'discord.js';
+import * as nflmonDb from '../../nflmon/nflmonDb.js';
+import * as nflmonService from '../../nflmon/nflmonService.js';
+import { TRADE_ERRORS } from '../../nflmon/nflmonService.js';
+import { getSellValue, formatRarity, TRAINING_CONFIG } from '../../nflmon/nflmonConfig.js';
+import { formatCurrency } from '../../economy/economyConfig.js';
 
 // =============================================================================
 // CONSTANTS
@@ -27,11 +23,11 @@ const ITEMS_PER_PAGE = 10;
 
 const ERROR_MESSAGES = {
   NOT_FOUND: "NFLmon not found or doesn't belong to you.",
-  IN_TRAINING: "You must untrain this NFLmon before selling.",
-  INVALID_SLOT: "Invalid training slot. Check your available slots with `/nflmon stats`.",
-  SLOT_OCCUPIED: "That training slot is already in use.",
-  NOT_IN_TRAINING: "This NFLmon is not currently in training.",
-  ALREADY_IN_TRAINING: "This NFLmon is already in a training slot.",
+  IN_TRAINING: 'You must untrain this NFLmon before selling.',
+  INVALID_SLOT: 'Invalid training slot. Check your available slots with `/nflmon stats`.',
+  SLOT_OCCUPIED: 'That training slot is already in use.',
+  NOT_IN_TRAINING: 'This NFLmon is not currently in training.',
+  ALREADY_IN_TRAINING: 'This NFLmon is already in a training slot.',
 };
 
 // =============================================================================
@@ -49,17 +45,17 @@ function buildPaginationButtons(page, totalPages, rarity = null) {
   if (totalPages <= 1) return [];
 
   const row = new ActionRowBuilder();
-  const rarityParam = rarity ? `_${rarity}` : "";
+  const rarityParam = rarity ? `_${rarity}` : '';
 
   row.addComponents(
     new ButtonBuilder()
       .setCustomId(`nflmon_bench_prev_${page}${rarityParam}`)
-      .setLabel("Previous")
+      .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page <= 1),
     new ButtonBuilder()
       .setCustomId(`nflmon_bench_next_${page}${rarityParam}`)
-      .setLabel("Next")
+      .setLabel('Next')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages)
   );
@@ -77,11 +73,11 @@ function buildSellConfirmButtons(nflmonId) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`nflmon_sell_confirm_${nflmonId}`)
-        .setLabel("Confirm Sell")
+        .setLabel('Confirm Sell')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(`nflmon_sell_cancel`)
-        .setLabel("Cancel")
+        .setLabel('Cancel')
         .setStyle(ButtonStyle.Secondary)
     ),
   ];
@@ -117,11 +113,11 @@ function buildTradeResponseButtons(tradeId) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`nflmon_trade_accept_${tradeId}`)
-        .setLabel("Accept Trade")
+        .setLabel('Accept Trade')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(`nflmon_trade_reject_${tradeId}`)
-        .setLabel("Reject Trade")
+        .setLabel('Reject Trade')
         .setStyle(ButtonStyle.Danger)
     ),
   ];
@@ -140,17 +136,17 @@ function buildDexPaginationButtons(page, totalPages, search, rarity) {
 
   // Encode filters as base64 JSON to avoid delimiter parsing issues
   const filterData = JSON.stringify({ r: rarity || null, s: search?.slice(0, 20) || null });
-  const encodedFilters = Buffer.from(filterData).toString("base64");
+  const encodedFilters = Buffer.from(filterData).toString('base64');
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`nflmon_dex_prev_${page}_${encodedFilters}`)
-      .setLabel("Previous")
+      .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page <= 1),
     new ButtonBuilder()
       .setCustomId(`nflmon_dex_next_${page}_${encodedFilters}`)
-      .setLabel("Next")
+      .setLabel('Next')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages)
   );
@@ -172,11 +168,11 @@ function buildPendingTradeButtons(trade, userId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`nflmon_trade_accept_${trade.id}`)
-          .setLabel("Accept")
+          .setLabel('Accept')
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId(`nflmon_trade_reject_${trade.id}`)
-          .setLabel("Reject")
+          .setLabel('Reject')
           .setStyle(ButtonStyle.Danger)
       ),
     ];
@@ -185,7 +181,7 @@ function buildPendingTradeButtons(trade, userId) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`nflmon_trade_cancel_${trade.id}`)
-          .setLabel("Cancel Trade")
+          .setLabel('Cancel Trade')
           .setStyle(ButtonStyle.Secondary)
       ),
     ];
@@ -197,148 +193,113 @@ function buildPendingTradeButtons(trade, userId) {
 // =============================================================================
 
 export const data = new SlashCommandBuilder()
-  .setName("nflmon")
-  .setDescription("NFLmon collection management")
+  .setName('nflmon')
+  .setDescription('NFLmon collection management')
 
   // bench [rarity] [page]
   .addSubcommand((sub) =>
     sub
-      .setName("bench")
-      .setDescription("View your NFLmon collection")
+      .setName('bench')
+      .setDescription('View your NFLmon collection')
       .addStringOption((opt) =>
         opt
-          .setName("rarity")
-          .setDescription("Filter by rarity")
+          .setName('rarity')
+          .setDescription('Filter by rarity')
           .setRequired(false)
           .addChoices(
-            { name: "Common", value: "common" },
-            { name: "Uncommon", value: "uncommon" },
-            { name: "Rare", value: "rare" },
-            { name: "Epic", value: "epic" },
-            { name: "Legendary", value: "legendary" }
+            { name: 'Common', value: 'common' },
+            { name: 'Uncommon', value: 'uncommon' },
+            { name: 'Rare', value: 'rare' },
+            { name: 'Epic', value: 'epic' },
+            { name: 'Legendary', value: 'legendary' }
           )
       )
-      .addIntegerOption((opt) =>
-        opt.setName("page").setDescription("Page number").setMinValue(1)
-      )
+      .addIntegerOption((opt) => opt.setName('page').setDescription('Page number').setMinValue(1))
   )
 
   // view <id>
   .addSubcommand((sub) =>
     sub
-      .setName("view")
-      .setDescription("View detailed NFLmon stats")
+      .setName('view')
+      .setDescription('View detailed NFLmon stats')
       .addIntegerOption((opt) =>
-        opt
-          .setName("id")
-          .setDescription("NFLmon ID")
-          .setRequired(true)
-          .setAutocomplete(true)
+        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
       )
   )
 
   // train <id> [slot]
   .addSubcommand((sub) =>
     sub
-      .setName("train")
-      .setDescription("Assign NFLmon to a training slot")
+      .setName('train')
+      .setDescription('Assign NFLmon to a training slot')
       .addIntegerOption((opt) =>
-        opt
-          .setName("id")
-          .setDescription("NFLmon ID")
-          .setRequired(true)
-          .setAutocomplete(true)
+        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
       )
       .addIntegerOption((opt) =>
-        opt
-          .setName("slot")
-          .setDescription("Training slot (1-5)")
-          .setMinValue(1)
-          .setMaxValue(5)
+        opt.setName('slot').setDescription('Training slot (1-5)').setMinValue(1).setMaxValue(5)
       )
   )
 
   // untrain <id>
   .addSubcommand((sub) =>
     sub
-      .setName("untrain")
-      .setDescription("Remove NFLmon from training")
+      .setName('untrain')
+      .setDescription('Remove NFLmon from training')
       .addIntegerOption((opt) =>
-        opt
-          .setName("id")
-          .setDescription("NFLmon ID")
-          .setRequired(true)
-          .setAutocomplete(true)
+        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
       )
   )
 
   // nickname <id> [name]
   .addSubcommand((sub) =>
     sub
-      .setName("nickname")
-      .setDescription("Set or clear NFLmon nickname")
+      .setName('nickname')
+      .setDescription('Set or clear NFLmon nickname')
       .addIntegerOption((opt) =>
-        opt
-          .setName("id")
-          .setDescription("NFLmon ID")
-          .setRequired(true)
-          .setAutocomplete(true)
+        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
       )
       .addStringOption((opt) =>
-        opt
-          .setName("name")
-          .setDescription("New nickname (leave empty to clear)")
-          .setMaxLength(50)
+        opt.setName('name').setDescription('New nickname (leave empty to clear)').setMaxLength(50)
       )
   )
 
   // evolve <id>
   .addSubcommand((sub) =>
     sub
-      .setName("evolve")
-      .setDescription("Evolve your NFLmon to the next stage")
+      .setName('evolve')
+      .setDescription('Evolve your NFLmon to the next stage')
       .addIntegerOption((opt) =>
-        opt
-          .setName("id")
-          .setDescription("NFLmon ID")
-          .setRequired(true)
-          .setAutocomplete(true)
+        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
       )
   )
 
   // sell <id>
   .addSubcommand((sub) =>
     sub
-      .setName("sell")
-      .setDescription("Sell an NFLmon for coins")
+      .setName('sell')
+      .setDescription('Sell an NFLmon for coins')
       .addIntegerOption((opt) =>
-        opt
-          .setName("id")
-          .setDescription("NFLmon ID")
-          .setRequired(true)
-          .setAutocomplete(true)
+        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
       )
   )
 
   // stats
-  .addSubcommand((sub) =>
-    sub.setName("stats").setDescription("View your NFLmon statistics")
-  )
+  .addSubcommand((sub) => sub.setName('stats').setDescription('View your NFLmon statistics'))
 
   // leaderboard [category]
   .addSubcommand((sub) =>
     sub
-      .setName("leaderboard")
-      .setDescription("View NFLmon rankings")
+      .setName('leaderboard')
+      .setDescription('View NFLmon rankings')
       .addStringOption((opt) =>
         opt
-          .setName("category")
-          .setDescription("Leaderboard category")
+          .setName('category')
+          .setDescription('Leaderboard category')
           .addChoices(
-            { name: "Total Caught", value: "total_caught" },
-            { name: "Legendaries", value: "legendary_count" },
-            { name: "Highest Level", value: "highest_level_reached" },
-            { name: "Total Evolved", value: "total_evolved" }
+            { name: 'Total Caught', value: 'total_caught' },
+            { name: 'Legendaries', value: 'legendary_count' },
+            { name: 'Highest Level', value: 'highest_level_reached' },
+            { name: 'Total Evolved', value: 'total_evolved' }
           )
       )
   )
@@ -346,63 +307,59 @@ export const data = new SlashCommandBuilder()
   // dex [search] [rarity] [page]
   .addSubcommand((sub) =>
     sub
-      .setName("dex")
-      .setDescription("Browse the NFLmon encyclopedia")
+      .setName('dex')
+      .setDescription('Browse the NFLmon encyclopedia')
       .addStringOption((opt) =>
-        opt.setName("search").setDescription("Search: name, position:WR, or team:KC")
+        opt.setName('search').setDescription('Search: name, position:WR, or team:KC')
       )
       .addStringOption((opt) =>
         opt
-          .setName("rarity")
-          .setDescription("Filter by rarity")
+          .setName('rarity')
+          .setDescription('Filter by rarity')
           .addChoices(
-            { name: "Common", value: "common" },
-            { name: "Uncommon", value: "uncommon" },
-            { name: "Rare", value: "rare" },
-            { name: "Epic", value: "epic" },
-            { name: "Legendary", value: "legendary" }
+            { name: 'Common', value: 'common' },
+            { name: 'Uncommon', value: 'uncommon' },
+            { name: 'Rare', value: 'rare' },
+            { name: 'Epic', value: 'epic' },
+            { name: 'Legendary', value: 'legendary' }
           )
       )
-      .addIntegerOption((opt) =>
-        opt.setName("page").setDescription("Page number").setMinValue(1)
-      )
+      .addIntegerOption((opt) => opt.setName('page').setDescription('Page number').setMinValue(1))
   )
 
   // trade subcommand group
   .addSubcommandGroup((group) =>
     group
-      .setName("trade")
-      .setDescription("Trade NFLmon with other users")
+      .setName('trade')
+      .setDescription('Trade NFLmon with other users')
       .addSubcommand((sub) =>
         sub
-          .setName("offer")
-          .setDescription("Create a trade offer")
+          .setName('offer')
+          .setDescription('Create a trade offer')
           .addUserOption((opt) =>
-            opt.setName("user").setDescription("User to trade with").setRequired(true)
+            opt.setName('user').setDescription('User to trade with').setRequired(true)
           )
           .addIntegerOption((opt) =>
             opt
-              .setName("my_nflmon")
-              .setDescription("Your NFLmon ID to offer")
+              .setName('my_nflmon')
+              .setDescription('Your NFLmon ID to offer')
               .setRequired(true)
               .setAutocomplete(true)
           )
           .addIntegerOption((opt) =>
-            opt.setName("their_nflmon").setDescription("Their NFLmon ID you want (optional)")
+            opt.setName('their_nflmon').setDescription('Their NFLmon ID you want (optional)')
           )
           .addIntegerOption((opt) =>
-            opt.setName("coins").setDescription("Coins to include").setMinValue(0)
+            opt.setName('coins').setDescription('Coins to include').setMinValue(0)
           )
       )
-      .addSubcommand((sub) =>
-        sub.setName("pending").setDescription("View your pending trades")
-      )
+      .addSubcommand((sub) => sub.setName('pending').setDescription('View your pending trades'))
       .addSubcommand((sub) =>
         sub
-          .setName("cancel")
-          .setDescription("Cancel a trade you sent")
+          .setName('cancel')
+          .setDescription('Cancel a trade you sent')
           .addIntegerOption((opt) =>
-            opt.setName("trade_id").setDescription("Trade ID to cancel").setRequired(true)
+            opt.setName('trade_id').setDescription('Trade ID to cancel').setRequired(true)
           )
       )
   );
@@ -420,20 +377,20 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   // Handle trade subcommand group
-  if (subcommandGroup === "trade") {
+  if (subcommandGroup === 'trade') {
     switch (subcommand) {
-      case "offer":
+      case 'offer':
         await handleTradeOffer(interaction);
         return;
-      case "pending":
+      case 'pending':
         await handleTradePending(interaction);
         return;
-      case "cancel":
+      case 'cancel':
         await handleTradeCancel(interaction);
         return;
       default:
         await interaction.reply({
-          content: "Unknown trade subcommand.",
+          content: 'Unknown trade subcommand.',
           ephemeral: true,
         });
         return;
@@ -442,39 +399,39 @@ export async function execute(interaction) {
 
   // Handle regular subcommands
   switch (subcommand) {
-    case "bench":
+    case 'bench':
       await handleBench(interaction);
       break;
-    case "view":
+    case 'view':
       await handleView(interaction);
       break;
-    case "train":
+    case 'train':
       await handleTrain(interaction);
       break;
-    case "untrain":
+    case 'untrain':
       await handleUntrain(interaction);
       break;
-    case "nickname":
+    case 'nickname':
       await handleNickname(interaction);
       break;
-    case "evolve":
+    case 'evolve':
       await handleEvolve(interaction);
       break;
-    case "sell":
+    case 'sell':
       await handleSell(interaction);
       break;
-    case "stats":
+    case 'stats':
       await handleStats(interaction);
       break;
-    case "leaderboard":
+    case 'leaderboard':
       await handleLeaderboard(interaction);
       break;
-    case "dex":
+    case 'dex':
       await handleDex(interaction);
       break;
     default:
       await interaction.reply({
-        content: "Unknown subcommand.",
+        content: 'Unknown subcommand.',
         ephemeral: true,
       });
   }
@@ -493,8 +450,8 @@ async function handleBench(interaction) {
 
   try {
     const userId = interaction.user.id;
-    const rarity = interaction.options.getString("rarity");
-    const page = interaction.options.getInteger("page") || 1;
+    const rarity = interaction.options.getString('rarity');
+    const page = interaction.options.getInteger('page') || 1;
 
     // Fetch data
     const benchRecords = await nflmonDb.getBench(userId, {
@@ -506,12 +463,7 @@ async function handleBench(interaction) {
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
 
     // Build embed
-    const embed = nflmonService.buildBenchEmbed(
-      benchRecords,
-      page,
-      totalPages,
-      totalCount
-    );
+    const embed = nflmonService.buildBenchEmbed(benchRecords, page, totalPages, totalCount);
 
     // Build pagination buttons
     const components = buildPaginationButtons(page, totalPages, rarity);
@@ -529,11 +481,10 @@ async function handleBench(interaction) {
         filter: (i) => i.user.id === userId,
       });
 
-      collector.on("collect", async (buttonInteraction) => {
-        const [, , action, currentPageStr, filterRarity] =
-          buttonInteraction.customId.split("_");
+      collector.on('collect', async (buttonInteraction) => {
+        const [, , action, currentPageStr, filterRarity] = buttonInteraction.customId.split('_');
         const currentPage = parseInt(currentPageStr);
-        const newPage = action === "prev" ? currentPage - 1 : currentPage + 1;
+        const newPage = action === 'prev' ? currentPage - 1 : currentPage + 1;
 
         // Fetch new page
         const newRecords = await nflmonDb.getBench(userId, {
@@ -542,17 +493,8 @@ async function handleBench(interaction) {
           limit: ITEMS_PER_PAGE,
         });
 
-        const newEmbed = nflmonService.buildBenchEmbed(
-          newRecords,
-          newPage,
-          totalPages,
-          totalCount
-        );
-        const newComponents = buildPaginationButtons(
-          newPage,
-          totalPages,
-          filterRarity || rarity
-        );
+        const newEmbed = nflmonService.buildBenchEmbed(newRecords, newPage, totalPages, totalCount);
+        const newComponents = buildPaginationButtons(newPage, totalPages, filterRarity || rarity);
 
         await buttonInteraction.update({
           embeds: [newEmbed],
@@ -560,12 +502,12 @@ async function handleBench(interaction) {
         });
       });
 
-      collector.on("end", async () => {
+      collector.on('end', async () => {
         await interaction.editReply({ components: [] }).catch(() => {});
       });
     }
   } catch (error) {
-    console.error("[NFLMON] bench error:", error);
+    console.error('[NFLMON] bench error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -581,7 +523,7 @@ async function handleView(interaction) {
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger("id");
+    const nflmonId = interaction.options.getInteger('id');
 
     // Get NFLmon with ownership check
     const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
@@ -594,7 +536,7 @@ async function handleView(interaction) {
     const displayData = nflmonService.getDisplayData(nflmon);
     if (!displayData) {
       await interaction.editReply({
-        content: "Error loading NFLmon data.",
+        content: 'Error loading NFLmon data.',
       });
       return;
     }
@@ -603,7 +545,7 @@ async function handleView(interaction) {
     const embed = nflmonService.buildNflmonCard(displayData);
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("[NFLMON] view error:", error);
+    console.error('[NFLMON] view error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -620,8 +562,8 @@ async function handleTrain(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const nflmonId = interaction.options.getInteger("id");
-    let slot = interaction.options.getInteger("slot");
+    const nflmonId = interaction.options.getInteger('id');
+    let slot = interaction.options.getInteger('slot');
 
     // Ensure user stats exist
     const stats = await nflmonDb.getOrCreateStats(userId, username);
@@ -673,19 +615,18 @@ async function handleTrain(interaction) {
     const result = await nflmonDb.setTrainingSlot(userId, nflmonId, slot);
 
     if (!result.success) {
-      const errorMsg =
-        ERROR_MESSAGES[result.error] || "Failed to assign training slot.";
+      const errorMsg = ERROR_MESSAGES[result.error] || 'Failed to assign training slot.';
       await interaction.editReply({ content: errorMsg });
       return;
     }
 
     // Get player info for response
     const player = nflmonService.getPlayer(nflmon.player_id);
-    const name = nflmon.nickname || player?.name || "Unknown";
+    const name = nflmon.nickname || player?.name || 'Unknown';
 
     const embed = new EmbedBuilder()
       .setColor(0x00ff00)
-      .setTitle("Training Started!")
+      .setTitle('Training Started!')
       .setDescription(
         `**${name}** is now training in slot **${slot}**!\n\n` +
           `They will earn XP when you play Wordle, Trivia, and other games.`
@@ -693,7 +634,7 @@ async function handleTrain(interaction) {
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("[NFLMON] train error:", error);
+    console.error('[NFLMON] train error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -709,7 +650,7 @@ async function handleUntrain(interaction) {
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger("id");
+    const nflmonId = interaction.options.getInteger('id');
 
     // Get NFLmon to check if it's in training
     const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
@@ -729,24 +670,22 @@ async function handleUntrain(interaction) {
     const result = await nflmonDb.removeFromTraining(userId, nflmonId);
     if (!result) {
       await interaction.editReply({
-        content: "Failed to remove from training.",
+        content: 'Failed to remove from training.',
       });
       return;
     }
 
     const player = nflmonService.getPlayer(nflmon.player_id);
-    const name = nflmon.nickname || player?.name || "Unknown";
+    const name = nflmon.nickname || player?.name || 'Unknown';
 
     const embed = new EmbedBuilder()
       .setColor(0xffaa00)
-      .setTitle("Training Stopped")
-      .setDescription(
-        `**${name}** has been removed from training slot **${oldSlot}**.`
-      );
+      .setTitle('Training Stopped')
+      .setDescription(`**${name}** has been removed from training slot **${oldSlot}**.`);
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("[NFLMON] untrain error:", error);
+    console.error('[NFLMON] untrain error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -762,8 +701,8 @@ async function handleNickname(interaction) {
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger("id");
-    const newName = interaction.options.getString("name") || null;
+    const nflmonId = interaction.options.getInteger('id');
+    const newName = interaction.options.getString('name') || null;
 
     // Update nickname
     const result = await nflmonDb.setNickname(userId, nflmonId, newName);
@@ -773,25 +712,23 @@ async function handleNickname(interaction) {
     }
 
     const player = nflmonService.getPlayer(result.player_id);
-    const originalName = player?.name || "Unknown";
+    const originalName = player?.name || 'Unknown';
 
     const embed = new EmbedBuilder().setColor(0x3498db);
 
     if (newName) {
       embed
-        .setTitle("Nickname Set!")
-        .setDescription(
-          `**${originalName}** is now nicknamed **${newName}**.`
-        );
+        .setTitle('Nickname Set!')
+        .setDescription(`**${originalName}** is now nicknamed **${newName}**.`);
     } else {
       embed
-        .setTitle("Nickname Cleared")
+        .setTitle('Nickname Cleared')
         .setDescription(`Nickname removed. Now using original name: **${originalName}**.`);
     }
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("[NFLMON] nickname error:", error);
+    console.error('[NFLMON] nickname error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -808,7 +745,7 @@ async function handleEvolve(interaction) {
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger("id");
+    const nflmonId = interaction.options.getInteger('id');
 
     // Get NFLmon
     const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
@@ -820,27 +757,23 @@ async function handleEvolve(interaction) {
     // Get display data to check evolution status
     const displayData = nflmonService.getDisplayData(nflmon);
     if (!displayData) {
-      await interaction.editReply({ content: "Error loading NFLmon data." });
+      await interaction.editReply({ content: 'Error loading NFLmon data.' });
       return;
     }
 
     // Check if can evolve
     if (!displayData.canEvolve) {
       await interaction.editReply({
-        content: displayData.evolutionReason || "This NFLmon cannot evolve right now.",
+        content: displayData.evolutionReason || 'This NFLmon cannot evolve right now.',
       });
       return;
     }
 
     // Perform evolution
-    const evolved = await nflmonDb.evolveNflmon(
-      userId,
-      nflmonId,
-      displayData.nextStage.id
-    );
+    const evolved = await nflmonDb.evolveNflmon(userId, nflmonId, displayData.nextStage.id);
 
     if (!evolved) {
-      await interaction.editReply({ content: "Evolution failed." });
+      await interaction.editReply({ content: 'Evolution failed.' });
       return;
     }
 
@@ -852,7 +785,7 @@ async function handleEvolve(interaction) {
       `[NFLMON] ${interaction.user.username}'s ${displayData.displayName} evolved to ${displayData.nextStage.name}`
     );
   } catch (error) {
-    console.error("[NFLMON] evolve error:", error);
+    console.error('[NFLMON] evolve error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -868,7 +801,7 @@ async function handleSell(interaction) {
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger("id");
+    const nflmonId = interaction.options.getInteger('id');
 
     // Get NFLmon for display
     const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
@@ -884,14 +817,14 @@ async function handleSell(interaction) {
     }
 
     const player = nflmonService.getPlayer(nflmon.player_id);
-    const name = nflmon.nickname || player?.name || "Unknown";
+    const name = nflmon.nickname || player?.name || 'Unknown';
     const sellValue = getSellValue(nflmon.rarity);
     const rarityName = formatRarity(nflmon.rarity);
 
     // Show confirmation
     const embed = new EmbedBuilder()
       .setColor(0xff0000)
-      .setTitle("Confirm Sale")
+      .setTitle('Confirm Sale')
       .setDescription(
         `Are you sure you want to sell **${name}**?\n\n` +
           `**Rarity:** ${rarityName}\n` +
@@ -914,14 +847,14 @@ async function handleSell(interaction) {
       filter: (i) => i.user.id === userId,
     });
 
-    collector.on("collect", async (buttonInteraction) => {
-      if (buttonInteraction.customId === "nflmon_sell_cancel") {
+    collector.on('collect', async (buttonInteraction) => {
+      if (buttonInteraction.customId === 'nflmon_sell_cancel') {
         await buttonInteraction.update({
           embeds: [
             new EmbedBuilder()
               .setColor(0x808080)
-              .setTitle("Sale Cancelled")
-              .setDescription("You decided not to sell."),
+              .setTitle('Sale Cancelled')
+              .setDescription('You decided not to sell.'),
           ],
           components: [],
         });
@@ -933,14 +866,10 @@ async function handleSell(interaction) {
       const result = await nflmonDb.sellNflmon(userId, nflmonId);
 
       if (!result.success) {
-        const errorMsg =
-          ERROR_MESSAGES[result.error] || "Sale failed.";
+        const errorMsg = ERROR_MESSAGES[result.error] || 'Sale failed.';
         await buttonInteraction.update({
           embeds: [
-            new EmbedBuilder()
-              .setColor(0xff0000)
-              .setTitle("Sale Failed")
-              .setDescription(errorMsg),
+            new EmbedBuilder().setColor(0xff0000).setTitle('Sale Failed').setDescription(errorMsg),
           ],
           components: [],
         });
@@ -952,25 +881,23 @@ async function handleSell(interaction) {
         embeds: [
           new EmbedBuilder()
             .setColor(0x00ff00)
-            .setTitle("Sale Complete!")
-            .setDescription(
-              `You sold **${name}** for ${formatCurrency(result.value)}!`
-            ),
+            .setTitle('Sale Complete!')
+            .setDescription(`You sold **${name}** for ${formatCurrency(result.value)}!`),
         ],
         components: [],
       });
       collector.stop();
     });
 
-    collector.on("end", async (_, reason) => {
-      if (reason === "time") {
+    collector.on('end', async (_, reason) => {
+      if (reason === 'time') {
         await interaction
           .editReply({
             embeds: [
               new EmbedBuilder()
                 .setColor(0x808080)
-                .setTitle("Sale Expired")
-                .setDescription("Confirmation timed out."),
+                .setTitle('Sale Expired')
+                .setDescription('Confirmation timed out.'),
             ],
             components: [],
           })
@@ -978,7 +905,7 @@ async function handleSell(interaction) {
       }
     });
   } catch (error) {
-    console.error("[NFLMON] sell error:", error);
+    console.error('[NFLMON] sell error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -1004,7 +931,7 @@ async function handleStats(interaction) {
     const embed = nflmonService.buildStatsEmbed(stats, trainingNflmon);
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("[NFLMON] stats error:", error);
+    console.error('[NFLMON] stats error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -1020,8 +947,7 @@ async function handleLeaderboard(interaction) {
   await interaction.deferReply({ ephemeral: false });
 
   try {
-    const category =
-      interaction.options.getString("category") || "total_caught";
+    const category = interaction.options.getString('category') || 'total_caught';
 
     // Get leaderboard entries
     const entries = await nflmonDb.getLeaderboard(category, 10);
@@ -1030,7 +956,7 @@ async function handleLeaderboard(interaction) {
     const embed = nflmonService.buildLeaderboardEmbed(entries, category);
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error("[NFLMON] leaderboard error:", error);
+    console.error('[NFLMON] leaderboard error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -1045,9 +971,9 @@ async function handleDex(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const search = interaction.options.getString("search")?.toLowerCase();
-    const rarity = interaction.options.getString("rarity");
-    const page = interaction.options.getInteger("page") || 1;
+    const search = interaction.options.getString('search')?.toLowerCase();
+    const rarity = interaction.options.getString('rarity');
+    const page = interaction.options.getInteger('page') || 1;
 
     // Get all players from JSON (single source of truth)
     let players = nflmonService.getAllPlayers();
@@ -1057,16 +983,14 @@ async function handleDex(interaction) {
       players = players.filter((p) => p.rarityPool === rarity);
     }
     if (search) {
-      if (search.startsWith("position:")) {
-        const pos = search.replace("position:", "").toUpperCase();
+      if (search.startsWith('position:')) {
+        const pos = search.replace('position:', '').toUpperCase();
         players = players.filter((p) => p.position === pos);
-      } else if (search.startsWith("team:")) {
-        const team = search.replace("team:", "").toUpperCase();
+      } else if (search.startsWith('team:')) {
+        const team = search.replace('team:', '').toUpperCase();
         players = players.filter((p) => p.team.toUpperCase() === team);
       } else {
-        players = players.filter((p) =>
-          p.name.toLowerCase().includes(search)
-        );
+        players = players.filter((p) => p.name.toLowerCase().includes(search));
       }
     }
 
@@ -1074,18 +998,12 @@ async function handleDex(interaction) {
     players.sort((a, b) => a.name.localeCompare(b.name));
     const totalCount = players.length;
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
-    const paginated = players.slice(
-      (page - 1) * ITEMS_PER_PAGE,
-      page * ITEMS_PER_PAGE
-    );
+    const paginated = players.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-    const embed = nflmonService.buildDexEmbed(
-      paginated,
-      page,
-      totalPages,
-      totalCount,
-      { search, rarity }
-    );
+    const embed = nflmonService.buildDexEmbed(paginated, page, totalPages, totalCount, {
+      search,
+      rarity,
+    });
     const components = buildDexPaginationButtons(page, totalPages, search, rarity);
 
     const response = await interaction.editReply({
@@ -1101,8 +1019,8 @@ async function handleDex(interaction) {
         filter: (i) => i.user.id === interaction.user.id,
       });
 
-      collector.on("collect", async (buttonInteraction) => {
-        const parts = buttonInteraction.customId.split("_");
+      collector.on('collect', async (buttonInteraction) => {
+        const parts = buttonInteraction.customId.split('_');
         const action = parts[2]; // prev or next
         const currentPage = parseInt(parts[3]);
 
@@ -1112,15 +1030,15 @@ async function handleDex(interaction) {
         try {
           const encodedFilters = parts[4];
           if (encodedFilters) {
-            const filterData = JSON.parse(Buffer.from(encodedFilters, "base64").toString("utf8"));
+            const filterData = JSON.parse(Buffer.from(encodedFilters, 'base64').toString('utf8'));
             filterRarity = filterData.r || null;
             filterSearch = filterData.s || null;
           }
         } catch (e) {
-          console.error("[NFLMON] Failed to decode DEX filters:", e);
+          console.error('[NFLMON] Failed to decode DEX filters:', e);
         }
 
-        const newPage = action === "prev" ? currentPage - 1 : currentPage + 1;
+        const newPage = action === 'prev' ? currentPage - 1 : currentPage + 1;
 
         // Re-filter players
         let filteredPlayers = nflmonService.getAllPlayers();
@@ -1128,11 +1046,11 @@ async function handleDex(interaction) {
           filteredPlayers = filteredPlayers.filter((p) => p.rarityPool === filterRarity);
         }
         if (filterSearch) {
-          if (filterSearch.startsWith("position:")) {
-            const pos = filterSearch.replace("position:", "").toUpperCase();
+          if (filterSearch.startsWith('position:')) {
+            const pos = filterSearch.replace('position:', '').toUpperCase();
             filteredPlayers = filteredPlayers.filter((p) => p.position === pos);
-          } else if (filterSearch.startsWith("team:")) {
-            const team = filterSearch.replace("team:", "").toUpperCase();
+          } else if (filterSearch.startsWith('team:')) {
+            const team = filterSearch.replace('team:', '').toUpperCase();
             filteredPlayers = filteredPlayers.filter((p) => p.team.toUpperCase() === team);
           } else {
             filteredPlayers = filteredPlayers.filter((p) =>
@@ -1171,12 +1089,12 @@ async function handleDex(interaction) {
         });
       });
 
-      collector.on("end", async () => {
+      collector.on('end', async () => {
         await interaction.editReply({ components: [] }).catch(() => {});
       });
     }
   } catch (error) {
-    console.error("[NFLMON] dex error:", error);
+    console.error('[NFLMON] dex error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -1193,10 +1111,10 @@ async function handleTradeOffer(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const targetUser = interaction.options.getUser("user");
-    const myNflmonId = interaction.options.getInteger("my_nflmon");
-    const theirNflmonId = interaction.options.getInteger("their_nflmon");
-    const coinsOffered = interaction.options.getInteger("coins") || 0;
+    const targetUser = interaction.options.getUser('user');
+    const myNflmonId = interaction.options.getInteger('my_nflmon');
+    const theirNflmonId = interaction.options.getInteger('their_nflmon');
+    const coinsOffered = interaction.options.getInteger('coins') || 0;
 
     // Prevent self-trade
     if (targetUser.id === userId) {
@@ -1212,7 +1130,7 @@ async function handleTradeOffer(interaction) {
     }
     if (myNflmon.training_slot !== null) {
       await interaction.editReply({
-        content: "Your NFLmon is in training. Untrain it first with `/nflmon untrain`.",
+        content: 'Your NFLmon is in training. Untrain it first with `/nflmon untrain`.',
       });
       return;
     }
@@ -1229,7 +1147,7 @@ async function handleTradeOffer(interaction) {
       }
       if (theirNflmon.training_slot !== null) {
         await interaction.editReply({
-          content: "That NFLmon is currently in training. The owner must untrain it first.",
+          content: 'That NFLmon is currently in training. The owner must untrain it first.',
         });
         return;
       }
@@ -1247,15 +1165,13 @@ async function handleTradeOffer(interaction) {
     });
 
     if (!trade) {
-      await interaction.editReply({ content: "Failed to create trade offer." });
+      await interaction.editReply({ content: 'Failed to create trade offer.' });
       return;
     }
 
     // Get player info for embeds
     const myPlayer = nflmonService.getPlayer(myNflmon.player_id);
-    const theirPlayer = theirNflmon
-      ? nflmonService.getPlayer(theirNflmon.player_id)
-      : null;
+    const theirPlayer = theirNflmon ? nflmonService.getPlayer(theirNflmon.player_id) : null;
 
     // Build confirmation embed for sender
     const senderEmbed = nflmonService.buildTradeOfferEmbed(
@@ -1280,12 +1196,12 @@ async function handleTradeOffer(interaction) {
       const dmButtons = buildTradeResponseButtons(trade.id);
       await targetUser.send({ embeds: [recipientEmbed], components: dmButtons });
     } catch (dmError) {
-      console.log("[NFLMON] Could not DM trade recipient - they may have DMs disabled");
+      console.log('[NFLMON] Could not DM trade recipient - they may have DMs disabled');
     }
 
     console.log(`[NFLMON] Trade #${trade.id} created: ${username} -> ${targetUser.username}`);
   } catch (error) {
-    console.error("[NFLMON] trade offer error:", error);
+    console.error('[NFLMON] trade offer error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -1307,7 +1223,7 @@ async function handleTradePending(interaction) {
 
     if (trades.length === 0) {
       await interaction.editReply({
-        content: "You have no pending trades.",
+        content: 'You have no pending trades.',
       });
       return;
     }
@@ -1331,11 +1247,11 @@ async function handleTradePending(interaction) {
       filter: (i) => i.user.id === userId,
     });
 
-    collector.on("collect", async (buttonInteraction) => {
-      const [, , action, tradeIdStr] = buttonInteraction.customId.split("_");
+    collector.on('collect', async (buttonInteraction) => {
+      const [, , action, tradeIdStr] = buttonInteraction.customId.split('_');
       const tradeId = parseInt(tradeIdStr);
 
-      if (action === "accept") {
+      if (action === 'accept') {
         const result = await nflmonService.processTradeAccept(userId, tradeId);
 
         await buttonInteraction.update({
@@ -1354,12 +1270,12 @@ async function handleTradePending(interaction) {
               }
             }
           } catch (announceError) {
-            console.log("[NFLMON] Could not announce trade:", announceError.message);
+            console.log('[NFLMON] Could not announce trade:', announceError.message);
           }
         }
 
         collector.stop();
-      } else if (action === "reject") {
+      } else if (action === 'reject') {
         const result = await nflmonService.processTradeReject(userId, tradeId);
 
         await buttonInteraction.update({
@@ -1367,7 +1283,7 @@ async function handleTradePending(interaction) {
           components: [],
         });
         collector.stop();
-      } else if (action === "cancel") {
+      } else if (action === 'cancel') {
         const result = await nflmonService.processTradeCancel(userId, tradeId);
 
         await buttonInteraction.update({
@@ -1378,13 +1294,13 @@ async function handleTradePending(interaction) {
       }
     });
 
-    collector.on("end", async (_, reason) => {
-      if (reason === "time") {
+    collector.on('end', async (_, reason) => {
+      if (reason === 'time') {
         await interaction.editReply({ components: [] }).catch(() => {});
       }
     });
   } catch (error) {
-    console.error("[NFLMON] trade pending error:", error);
+    console.error('[NFLMON] trade pending error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -1400,12 +1316,12 @@ async function handleTradeCancel(interaction) {
 
   try {
     const userId = interaction.user.id;
-    const tradeId = interaction.options.getInteger("trade_id");
+    const tradeId = interaction.options.getInteger('trade_id');
 
     const result = await nflmonDb.cancelTrade(userId, tradeId);
 
     if (!result.success) {
-      const errorMsg = TRADE_ERRORS[result.error] || "Failed to cancel trade.";
+      const errorMsg = TRADE_ERRORS[result.error] || 'Failed to cancel trade.';
       await interaction.editReply({ content: errorMsg });
       return;
     }
@@ -1414,12 +1330,12 @@ async function handleTradeCancel(interaction) {
       embeds: [
         new EmbedBuilder()
           .setColor(0x808080)
-          .setTitle("Trade Cancelled")
+          .setTitle('Trade Cancelled')
           .setDescription(`Trade #${tradeId} has been cancelled.`),
       ],
     });
   } catch (error) {
-    console.error("[NFLMON] trade cancel error:", error);
+    console.error('[NFLMON] trade cancel error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
@@ -1439,7 +1355,7 @@ export async function autocomplete(interaction) {
     const focusedOption = interaction.options.getFocused(true);
 
     // Handle both "id" and "my_nflmon" options (both are NFLmon IDs for the current user)
-    if (focusedOption.name === "id" || focusedOption.name === "my_nflmon") {
+    if (focusedOption.name === 'id' || focusedOption.name === 'my_nflmon') {
       const userId = interaction.user.id;
       const searchValue = focusedOption.value.toString().toLowerCase();
 
@@ -1450,16 +1366,16 @@ export async function autocomplete(interaction) {
       const choices = bench
         .filter((record) => {
           const player = nflmonService.getPlayer(record.player_id);
-          const name = record.nickname || player?.name || "";
+          const name = record.nickname || player?.name || '';
           const idMatch = record.id.toString().includes(searchValue);
           const nameMatch = name.toLowerCase().includes(searchValue);
-          return idMatch || nameMatch || searchValue === "";
+          return idMatch || nameMatch || searchValue === '';
         })
         .slice(0, 25)
         .map((record) => {
           const player = nflmonService.getPlayer(record.player_id);
-          const name = record.nickname || player?.name || "Unknown";
-          const trainingIndicator = record.training_slot ? " [T]" : "";
+          const name = record.nickname || player?.name || 'Unknown';
+          const trainingIndicator = record.training_slot ? ' [T]' : '';
           return {
             name: `#${record.id} - ${name} (Lv.${record.level})${trainingIndicator}`,
             value: record.id,
@@ -1469,7 +1385,7 @@ export async function autocomplete(interaction) {
       await interaction.respond(choices);
     }
   } catch (error) {
-    console.error("[NFLMON] autocomplete error:", error);
+    console.error('[NFLMON] autocomplete error:', error);
     await interaction.respond([]);
   }
 }

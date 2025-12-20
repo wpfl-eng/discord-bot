@@ -1,4 +1,4 @@
-import { TRAINING_CONFIG, getPosition, getState } from "./trainingConfig.js";
+import { TRAINING_CONFIG, getPosition, getState } from './trainingConfig.js';
 
 /**
  * Get the emoji for a slot based on its state
@@ -9,24 +9,24 @@ export function getSlotEmoji(slot) {
   const state = slot.state;
 
   // Training state uses position emoji
-  if (state === "training" && slot.rookie_type) {
+  if (state === 'training' && slot.rookie_type) {
     const pos = getPosition(slot.rookie_type);
-    return pos?.emoji || "🏈";
+    return pos?.emoji || '🏈';
   }
 
   // Ready state - could show position or star
-  if (state === "ready") {
+  if (state === 'ready') {
     return TRAINING_CONFIG.STATES.READY.emoji;
   }
 
   // Busted state
-  if (state === "busted") {
+  if (state === 'busted') {
     return TRAINING_CONFIG.STATES.BUSTED.emoji;
   }
 
   // Other states use their defined emoji
   const stateConfig = getState(state);
-  return stateConfig?.emoji || "❓";
+  return stateConfig?.emoji || '❓';
 }
 
 /**
@@ -39,7 +39,7 @@ export function renderGrid(slots) {
   const grid = [];
   for (let i = 0; i < 9; i++) {
     const slot = slots.find((s) => s.slot_index === i);
-    grid.push(slot ? getSlotEmoji(slot) : "⬛");
+    grid.push(slot ? getSlotEmoji(slot) : '⬛');
   }
 
   // Build 3x3 display
@@ -51,7 +51,7 @@ export function renderGrid(slots) {
     `  ${grid[6]} | ${grid[7]} | ${grid[8]}`,
   ];
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -60,13 +60,13 @@ export function renderGrid(slots) {
  * @returns {string} - "5m 32s", "Ready!", or "Overdue"
  */
 export function formatTimeRemaining(targetDate) {
-  if (!targetDate) return "Unknown";
+  if (!targetDate) return 'Unknown';
 
   const target = new Date(targetDate);
   const now = new Date();
   const diffMs = target.getTime() - now.getTime();
 
-  if (diffMs <= 0) return "Ready!";
+  if (diffMs <= 0) return 'Ready!';
 
   const diffSec = Math.floor(diffMs / 1000);
   const minutes = Math.floor(diffSec / 60);
@@ -91,7 +91,7 @@ export function formatTimeRemaining(targetDate) {
  * @returns {{slot: object, timeRemaining: string}|null}
  */
 export function getNextReadySlot(slots) {
-  const trainingSlots = slots.filter((s) => s.state === "training" && s.ready_at);
+  const trainingSlots = slots.filter((s) => s.state === 'training' && s.ready_at);
 
   if (trainingSlots.length === 0) return null;
 
@@ -139,12 +139,12 @@ export function buildStatusText(slots) {
   const lines = [];
 
   if (summary.ready > 0) {
-    lines.push(`⭐ **${summary.ready}** player${summary.ready > 1 ? "s" : ""} ready to graduate!`);
+    lines.push(`⭐ **${summary.ready}** player${summary.ready > 1 ? 's' : ''} ready to graduate!`);
   }
 
   if (summary.training > 0) {
     const next = getNextReadySlot(slots);
-    const nextText = next ? ` (next: ${next.timeRemaining})` : "";
+    const nextText = next ? ` (next: ${next.timeRemaining})` : '';
     lines.push(`🏈 **${summary.training}** in training${nextText}`);
   }
 
@@ -161,10 +161,10 @@ export function buildStatusText(slots) {
   }
 
   if (summary.empty > 0) {
-    lines.push(`⬛ **${summary.empty}** empty slot${summary.empty > 1 ? "s" : ""}`);
+    lines.push(`⬛ **${summary.empty}** empty slot${summary.empty > 1 ? 's' : ''}`);
   }
 
-  return lines.length > 0 ? lines.join("\n") : "All slots empty - set up to get started!";
+  return lines.length > 0 ? lines.join('\n') : 'All slots empty - set up to get started!';
 }
 
 /**
@@ -175,16 +175,16 @@ export function buildStatusText(slots) {
  */
 export function getActionableSlots(slots, action) {
   switch (action) {
-    case "setup":
-      return slots.filter((s) => s.state === "empty");
-    case "hydrate":
-      return slots.filter((s) => s.state === "prepared");
-    case "draft":
-      return slots.filter((s) => s.state === "hydrated");
-    case "graduate":
-      return slots.filter((s) => s.state === "ready");
-    case "clear":
-      return slots.filter((s) => s.state === "busted");
+    case 'setup':
+      return slots.filter((s) => s.state === 'empty');
+    case 'hydrate':
+      return slots.filter((s) => s.state === 'prepared');
+    case 'draft':
+      return slots.filter((s) => s.state === 'hydrated');
+    case 'graduate':
+      return slots.filter((s) => s.state === 'ready');
+    case 'clear':
+      return slots.filter((s) => s.state === 'busted');
     default:
       return [];
   }
@@ -196,6 +196,6 @@ export function getActionableSlots(slots, action) {
  * @returns {string} - "1, 2, 3" or "none"
  */
 export function formatSlotNumbers(slots) {
-  if (slots.length === 0) return "none";
-  return slots.map((s) => s.slot_index + 1).join(", ");
+  if (slots.length === 0) return 'none';
+  return slots.map((s) => s.slot_index + 1).join(', ');
 }

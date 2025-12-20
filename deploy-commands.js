@@ -1,8 +1,8 @@
-import "dotenv/config";
-import { REST, Routes } from "discord.js";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "url";
+import 'dotenv/config';
+import { REST, Routes } from 'discord.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 // Make sure your .env is setup
 // node deploy-commands.js
@@ -14,7 +14,7 @@ const commands = [];
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const foldersPath = path.join(__dirname, "discordCommands");
+const foldersPath = path.join(__dirname, 'discordCommands');
 
 try {
   // Read the content of the discordCommands folder
@@ -28,17 +28,17 @@ try {
     fs.statSync(path.join(foldersPath, entry)).isDirectory()
   );
 
-  console.log("Command Files:", commandFiles);
-  console.log("Command Folders:", commandFolders);
+  console.log('Command Files:', commandFiles);
+  console.log('Command Folders:', commandFolders);
 
   // Process command files in the root of discordCommands
   for (const file of commandFiles) {
-    if (file.endsWith(".js")) {
+    if (file.endsWith('.js')) {
       const filePath = path.join(foldersPath, file);
       const fileUrl = pathToFileURL(filePath).href;
       const command = await import(fileUrl);
       // Set a new item in the Collection with the key as the command name and the value as the exported module
-      if ("data" in command && "execute" in command) {
+      if ('data' in command && 'execute' in command) {
         commands.push(command.data.toJSON());
       } else {
         console.log(
@@ -51,16 +51,14 @@ try {
   // Process command files in subdirectories
   for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
-    const folderCommandFiles = fs
-      .readdirSync(commandsPath)
-      .filter((file) => file.endsWith(".js"));
+    const folderCommandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
 
     for (const file of folderCommandFiles) {
       const filePath = path.join(commandsPath, file);
       const fileUrl = pathToFileURL(filePath).href;
       const command = await import(fileUrl);
       // Set a new item in the Collection with the key as the command name and the value as the exported module
-      if ("data" in command && "execute" in command) {
+      if ('data' in command && 'execute' in command) {
         commands.push(command.data.toJSON());
       } else {
         console.log(
@@ -70,7 +68,7 @@ try {
     }
   }
 } catch (err) {
-  console.error("Error reading command folders:", err);
+  console.error('Error reading command folders:', err);
 }
 
 // Construct and prepare an instance of the REST module
@@ -79,22 +77,15 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 // and deploy your commands!
 (async () => {
   try {
-    console.log(
-      `Started refreshing ${commands.length} application (/) commands.`
-    );
+    console.log(`Started refreshing ${commands.length} application (/) commands.`);
 
     // The put method is used to fully refresh all commands in the guild with the current set
     const data = await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.DISCORD_CLIENT_ID,
-        process.env.DISCORD_GUILD_ID
-      ),
+      Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID),
       { body: commands }
     );
 
-    console.log(
-      `Successfully reloaded ${data.length} application (/) commands.`
-    );
+    console.log(`Successfully reloaded ${data.length} application (/) commands.`);
     process.exit(0);
   } catch (error) {
     // And of course, make sure you catch and log any errors!

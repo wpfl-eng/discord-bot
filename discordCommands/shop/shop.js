@@ -5,137 +5,137 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-} from "discord.js";
-import { sql } from "@vercel/postgres";
-import * as economyDb from "../../economy/economyDb.js";
-import * as inventoryDb from "../../inventory/inventoryDb.js";
-import { CONFIG, formatCurrency } from "../../economy/economyConfig.js";
-import * as nflmonService from "../../nflmon/nflmonService.js";
-import * as nflmonDb from "../../nflmon/nflmonDb.js";
-import { TRAINING_CONFIG } from "../../nflmon/nflmonConfig.js";
+} from 'discord.js';
+import { sql } from '@vercel/postgres';
+import * as economyDb from '../../economy/economyDb.js';
+import * as inventoryDb from '../../inventory/inventoryDb.js';
+import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
+import * as nflmonService from '../../nflmon/nflmonService.js';
+import * as nflmonDb from '../../nflmon/nflmonDb.js';
+import { TRAINING_CONFIG } from '../../nflmon/nflmonConfig.js';
 
 // Shop items organized by category
 const SHOP_CATEGORIES = {
   economy: {
-    name: "Economy Items",
-    emoji: "💰",
+    name: 'Economy Items',
+    emoji: '💰',
     items: [
       {
-        id: "padlock",
-        name: "Padlock",
-        emoji: "🔒",
+        id: 'padlock',
+        name: 'Padlock',
+        emoji: '🔒',
         price: CONFIG.PADLOCK_COST,
-        description: "Protects you from one robbery attempt",
-        type: "economy",
+        description: 'Protects you from one robbery attempt',
+        type: 'economy',
       },
       {
-        id: "bank_expansion",
-        name: "Bank Expansion",
-        emoji: "🏦",
+        id: 'bank_expansion',
+        name: 'Bank Expansion',
+        emoji: '🏦',
         price: CONFIG.BANK_EXPANSION_COST,
         description: `Increases bank capacity by ${formatCurrency(CONFIG.BANK_EXPANSION_AMOUNT)}`,
-        type: "economy",
+        type: 'economy',
       },
     ],
   },
   training: {
-    name: "Training Items",
-    emoji: "🏟️",
+    name: 'Training Items',
+    emoji: '🏟️',
     items: [
       {
-        id: "contract_te",
-        name: "TE Contract",
-        emoji: "📜",
+        id: 'contract_te',
+        name: 'TE Contract',
+        emoji: '📜',
         price: 50,
-        description: "Draft a Tight End rookie",
-        type: "inventory",
+        description: 'Draft a Tight End rookie',
+        type: 'inventory',
         inventoryQuantity: 1,
       },
       {
-        id: "contract_rb",
-        name: "RB Contract",
-        emoji: "📜",
+        id: 'contract_rb',
+        name: 'RB Contract',
+        emoji: '📜',
         price: 100,
-        description: "Draft a Running Back rookie",
-        type: "inventory",
+        description: 'Draft a Running Back rookie',
+        type: 'inventory',
         inventoryQuantity: 1,
       },
       {
-        id: "contract_wr",
-        name: "WR Contract",
-        emoji: "📜",
+        id: 'contract_wr',
+        name: 'WR Contract',
+        emoji: '📜',
         price: 150,
-        description: "Draft a Wide Receiver rookie",
-        type: "inventory",
+        description: 'Draft a Wide Receiver rookie',
+        type: 'inventory',
         inventoryQuantity: 1,
       },
       {
-        id: "contract_qb",
-        name: "QB Contract",
-        emoji: "📜",
+        id: 'contract_qb',
+        name: 'QB Contract',
+        emoji: '📜',
         price: 250,
-        description: "Draft a Quarterback rookie",
-        type: "inventory",
+        description: 'Draft a Quarterback rookie',
+        type: 'inventory',
         inventoryQuantity: 1,
       },
       {
-        id: "tool_setup_kit",
-        name: "Setup Kit",
-        emoji: "🔧",
+        id: 'tool_setup_kit',
+        name: 'Setup Kit',
+        emoji: '🔧',
         price: 500,
-        description: "50 uses - Prepares training slots",
-        type: "inventory",
+        description: '50 uses - Prepares training slots',
+        type: 'inventory',
         inventoryQuantity: 50,
       },
       {
-        id: "tool_water_cooler",
-        name: "Water Cooler",
-        emoji: "💧",
+        id: 'tool_water_cooler',
+        name: 'Water Cooler',
+        emoji: '💧',
         price: 300,
-        description: "30 uses - Hydrates prepared slots",
-        type: "inventory",
+        description: '30 uses - Hydrates prepared slots',
+        type: 'inventory',
         inventoryQuantity: 30,
       },
     ],
   },
   nflmon: {
-    name: "NFLmon",
-    emoji: "🎮",
+    name: 'NFLmon',
+    emoji: '🎮',
     items: [
       {
-        id: "nflmon_starter_pack",
-        name: "Starter Pack",
-        emoji: "📦",
+        id: 'nflmon_starter_pack',
+        name: 'Starter Pack',
+        emoji: '📦',
         price: 500,
-        description: "1 random NFLmon",
-        type: "nflmon_pack",
+        description: '1 random NFLmon',
+        type: 'nflmon_pack',
         quantity: 1,
       },
       {
-        id: "nflmon_pro_pack",
-        name: "Pro Pack",
-        emoji: "📦",
+        id: 'nflmon_pro_pack',
+        name: 'Pro Pack',
+        emoji: '📦',
         price: 1500,
-        description: "3 random NFLmon",
-        type: "nflmon_pack",
+        description: '3 random NFLmon',
+        type: 'nflmon_pack',
         quantity: 3,
       },
       {
-        id: "nflmon_elite_pack",
-        name: "Elite Pack",
-        emoji: "🎯",
+        id: 'nflmon_elite_pack',
+        name: 'Elite Pack',
+        emoji: '🎯',
         price: 5000,
-        description: "5 random NFLmon (best value!)",
-        type: "nflmon_pack",
+        description: '5 random NFLmon (best value!)',
+        type: 'nflmon_pack',
         quantity: 5,
       },
       {
-        id: "nflmon_training_slot",
-        name: "Training Slot",
-        emoji: "🏋️",
+        id: 'nflmon_training_slot',
+        name: 'Training Slot',
+        emoji: '🏋️',
         price: 3000,
-        description: "Expand training capacity (+1 slot, max 5)",
-        type: "nflmon_training",
+        description: 'Expand training capacity (+1 slot, max 5)',
+        type: 'nflmon_training',
       },
     ],
   },
@@ -166,7 +166,7 @@ function findItem(itemId) {
 function buildShopEmbed(userData) {
   const embed = new EmbedBuilder()
     .setColor(0x9b59b6)
-    .setTitle("🛒 Economy Shop")
+    .setTitle('🛒 Economy Shop')
     .setDescription(
       `Your wallet: ${formatCurrency(userData.wallet)}\n\nClick a button below to purchase an item.`
     )
@@ -177,15 +177,15 @@ function buildShopEmbed(userData) {
     // Add category header
     embed.addFields({
       name: `${category.emoji} ${category.name}`,
-      value: "─".repeat(20),
+      value: '─'.repeat(20),
       inline: false,
     });
 
     // Add items in this category
     for (const item of category.items) {
-      let status = "";
-      if (item.id === "padlock" && userData.has_padlock) {
-        status = " *(Already owned)*";
+      let status = '';
+      if (item.id === 'padlock' && userData.has_padlock) {
+        status = ' *(Already owned)*';
       }
       embed.addFields({
         name: `${item.emoji} ${item.name} - ${formatCurrency(item.price)}`,
@@ -212,7 +212,7 @@ function buildShopButtons(userData) {
     const rowItems = allItems.slice(i, i + 5);
     const buttons = rowItems.map((item) => {
       const canAfford = userData.wallet >= item.price;
-      const alreadyOwned = item.id === "padlock" && userData.has_padlock;
+      const alreadyOwned = item.id === 'padlock' && userData.has_padlock;
 
       return new ButtonBuilder()
         .setCustomId(`shop_${item.id}`)
@@ -272,7 +272,7 @@ async function buyInventoryItem(userId, itemId, price, quantity) {
   `;
 
   if (!result.rows[0]) {
-    return { success: false, error: "INSUFFICIENT_FUNDS" };
+    return { success: false, error: 'INSUFFICIENT_FUNDS' };
   }
 
   // Add to inventory with rollback on failure
@@ -281,16 +281,19 @@ async function buyInventoryItem(userId, itemId, price, quantity) {
   } catch (error) {
     // Rollback: refund the wallet
     await sql`UPDATE economy_users SET wallet = wallet + ${price} WHERE user_id = ${userId}`;
-    console.error(`Rolled back shop purchase: Failed to add ${itemId} to inventory for ${userId}:`, error);
-    return { success: false, error: "INVENTORY_ADD_FAILED" };
+    console.error(
+      `Rolled back shop purchase: Failed to add ${itemId} to inventory for ${userId}:`,
+      error
+    );
+    return { success: false, error: 'INVENTORY_ADD_FAILED' };
   }
 
   return { success: true, user: result.rows[0] };
 }
 
 export const data = new SlashCommandBuilder()
-  .setName("shop")
-  .setDescription("View and purchase items from the shop");
+  .setName('shop')
+  .setDescription('View and purchase items from the shop');
 
 /**
  * Execute the shop command
@@ -322,13 +325,13 @@ export async function execute(interaction) {
       filter: (i) => i.user.id === userId,
     });
 
-    collector.on("collect", async (buttonInteraction) => {
-      const itemId = buttonInteraction.customId.replace("shop_", "");
+    collector.on('collect', async (buttonInteraction) => {
+      const itemId = buttonInteraction.customId.replace('shop_', '');
       const item = findItem(itemId);
 
       if (!item) {
         await buttonInteraction.reply({
-          content: "Item not found!",
+          content: 'Item not found!',
           ephemeral: true,
         });
         return;
@@ -347,9 +350,9 @@ export async function execute(interaction) {
       }
 
       // Check if already owned (padlock only)
-      if (item.id === "padlock" && currentUser.has_padlock) {
+      if (item.id === 'padlock' && currentUser.has_padlock) {
         await buttonInteraction.reply({
-          content: "You already have a padlock!",
+          content: 'You already have a padlock!',
           ephemeral: true,
         });
         return;
@@ -359,22 +362,26 @@ export async function execute(interaction) {
       let updatedUser;
       let purchaseDetails = {};
 
-      if (item.type === "economy") {
+      if (item.type === 'economy') {
         // Economy items: direct effects
-        if (item.id === "padlock") {
+        if (item.id === 'padlock') {
           updatedUser = await economyDb.buyPadlock(userId, item.price);
-        } else if (item.id === "bank_expansion") {
-          updatedUser = await economyDb.buyBankExpansion(userId, item.price, CONFIG.BANK_EXPANSION_AMOUNT);
+        } else if (item.id === 'bank_expansion') {
+          updatedUser = await economyDb.buyBankExpansion(
+            userId,
+            item.price,
+            CONFIG.BANK_EXPANSION_AMOUNT
+          );
           purchaseDetails.bankCapacity = updatedUser?.bank_capacity;
         }
-      } else if (item.type === "inventory") {
+      } else if (item.type === 'inventory') {
         // Inventory items: add to user inventory
         const result = await buyInventoryItem(userId, item.id, item.price, item.inventoryQuantity);
         if (result.success) {
           updatedUser = result.user;
           purchaseDetails.quantity = item.inventoryQuantity;
         }
-      } else if (item.type === "nflmon_pack") {
+      } else if (item.type === 'nflmon_pack') {
         // NFLmon pack: deduct wallet and roll NFLmon
         const deductResult = await sql`
           UPDATE economy_users
@@ -400,20 +407,20 @@ export async function execute(interaction) {
             }
           } catch (packError) {
             // Refund on exception
-            console.error("[SHOP] NFLmon pack error, refunding:", packError);
+            console.error('[SHOP] NFLmon pack error, refunding:', packError);
             await sql`UPDATE economy_users SET wallet = wallet + ${item.price} WHERE user_id = ${userId}`;
           }
         }
-      } else if (item.type === "nflmon_training") {
+      } else if (item.type === 'nflmon_training') {
         // NFLmon training slot: use nflmonDb purchase function
         const result = await nflmonDb.purchaseTrainingSlot(userId, item.price);
         if (result.success) {
           updatedUser = await economyDb.getUser(userId);
           purchaseDetails.trainingSlot = true;
           purchaseDetails.newMax = result.newMax;
-        } else if (result.error === "MAX_SLOTS_REACHED") {
+        } else if (result.error === 'MAX_SLOTS_REACHED') {
           await buttonInteraction.reply({
-            content: "You already have the maximum training slots (5)!",
+            content: 'You already have the maximum training slots (5)!',
             ephemeral: true,
           });
           return;
@@ -432,12 +439,12 @@ export async function execute(interaction) {
       // Create purchase confirmation embed
       const purchaseEmbed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setTitle("✅ Purchase Successful!")
+        .setTitle('✅ Purchase Successful!')
         .setDescription(
           `You bought **${item.emoji} ${item.name}** for ${formatCurrency(item.price)}!`
         )
         .addFields({
-          name: "New Balance",
+          name: 'New Balance',
           value: formatCurrency(updatedUser.wallet),
           inline: true,
         });
@@ -445,7 +452,7 @@ export async function execute(interaction) {
       // Add type-specific fields
       if (purchaseDetails.bankCapacity) {
         purchaseEmbed.addFields({
-          name: "New Bank Capacity",
+          name: 'New Bank Capacity',
           value: formatCurrency(purchaseDetails.bankCapacity),
           inline: true,
         });
@@ -453,11 +460,11 @@ export async function execute(interaction) {
 
       if (purchaseDetails.quantity) {
         purchaseEmbed.addFields({
-          name: "Added to Inventory",
+          name: 'Added to Inventory',
           value: `${purchaseDetails.quantity}x ${item.name}`,
           inline: true,
         });
-        purchaseEmbed.setFooter({ text: "View your items with /inventory view" });
+        purchaseEmbed.setFooter({ text: 'View your items with /inventory view' });
       }
 
       // NFLmon pack purchase - show pack opening results
@@ -467,21 +474,21 @@ export async function execute(interaction) {
           return `${i + 1}. **${player.name}** (${player.position}) - ${rarity.name}`;
         });
         purchaseEmbed.addFields({
-          name: "🎮 NFLmon Received",
-          value: packLines.join("\n"),
+          name: '🎮 NFLmon Received',
+          value: packLines.join('\n'),
           inline: false,
         });
-        purchaseEmbed.setFooter({ text: "Use /nflmon bench to view your collection" });
+        purchaseEmbed.setFooter({ text: 'Use /nflmon bench to view your collection' });
       }
 
       // Training slot purchase - show new slot count
       if (purchaseDetails.trainingSlot) {
         purchaseEmbed.addFields({
-          name: "Training Slots",
+          name: 'Training Slots',
           value: `You now have **${purchaseDetails.newMax}/${TRAINING_CONFIG.MAX_SLOTS}** training slots!`,
           inline: true,
         });
-        purchaseEmbed.setFooter({ text: "Use /nflmon train to assign NFLmon to training" });
+        purchaseEmbed.setFooter({ text: 'Use /nflmon train to assign NFLmon to training' });
       }
 
       await buttonInteraction.reply({ embeds: [purchaseEmbed], ephemeral: true });
@@ -497,16 +504,18 @@ export async function execute(interaction) {
       });
     });
 
-    collector.on("end", async () => {
+    collector.on('end', async () => {
       // Disable all buttons when collector ends
       const disabledComponents = buildDisabledButtons();
 
-      await interaction.editReply({
-        components: disabledComponents,
-      }).catch(() => {});
+      await interaction
+        .editReply({
+          components: disabledComponents,
+        })
+        .catch(() => {});
     });
   } catch (error) {
-    console.error("shop command error:", error);
+    console.error('shop command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });

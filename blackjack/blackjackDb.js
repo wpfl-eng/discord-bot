@@ -1,4 +1,4 @@
-import { sql } from "@vercel/postgres";
+import { sql } from '@vercel/postgres';
 
 // ============ Stats Management ============
 
@@ -66,13 +66,13 @@ export async function recordGameResult(data) {
   } = data;
 
   // Determine increments based on outcome
-  const gamesWon = outcome === "win" ? 1 : 0;
-  const gamesLost = outcome === "loss" ? 1 : 0;
-  const pushes = outcome === "push" ? 1 : 0;
+  const gamesWon = outcome === 'win' ? 1 : 0;
+  const gamesLost = outcome === 'loss' ? 1 : 0;
+  const pushes = outcome === 'push' ? 1 : 0;
   const blackjacksHit = wasBlackjack ? 1 : 0;
   const busts = wasBust ? 1 : 0;
   const doublesAttempted = wasDouble ? 1 : 0;
-  const doublesWon = wasDouble && outcome === "win" ? 1 : 0;
+  const doublesWon = wasDouble && outcome === 'win' ? 1 : 0;
   const splitsAttempted = wasSplit ? 1 : 0;
   const insurancesTaken = wasInsurance ? 1 : 0;
   const surrenders = wasSurrender ? 1 : 0;
@@ -164,7 +164,7 @@ export async function getLeaderboard(category, limit = 10) {
   let result;
 
   switch (category) {
-    case "games":
+    case 'games':
       result = await sql`
         SELECT user_id, username, games_played, games_won, games_lost,
           CASE WHEN games_played > 0
@@ -177,7 +177,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "wins":
+    case 'wins':
       result = await sql`
         SELECT user_id, username, games_won, games_played,
           CASE WHEN games_played > 0
@@ -190,7 +190,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "winrate":
+    case 'winrate':
       result = await sql`
         SELECT user_id, username, games_won, games_played,
           ROUND(100.0 * games_won / games_played, 1) as win_rate
@@ -201,7 +201,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "blackjacks":
+    case 'blackjacks':
       result = await sql`
         SELECT user_id, username, blackjacks_hit, games_played
         FROM blackjack_stats
@@ -210,7 +210,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "profit":
+    case 'profit':
       result = await sql`
         SELECT user_id, username,
           (total_won - total_wagered) as net_profit,
@@ -221,7 +221,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "streak":
+    case 'streak':
       result = await sql`
         SELECT user_id, username, best_win_streak, current_streak, games_played
         FROM blackjack_stats
@@ -230,7 +230,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "biggest_win":
+    case 'biggest_win':
       result = await sql`
         SELECT user_id, username, biggest_win, games_played
         FROM blackjack_stats
@@ -257,14 +257,14 @@ export async function getLeaderboard(category, limit = 10) {
  * @param {'games'|'wins'|'winrate'|'profit'} category - Category to rank
  * @returns {Promise<number|null>} - User's rank (1-based) or null
  */
-export async function getUserRank(userId, category = "games") {
+export async function getUserRank(userId, category = 'games') {
   const stats = await getUserStats(userId);
   if (!stats) return null;
 
   let result;
 
   switch (category) {
-    case "games":
+    case 'games':
       result = await sql`
         SELECT COUNT(*) + 1 as rank
         FROM blackjack_stats
@@ -272,7 +272,7 @@ export async function getUserRank(userId, category = "games") {
       `;
       break;
 
-    case "wins":
+    case 'wins':
       result = await sql`
         SELECT COUNT(*) + 1 as rank
         FROM blackjack_stats
@@ -280,7 +280,7 @@ export async function getUserRank(userId, category = "games") {
       `;
       break;
 
-    case "profit":
+    case 'profit':
       const netProfit = stats.total_won - stats.total_wagered;
       result = await sql`
         SELECT COUNT(*) + 1 as rank

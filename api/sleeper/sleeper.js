@@ -1,12 +1,10 @@
-import { sleeperMemebers } from "../../constants/sleeperMembers.js";
+import { sleeperMemebers } from '../../constants/sleeperMembers.js';
 
 class Matchup {
   constructor(matchupData) {
     const memberInfo =
-      sleeperMemebers.find(
-        (member) => member.rosterId === matchupData.roster_id
-      ) || {};
-    this.name = memberInfo.name || "Unknown";
+      sleeperMemebers.find((member) => member.rosterId === matchupData.roster_id) || {};
+    this.name = memberInfo.name || 'Unknown';
 
     this.starters = matchupData.starters;
     this.rosterId = matchupData.roster_id;

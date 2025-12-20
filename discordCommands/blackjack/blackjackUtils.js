@@ -1,7 +1,7 @@
 // Blackjack Card and Deck Utilities
 
-export const SUITS = ["♠", "♥", "♦", "♣"];
-export const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+export const SUITS = ['♠', '♥', '♦', '♣'];
+export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
 /**
  * Creates a new shuffled 52-card deck
@@ -50,10 +50,10 @@ export function calculateHandValue(hand) {
   let aces = 0;
 
   for (const card of hand) {
-    if (card.rank === "A") {
+    if (card.rank === 'A') {
       aces++;
       value += 11;
-    } else if (["K", "Q", "J"].includes(card.rank)) {
+    } else if (['K', 'Q', 'J'].includes(card.rank)) {
       value += 10;
     } else {
       value += parseInt(card.rank);
@@ -88,10 +88,10 @@ export function isSoft(hand) {
   let aces = 0;
 
   for (const card of hand) {
-    if (card.rank === "A") {
+    if (card.rank === 'A') {
       aces++;
       value += 11;
-    } else if (["K", "Q", "J"].includes(card.rank)) {
+    } else if (['K', 'Q', 'J'].includes(card.rank)) {
       value += 10;
     } else {
       value += parseInt(card.rank);
@@ -126,7 +126,7 @@ export function formatHand(hand, hideSecond = false) {
   if (hideSecond && hand.length >= 2) {
     return `\`${formatCard(hand[0])}\` \`🎴\``;
   }
-  return hand.map((card) => `\`${formatCard(card)}\``).join(" ");
+  return hand.map((card) => `\`${formatCard(card)}\``).join(' ');
 }
 
 /**
@@ -139,8 +139,8 @@ export function getVisibleDealerValue(hand, hideSecond = false) {
   if (hideSecond && hand.length >= 2) {
     // Only count the first card
     const card = hand[0];
-    if (card.rank === "A") return 11;
-    if (["K", "Q", "J"].includes(card.rank)) return 10;
+    if (card.rank === 'A') return 11;
+    if (['K', 'Q', 'J'].includes(card.rank)) return 10;
     return parseInt(card.rank);
   }
   return calculateHandValue(hand);
@@ -152,8 +152,8 @@ export function getVisibleDealerValue(hand, hideSecond = false) {
  * @returns {number} Card value for split comparison
  */
 export function getSplitValue(card) {
-  if (card.rank === "A") return 11;
-  if (["K", "Q", "J", "10"].includes(card.rank)) return 10;
+  if (card.rank === 'A') return 11;
+  if (['K', 'Q', 'J', '10'].includes(card.rank)) return 10;
   return parseInt(card.rank);
 }
 
@@ -174,7 +174,7 @@ export function canSplit(hand) {
  * @returns {boolean} True if dealer shows an Ace
  */
 export function dealerShowsAce(dealerHand) {
-  return dealerHand.length >= 1 && dealerHand[0].rank === "A";
+  return dealerHand.length >= 1 && dealerHand[0].rank === 'A';
 }
 
 /**
@@ -184,7 +184,7 @@ export function dealerShowsAce(dealerHand) {
  */
 export function dealerShowsTen(dealerHand) {
   if (dealerHand.length < 1) return false;
-  return ["10", "J", "Q", "K"].includes(dealerHand[0].rank);
+  return ['10', 'J', 'Q', 'K'].includes(dealerHand[0].rank);
 }
 
 /**

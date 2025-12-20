@@ -8,17 +8,17 @@ export const DRAFT_CONSTANTS = {
   MIN_SEASON: 2010,
   MAX_SEASON: 2025,
   ROUNDS_PER_DRAFT: 12,
-  
+
   // Thresholds
   HIGH_AUCTION_BID: 65,
   LOW_AVG_VALUE: 12,
   HIGH_CONSISTENCY: 80,
   HIGH_REPEAT_PLAYERS: 5,
-  
+
   // Field limits
   MAX_FIELD_LENGTH: 1024,
   MAX_DESCRIPTION_LENGTH: 4096,
-  
+
   // Analysis thresholds
   ELITE_ROI: 12,
   ELITE_CONSISTENCY: 85,
@@ -26,18 +26,18 @@ export const DRAFT_CONSTANTS = {
   ELITE_HIT_RATE: 65,
   HIGH_RISK_BID: 50,
   HIGH_AVG_VALUE: 20,
-  
+
   // Position analysis
   RB_HEAVY_THRESHOLD: 0.35,
-  WR_HEAVY_THRESHOLD: 0.40,
+  WR_HEAVY_THRESHOLD: 0.4,
   EARLY_WR_THRESHOLD: 0.6,
   EARLY_RB_THRESHOLD: 0.6,
   LATE_STREAMING_THRESHOLD: 0.5,
-  
+
   // Value hunting
   LATE_ROUND_THRESHOLD: 100,
   VALUE_HUNTING_MULTIPLIER: 20,
-  
+
   // Formatting
   EMOJI: {
     POWER: '⚡',
@@ -72,8 +72,8 @@ export const DRAFT_CONSTANTS = {
     EYES: '👀',
     GEM: '💎',
     RADIO: '📻',
-    MEAT: '🥩'
-  }
+    MEAT: '🥩',
+  },
 };
 
 /**
@@ -84,9 +84,8 @@ export const DRAFT_CONSTANTS = {
  */
 export function truncateFieldValue(value, maxLength = DRAFT_CONSTANTS.MAX_FIELD_LENGTH) {
   if (!value || value.length <= maxLength) return value;
-  return value.substring(0, maxLength - 3) + "...";
+  return value.substring(0, maxLength - 3) + '...';
 }
-
 
 /**
  * Formats a percentage with specified decimals
@@ -96,7 +95,7 @@ export function truncateFieldValue(value, maxLength = DRAFT_CONSTANTS.MAX_FIELD_
  * @returns {string} Formatted percentage
  */
 export function formatPercentage(value, total, decimals = 1) {
-  if (!total || total === 0) return "0";
+  if (!total || total === 0) return '0';
   return ((value / total) * 100).toFixed(decimals);
 }
 
@@ -107,11 +106,15 @@ export function formatPercentage(value, total, decimals = 1) {
  */
 export function getRankEmoji(rank) {
   const { EMOJI } = DRAFT_CONSTANTS;
-  switch(rank) {
-    case 0: return EMOJI.CROWN;
-    case 1: return EMOJI.SILVER;
-    case 2: return EMOJI.BRONZE;
-    default: return "";
+  switch (rank) {
+    case 0:
+      return EMOJI.CROWN;
+    case 1:
+      return EMOJI.SILVER;
+    case 2:
+      return EMOJI.BRONZE;
+    default:
+      return '';
   }
 }
 
@@ -122,9 +125,9 @@ export function getRankEmoji(rank) {
  */
 export function getRoundCategory(position) {
   const round = Math.ceil(position / DRAFT_CONSTANTS.ROUNDS_PER_DRAFT);
-  if (round <= 3) return "early";
-  if (round <= 8) return "mid";
-  return "late";
+  if (round <= 3) return 'early';
+  if (round <= 8) return 'mid';
+  return 'late';
 }
 
 /**
@@ -133,9 +136,11 @@ export function getRoundCategory(position) {
  * @returns {boolean} Whether it's an auction pick
  */
 export function isAuctionPick(pick) {
-  return pick.auction_value && 
-         pick.auction_value > 0 && 
-         pick.season >= DRAFT_CONSTANTS.AUCTION_START_YEAR;
+  return (
+    pick.auction_value &&
+    pick.auction_value > 0 &&
+    pick.season >= DRAFT_CONSTANTS.AUCTION_START_YEAR
+  );
 }
 
 /**
@@ -147,11 +152,11 @@ export function calculateStats(values) {
   if (!values || values.length === 0) {
     return { mean: 0, variance: 0, stdDev: 0 };
   }
-  
+
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
   const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
   const stdDev = Math.sqrt(variance);
-  
+
   return { mean, variance, stdDev };
 }
 
@@ -163,7 +168,7 @@ export function calculateStats(values) {
  */
 export function groupAndCount(items, key) {
   return items.reduce((acc, item) => {
-    const value = item[key] || "Unknown";
+    const value = item[key] || 'Unknown';
     acc[value] = (acc[value] || 0) + 1;
     return acc;
   }, {});
@@ -178,13 +183,13 @@ export function groupAndCount(items, key) {
  */
 export function getTopItems(frequency, n = 3, total = null) {
   return Object.entries(frequency)
-    .filter(([key]) => key !== "Unknown")
-    .sort(([,a], [,b]) => b - a)
+    .filter(([key]) => key !== 'Unknown')
+    .sort(([, a], [, b]) => b - a)
     .slice(0, n)
     .map(([key, count]) => ({
       key,
       count,
-      percentage: total ? formatPercentage(count, total) : null
+      percentage: total ? formatPercentage(count, total) : null,
     }));
 }
 
@@ -205,7 +210,7 @@ export function safeParseFloat(value, defaultValue = 0) {
  * @returns {string} Formatted bullet list
  */
 export function bulletList(items) {
-  return items.map(item => `• ${item}`).join("\n");
+  return items.map((item) => `• ${item}`).join('\n');
 }
 
 /**
@@ -214,7 +219,7 @@ export function bulletList(items) {
  * @returns {string} Last name
  */
 export function getLastName(fullName) {
-  if (!fullName) return "";
+  if (!fullName) return '';
   const parts = fullName.split(' ');
   return parts[parts.length - 1];
 }
@@ -225,9 +230,10 @@ export function getLastName(fullName) {
  * @returns {string} Personality archetype
  */
 export function getDraftArchetype(stats) {
-  const { EMOJI, HIGH_AUCTION_BID, LOW_AVG_VALUE, HIGH_CONSISTENCY, HIGH_REPEAT_PLAYERS } = DRAFT_CONSTANTS;
+  const { EMOJI, HIGH_AUCTION_BID, LOW_AVG_VALUE, HIGH_CONSISTENCY, HIGH_REPEAT_PLAYERS } =
+    DRAFT_CONSTANTS;
   const complexStats = stats.complexStats || {};
-  
+
   if (stats.auction_max_bid > HIGH_AUCTION_BID) {
     return `**${EMOJI.SHARK} SHARK MENTALITY**`;
   } else if (stats.auction_avg_value < LOW_AVG_VALUE) {
@@ -250,7 +256,7 @@ export function getDraftArchetype(stats) {
 export function validateSeasonRange(min, max) {
   let seasonMin = min;
   let seasonMax = max;
-  
+
   // Handle defaults
   if (!seasonMin && !seasonMax) {
     seasonMin = DRAFT_CONSTANTS.MIN_SEASON;
@@ -260,11 +266,11 @@ export function validateSeasonRange(min, max) {
   } else if (!seasonMin && seasonMax) {
     seasonMin = DRAFT_CONSTANTS.MIN_SEASON;
   }
-  
+
   // Swap if backwards
   if (seasonMin > seasonMax) {
     [seasonMin, seasonMax] = [seasonMax, seasonMin];
   }
-  
+
   return { seasonMin, seasonMax };
 }

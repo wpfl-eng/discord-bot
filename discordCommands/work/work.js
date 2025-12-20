@@ -1,5 +1,5 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
 import {
   CONFIG,
   formatCurrency,
@@ -7,11 +7,11 @@ import {
   randomInt,
   getRandomJob,
   CURRENCY_EMOJI,
-} from "../../economy/economyConfig.js";
+} from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("work")
-  .setDescription("Put in work at practice to earn some coins");
+  .setName('work')
+  .setDescription('Put in work at practice to earn some coins');
 
 /**
  * Execute the work command
@@ -37,7 +37,7 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("💼 Work")
+        .setTitle('💼 Work')
         .setDescription(
           `You're too tired to work right now!\n\nTry again <t:${discordTimestamp}:R>`
         )
@@ -64,23 +64,25 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setTitle("💼 Work Complete!")
+        .setTitle('💼 Work Complete!')
         .setDescription(`${job.success} ${formatCurrency(earnings)}!`)
         .addFields(
           {
-            name: "Earned",
+            name: 'Earned',
             value: formatCurrency(earnings),
             inline: true,
           },
           {
-            name: "New Balance",
+            name: 'New Balance',
             value: formatCurrency(updatedUser.wallet),
             inline: true,
           }
         )
         .setTimestamp()
         .setFooter({ text: `Work again` })
-        .setDescription(`${job.success} ${formatCurrency(earnings)}!\n\nWork again <t:${discordTimestamp}:R>`);
+        .setDescription(
+          `${job.success} ${formatCurrency(earnings)}!\n\nWork again <t:${discordTimestamp}:R>`
+        );
 
       await interaction.editReply({ embeds: [embed] });
     } else {
@@ -89,20 +91,20 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("💼 Work Failed!")
+        .setTitle('💼 Work Failed!')
         .setDescription(`${job.fail}. You earned nothing.\n\nTry again <t:${discordTimestamp}:R>`)
         .addFields({
-          name: "Earned",
+          name: 'Earned',
           value: formatCurrency(0),
           inline: true,
         })
         .setTimestamp()
-        .setFooter({ text: "Better luck next time!" });
+        .setFooter({ text: 'Better luck next time!' });
 
       await interaction.editReply({ embeds: [embed] });
     }
   } catch (error) {
-    console.error("work command error:", error);
+    console.error('work command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });

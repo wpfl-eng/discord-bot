@@ -1,9 +1,9 @@
 // Wordle Database Operations
 // All database interactions for the Wordle game
 
-import { sql } from "@vercel/postgres";
-import { getRandomWord } from "./wordleWords.js";
-import { CONFIG } from "./wordleConfig.js";
+import { sql } from '@vercel/postgres';
+import { getRandomWord } from './wordleWords.js';
+import { CONFIG } from './wordleConfig.js';
 
 // ============ Word Management ============
 
@@ -49,8 +49,7 @@ export async function rotateWordIfNeeded() {
     return await initializeWord();
   }
 
-  const hoursSinceSet =
-    (Date.now() - new Date(current.set_at).getTime()) / (1000 * 60 * 60);
+  const hoursSinceSet = (Date.now() - new Date(current.set_at).getTime()) / (1000 * 60 * 60);
 
   // Check if anyone has attempted this word (win or loss)
   const attemptsResult = await sql`
@@ -117,8 +116,7 @@ export function getRotationInfo(currentWord) {
     return { canRotate: false, minutesRemaining: 0 };
   }
 
-  const hoursSinceSet =
-    (Date.now() - new Date(currentWord.set_at).getTime()) / (1000 * 60 * 60);
+  const hoursSinceSet = (Date.now() - new Date(currentWord.set_at).getTime()) / (1000 * 60 * 60);
   const hoursRemaining = Math.max(0, CONFIG.ROTATION_HOURS - hoursSinceSet);
 
   return {
@@ -322,7 +320,7 @@ export async function getLeaderboard(category, limit = 10) {
   let result;
 
   switch (category) {
-    case "wins":
+    case 'wins':
       result = await sql`
         SELECT user_id, username, games_won, games_played,
           CASE WHEN games_played > 0
@@ -336,7 +334,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "streak":
+    case 'streak':
       result = await sql`
         SELECT user_id, username, best_streak, current_streak, games_played
         FROM wordle_stats
@@ -346,7 +344,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "first_solves":
+    case 'first_solves':
       result = await sql`
         SELECT user_id, username, first_solves, games_played
         FROM wordle_stats
@@ -356,7 +354,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "winrate":
+    case 'winrate':
       result = await sql`
         SELECT user_id, username, games_won, games_played,
           ROUND(100.0 * games_won / games_played, 1) as win_rate

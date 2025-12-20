@@ -1,4 +1,4 @@
-import { sql } from "@vercel/postgres";
+import { sql } from '@vercel/postgres';
 
 // ============ Stats Management ============
 
@@ -46,19 +46,12 @@ export async function getUserStats(userId) {
  * @returns {Promise<object>} - Updated user stats
  */
 export async function recordGameResult(data) {
-  const {
-    userId,
-    username,
-    outcome,
-    bet,
-    payout,
-    yardsGained = 0,
-  } = data;
+  const { userId, username, outcome, bet, payout, yardsGained = 0 } = data;
 
   // Determine increments based on outcome
-  const touchdowns = outcome === "touchdown" ? 1 : 0;
-  const fumbles = outcome === "fumble" ? 1 : 0;
-  const cashouts = outcome === "cashout" ? 1 : 0;
+  const touchdowns = outcome === 'touchdown' ? 1 : 0;
+  const fumbles = outcome === 'fumble' ? 1 : 0;
+  const cashouts = outcome === 'cashout' ? 1 : 0;
 
   // Calculate net profit for this game
   const netProfit = payout - bet;
@@ -144,7 +137,7 @@ export async function getLeaderboard(category, limit = 10) {
   let result;
 
   switch (category) {
-    case "touchdowns":
+    case 'touchdowns':
       result = await sql`
         SELECT user_id, username, touchdowns, games_played, fumbles,
           CASE WHEN games_played > 0
@@ -157,7 +150,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "winrate":
+    case 'winrate':
       result = await sql`
         SELECT user_id, username, touchdowns, games_played,
           ROUND(100.0 * touchdowns / games_played, 1) as td_rate
@@ -168,7 +161,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "drive":
+    case 'drive':
       result = await sql`
         SELECT user_id, username, longest_drive, total_yards_gained, games_played
         FROM redzone_stats
@@ -177,7 +170,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "profit":
+    case 'profit':
       result = await sql`
         SELECT user_id, username,
           (total_won - total_wagered) as net_profit,
@@ -188,7 +181,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "streak":
+    case 'streak':
       result = await sql`
         SELECT user_id, username, best_td_streak, current_td_streak, games_played
         FROM redzone_stats
@@ -197,7 +190,7 @@ export async function getLeaderboard(category, limit = 10) {
       `;
       break;
 
-    case "biggest_win":
+    case 'biggest_win':
       result = await sql`
         SELECT user_id, username, biggest_win, games_played
         FROM redzone_stats
@@ -224,14 +217,14 @@ export async function getLeaderboard(category, limit = 10) {
  * @param {'touchdowns'|'profit'} category - Category to rank
  * @returns {Promise<number|null>} - User's rank (1-based) or null
  */
-export async function getUserRank(userId, category = "touchdowns") {
+export async function getUserRank(userId, category = 'touchdowns') {
   const stats = await getUserStats(userId);
   if (!stats) return null;
 
   let result;
 
   switch (category) {
-    case "touchdowns":
+    case 'touchdowns':
       result = await sql`
         SELECT COUNT(*) + 1 as rank
         FROM redzone_stats
@@ -239,7 +232,7 @@ export async function getUserRank(userId, category = "touchdowns") {
       `;
       break;
 
-    case "profit":
+    case 'profit':
       const netProfit = stats.total_won - stats.total_wagered;
       result = await sql`
         SELECT COUNT(*) + 1 as rank

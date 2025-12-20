@@ -1,5 +1,5 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import * as economyDb from "../../economy/economyDb.js";
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import * as economyDb from '../../economy/economyDb.js';
 import {
   CONFIG,
   formatCurrency,
@@ -7,21 +7,18 @@ import {
   SLOTS_SYMBOLS,
   SLOTS_PAYOUTS,
   CHANNELS,
-} from "../../economy/economyConfig.js";
-import { checkForAchievements } from "../../achievements/achievementService.js";
-import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
+} from '../../economy/economyConfig.js';
+import { checkForAchievements } from '../../achievements/achievementService.js';
+import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 
 // In-memory cooldown tracking (resets on bot restart - acceptable for 10s cooldown)
 const slotsCooldowns = new Map();
 
 export const data = new SlashCommandBuilder()
-  .setName("slots")
-  .setDescription("Spin the football-themed slot machine!")
+  .setName('slots')
+  .setDescription('Spin the football-themed slot machine!')
   .addStringOption((option) =>
-    option
-      .setName("amount")
-      .setDescription("Amount to bet (number or 'all')")
-      .setRequired(true)
+    option.setName('amount').setDescription("Amount to bet (number or 'all')").setRequired(true)
   );
 
 /**
@@ -51,40 +48,44 @@ function calculatePayout(reels) {
   // Check for three of a kind
   if (r1.emoji === r2.emoji && r2.emoji === r3.emoji) {
     const emoji = r1.emoji;
-    if (emoji === "🎰") {
-      return { multiplier: SLOTS_PAYOUTS.tripleJackpot, resultText: "JACKPOT!!!", isBigWin: true };
+    if (emoji === '🎰') {
+      return { multiplier: SLOTS_PAYOUTS.tripleJackpot, resultText: 'JACKPOT!!!', isBigWin: true };
     }
-    if (emoji === "🏆") {
-      return { multiplier: SLOTS_PAYOUTS.tripleTrophy, resultText: "Triple Trophy!", isBigWin: true };
+    if (emoji === '🏆') {
+      return {
+        multiplier: SLOTS_PAYOUTS.tripleTrophy,
+        resultText: 'Triple Trophy!',
+        isBigWin: true,
+      };
     }
-    if (emoji === "🥇") {
-      return { multiplier: SLOTS_PAYOUTS.tripleGold, resultText: "Triple Gold!" };
+    if (emoji === '🥇') {
+      return { multiplier: SLOTS_PAYOUTS.tripleGold, resultText: 'Triple Gold!' };
     }
-    if (emoji === "⭐") {
-      return { multiplier: SLOTS_PAYOUTS.tripleStar, resultText: "Triple Star!" };
+    if (emoji === '⭐') {
+      return { multiplier: SLOTS_PAYOUTS.tripleStar, resultText: 'Triple Star!' };
     }
-    if (emoji === "🏟️") {
-      return { multiplier: SLOTS_PAYOUTS.tripleStadium, resultText: "Triple Stadium!" };
+    if (emoji === '🏟️') {
+      return { multiplier: SLOTS_PAYOUTS.tripleStadium, resultText: 'Triple Stadium!' };
     }
     // Common symbols (football, ball, target)
-    return { multiplier: SLOTS_PAYOUTS.tripleCommon, resultText: "Triple Match!" };
+    return { multiplier: SLOTS_PAYOUTS.tripleCommon, resultText: 'Triple Match!' };
   }
 
   // Check for two of a kind with special symbols
-  const jackpotCount = emojis.filter((e) => e === "🎰").length;
-  const trophyCount = emojis.filter((e) => e === "🏆").length;
+  const jackpotCount = emojis.filter((e) => e === '🎰').length;
+  const trophyCount = emojis.filter((e) => e === '🏆').length;
 
   if (jackpotCount === 2 || trophyCount === 2) {
-    return { multiplier: SLOTS_PAYOUTS.twoSpecial, resultText: "Two Special!" };
+    return { multiplier: SLOTS_PAYOUTS.twoSpecial, resultText: 'Two Special!' };
   }
 
   // Check for any two matching
   if (r1.emoji === r2.emoji || r2.emoji === r3.emoji || r1.emoji === r3.emoji) {
-    return { multiplier: SLOTS_PAYOUTS.twoMatching, resultText: "Two Matching!" };
+    return { multiplier: SLOTS_PAYOUTS.twoMatching, resultText: 'Two Matching!' };
   }
 
   // No matches
-  return { multiplier: 0, resultText: "No Match" };
+  return { multiplier: 0, resultText: 'No Match' };
 }
 
 /**
@@ -110,7 +111,7 @@ export async function execute(interaction) {
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const amountStr = interaction.options.getString("amount").toLowerCase();
+    const amountStr = interaction.options.getString('amount').toLowerCase();
 
     // Check cooldown
     const lastSpin = slotsCooldowns.get(userId);
@@ -133,7 +134,7 @@ export async function execute(interaction) {
     let amount;
     let isAllIn = false;
 
-    if (amountStr === "all" || amountStr === "max") {
+    if (amountStr === 'all' || amountStr === 'max') {
       amount = userData.wallet;
       isAllIn = true;
     } else {
@@ -167,11 +168,11 @@ export async function execute(interaction) {
     if (userData.wallet < amount) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
-        .setTitle("🎰 Slots Failed")
+        .setTitle('🎰 Slots Failed')
         .setDescription(
           `You don't have enough coins in your wallet!\n\nYour wallet: ${formatCurrency(userData.wallet)}\nBet amount: ${formatCurrency(amount)}`
         )
-        .setFooter({ text: "Tip: Use /withdraw to get coins from your bank" })
+        .setFooter({ text: 'Tip: Use /withdraw to get coins from your bank' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -185,7 +186,7 @@ export async function execute(interaction) {
     const reels = [spinReel(), spinReel(), spinReel()];
     const { multiplier, resultText, isBigWin } = calculatePayout(reels);
 
-    const allInText = isAllIn ? " ALL IN!" : "";
+    const allInText = isAllIn ? ' ALL IN!' : '';
     const slotDisplay = formatSlotMachine(reels);
 
     if (multiplier > 0) {
@@ -196,14 +197,12 @@ export async function execute(interaction) {
       const embed = new EmbedBuilder()
         .setColor(isBigWin ? 0xf1c40f : 0x2ecc71)
         .setTitle(`🎰 ${resultText}${allInText}`)
-        .setDescription(
-          `${slotDisplay}\nYou won ${formatCurrency(amount * multiplier)}!`
-        )
+        .setDescription(`${slotDisplay}\nYou won ${formatCurrency(amount * multiplier)}!`)
         .addFields(
-          { name: "Bet", value: formatCurrency(amount), inline: true },
-          { name: "Multiplier", value: `${multiplier}x`, inline: true },
-          { name: "Payout", value: formatCurrency(amount * multiplier), inline: true },
-          { name: "New Balance", value: formatCurrency(updatedUser.wallet), inline: true }
+          { name: 'Bet', value: formatCurrency(amount), inline: true },
+          { name: 'Multiplier', value: `${multiplier}x`, inline: true },
+          { name: 'Payout', value: formatCurrency(amount * multiplier), inline: true },
+          { name: 'New Balance', value: formatCurrency(updatedUser.wallet), inline: true }
         )
         .setTimestamp();
 
@@ -225,7 +224,7 @@ export async function execute(interaction) {
             await casinoChannel.send({ embeds: [announcementEmbed] });
           }
         } catch (error) {
-          console.error("Failed to send casino announcement:", error);
+          console.error('Failed to send casino announcement:', error);
         }
       }
 
@@ -236,32 +235,30 @@ export async function execute(interaction) {
         username,
         client: interaction.client,
         amount: amount * multiplier,
-      }).catch((err) => console.error("Failed to check achievements:", err));
+      }).catch((err) => console.error('Failed to check achievements:', err));
     } else {
       // Lose
       const updatedUser = await economyDb.gambleLose(userId, amount);
 
       if (!updatedUser) {
         await interaction.editReply({
-          content: "Something went wrong. Please try again.",
+          content: 'Something went wrong. Please try again.',
         });
         return;
       }
 
-      const brokeText = updatedUser.wallet === 0 ? "\n\n💸 You're broke!" : "";
+      const brokeText = updatedUser.wallet === 0 ? "\n\n💸 You're broke!" : '';
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
         .setTitle(`🎰 ${resultText}${allInText}`)
-        .setDescription(
-          `${slotDisplay}\nYou lost ${formatCurrency(amount)}!${brokeText}`
-        )
+        .setDescription(`${slotDisplay}\nYou lost ${formatCurrency(amount)}!${brokeText}`)
         .addFields(
-          { name: "Bet", value: formatCurrency(amount), inline: true },
-          { name: "Lost", value: `-${formatCurrency(amount)}`, inline: true },
-          { name: "New Balance", value: formatCurrency(updatedUser.wallet), inline: true }
+          { name: 'Bet', value: formatCurrency(amount), inline: true },
+          { name: 'Lost', value: `-${formatCurrency(amount)}`, inline: true },
+          { name: 'New Balance', value: formatCurrency(updatedUser.wallet), inline: true }
         )
-        .setFooter({ text: "Better luck next spin!" })
+        .setFooter({ text: 'Better luck next spin!' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -273,10 +270,10 @@ export async function execute(interaction) {
         username,
         client: interaction.client,
         amount,
-      }).catch((err) => console.error("Failed to check achievements:", err));
+      }).catch((err) => console.error('Failed to check achievements:', err));
     }
   } catch (error) {
-    console.error("slots command error:", error);
+    console.error('slots command error:', error);
     await interaction.editReply({
       content: `An error occurred: ${error.message}`,
     });
