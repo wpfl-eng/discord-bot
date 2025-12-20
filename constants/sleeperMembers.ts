@@ -1,0 +1,51 @@
+/**
+ * Sleeper Fantasy Football league member mappings
+ */
+
+export interface SleeperMember {
+  readonly rosterId: number;
+  readonly ownerId: string; // Discord snowflake ID (as string for precision)
+  readonly name: string;
+}
+
+export const sleeperMembers: readonly SleeperMember[] = [
+  { rosterId: 1, ownerId: '866076199003209728', name: 'Jimmy' },
+  { rosterId: 2, ownerId: '719264103482368000', name: 'Nixon' },
+  { rosterId: 3, ownerId: '719718368055222272', name: 'Mike' },
+  { rosterId: 4, ownerId: '738536532306219008', name: 'David' },
+  { rosterId: 5, ownerId: '992455824104595456', name: 'Jarrad' },
+  { rosterId: 6, ownerId: '339238625550041088', name: 'Todd' },
+  { rosterId: 7, ownerId: '719392787434381312', name: 'AJ' },
+  { rosterId: 8, ownerId: '719246963496792064', name: 'Doug' },
+  { rosterId: 9, ownerId: '996165603645906944', name: 'Brian' },
+  { rosterId: 10, ownerId: '472507716300959744', name: 'Joe' },
+  { rosterId: 11, ownerId: '720340903214006272', name: 'Adler' },
+  { rosterId: 12, ownerId: '719361408889843712', name: 'Neill' },
+] as const;
+
+/**
+ * @deprecated Use `sleeperMembers` instead (note correct spelling)
+ */
+export const sleeperMemebers = sleeperMembers;
+
+/**
+ * Find a Sleeper member by their roster ID
+ */
+export function getSleeperMemberByRosterId(rosterId: number): SleeperMember | undefined {
+  return sleeperMembers.find((m) => m.rosterId === rosterId);
+}
+
+/**
+ * Find a Sleeper member by their Discord owner ID
+ */
+export function getSleeperMemberByOwnerId(ownerId: string): SleeperMember | undefined {
+  return sleeperMembers.find((m) => m.ownerId === ownerId);
+}
+
+/**
+ * Find a Sleeper member by their name (case-insensitive)
+ */
+export function getSleeperMemberByName(name: string): SleeperMember | undefined {
+  const lowerName = name.toLowerCase();
+  return sleeperMembers.find((m) => m.name.toLowerCase() === lowerName);
+}

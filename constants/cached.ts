@@ -1,4 +1,15 @@
-export default [
+/**
+ * Cached GroupMe member data
+ */
+
+export interface CachedMember {
+  readonly userId: string;
+  readonly nickname: string;
+  readonly imageUrl: string;
+  readonly id: string;
+}
+
+export const cachedMembers: readonly CachedMember[] = [
   {
     userId: '11119940',
     nickname: 'Mr. BDFL',
@@ -56,7 +67,7 @@ export default [
   {
     userId: '13002158',
     nickname: 'Rick Kocher',
-    image_url: 'https://i.groupme.com/750x750.jpeg.54ce66afa1e74ba09a9aa6db5f1e1029',
+    imageUrl: 'https://i.groupme.com/750x750.jpeg.54ce66afa1e74ba09a9aa6db5f1e1029',
     id: '336708705',
   },
   {
@@ -77,4 +88,29 @@ export default [
     imageUrl: 'https://i.groupme.com/720x1280.png.cb36a78ed3884173bbf1fdf0262ab80f',
     id: '565626836',
   },
-];
+] as const;
+
+// Keep default export for backward compatibility
+export default cachedMembers;
+
+/**
+ * Find a cached member by their GroupMe ID
+ */
+export function getCachedMemberById(id: string): CachedMember | undefined {
+  return cachedMembers.find((m) => m.id === id);
+}
+
+/**
+ * Find a cached member by their GroupMe user ID
+ */
+export function getCachedMemberByUserId(userId: string): CachedMember | undefined {
+  return cachedMembers.find((m) => m.userId === userId);
+}
+
+/**
+ * Find a cached member by their nickname (case-insensitive)
+ */
+export function getCachedMemberByNickname(nickname: string): CachedMember | undefined {
+  const lowerNickname = nickname.toLowerCase();
+  return cachedMembers.find((m) => m.nickname.toLowerCase() === lowerNickname);
+}
