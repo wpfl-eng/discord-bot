@@ -4,7 +4,7 @@
 A Pokemon-style collectible system featuring real NFL players that integrates with existing economy and game systems.
 
 ### User Decisions
-- **Theme**: Real NFL players (current active ~500+ players)
+- **Theme**: Real NFL players (current active ~50+ players)
 - **Stats**: 4 simplified abstract stats (Speed, Power, Agility, Awareness)
 - **Evolution**: Career stages (Rookie → Pro → All-Pro → Hall of Famer)
 - **Rarity**: Accessible (8-10% legendary drop rate)
@@ -22,7 +22,7 @@ discord-bot/
 │   ├── nflmonConfig.js      # Rarities, stats, XP formulas, shop packs
 │   ├── nflmonDb.js          # CRUD operations for bench/trades
 │   ├── nflmonService.js     # Core logic: rolling, XP, evolution
-│   └── nflmonPlayers.json   # 500+ player definitions
+│   └── nflmonPlayers.json   # 50+ player definitions
 ├── discordCommands/
 │   └── nflmon/
 │       └── nflmon.js        # Main command with subcommands
@@ -104,7 +104,13 @@ CREATE TABLE nflmon_stats (
 | Hall of Famer | 61-100 | 👑 | Level 61+, Rare+ rarity |
 
 ### 3. Stats System
-Base stats by position + IVs (0-15 each) + level scaling + rarity multiplier
+Base stats by position + IVs (0-15 each, random at acquisition) + level scaling + rarity multiplier
+
+**Final Stat Formula:**
+```javascript
+finalStat = Math.floor((baseStat + IV) * (1 + level * 0.01) * rarityMultiplier)
+```
+Example: QB SPD base=60, IV=10, Level=50, Rare (1.2x) → `(60+10) * 1.5 * 1.2 = 126`
 
 **Position Base Stats:**
 - QB: SPD 60, PWR 50, AGI 65, AWR 80
@@ -114,17 +120,30 @@ Base stats by position + IVs (0-15 each) + level scaling + rarity multiplier
 
 ### 4. XP & Leveling
 - Level cap: 100
-- Formula: `XP_for_level = level² × 100`
-- Sources: wordle_win (10-20), wordle_first (25-35), trivia_correct (5-15), blackjack_win (3-8)
+- XP to reach level: `XP_for_level = level² × 100`
+- XP stops accumulating at level 100
+
+**Level Calculation Functions:**
+```javascript
+getLevelFromXp(xp) => Math.min(100, Math.floor(Math.sqrt(xp / 100)) + 1)
+getXpForLevel(level) => level * level * 100
+```
+
+**XP Sources** (for training NFLmon):
+- wordle_win: 10-20 XP
+- wordle_first: 25-35 XP
+- trivia_correct: 5-15 XP
+- blackjack_win: 3-8 XP
 
 ### 5. Acquisition Sources
-| Source | Drop Chance | Rarity Boost |
-|--------|-------------|--------------|
-| Wordle win | 15% | 0 |
-| Wordle first solve | 100% | +2 |
-| Trivia correct | 10% | 0 |
-| Shop packs | 100% | varies |
-| Daily | 5% | -1 |
+| Source | Drop Chance | Notes |
+|--------|-------------|-------|
+| Wordle win | 15% | Random player |
+| Wordle first solve | 100% | Random player |
+| Trivia correct | 10% | Random player |
+| Shop packs | 100% | varies by pack |
+
+> **Note**: Rarity is determined by the player's `rarityPool` (guaranteed), not by weighted roll. Source integration will be wired up in Phase 5.
 
 ### 6. Training Slots System
 NFLmon assigned to training slots receive XP from user activities.
@@ -152,18 +171,41 @@ When user wins wordle/trivia/blackjack/etc:
 ## Commands
 
 ```
-/nflmon bench [rarity]      - View your collection (shows training status)
-/nflmon view <id>           - Detailed view with stats
-/nflmon train <id> [slot]   - Assign NFLmon to training slot (receives XP)
-/nflmon untrain <id>        - Remove NFLmon from training
-/nflmon nickname <id> [name] - Set/clear nickname
-/nflmon evolve <id>         - Evolve if conditions met
-/nflmon sell <id>           - Sell for coins (with confirmation)
+/nflmon bench [rarity] [page] - View your collection (10 per page, shows training status)
+/nflmon view <id>             - Detailed view with stats
+/nflmon train <id> [slot]     - Assign NFLmon to training slot (receives XP)
+/nflmon untrain <id>          - Remove NFLmon from training
+/nflmon nickname <id> [name]  - Set/clear nickname
+/nflmon evolve <id>           - Evolve if conditions met
+/nflmon sell <id>             - Sell for coins (button confirmation)
 /nflmon trade @user <offer> [request] [coins] - Create trade
-/nflmon trades              - View pending trades
-/nflmon dex [search]        - Encyclopedia
-/nflmon stats               - Your statistics (includes training slots info)
-/nflmon leaderboard [cat]   - Rankings (total/legendary/level/evolved)
+/nflmon trades                - View pending trades
+/nflmon dex [search]          - Encyclopedia
+/nflmon stats                 - Your statistics (includes training slots info)
+/nflmon leaderboard [cat]     - Rankings (total/legendary/level/evolved)
+```
+
+### Command Visibility
+| Command | Visibility | Reason |
+|---------|------------|--------|
+| bench | Ephemeral | Personal collection |
+| view | Ephemeral | Personal info |
+| train/untrain | Ephemeral | Action confirmation |
+| evolve | **Public** | Achievement moment |
+| sell | Ephemeral | Personal transaction |
+| stats | Ephemeral | Personal stats |
+| leaderboard | Public | Community feature |
+| dex | Ephemeral | Reference lookup |
+
+### Embed Colors (by rarity)
+```javascript
+const NFLMON_COLORS = {
+  COMMON: 0x95a5a6,     // Gray
+  UNCOMMON: 0x2ecc71,   // Green
+  RARE: 0x3498db,       // Blue
+  EPIC: 0x9b59b6,       // Purple
+  LEGENDARY: 0xffd700   // Gold
+};
 ```
 
 ---
@@ -197,12 +239,13 @@ When user wins wordle/trivia/blackjack/etc:
 - [ ] Create `nflmon/` directory structure
 - [ ] Implement `nflmonConfig.js` (rarities, stats, formulas)
 - [ ] Create `migrations/005_nflmon.sql` and run migration
-- [ ] Seed `nflmonPlayers.json` with initial 50-100 players
+- [ ] Seed `nflmonPlayers.json` with initial 25 players
 
 ### Phase 2: Database Layer
-- [ ] Implement `nflmonDb.js` following `inventoryDb.js` pattern
+- [ ] Implement `nflmonDb.js` following `inventory/inventoryDb.js` pattern
   - CRUD for bench, trades, stats
   - Atomic sell/transfer operations
+  - Sell uses `economy/economyDb.js` → `addToWallet(userId, sellValue)` for coin integration
 
 ### Phase 3: Service Layer
 - [ ] Implement `nflmonService.js`
@@ -225,7 +268,7 @@ When user wins wordle/trivia/blackjack/etc:
 ### Phase 6: Trading & Polish
 - [ ] Implement trade offer/accept/reject flow
 - [ ] Complete `/nflmon dex` encyclopedia
-- [ ] Expand player data to 500+ players
+- [ ] Expand player data to 50+ players
 
 ---
 
@@ -262,12 +305,14 @@ When user wins wordle/trivia/blackjack/etc:
 }
 ```
 
-**Rarity Assignment:**
-- Legendary (~40): MVP candidates, generational talents
-- Epic (~60): All-Pro caliber, franchise players
-- Rare (~100): Pro Bowl caliber
-- Uncommon (~150): Quality starters
-- Common (~150+): Backups, rotation players
+**Rarity Assignment** (player's `rarityPool` = guaranteed drop rarity):
+- Legendary (~40): MVP candidates, generational talents → always drop as legendary
+- Epic (~60): All-Pro caliber, franchise players → always drop as epic
+- Rare (~100): Pro Bowl caliber → always drop as rare
+- Uncommon (~150): Quality starters → always drop as uncommon
+- Common (~150+): Backups, rotation players → always drop as common
+
+> When a player drops, their `rarityPool` determines the rarity. The rarity weight table (50% common, etc.) is NOT used for drops - it only indicates population distribution.
 
 ---
 
