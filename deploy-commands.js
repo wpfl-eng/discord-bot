@@ -51,7 +51,7 @@ try {
   // Process command files in subdirectories
   for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
-    const folderCommandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
+    const folderCommandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js') || file.endsWith('.ts'));
 
     for (const file of folderCommandFiles) {
       const filePath = path.join(commandsPath, file);
