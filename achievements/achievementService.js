@@ -3,6 +3,7 @@ import * as achievementDb from "./achievementDb.js";
 import { ACHIEVEMENTS, ACTION_TYPES, getAchievement } from "./achievementConfig.js";
 import { CHANNELS, formatCurrency } from "../economy/economyConfig.js";
 import * as economyDb from "../economy/economyDb.js";
+import * as wordleDb from "../wordle/wordleDb.js";
 
 /**
  * @typedef {Object} ActionMetadata
@@ -21,6 +22,8 @@ import * as economyDb from "../economy/economyDb.js";
  */
 const ACTION_TO_ACHIEVEMENTS = {
   [ACTION_TYPES.ROB_SUCCESS]: ["THIEF"],
+  [ACTION_TYPES.WORDLE_SOLVE]: ["WORDLE_5_SOLVES", "WORDLE_10_SOLVES"],
+  [ACTION_TYPES.WORDLE_FIRST_SOLVE]: ["WORDLE_FIRST_SOLVE"],
 };
 
 /**
@@ -84,6 +87,22 @@ async function checkAchievementCriteria(achievementKey, metadata) {
     case "THIEF":
       // THIEF is granted on any successful rob
       return metadata.actionType === ACTION_TYPES.ROB_SUCCESS;
+
+    case "WORDLE_FIRST_SOLVE":
+      // Granted on first solve of any Wordle puzzle
+      return metadata.actionType === ACTION_TYPES.WORDLE_FIRST_SOLVE;
+
+    case "WORDLE_5_SOLVES": {
+      // Check if user has solved 5 or more Wordle puzzles
+      const stats5 = await wordleDb.getUserStats(metadata.userId);
+      return stats5 && stats5.games_won >= 5;
+    }
+
+    case "WORDLE_10_SOLVES": {
+      // Check if user has solved 10 or more Wordle puzzles
+      const stats10 = await wordleDb.getUserStats(metadata.userId);
+      return stats10 && stats10.games_won >= 10;
+    }
 
     default:
       return false;

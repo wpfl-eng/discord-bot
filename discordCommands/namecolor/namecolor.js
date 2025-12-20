@@ -161,14 +161,14 @@ async function handleSet(interaction) {
 
       // Update existing role color
       await colorRole.edit({
-        color: hex,
+        colors: { primaryColor: hex },
         reason: `User ${interaction.user.username} changed their name color`,
       });
     } else {
       // Create new color role
       colorRole = await interaction.guild.roles.create({
         name: colorRoleName,
-        color: hex,
+        colors: { primaryColor: hex },
         position: 1, // Position above @everyone
         reason: `User ${interaction.user.username} set their name color`,
       });

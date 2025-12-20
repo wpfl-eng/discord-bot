@@ -95,6 +95,17 @@ export const ITEM_DEFINITIONS = {
     sellable: true,
     baseValue: 375, // 375-500 range on graduation
   },
+
+  // ============ Wordle Collectibles ============
+  wordle_lucky_letter: {
+    category: "wordle",
+    displayName: "Lucky Letter",
+    emoji: "🔤",
+    description: "A golden letter tile from being first to solve a Wordle",
+    stackable: true,
+    sellable: true,
+    baseValue: 500,
+  },
 };
 
 /**
@@ -104,6 +115,7 @@ export const ITEM_CATEGORIES = {
   contract: { displayName: "Contracts", emoji: "📜", order: 1 },
   tool: { displayName: "Training Tools", emoji: "🔧", order: 2 },
   player: { displayName: "Graduated Players", emoji: "⭐", order: 3 },
+  wordle: { displayName: "Wordle Collectibles", emoji: "🔤", order: 4 },
 };
 
 /**
