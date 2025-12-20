@@ -1,7 +1,107 @@
 // Economy System Configuration
 // All constants and messages for the economy commands
 
-export const CONFIG = {
+// ============================================================
+// Type Definitions
+// ============================================================
+
+export interface EconomyConfig {
+  // Daily rewards
+  readonly DAILY_AMOUNT: number;
+  readonly DAILY_STREAK_BONUS: number;
+  readonly DAILY_STREAK_MAX_BONUS: number;
+  readonly DAILY_COOLDOWN_HOURS: number;
+  readonly DAILY_STREAK_EXPIRE_HOURS: number;
+
+  // Work
+  readonly WORK_MIN: number;
+  readonly WORK_MAX: number;
+  readonly WORK_SUCCESS_RATE: number;
+  readonly WORK_COOLDOWN_MINUTES: number;
+
+  // Gamble
+  readonly GAMBLE_MIN: number;
+  readonly GAMBLE_MAX: number;
+  readonly GAMBLE_COOLDOWN_SECONDS: number;
+
+  // Slots
+  readonly SLOTS_MIN: number;
+  readonly SLOTS_MAX: number;
+  readonly SLOTS_COOLDOWN_SECONDS: number;
+
+  // Blackjack
+  readonly BLACKJACK_MIN: number;
+  readonly BLACKJACK_MAX: number;
+  readonly BLACKJACK_COOLDOWN_SECONDS: number;
+  readonly BLACKJACK_TIMEOUT_SECONDS: number;
+
+  // Red Zone
+  readonly REDZONE_MIN: number;
+  readonly REDZONE_MAX: number;
+  readonly REDZONE_COOLDOWN_SECONDS: number;
+  readonly REDZONE_TIMEOUT_SECONDS: number;
+  readonly REDZONE_YARD_GAIN_MIN: number;
+  readonly REDZONE_YARD_GAIN_MAX: number;
+
+  // Rob
+  readonly ROB_SUCCESS_RATE: number;
+  readonly ROB_MIN_PERCENT: number;
+  readonly ROB_MAX_PERCENT: number;
+  readonly ROB_FAIL_FINE: number;
+  readonly ROB_COOLDOWN_MINUTES: number;
+  readonly ROB_VICTIM_COOLDOWN_MINUTES: number;
+  readonly ROB_MIN_WALLET: number;
+
+  // Bank
+  readonly BANK_STARTING_CAPACITY: number;
+  readonly BANK_EXPANSION_COST: number;
+  readonly BANK_EXPANSION_AMOUNT: number;
+
+  // Shop
+  readonly PADLOCK_COST: number;
+}
+
+export interface WorkJob {
+  readonly success: string;
+  readonly fail: string;
+}
+
+export type SlotTier = 'common' | 'uncommon' | 'rare' | 'legendary';
+
+export interface SlotSymbol {
+  readonly emoji: string;
+  readonly name: string;
+  readonly weight: number;
+  readonly tier: SlotTier;
+}
+
+export interface SlotPayouts {
+  readonly tripleJackpot: number;
+  readonly tripleTrophy: number;
+  readonly tripleGold: number;
+  readonly tripleStar: number;
+  readonly tripleStadium: number;
+  readonly tripleCommon: number;
+  readonly twoSpecial: number;
+  readonly twoMatching: number;
+}
+
+export interface FieldPosition {
+  readonly multiplier: number;
+  readonly fumbleChance: number;
+  readonly label: string;
+}
+
+export interface ChannelConfig {
+  readonly TOWN_SQUARE: string | undefined;
+  readonly CASINO: string | undefined;
+}
+
+// ============================================================
+// Constants
+// ============================================================
+
+export const CONFIG: EconomyConfig = {
   // Daily rewards
   DAILY_AMOUNT: 100,
   DAILY_STREAK_BONUS: 10,
@@ -55,9 +155,9 @@ export const CONFIG = {
 
   // Shop
   PADLOCK_COST: 500,
-};
+} as const;
 
-export const WORK_JOBS = [
+export const WORK_JOBS: readonly WorkJob[] = [
   {
     success: 'You ran routes at practice and earned',
     fail: 'You ran the wrong route and got benched. No bonus today',
@@ -118,13 +218,13 @@ export const WORK_JOBS = [
     success: 'You worked on your footwork and earned',
     fail: 'You stepped on a sprinkler head. Ankle is questionable',
   },
-];
+] as const;
 
-export const CURRENCY_EMOJI = '🪙';
-export const CURRENCY_NAME = 'coins';
+export const CURRENCY_EMOJI = '🪙' as const;
+export const CURRENCY_NAME = 'coins' as const;
 
 // Slots symbols - football themed
-export const SLOTS_SYMBOLS = [
+export const SLOTS_SYMBOLS: readonly SlotSymbol[] = [
   { emoji: '🏈', name: 'Football', weight: 25, tier: 'common' },
   { emoji: '⚽', name: 'Ball', weight: 20, tier: 'common' },
   { emoji: '🎯', name: 'Target', weight: 15, tier: 'common' },
@@ -133,10 +233,10 @@ export const SLOTS_SYMBOLS = [
   { emoji: '🥇', name: 'Gold', weight: 8, tier: 'rare' },
   { emoji: '🏆', name: 'Trophy', weight: 5, tier: 'rare' },
   { emoji: '🎰', name: 'Jackpot', weight: 2, tier: 'legendary' },
-];
+] as const;
 
 // Slots payout multipliers
-export const SLOTS_PAYOUTS = {
+export const SLOTS_PAYOUTS: SlotPayouts = {
   tripleJackpot: 100,
   tripleTrophy: 25,
   tripleGold: 10,
@@ -145,11 +245,11 @@ export const SLOTS_PAYOUTS = {
   tripleCommon: 3,
   twoSpecial: 2,
   twoMatching: 2,
-};
+} as const;
 
 // Red Zone field positions - yard line -> { multiplier, fumbleChance }
 // Tuned for moderate difficulty - reduced multipliers, increased fumble risk
-export const REDZONE_FIELD_POSITIONS = {
+export const REDZONE_FIELD_POSITIONS: Readonly<Record<number, FieldPosition>> = {
   20: { multiplier: 1.0, fumbleChance: 0.05, label: 'Own 20' },
   30: { multiplier: 1.1, fumbleChance: 0.15, label: 'Own 30' },
   40: { multiplier: 1.3, fumbleChance: 0.2, label: 'Own 40' },
@@ -159,31 +259,74 @@ export const REDZONE_FIELD_POSITIONS = {
   80: { multiplier: 4.0, fumbleChance: 0.5, label: 'Red Zone' },
   90: { multiplier: 5.5, fumbleChance: 0.6, label: 'Opp 10' },
   100: { multiplier: 8.0, fumbleChance: 0, label: 'Touchdown!' },
-};
+} as const;
 
 // Channel IDs from environment variables
-export const CHANNELS = {
+export const CHANNELS: ChannelConfig = {
   TOWN_SQUARE: process.env.ECONOMY_TOWN_SQUARE_CHANNEL_ID,
   CASINO: process.env.ECONOMY_CASINO_CHANNEL_ID,
 };
 
-// Helper function to format currency
-export function formatCurrency(amount) {
+// ============================================================
+// Helper Functions
+// ============================================================
+
+/**
+ * Formats an amount with the currency emoji
+ * @param amount - The numeric amount to format
+ * @returns Formatted currency string
+ */
+export function formatCurrency(amount: number): string {
+  // Handle NaN gracefully
+  if (Number.isNaN(amount)) {
+    return `${CURRENCY_EMOJI} 0`;
+  }
   return `${CURRENCY_EMOJI} ${amount.toLocaleString()}`;
 }
 
-// Helper function to check if cooldown has passed
-export function isCooldownOver(lastAction, cooldownMs) {
+/**
+ * Checks if a cooldown period has passed
+ * @param lastAction - The timestamp of the last action (Date, string, null, or undefined)
+ * @param cooldownMs - The cooldown duration in milliseconds
+ * @returns true if cooldown has passed, false otherwise
+ */
+export function isCooldownOver(
+  lastAction: Date | string | null | undefined,
+  cooldownMs: number
+): boolean {
   if (!lastAction) return true;
-  const elapsed = Date.now() - new Date(lastAction).getTime();
+
+  const lastActionTime = new Date(lastAction).getTime();
+
+  // Handle invalid date (NaN)
+  if (Number.isNaN(lastActionTime)) {
+    return true;
+  }
+
+  const elapsed = Date.now() - lastActionTime;
   return elapsed >= cooldownMs;
 }
 
-// Helper function to get remaining cooldown time as formatted string
-export function formatCooldown(lastAction, cooldownMs) {
+/**
+ * Gets the remaining cooldown time as a formatted string
+ * @param lastAction - The timestamp of the last action (Date, string, null, or undefined)
+ * @param cooldownMs - The cooldown duration in milliseconds
+ * @returns Formatted time string or null if cooldown has expired
+ */
+export function formatCooldown(
+  lastAction: Date | string | null | undefined,
+  cooldownMs: number
+): string | null {
   if (!lastAction) return null;
 
-  const elapsed = Date.now() - new Date(lastAction).getTime();
+  const lastActionTime = new Date(lastAction).getTime();
+
+  // Handle invalid date (NaN)
+  if (Number.isNaN(lastActionTime)) {
+    return null;
+  }
+
+  const elapsed = Date.now() - lastActionTime;
   const remaining = cooldownMs - elapsed;
 
   if (remaining <= 0) return null;
@@ -203,12 +346,20 @@ export function formatCooldown(lastAction, cooldownMs) {
   return `${seconds}s`;
 }
 
-// Get a random integer between min and max (inclusive)
-export function randomInt(min, max) {
+/**
+ * Generates a random integer between min and max (inclusive)
+ * @param min - Minimum value
+ * @param max - Maximum value
+ * @returns Random integer in range [min, max]
+ */
+export function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// Get a random job from the list
-export function getRandomJob() {
+/**
+ * Gets a random work job from the list
+ * @returns A random WorkJob object
+ */
+export function getRandomJob(): WorkJob {
   return WORK_JOBS[Math.floor(Math.random() * WORK_JOBS.length)];
 }

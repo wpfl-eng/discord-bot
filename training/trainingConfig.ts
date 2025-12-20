@@ -3,7 +3,52 @@
  * Central configuration for the football farming game
  */
 
-export const TRAINING_CONFIG = {
+// ============ TYPE DEFINITIONS ============
+
+export type PositionKey = 'TE' | 'RB' | 'WR' | 'QB';
+export type StateName = 'empty' | 'prepared' | 'hydrated' | 'training' | 'ready' | 'busted';
+export type StateKey = 'EMPTY' | 'PREPARED' | 'HYDRATED' | 'TRAINING' | 'READY' | 'BUSTED';
+export type ToolKey = 'SETUP_KIT' | 'WATER_COOLER';
+
+export interface TrainingPosition {
+  readonly emoji: string;
+  readonly displayName: string;
+  readonly contractItemType: string;
+  readonly rookieItemType: string;
+  readonly trainTimeMinutes: number;
+  readonly graduateValueMin: number;
+  readonly graduateValueMax: number;
+  readonly wiltWindowMinutes: number;
+}
+
+export interface TrainingState {
+  readonly emoji: string | null;
+  readonly name: StateName;
+  readonly description: string;
+}
+
+export interface TrainingTool {
+  readonly itemType: string;
+  readonly displayName: string;
+  readonly emoji: string;
+}
+
+export interface StarterKitItem {
+  readonly itemType: string;
+  readonly quantity: number;
+}
+
+export interface TrainingConfigType {
+  readonly GRID_SIZE: number;
+  readonly POSITIONS: Record<PositionKey, TrainingPosition>;
+  readonly STATES: Record<StateKey, TrainingState>;
+  readonly TOOLS: Record<ToolKey, TrainingTool>;
+  readonly STARTER_KIT: readonly StarterKitItem[];
+}
+
+// ============ TRAINING_CONFIG ============
+
+export const TRAINING_CONFIG: TrainingConfigType = {
   GRID_SIZE: 9, // 3x3 grid
 
   POSITIONS: {
@@ -76,50 +121,44 @@ export const TRAINING_CONFIG = {
     { itemType: 'tool_water_cooler', quantity: 10 },
     { itemType: 'contract_te', quantity: 2 },
   ],
-};
+} as const;
+
+// ============ HELPER FUNCTIONS ============
 
 /**
  * Get position configuration by key
- * @param {string} positionKey - QB, RB, WR, TE
- * @returns {object|null}
  */
-export function getPosition(positionKey) {
-  return TRAINING_CONFIG.POSITIONS[positionKey] || null;
+export function getPosition(positionKey: string | null | undefined): TrainingPosition | null {
+  if (!positionKey) return null;
+  return TRAINING_CONFIG.POSITIONS[positionKey as PositionKey] || null;
 }
 
 /**
  * Get all position keys
- * @returns {string[]}
  */
-export function getPositionKeys() {
-  return Object.keys(TRAINING_CONFIG.POSITIONS);
+export function getPositionKeys(): PositionKey[] {
+  return Object.keys(TRAINING_CONFIG.POSITIONS) as PositionKey[];
 }
 
 /**
  * Get state configuration by name
- * @param {string} stateName - empty, prepared, hydrated, training, ready, busted
- * @returns {object|null}
  */
-export function getState(stateName) {
+export function getState(stateName: string | null | undefined): TrainingState | null {
+  if (!stateName) return null;
   return Object.values(TRAINING_CONFIG.STATES).find((s) => s.name === stateName) || null;
 }
 
 /**
  * Get random value between min and max (inclusive)
- * @param {number} min
- * @param {number} max
- * @returns {number}
  */
-export function randomInt(min, max) {
+export function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 /**
  * Calculate graduation value for a position
- * @param {string} positionKey
- * @returns {number}
  */
-export function calculateGraduationValue(positionKey) {
+export function calculateGraduationValue(positionKey: string | null | undefined): number {
   const position = getPosition(positionKey);
   if (!position) return 0;
   return randomInt(position.graduateValueMin, position.graduateValueMax);

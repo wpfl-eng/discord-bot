@@ -1,13 +1,38 @@
 // Achievement System Configuration
 // Maps achievement keys to their metadata
 
+// ============ TYPE DEFINITIONS ============
+
+export type AchievementKey = 'THIEF' | 'WORDLE_FIRST_SOLVE' | 'WORDLE_5_SOLVES' | 'WORDLE_10_SOLVES';
+
+export type ActionType =
+  | 'ROB_SUCCESS'
+  | 'ROB_FAIL'
+  | 'GAMBLE_WIN'
+  | 'GAMBLE_LOSE'
+  | 'BLACKJACK_WIN'
+  | 'BLACKJACK_LOSE'
+  | 'SLOTS_WIN'
+  | 'SLOTS_LOSE'
+  | 'STOCK_BUY'
+  | 'STOCK_SELL'
+  | 'REDZONE_WIN'
+  | 'REDZONE_LOSE'
+  | 'WORDLE_SOLVE'
+  | 'WORDLE_FIRST_SOLVE';
+
+export interface Achievement {
+  readonly name: string;
+  readonly description: string;
+  readonly rewardValue: number;
+}
+
+// ============ CONFIGURATION ============
+
 /**
  * Achievement definitions
- * @property {string} name - Display name for the achievement
- * @property {string} description - Description of how to earn the achievement
- * @property {number} rewardValue - Coin reward for earning the achievement
  */
-export const ACHIEVEMENTS = {
+export const ACHIEVEMENTS: Record<AchievementKey, Achievement> = {
   THIEF: {
     name: 'Thief',
     description: 'Successfully rob another player',
@@ -28,12 +53,12 @@ export const ACHIEVEMENTS = {
     description: 'Successfully solve 10 Wordle puzzles',
     rewardValue: 1000,
   },
-};
+} as const;
 
 /**
  * Action types that can trigger achievement checks
  */
-export const ACTION_TYPES = {
+export const ACTION_TYPES: Record<ActionType, ActionType> = {
   ROB_SUCCESS: 'ROB_SUCCESS',
   ROB_FAIL: 'ROB_FAIL',
   GAMBLE_WIN: 'GAMBLE_WIN',
@@ -48,21 +73,21 @@ export const ACTION_TYPES = {
   REDZONE_LOSE: 'REDZONE_LOSE',
   WORDLE_SOLVE: 'WORDLE_SOLVE',
   WORDLE_FIRST_SOLVE: 'WORDLE_FIRST_SOLVE',
-};
+} as const;
+
+// ============ HELPER FUNCTIONS ============
 
 /**
  * Get achievement by key
- * @param {string} key - Achievement key
- * @returns {object|null} - Achievement data or null if not found
  */
-export function getAchievement(key) {
-  return ACHIEVEMENTS[key] || null;
+export function getAchievement(key: string | null | undefined): Achievement | null {
+  if (!key) return null;
+  return ACHIEVEMENTS[key as AchievementKey] || null;
 }
 
 /**
  * Get all achievement keys
- * @returns {string[]} - Array of achievement keys
  */
-export function getAllAchievementKeys() {
-  return Object.keys(ACHIEVEMENTS);
+export function getAllAchievementKeys(): AchievementKey[] {
+  return Object.keys(ACHIEVEMENTS) as AchievementKey[];
 }
