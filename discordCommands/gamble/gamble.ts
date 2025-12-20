@@ -1,8 +1,9 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
+import type { EconomyUser } from '../../types/database.js';
 
 export const data = new SlashCommandBuilder()
   .setName('gamble')
@@ -13,22 +14,22 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Execute the gamble command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ * @param interaction - The Discord command interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
   try {
-    const userId = interaction.user.id;
-    const username = interaction.user.username;
-    const amountStr = interaction.options.getString('amount').toLowerCase();
+    const userId: string = interaction.user.id;
+    const username: string = interaction.user.username;
+    const amountStr: string = interaction.options.getString('amount')!.toLowerCase();
 
     // Get or create user
-    const userData = await economyDb.getOrCreateUser(userId, username);
+    const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
 
     // Parse amount
-    let amount;
-    let isAllIn = false;
+    let amount: number;
+    let isAllIn: boolean = false;
 
     if (amountStr === 'all' || amountStr === 'max') {
       amount = userData.wallet;
@@ -76,13 +77,21 @@ export async function execute(interaction) {
     }
 
     // Flip the coin
-    const isWin = Math.random() < 0.5;
-    const coinResult = isWin ? 'Heads' : 'Tails';
-    const allInText = isAllIn ? ' 🎲 ALL IN!' : '';
+    const isWin: boolean = Math.random() < 0.5;
+    const coinResult: string = isWin ? 'Heads' : 'Tails';
+    const allInText: string = isAllIn ? ' 🎲 ALL IN!' : '';
 
     if (isWin) {
       // Win - use atomic gambleWin
-      const updatedUser = await economyDb.gambleWin(userId, amount);
+      const updatedUser: EconomyUser | null = await economyDb.gambleWin(userId, amount);
+
+      // Handle null case (shouldn't happen, but be consistent with lose case)
+      if (!updatedUser) {
+        await interaction.editReply({
+          content: 'Something went wrong. Please try again.',
+        });
+        return;
+      }
 
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
@@ -118,10 +127,10 @@ export async function execute(interaction) {
         username,
         client: interaction.client,
         amount,
-      }).catch((err) => console.error('Failed to check achievements:', err));
+      }).catch((err: unknown) => console.error('Failed to check achievements:', err));
     } else {
       // Lose - use atomic gambleLose
-      const updatedUser = await economyDb.gambleLose(userId, amount);
+      const updatedUser: EconomyUser | null = await economyDb.gambleLose(userId, amount);
 
       // This should never be null due to our check above, but handle it anyway
       if (!updatedUser) {
@@ -131,7 +140,7 @@ export async function execute(interaction) {
         return;
       }
 
-      const brokeText = updatedUser.wallet === 0 ? "\n\n💸 You're broke!" : '';
+      const brokeText: string = updatedUser.wallet === 0 ? "\n\n💸 You're broke!" : '';
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
@@ -168,12 +177,13 @@ export async function execute(interaction) {
         username,
         client: interaction.client,
         amount,
-      }).catch((err) => console.error('Failed to check achievements:', err));
+      }).catch((err: unknown) => console.error('Failed to check achievements:', err));
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('gamble command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }

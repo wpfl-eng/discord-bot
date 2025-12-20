@@ -1,8 +1,9 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder, User } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import { CONFIG, formatCurrency, isCooldownOver, CHANNELS } from '../../economy/economyConfig.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
+import type { EconomyUser, TransferResult } from '../../types/database.js';
 
 export const data = new SlashCommandBuilder()
   .setName('rob')
@@ -13,15 +14,15 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Execute the rob command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ * @param interaction - The Discord command interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
   try {
-    const attackerId = interaction.user.id;
-    const attackerUsername = interaction.user.username;
-    const targetUser = interaction.options.getUser('target');
+    const attackerId: string = interaction.user.id;
+    const attackerUsername: string = interaction.user.username;
+    const targetUser: User = interaction.options.getUser('target')!;
 
     // Can't rob yourself
     if (targetUser.id === attackerId) {
@@ -40,14 +41,14 @@ export async function execute(interaction) {
     }
 
     // Get or create both users
-    const attackerData = await economyDb.getOrCreateUser(attackerId, attackerUsername);
-    const targetData = await economyDb.getOrCreateUser(targetUser.id, targetUser.username);
+    const attackerData: EconomyUser = await economyDb.getOrCreateUser(attackerId, attackerUsername);
+    const targetData: EconomyUser = await economyDb.getOrCreateUser(targetUser.id, targetUser.username);
 
     // Check attacker cooldown
-    const robCooldownMs = CONFIG.ROB_COOLDOWN_MINUTES * 60 * 1000;
+    const robCooldownMs: number = CONFIG.ROB_COOLDOWN_MINUTES * 60 * 1000;
     if (!isCooldownOver(attackerData.last_rob, robCooldownMs)) {
-      const nextRobTime = new Date(attackerData.last_rob).getTime() + robCooldownMs;
-      const discordTimestamp = Math.floor(nextRobTime / 1000);
+      const nextRobTime: number = new Date(attackerData.last_rob!).getTime() + robCooldownMs;
+      const discordTimestamp: number = Math.floor(nextRobTime / 1000);
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
@@ -62,7 +63,7 @@ export async function execute(interaction) {
     }
 
     // Check if target was recently robbed
-    const victimCooldownMs = CONFIG.ROB_VICTIM_COOLDOWN_MINUTES * 60 * 1000;
+    const victimCooldownMs: number = CONFIG.ROB_VICTIM_COOLDOWN_MINUTES * 60 * 1000;
     if (!isCooldownOver(targetData.last_robbed_at, victimCooldownMs)) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
@@ -123,23 +124,25 @@ export async function execute(interaction) {
       await interaction.editReply({ embeds: [embed] });
 
       // Notify the victim that their padlock saved them
-      await interaction.channel.send({
-        content: `🛡️ <@${targetUser.id}>'s O-line protected them from an interception attempt by **${attackerUsername}**!`,
-      });
+      if (interaction.channel && 'send' in interaction.channel) {
+        await interaction.channel.send({
+          content: `🛡️ <@${targetUser.id}>'s O-line protected them from an interception attempt by **${attackerUsername}**!`,
+        });
+      }
       return;
     }
 
     // Determine success or failure
-    const isSuccess = Math.random() < CONFIG.ROB_SUCCESS_RATE;
+    const isSuccess: boolean = Math.random() < CONFIG.ROB_SUCCESS_RATE;
 
     if (isSuccess) {
       // Calculate stolen amount (10-30% of target's wallet)
-      const stealPercent =
+      const stealPercent: number =
         CONFIG.ROB_MIN_PERCENT + Math.random() * (CONFIG.ROB_MAX_PERCENT - CONFIG.ROB_MIN_PERCENT);
-      const stolenAmount = Math.floor(targetData.wallet * stealPercent);
+      const stolenAmount: number = Math.floor(targetData.wallet * stealPercent);
 
       // Transfer money atomically
-      const { from: updatedVictim, to: updatedAttacker } = await economyDb.transferBetweenUsers(
+      const { from: updatedVictim, to: updatedAttacker }: TransferResult = await economyDb.transferBetweenUsers(
         targetUser.id,
         attackerId,
         stolenAmount
@@ -197,10 +200,10 @@ export async function execute(interaction) {
       if (CHANNELS.TOWN_SQUARE) {
         try {
           const townSquare = await interaction.client.channels.fetch(CHANNELS.TOWN_SQUARE);
-          if (townSquare) {
+          if (townSquare && 'send' in townSquare) {
             await townSquare.send({ embeds: [announcementEmbed] });
           }
-        } catch (err) {
+        } catch (err: unknown) {
           console.error('Failed to send robbery announcement to town-square:', err);
         }
       }
@@ -214,10 +217,10 @@ export async function execute(interaction) {
         amount: stolenAmount,
         targetUserId: targetUser.id,
         targetUsername: targetUser.username,
-      }).catch((err) => console.error('Failed to check achievements:', err));
+      }).catch((err: unknown) => console.error('Failed to check achievements:', err));
     } else {
       // Failed - pay fine using atomic operation
-      const updatedAttacker = await economyDb.payRobFine(attackerId, CONFIG.ROB_FAIL_FINE);
+      const updatedAttacker: EconomyUser | null = await economyDb.payRobFine(attackerId, CONFIG.ROB_FAIL_FINE);
 
       // If they couldn't pay the fine (shouldn't happen due to check above)
       if (!updatedAttacker) {
@@ -259,12 +262,13 @@ export async function execute(interaction) {
         amount: CONFIG.ROB_FAIL_FINE,
         targetUserId: targetUser.id,
         targetUsername: targetUser.username,
-      }).catch((err) => console.error('Failed to check achievements:', err));
+      }).catch((err: unknown) => console.error('Failed to check achievements:', err));
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('rob command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }
