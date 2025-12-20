@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { sql } from '@vercel/postgres';
 
 export const data = new SlashCommandBuilder()
@@ -17,13 +17,13 @@ export const data = new SlashCommandBuilder()
     option.setName('amount').setDescription('amount being wagered').setRequired(true)
   );
 
-export async function execute(interaction) {
-  const bettor = interaction.user.id;
-  const betee = interaction.options.getUser('betuser').id;
-  const description = interaction.options.getString('description');
-  const amountWagered = interaction.options.getNumber('amount');
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  const bettor: string = interaction.user.id;
+  const betUser = interaction.options.getUser('betuser');
+  const description: string | null = interaction.options.getString('description');
+  const amountWagered: number | null = interaction.options.getNumber('amount');
 
-  if (!bettor || !betee || !description || !amountWagered) {
+  if (!betUser || !description || !amountWagered) {
     await interaction.reply({
       content: 'Incorrect information input!',
       ephemeral: true,
@@ -31,15 +31,17 @@ export async function execute(interaction) {
     return;
   }
 
+  const betee: string = betUser.id;
+
   await interaction.deferReply();
   try {
     await sql`INSERT INTO Bets (BettorOne, BettorTwo, Description, Amount) VALUES (${bettor}, ${betee}, ${description}, ${amountWagered})`;
     await interaction.editReply({ content: 'Bet Added Successfully' });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('betcreate command error: ', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
-      ephemeral: true,
+      content: `An error occurred: ${message}`,
     });
   }
 }

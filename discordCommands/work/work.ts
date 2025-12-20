@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import {
   CONFIG,
@@ -7,32 +7,31 @@ import {
   randomInt,
   getRandomJob,
 } from '../../economy/economyConfig.js';
+import type { EconomyUser } from '../../types/database.js';
+import type { WorkJob } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('work')
   .setDescription('Put in work at practice to earn some coins');
 
-/**
- * Execute the work command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const userId = interaction.user.id;
-    const username = interaction.user.username;
+    const userId: string = interaction.user.id;
+    const username: string = interaction.user.username;
 
     // Get or create user
-    const userData = await economyDb.getOrCreateUser(userId, username);
+    const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
 
     // Check cooldown
-    const cooldownMs = CONFIG.WORK_COOLDOWN_MINUTES * 60 * 1000;
+    const cooldownMs: number = CONFIG.WORK_COOLDOWN_MINUTES * 60 * 1000;
 
     if (!isCooldownOver(userData.last_work, cooldownMs)) {
       // Calculate when they can work again using Discord timestamp
-      const nextWorkTime = new Date(userData.last_work).getTime() + cooldownMs;
-      const discordTimestamp = Math.floor(nextWorkTime / 1000);
+      const lastWorkTime: number = userData.last_work ? new Date(userData.last_work).getTime() : 0;
+      const nextWorkTime: number = lastWorkTime + cooldownMs;
+      const discordTimestamp: number = Math.floor(nextWorkTime / 1000);
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
@@ -47,19 +46,26 @@ export async function execute(interaction) {
     }
 
     // Determine success or failure
-    const isSuccess = Math.random() < CONFIG.WORK_SUCCESS_RATE;
-    const job = getRandomJob();
+    const isSuccess: boolean = Math.random() < CONFIG.WORK_SUCCESS_RATE;
+    const job: WorkJob = getRandomJob();
 
     // Calculate next work time for footer
-    const nextWorkTime = Date.now() + cooldownMs;
-    const discordTimestamp = Math.floor(nextWorkTime / 1000);
+    const nextWorkTime: number = Date.now() + cooldownMs;
+    const discordTimestamp: number = Math.floor(nextWorkTime / 1000);
 
     if (isSuccess) {
       // Calculate earnings
-      const earnings = randomInt(CONFIG.WORK_MIN, CONFIG.WORK_MAX);
+      const earnings: number = randomInt(CONFIG.WORK_MIN, CONFIG.WORK_MAX);
 
       // Claim work atomically (updates timestamp and adds reward)
-      const updatedUser = await economyDb.claimWork(userId, earnings);
+      const updatedUser: EconomyUser | null = await economyDb.claimWork(userId, earnings);
+
+      if (!updatedUser) {
+        await interaction.editReply({
+          content: 'An error occurred while processing your work reward.',
+        });
+        return;
+      }
 
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
@@ -102,10 +108,11 @@ export async function execute(interaction) {
 
       await interaction.editReply({ embeds: [embed] });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('work command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }

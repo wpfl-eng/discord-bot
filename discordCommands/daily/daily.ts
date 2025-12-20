@@ -1,32 +1,30 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import { CONFIG, formatCurrency, isCooldownOver } from '../../economy/economyConfig.js';
+import type { EconomyUser } from '../../types/database.js';
 
 export const data = new SlashCommandBuilder()
   .setName('daily')
   .setDescription('Collect your game day check');
 
-/**
- * Execute the daily command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const userId = interaction.user.id;
-    const username = interaction.user.username;
+    const userId: string = interaction.user.id;
+    const username: string = interaction.user.username;
 
     // Get or create user
-    const userData = await economyDb.getOrCreateUser(userId, username);
+    const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
 
     // Check cooldown
-    const cooldownMs = CONFIG.DAILY_COOLDOWN_HOURS * 60 * 60 * 1000;
+    const cooldownMs: number = CONFIG.DAILY_COOLDOWN_HOURS * 60 * 60 * 1000;
 
     if (!isCooldownOver(userData.last_daily, cooldownMs)) {
       // Calculate when they can claim again using Discord timestamp
-      const nextClaimTime = new Date(userData.last_daily).getTime() + cooldownMs;
-      const discordTimestamp = Math.floor(nextClaimTime / 1000);
+      const lastDailyTime: number = userData.last_daily ? new Date(userData.last_daily).getTime() : 0;
+      const nextClaimTime: number = lastDailyTime + cooldownMs;
+      const discordTimestamp: number = Math.floor(nextClaimTime / 1000);
 
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
@@ -41,11 +39,11 @@ export async function execute(interaction) {
     }
 
     // Calculate streak
-    let newStreak = 1;
-    const streakExpireMs = CONFIG.DAILY_STREAK_EXPIRE_HOURS * 60 * 60 * 1000;
+    let newStreak: number = 1;
+    const streakExpireMs: number = CONFIG.DAILY_STREAK_EXPIRE_HOURS * 60 * 60 * 1000;
 
     if (userData.last_daily) {
-      const timeSinceLastDaily = Date.now() - new Date(userData.last_daily).getTime();
+      const timeSinceLastDaily: number = Date.now() - new Date(userData.last_daily).getTime();
 
       // If within streak window, increment streak
       if (timeSinceLastDaily < streakExpireMs) {
@@ -55,21 +53,28 @@ export async function execute(interaction) {
     }
 
     // Calculate reward
-    const streakBonus = Math.min(
+    const streakBonus: number = Math.min(
       (newStreak - 1) * CONFIG.DAILY_STREAK_BONUS,
       CONFIG.DAILY_STREAK_MAX_BONUS
     );
-    const totalReward = CONFIG.DAILY_AMOUNT + streakBonus;
+    const totalReward: number = CONFIG.DAILY_AMOUNT + streakBonus;
 
     // Claim daily atomically (updates timestamp, streak, and adds reward)
-    const updatedUser = await economyDb.claimDaily(userId, newStreak, totalReward);
+    const updatedUser: EconomyUser | null = await economyDb.claimDaily(userId, newStreak, totalReward);
+
+    if (!updatedUser) {
+      await interaction.editReply({
+        content: 'An error occurred while claiming your daily reward.',
+      });
+      return;
+    }
 
     // Calculate next claim time for footer
-    const nextClaimTime = Date.now() + cooldownMs;
-    const discordTimestamp = Math.floor(nextClaimTime / 1000);
+    const nextClaimTime: number = Date.now() + cooldownMs;
+    const discordTimestamp: number = Math.floor(nextClaimTime / 1000);
 
     // Build response embed
-    const streakEmoji = newStreak >= 5 ? '🔥' : '🏆';
+    const streakEmoji: string = newStreak >= 5 ? '🔥' : '🏆';
     const embed = new EmbedBuilder()
       .setColor(0xf1c40f)
       .setTitle(`🏈 Game Check Collected!`)
@@ -112,10 +117,11 @@ export async function execute(interaction) {
       .setDescription(`Collect again <t:${discordTimestamp}:R> to keep your win streak!`);
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('daily command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }

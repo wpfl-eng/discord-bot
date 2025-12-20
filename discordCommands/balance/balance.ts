@@ -1,6 +1,7 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import { formatCurrency, CURRENCY_EMOJI } from '../../economy/economyConfig.js';
+import type { EconomyUser } from '../../types/database.js';
 
 export const data = new SlashCommandBuilder()
   .setName('balance')
@@ -12,23 +13,19 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
   );
 
-/**
- * Execute the balance command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const targetUser = interaction.options.getUser('user') || interaction.user;
 
     // Get or create user
-    const userData = await economyDb.getOrCreateUser(targetUser.id, targetUser.username);
+    const userData: EconomyUser = await economyDb.getOrCreateUser(targetUser.id, targetUser.username);
 
     // Get user's rank
-    const rank = await economyDb.getUserRank(targetUser.id);
-    const totalUsers = await economyDb.getTotalUsers();
-    const totalWealth = userData.wallet + userData.bank;
+    const rank: number | null = await economyDb.getUserRank(targetUser.id);
+    const totalUsers: number = await economyDb.getTotalUsers();
+    const totalWealth: number = userData.wallet + userData.bank;
 
     const embed = new EmbedBuilder()
       .setColor(0x2ecc71)
@@ -79,10 +76,11 @@ export async function execute(interaction) {
     }
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('balance command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }

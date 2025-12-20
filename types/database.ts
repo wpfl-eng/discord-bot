@@ -73,6 +73,21 @@ export interface StockHolding {
   readonly last_updated_at: Date;
 }
 
+// ============ Betting System ============
+
+/**
+ * Bet record from Bets table
+ * Used by: betcreate, betlist commands
+ */
+export interface Bet {
+  readonly id: number;
+  readonly bettorone: string;
+  readonly bettortwo: string;
+  readonly description: string;
+  readonly amount: number;
+  readonly created_at?: Date;
+}
+
 // ============ Utility Types ============
 
 /**

@@ -1,15 +1,11 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { CURRENCY_EMOJI } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('economyhelp')
   .setDescription('View all economy commands');
 
-/**
- * Execute the economyhelp command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
     .setTitle(`${CURRENCY_EMOJI} Economy Commands`)

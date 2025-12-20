@@ -1,6 +1,7 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
+import type { EconomyUser } from '../../types/database.js';
 
 export const data = new SlashCommandBuilder()
   .setName('deposit')
@@ -9,26 +10,22 @@ export const data = new SlashCommandBuilder()
     option.setName('amount').setDescription("Amount to deposit (number or 'all')").setRequired(true)
   );
 
-/**
- * Execute the deposit command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const userId = interaction.user.id;
-    const username = interaction.user.username;
-    const amountStr = interaction.options.getString('amount').toLowerCase();
+    const userId: string = interaction.user.id;
+    const username: string = interaction.user.username;
+    const amountStr: string = interaction.options.getString('amount')?.toLowerCase() ?? '';
 
     // Get or create user
-    const userData = await economyDb.getOrCreateUser(userId, username);
+    const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
 
     // Parse amount
-    let amount;
+    let amount: number;
     if (amountStr === 'all' || amountStr === 'max') {
       // Deposit as much as possible (up to bank capacity)
-      const availableSpace = userData.bank_capacity - userData.bank;
+      const availableSpace: number = userData.bank_capacity - userData.bank;
       amount = Math.min(userData.wallet, availableSpace);
     } else {
       amount = parseInt(amountStr);
@@ -56,7 +53,7 @@ export async function execute(interaction) {
     }
 
     // Check bank capacity
-    const availableSpace = userData.bank_capacity - userData.bank;
+    const availableSpace: number = userData.bank_capacity - userData.bank;
     if (amount > availableSpace) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
@@ -72,7 +69,14 @@ export async function execute(interaction) {
     }
 
     // Perform transfer
-    const updatedUser = await economyDb.transferToBank(userId, amount);
+    const updatedUser: EconomyUser | null = await economyDb.transferToBank(userId, amount);
+
+    if (!updatedUser) {
+      await interaction.editReply({
+        content: 'An error occurred while processing the deposit.',
+      });
+      return;
+    }
 
     const embed = new EmbedBuilder()
       .setColor(0x2ecc71)
@@ -93,10 +97,11 @@ export async function execute(interaction) {
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('deposit command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }

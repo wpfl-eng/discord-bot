@@ -1,6 +1,7 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
+import type { EconomyUser } from '../../types/database.js';
 
 export const data = new SlashCommandBuilder()
   .setName('withdraw')
@@ -12,23 +13,19 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
   );
 
-/**
- * Execute the withdraw command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const userId = interaction.user.id;
-    const username = interaction.user.username;
-    const amountStr = interaction.options.getString('amount').toLowerCase();
+    const userId: string = interaction.user.id;
+    const username: string = interaction.user.username;
+    const amountStr: string = interaction.options.getString('amount')?.toLowerCase() ?? '';
 
     // Get or create user
-    const userData = await economyDb.getOrCreateUser(userId, username);
+    const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
 
     // Parse amount
-    let amount;
+    let amount: number;
     if (amountStr === 'all' || amountStr === 'max') {
       amount = userData.bank;
     } else {
@@ -57,7 +54,14 @@ export async function execute(interaction) {
     }
 
     // Perform transfer
-    const updatedUser = await economyDb.transferToWallet(userId, amount);
+    const updatedUser: EconomyUser | null = await economyDb.transferToWallet(userId, amount);
+
+    if (!updatedUser) {
+      await interaction.editReply({
+        content: 'An error occurred while processing the withdrawal.',
+      });
+      return;
+    }
 
     const embed = new EmbedBuilder()
       .setColor(0x2ecc71)
@@ -81,10 +85,11 @@ export async function execute(interaction) {
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('withdraw command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }
