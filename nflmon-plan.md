@@ -5,7 +5,7 @@ A Pokemon-style collectible system featuring real NFL players that integrates wi
 
 ### User Decisions
 - **Theme**: Real NFL players (current active ~50+ players)
-- **Stats**: 4 simplified abstract stats (Speed, Power, Agility, Awareness)
+- **Stats**: 5 stats (Speed, Power, Agility, Awareness, HP)
 - **Evolution**: Career stages (Rookie → Pro → All-Pro → Hall of Famer)
 - **Rarity**: Accessible (8-10% legendary drop rate)
 - **Images**: External URLs stored per player
@@ -45,14 +45,19 @@ CREATE TABLE nflmon_bench (
   current_xp INTEGER DEFAULT 0,
   evolution_stage VARCHAR(20) DEFAULT 'rookie',  -- rookie/pro/all_pro/hall_of_famer
   rarity VARCHAR(20) NOT NULL,                    -- common/uncommon/rare/epic/legendary
-  iv_speed INTEGER, iv_power INTEGER, iv_agility INTEGER, iv_awareness INTEGER,
-  acquired_source VARCHAR(50) NOT NULL,           -- wordle/trivia/shop/trade/daily
+  iv_speed INTEGER, iv_power INTEGER, iv_agility INTEGER, iv_awareness INTEGER, iv_hp INTEGER,
+  acquired_source VARCHAR(50) NOT NULL,           -- wordle/trivia/shop/trade
   acquired_from_user VARCHAR(20),
   is_favorite BOOLEAN DEFAULT FALSE,
-  training_slot INTEGER CHECK (training_slot >= 1 AND training_slot <= 5),  -- NULL = not training
-  acquired_at TIMESTAMP DEFAULT NOW()
+  training_slot INTEGER,                          -- NULL = not training, validate max in code
+  acquired_at TIMESTAMP DEFAULT NOW(),
+
+  -- Extensibility fields
+  variant VARCHAR(50) DEFAULT 'standard',         -- shiny/throwback/gold/etc (future)
+  metadata JSONB DEFAULT '{}'                     -- catch-all for future fields
 );
 CREATE INDEX idx_nflmon_training ON nflmon_bench(user_id) WHERE training_slot IS NOT NULL;
+CREATE INDEX idx_nflmon_user ON nflmon_bench(user_id);
 ```
 
 ### `nflmon_trades` - Trade escrow system
@@ -95,7 +100,30 @@ CREATE TABLE nflmon_stats (
 | Epic | 5% | 500 coins | 1.35x |
 | Legendary | 8% | 1000 coins | 1.5x |
 
-### 2. Evolution Stages
+> **Note**: Drop weight indicates population distribution. Actual rarity is determined by player's `rarityPool` (guaranteed).
+
+### 1b. Variants (future extensibility)
+```javascript
+export const VARIANTS = {
+  standard: { name: 'Standard', statBonus: 0 },
+  // Future variants (uncomment when implementing)
+  // shiny: { name: 'Shiny', statBonus: 5, dropChance: 0.01 },
+  // throwback: { name: 'Throwback', statBonus: 0, imageKey: 'throwback' },
+  // gold: { name: 'Gold', statBonus: 10, dropChance: 0.001 },
+};
+```
+
+### 2. Evolution Stages (config-driven)
+```javascript
+export const EVOLUTION_STAGES = [
+  { id: 'rookie', name: 'Rookie', emoji: '🌱', minLevel: 1 },
+  { id: 'pro', name: 'Pro', emoji: '⭐', minLevel: 21 },
+  { id: 'all_pro', name: 'All-Pro', emoji: '🌟', minLevel: 41 },
+  { id: 'hall_of_famer', name: 'Hall of Famer', emoji: '👑', minLevel: 61, minRarity: 'rare' },
+  // Future: { id: 'legend', name: 'Legend', emoji: '🏆', minLevel: 100, minRarity: 'legendary' }
+];
+```
+
 | Stage | Level Range | Emoji | Requirements |
 |-------|-------------|-------|--------------|
 | Rookie | 1-20 | 🌱 | Starting stage |
@@ -104,6 +132,7 @@ CREATE TABLE nflmon_stats (
 | Hall of Famer | 61-100 | 👑 | Level 61+, Rare+ rarity |
 
 ### 3. Stats System
+5 stats: Speed, Power, Agility, Awareness, HP
 Base stats by position + IVs (0-15 each, random at acquisition) + level scaling + rarity multiplier
 
 **Final Stat Formula:**
@@ -112,11 +141,23 @@ finalStat = Math.floor((baseStat + IV) * (1 + level * 0.01) * rarityMultiplier)
 ```
 Example: QB SPD base=60, IV=10, Level=50, Rare (1.2x) → `(60+10) * 1.5 * 1.2 = 126`
 
-**Position Base Stats:**
-- QB: SPD 60, PWR 50, AGI 65, AWR 80
-- RB: SPD 80, PWR 70, AGI 75, AWR 55
-- WR: SPD 85, PWR 50, AGI 80, AWR 60
-- TE: SPD 65, PWR 75, AGI 60, AWR 65
+**Position Base Stats** (config-driven, easy to add more):
+```javascript
+export const POSITION_BASE_STATS = {
+  QB:  { speed: 60, power: 50, agility: 65, awareness: 80, hp: 70 },
+  RB:  { speed: 80, power: 70, agility: 75, awareness: 55, hp: 85 },
+  WR:  { speed: 85, power: 50, agility: 80, awareness: 60, hp: 75 },
+  TE:  { speed: 65, power: 75, agility: 60, awareness: 65, hp: 90 },
+  // Future positions (uncomment when adding players)
+  K:   { speed: 40, power: 70, agility: 50, awareness: 90, hp: 60 },
+  DEF: { speed: 70, power: 80, agility: 65, awareness: 75, hp: 85 },
+  OL:  { speed: 40, power: 90, agility: 45, awareness: 70, hp: 95 },
+  DL:  { speed: 65, power: 85, agility: 60, awareness: 65, hp: 90 },
+  LB:  { speed: 70, power: 80, agility: 70, awareness: 75, hp: 88 },
+  CB:  { speed: 90, power: 55, agility: 85, awareness: 70, hp: 75 },
+  S:   { speed: 80, power: 65, agility: 75, awareness: 80, hp: 82 },
+};
+```
 
 ### 4. XP & Leveling
 - Level cap: 100
@@ -300,7 +341,12 @@ const NFLMON_COLORS = {
     "position": "QB",
     "number": 15,
     "imageUrl": "https://...",
-    "rarityPool": "legendary"
+    "rarityPool": "legendary",
+
+    // Optional extensibility fields (for future features)
+    "abilities": [],           // Placeholder for battle system
+    "tags": [],                // ["2024-draft", "playoffs", "mvp"]
+    "alternateImages": {}      // {"shiny": "url", "throwback": "url"}
   }
 }
 ```
@@ -320,15 +366,24 @@ const NFLMON_COLORS = {
 
 ```javascript
 // nflmonService.js
-rollForNflmon(userId, username, source, rarityBoostOverride?) → Promise<NFLmon|null>
-addXpToTraining(userId, source) → Promise<Array<{nflmon, xpGained, levelsGained}>>
+rollForNflmon(userId, username, source, options?) → Promise<NFLmon|null>
+  // options: { variant?: string }
+
+addXpToTraining(userId, source, options?) → Promise<{
+  results: Array<{nflmon, xpGained, levelsGained, evolved?}>,
+  events: Array<{type: 'level_up'|'evolution', nflmonId, data}>  // For achievement hooks
+}>
+  // options: { onLevelUp?: callback, onEvolve?: callback }
+
 evolve(userId, nflmonId) → Promise<{success, nflmon?, newStage?, error?}>
-getDisplayData(benchRecord) → {stats, ivTotal, canEvolve, displayName, ...}
+getDisplayData(benchRecord) → {stats, ivTotal, canEvolve, displayName, variant, ...}
 
 // nflmonDb.js
 getBench(userId, options?) → Promise<NFLmon[]>
+  // options: { rarity?, variant?, page?, limit? }
 getTrainingNflmon(userId) → Promise<NFLmon[]>
 addNflmon(data) → Promise<NFLmon>
+  // data includes: variant, metadata
 addXp(nflmonId, amount) → Promise<{nflmon, levelsGained}>
 setTrainingSlot(userId, nflmonId, slot) → Promise<NFLmon|null>
 removeFromTraining(userId, nflmonId) → Promise<NFLmon|null>
