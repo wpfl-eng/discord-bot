@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import OpenAI from 'openai';
 
 export const data = new SlashCommandBuilder()
@@ -8,8 +8,8 @@ export const data = new SlashCommandBuilder()
     option.setName('query').setDescription('image query to send to DALL-E').setRequired(true)
   );
 
-export async function execute(interaction) {
-  const query = interaction.options.getString('query');
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  const query: string | null = interaction.options.getString('query');
   if (!query) {
     await interaction.reply({ content: 'No query provided!', ephemeral: true });
     return;
@@ -17,7 +17,7 @@ export async function execute(interaction) {
   await interaction.deferReply();
   try {
     const openai = new OpenAI({
-      apiKey: process.env.OPEN_API_KEY, // This is also the default, can be omitted
+      apiKey: process.env.OPEN_API_KEY,
     });
     const response = await openai.images.generate({
       model: 'dall-e-3',
@@ -26,9 +26,9 @@ export async function execute(interaction) {
       size: '1024x1024',
     });
 
-    const image_url = response.data[0].url;
+    const image_url: string | undefined = response.data[0].url;
     await interaction.editReply(image_url || 'Talk to AJ something went wrong returning a url');
-  } catch (e) {
+  } catch (e: unknown) {
     console.error('/image error: ', e);
     await interaction.editReply('Talk to AJ something went wrong on generation step');
   }

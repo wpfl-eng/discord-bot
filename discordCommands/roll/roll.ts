@@ -1,4 +1,8 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import {
+  ChatInputCommandInteraction,
+  SlashCommandBuilder,
+  EmbedBuilder,
+} from 'discord.js';
 
 export const data = new SlashCommandBuilder()
   .setName('roll')
@@ -11,12 +15,12 @@ export const data = new SlashCommandBuilder()
     option.setName('hidden').setDescription('is roll hidden (default public)')
   );
 
-export async function execute(interaction) {
-  const diceSides = interaction.options.getInteger('sides');
-  const numberDice = interaction.options.getInteger('dice') || 1;
-  const isHidden = interaction.options.getBoolean('hidden') || false;
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  const diceSides: number | null = interaction.options.getInteger('sides');
+  const numberDice: number = interaction.options.getInteger('dice') || 1;
+  const isHidden: boolean = interaction.options.getBoolean('hidden') || false;
 
-  if (diceSides < 1) {
+  if (diceSides === null || diceSides < 1) {
     await interaction.reply({
       content: 'Dice must have at least one side.',
       ephemeral: true,
@@ -24,10 +28,13 @@ export async function execute(interaction) {
     return;
   }
 
-  const rolls = Array.from({ length: numberDice }, () => Math.floor(Math.random() * diceSides) + 1);
-  const total = rolls.reduce((sum, roll) => sum + roll, 0);
+  const rolls: number[] = Array.from(
+    { length: numberDice },
+    () => Math.floor(Math.random() * diceSides) + 1
+  );
+  const total: number = rolls.reduce((sum, roll) => sum + roll, 0);
 
-  const embed = new EmbedBuilder()
+  const embed: EmbedBuilder = new EmbedBuilder()
     .setColor('#0099ff')
     .setTitle('🎲 Dice Roll 🎲')
     .addFields([

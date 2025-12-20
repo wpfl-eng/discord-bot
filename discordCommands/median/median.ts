@@ -1,7 +1,14 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
-import { espnMembers } from '../../constants/espnMembers.ts';
+import { espnMembers } from '../../constants/espnMembers.js';
+
+import type { BoxscoreMatchup } from 'espn-fantasy-football-api/node.js';
+
+interface Score {
+  name: string;
+  score: number;
+}
 
 export const data = new SlashCommandBuilder()
   .setName('median')
@@ -23,24 +30,24 @@ export const data = new SlashCommandBuilder()
       .setMaxValue(2025)
   );
 
-async function getRankedScores(week, year) {
+async function getRankedScores(week: number, year: number): Promise<Score[]> {
   const myClient = new Client({
-    leagueId: Number.parseInt(process.env.LEAGUE_ID),
+    leagueId: Number.parseInt(process.env.LEAGUE_ID as string),
   });
   myClient.setCookies({
     espnS2: process.env.ESPN_S2,
     SWID: process.env.SWID,
   });
 
-  const matchups = await myClient.getBoxscoreForWeek({
-    seasonId: Number.parseInt(year),
-    matchupPeriodId: Number.parseInt(week),
-    scoringPeriodId: Number.parseInt(week),
+  const matchups: BoxscoreMatchup[] = await myClient.getBoxscoreForWeek({
+    seasonId: year,
+    matchupPeriodId: week,
+    scoringPeriodId: week,
   });
 
-  const scores = [];
+  const scores: Score[] = [];
 
-  matchups.forEach((matchup) => {
+  matchups.forEach((matchup: BoxscoreMatchup) => {
     const homeMember = espnMembers.find((member) => member.id === matchup.homeTeamId);
     if (homeMember) {
       scores.push({ name: homeMember.name, score: matchup.homeScore });
@@ -49,7 +56,7 @@ async function getRankedScores(week, year) {
     if (matchup.awayTeamId) {
       const awayMember = espnMembers.find((member) => member.id === matchup.awayTeamId);
       if (awayMember) {
-        scores.push({ name: awayMember.name, score: matchup.awayScore });
+        scores.push({ name: awayMember.name, score: matchup.awayScore ?? 0 });
       }
     }
   });
@@ -58,20 +65,20 @@ async function getRankedScores(week, year) {
   return scores;
 }
 
-function createEmbed(scores, week, year) {
-  const cutLine = 7;
-  const safeScores = scores.slice(0, cutLine);
-  const belowScores = scores.slice(cutLine);
+function createEmbed(scores: Score[], week: number, year: number): EmbedBuilder {
+  const cutLine: number = 7;
+  const safeScores: Score[] = scores.slice(0, cutLine);
+  const belowScores: Score[] = scores.slice(cutLine);
 
-  const safeField = safeScores
+  const safeField: string = safeScores
     .map((entry, i) => `${i + 1}. ${entry.name} - ${entry.score}`)
     .join('\n');
 
-  const belowField = belowScores
+  const belowField: string = belowScores
     .map((entry, i) => `${i + cutLine + 1}. ${entry.name} - ${entry.score}`)
     .join('\n');
 
-  const medianScore =
+  const medianScore: number =
     scores.length >= 2
       ? ((scores[cutLine - 1]?.score || 0) + (scores[cutLine]?.score || 0)) / 2
       : 0;
@@ -88,17 +95,17 @@ function createEmbed(scores, week, year) {
     .setTimestamp();
 }
 
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  const week = interaction.options.getInteger('week') || 13;
-  const year = interaction.options.getInteger('year') || 2025;
+  const week: number = interaction.options.getInteger('week') || 13;
+  const year: number = interaction.options.getInteger('year') || 2025;
 
   try {
-    const scores = await getRankedScores(week, year);
-    const embed = createEmbed(scores, week, year);
+    const scores: Score[] = await getRankedScores(week, year);
+    const embed: EmbedBuilder = createEmbed(scores, week, year);
     await interaction.editReply({ embeds: [embed] });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error(err);
     await interaction.editReply('API returned an error. Try again later.');
   }
