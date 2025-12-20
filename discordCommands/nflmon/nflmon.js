@@ -33,6 +33,20 @@ const ERROR_MESSAGES = {
   ALREADY_IN_TRAINING: "This NFLmon is already in a training slot.",
 };
 
+const TRADE_ERRORS = {
+  NOT_FOUND: "Trade not found.",
+  NOT_RECIPIENT: "You cannot accept this trade.",
+  NOT_PENDING: "This trade is no longer pending.",
+  NOT_SENDER: "You can only cancel trades you sent.",
+  EXPIRED: "This trade has expired.",
+  FROM_NFLMON_UNAVAILABLE: "The offered NFLmon is no longer available.",
+  FROM_NFLMON_TRAINING: "The offered NFLmon is in training.",
+  TO_NFLMON_UNAVAILABLE: "The requested NFLmon is no longer available.",
+  TO_NFLMON_TRAINING: "Your NFLmon is in training. Untrain it first.",
+  INSUFFICIENT_COINS: "The sender no longer has enough coins.",
+  SELF_TRADE: "You cannot trade with yourself.",
+};
+
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
@@ -104,6 +118,91 @@ function buildEvolutionEmbed(displayData, newStage) {
         `**Team:** ${player.team} | **Position:** ${player.position}\n` +
         `**Level:** ${displayData.level} | **Rarity:** ${displayData.rarityName}`
     );
+}
+
+/**
+ * Build trade response buttons (for DM)
+ * @param {number} tradeId - Trade ID
+ * @returns {ActionRowBuilder[]}
+ */
+function buildTradeResponseButtons(tradeId) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`nflmon_trade_accept_${tradeId}`)
+        .setLabel("Accept Trade")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`nflmon_trade_reject_${tradeId}`)
+        .setLabel("Reject Trade")
+        .setStyle(ButtonStyle.Danger)
+    ),
+  ];
+}
+
+/**
+ * Build dex pagination buttons
+ * @param {number} page - Current page
+ * @param {number} totalPages - Total pages
+ * @param {string|null} search - Search filter
+ * @param {string|null} rarity - Rarity filter
+ * @returns {ActionRowBuilder[]}
+ */
+function buildDexPaginationButtons(page, totalPages, search, rarity) {
+  if (totalPages <= 1) return [];
+
+  // Encode filters as base64 JSON to avoid delimiter parsing issues
+  const filterData = JSON.stringify({ r: rarity || null, s: search?.slice(0, 20) || null });
+  const encodedFilters = Buffer.from(filterData).toString("base64");
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`nflmon_dex_prev_${page}_${encodedFilters}`)
+      .setLabel("Previous")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page <= 1),
+    new ButtonBuilder()
+      .setCustomId(`nflmon_dex_next_${page}_${encodedFilters}`)
+      .setLabel("Next")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= totalPages)
+  );
+
+  return [row];
+}
+
+/**
+ * Build pending trades action buttons
+ * @param {object} trade - Trade object
+ * @param {string} userId - Current user ID
+ * @returns {ActionRowBuilder[]}
+ */
+function buildPendingTradeButtons(trade, userId) {
+  const isIncoming = trade.to_user_id === userId;
+
+  if (isIncoming) {
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`nflmon_trade_accept_${trade.id}`)
+          .setLabel("Accept")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`nflmon_trade_reject_${trade.id}`)
+          .setLabel("Reject")
+          .setStyle(ButtonStyle.Danger)
+      ),
+    ];
+  } else {
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`nflmon_trade_cancel_${trade.id}`)
+          .setLabel("Cancel Trade")
+          .setStyle(ButtonStyle.Secondary)
+      ),
+    ];
+  }
 }
 
 // =============================================================================
@@ -255,6 +354,70 @@ export const data = new SlashCommandBuilder()
             { name: "Total Evolved", value: "total_evolved" }
           )
       )
+  )
+
+  // dex [search] [rarity] [page]
+  .addSubcommand((sub) =>
+    sub
+      .setName("dex")
+      .setDescription("Browse the NFLmon encyclopedia")
+      .addStringOption((opt) =>
+        opt.setName("search").setDescription("Search: name, position:WR, or team:KC")
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("rarity")
+          .setDescription("Filter by rarity")
+          .addChoices(
+            { name: "Common", value: "common" },
+            { name: "Uncommon", value: "uncommon" },
+            { name: "Rare", value: "rare" },
+            { name: "Epic", value: "epic" },
+            { name: "Legendary", value: "legendary" }
+          )
+      )
+      .addIntegerOption((opt) =>
+        opt.setName("page").setDescription("Page number").setMinValue(1)
+      )
+  )
+
+  // trade subcommand group
+  .addSubcommandGroup((group) =>
+    group
+      .setName("trade")
+      .setDescription("Trade NFLmon with other users")
+      .addSubcommand((sub) =>
+        sub
+          .setName("offer")
+          .setDescription("Create a trade offer")
+          .addUserOption((opt) =>
+            opt.setName("user").setDescription("User to trade with").setRequired(true)
+          )
+          .addIntegerOption((opt) =>
+            opt
+              .setName("my_nflmon")
+              .setDescription("Your NFLmon ID to offer")
+              .setRequired(true)
+              .setAutocomplete(true)
+          )
+          .addIntegerOption((opt) =>
+            opt.setName("their_nflmon").setDescription("Their NFLmon ID you want (optional)")
+          )
+          .addIntegerOption((opt) =>
+            opt.setName("coins").setDescription("Coins to include").setMinValue(0)
+          )
+      )
+      .addSubcommand((sub) =>
+        sub.setName("pending").setDescription("View your pending trades")
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName("cancel")
+          .setDescription("Cancel a trade you sent")
+          .addIntegerOption((opt) =>
+            opt.setName("trade_id").setDescription("Trade ID to cancel").setRequired(true)
+          )
+      )
   );
 
 // =============================================================================
@@ -266,8 +429,31 @@ export const data = new SlashCommandBuilder()
  * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
 export async function execute(interaction) {
+  const subcommandGroup = interaction.options.getSubcommandGroup();
   const subcommand = interaction.options.getSubcommand();
 
+  // Handle trade subcommand group
+  if (subcommandGroup === "trade") {
+    switch (subcommand) {
+      case "offer":
+        await handleTradeOffer(interaction);
+        return;
+      case "pending":
+        await handleTradePending(interaction);
+        return;
+      case "cancel":
+        await handleTradeCancel(interaction);
+        return;
+      default:
+        await interaction.reply({
+          content: "Unknown trade subcommand.",
+          ephemeral: true,
+        });
+        return;
+    }
+  }
+
+  // Handle regular subcommands
   switch (subcommand) {
     case "bench":
       await handleBench(interaction);
@@ -295,6 +481,9 @@ export async function execute(interaction) {
       break;
     case "leaderboard":
       await handleLeaderboard(interaction);
+      break;
+    case "dex":
+      await handleDex(interaction);
       break;
     default:
       await interaction.reply({
@@ -861,6 +1050,446 @@ async function handleLeaderboard(interaction) {
   }
 }
 
+/**
+ * Handle /nflmon dex
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ */
+async function handleDex(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const search = interaction.options.getString("search")?.toLowerCase();
+    const rarity = interaction.options.getString("rarity");
+    const page = interaction.options.getInteger("page") || 1;
+
+    // Get all players from JSON (single source of truth)
+    let players = nflmonService.getAllPlayers();
+
+    // Apply filters
+    if (rarity) {
+      players = players.filter((p) => p.rarityPool === rarity);
+    }
+    if (search) {
+      if (search.startsWith("position:")) {
+        const pos = search.replace("position:", "").toUpperCase();
+        players = players.filter((p) => p.position === pos);
+      } else if (search.startsWith("team:")) {
+        const team = search.replace("team:", "").toUpperCase();
+        players = players.filter((p) => p.team.toUpperCase() === team);
+      } else {
+        players = players.filter((p) =>
+          p.name.toLowerCase().includes(search)
+        );
+      }
+    }
+
+    // Sort and paginate
+    players.sort((a, b) => a.name.localeCompare(b.name));
+    const totalCount = players.length;
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
+    const paginated = players.slice(
+      (page - 1) * ITEMS_PER_PAGE,
+      page * ITEMS_PER_PAGE
+    );
+
+    const embed = nflmonService.buildDexEmbed(
+      paginated,
+      page,
+      totalPages,
+      totalCount,
+      { search, rarity }
+    );
+    const components = buildDexPaginationButtons(page, totalPages, search, rarity);
+
+    const response = await interaction.editReply({
+      embeds: [embed],
+      components,
+    });
+
+    // Handle pagination if buttons exist
+    if (components.length > 0) {
+      const collector = response.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 60000,
+        filter: (i) => i.user.id === interaction.user.id,
+      });
+
+      collector.on("collect", async (buttonInteraction) => {
+        const parts = buttonInteraction.customId.split("_");
+        const action = parts[2]; // prev or next
+        const currentPage = parseInt(parts[3]);
+
+        // Decode base64 JSON filters
+        let filterRarity = null;
+        let filterSearch = null;
+        try {
+          const encodedFilters = parts[4];
+          if (encodedFilters) {
+            const filterData = JSON.parse(Buffer.from(encodedFilters, "base64").toString("utf8"));
+            filterRarity = filterData.r || null;
+            filterSearch = filterData.s || null;
+          }
+        } catch (e) {
+          console.error("[NFLMON] Failed to decode DEX filters:", e);
+        }
+
+        const newPage = action === "prev" ? currentPage - 1 : currentPage + 1;
+
+        // Re-filter players
+        let filteredPlayers = nflmonService.getAllPlayers();
+        if (filterRarity) {
+          filteredPlayers = filteredPlayers.filter((p) => p.rarityPool === filterRarity);
+        }
+        if (filterSearch) {
+          if (filterSearch.startsWith("position:")) {
+            const pos = filterSearch.replace("position:", "").toUpperCase();
+            filteredPlayers = filteredPlayers.filter((p) => p.position === pos);
+          } else if (filterSearch.startsWith("team:")) {
+            const team = filterSearch.replace("team:", "").toUpperCase();
+            filteredPlayers = filteredPlayers.filter((p) => p.team.toUpperCase() === team);
+          } else {
+            filteredPlayers = filteredPlayers.filter((p) =>
+              p.name.toLowerCase().includes(filterSearch)
+            );
+          }
+        }
+
+        filteredPlayers.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Recalculate totalPages based on filtered results
+        const newTotalPages = Math.ceil(filteredPlayers.length / ITEMS_PER_PAGE) || 1;
+
+        const newPaginated = filteredPlayers.slice(
+          (newPage - 1) * ITEMS_PER_PAGE,
+          newPage * ITEMS_PER_PAGE
+        );
+
+        const newEmbed = nflmonService.buildDexEmbed(
+          newPaginated,
+          newPage,
+          newTotalPages,
+          filteredPlayers.length,
+          { search: filterSearch, rarity: filterRarity }
+        );
+        const newComponents = buildDexPaginationButtons(
+          newPage,
+          newTotalPages,
+          filterSearch,
+          filterRarity
+        );
+
+        await buttonInteraction.update({
+          embeds: [newEmbed],
+          components: newComponents,
+        });
+      });
+
+      collector.on("end", async () => {
+        await interaction.editReply({ components: [] }).catch(() => {});
+      });
+    }
+  } catch (error) {
+    console.error("[NFLMON] dex error:", error);
+    await interaction.editReply({
+      content: `An error occurred: ${error.message}`,
+    });
+  }
+}
+
+/**
+ * Handle /nflmon trade offer
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ */
+async function handleTradeOffer(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const userId = interaction.user.id;
+    const username = interaction.user.username;
+    const targetUser = interaction.options.getUser("user");
+    const myNflmonId = interaction.options.getInteger("my_nflmon");
+    const theirNflmonId = interaction.options.getInteger("their_nflmon");
+    const coinsOffered = interaction.options.getInteger("coins") || 0;
+
+    // Prevent self-trade
+    if (targetUser.id === userId) {
+      await interaction.editReply({ content: TRADE_ERRORS.SELF_TRADE });
+      return;
+    }
+
+    // Validate my NFLmon exists and not in training
+    const myNflmon = await nflmonDb.getNflmonByUser(userId, myNflmonId);
+    if (!myNflmon) {
+      await interaction.editReply({ content: ERROR_MESSAGES.NOT_FOUND });
+      return;
+    }
+    if (myNflmon.training_slot !== null) {
+      await interaction.editReply({
+        content: "Your NFLmon is in training. Untrain it first with `/nflmon untrain`.",
+      });
+      return;
+    }
+
+    // Validate their NFLmon if specified
+    let theirNflmon = null;
+    if (theirNflmonId) {
+      theirNflmon = await nflmonDb.getNflmonByUser(targetUser.id, theirNflmonId);
+      if (!theirNflmon) {
+        await interaction.editReply({
+          content: "The requested NFLmon doesn't exist or doesn't belong to that user.",
+        });
+        return;
+      }
+    }
+
+    // Create the trade
+    const trade = await nflmonDb.createTrade({
+      fromUserId: userId,
+      fromUsername: username,
+      toUserId: targetUser.id,
+      toUsername: targetUser.username,
+      fromNflmonId: myNflmonId,
+      toNflmonId: theirNflmonId,
+      coinsOffered,
+    });
+
+    if (!trade) {
+      await interaction.editReply({ content: "Failed to create trade offer." });
+      return;
+    }
+
+    // Get player info for embeds
+    const myPlayer = nflmonService.getPlayer(myNflmon.player_id);
+    const theirPlayer = theirNflmon
+      ? nflmonService.getPlayer(theirNflmon.player_id)
+      : null;
+
+    // Build confirmation embed for sender
+    const senderEmbed = nflmonService.buildTradeOfferEmbed(
+      trade,
+      myNflmon,
+      theirNflmon,
+      myPlayer,
+      theirPlayer
+    );
+    await interaction.editReply({ embeds: [senderEmbed] });
+
+    // Send DM to recipient
+    try {
+      const recipientEmbed = nflmonService.buildTradeReceivedEmbed(
+        trade,
+        myNflmon,
+        theirNflmon,
+        myPlayer,
+        theirPlayer,
+        username
+      );
+      const dmButtons = buildTradeResponseButtons(trade.id);
+      await targetUser.send({ embeds: [recipientEmbed], components: dmButtons });
+    } catch (dmError) {
+      console.log("[NFLMON] Could not DM trade recipient - they may have DMs disabled");
+    }
+
+    console.log(`[NFLMON] Trade #${trade.id} created: ${username} -> ${targetUser.username}`);
+  } catch (error) {
+    console.error("[NFLMON] trade offer error:", error);
+    await interaction.editReply({
+      content: `An error occurred: ${error.message}`,
+    });
+  }
+}
+
+/**
+ * Handle /nflmon trade pending
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ */
+async function handleTradePending(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const userId = interaction.user.id;
+
+    // Get pending trades for user
+    const trades = await nflmonDb.getPendingTrades(userId);
+
+    if (trades.length === 0) {
+      await interaction.editReply({
+        content: "You have no pending trades.",
+      });
+      return;
+    }
+
+    // Build embed and buttons for each trade
+    const embed = nflmonService.buildPendingTradesEmbed(trades, userId, 1, 1);
+
+    // For simplicity, show action buttons for the first trade only
+    const firstTrade = trades[0];
+    const components = buildPendingTradeButtons(firstTrade, userId);
+
+    const response = await interaction.editReply({
+      embeds: [embed],
+      components,
+    });
+
+    // Handle button clicks
+    const collector = response.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 60000,
+      filter: (i) => i.user.id === userId,
+    });
+
+    collector.on("collect", async (buttonInteraction) => {
+      const [, , action, tradeIdStr] = buttonInteraction.customId.split("_");
+      const tradeId = parseInt(tradeIdStr);
+
+      if (action === "accept") {
+        const result = await nflmonDb.acceptTrade(userId, tradeId);
+
+        if (!result.success) {
+          const errorMsg = TRADE_ERRORS[result.error] || "Trade failed.";
+          await buttonInteraction.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0xff0000)
+                .setTitle("Trade Failed")
+                .setDescription(errorMsg),
+            ],
+            components: [],
+          });
+          collector.stop();
+          return;
+        }
+
+        // Get player names for result
+        const fromPlayer = nflmonService.getPlayer(result.fromNflmon.player_id);
+        const toPlayer = result.toNflmon
+          ? nflmonService.getPlayer(result.toNflmon.player_id)
+          : null;
+
+        const resultEmbed = nflmonService.buildTradeResultEmbed(
+          true,
+          fromPlayer,
+          toPlayer,
+          result.trade.coins_offered
+        );
+
+        await buttonInteraction.update({
+          embeds: [resultEmbed],
+          components: [],
+        });
+
+        // Announce trade completion publicly
+        try {
+          const channelId = process.env.GENERAL_CHANNEL_ID;
+          if (channelId) {
+            const channel = await interaction.client.channels.fetch(channelId);
+            if (channel) {
+              const announceEmbed = new EmbedBuilder()
+                .setColor(0x2ecc71)
+                .setTitle("Trade Completed!")
+                .setDescription(
+                  `**${result.trade.from_username}** traded **${fromPlayer?.name || "Unknown"}** ` +
+                    `to **${result.trade.to_username}**` +
+                    (toPlayer ? ` for **${toPlayer.name}**` : "") +
+                    (result.trade.coins_offered > 0 ? ` + ${result.trade.coins_offered} coins` : "")
+                );
+              await channel.send({ embeds: [announceEmbed] });
+            }
+          }
+        } catch (announceError) {
+          console.log("[NFLMON] Could not announce trade:", announceError.message);
+        }
+
+        collector.stop();
+      } else if (action === "reject") {
+        const result = await nflmonDb.rejectTrade(userId, tradeId);
+
+        await buttonInteraction.update({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0x808080)
+              .setTitle("Trade Rejected")
+              .setDescription("You declined the trade offer."),
+          ],
+          components: [],
+        });
+        collector.stop();
+      } else if (action === "cancel") {
+        const trade = await nflmonDb.getTrade(tradeId);
+        if (trade && trade.from_user_id === userId) {
+          await nflmonDb.cancelTrade(userId, tradeId);
+          await buttonInteraction.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x808080)
+                .setTitle("Trade Cancelled")
+                .setDescription("You cancelled your trade offer."),
+            ],
+            components: [],
+          });
+        } else {
+          await buttonInteraction.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0xff0000)
+                .setTitle("Error")
+                .setDescription(TRADE_ERRORS.NOT_SENDER),
+            ],
+            components: [],
+          });
+        }
+        collector.stop();
+      }
+    });
+
+    collector.on("end", async (_, reason) => {
+      if (reason === "time") {
+        await interaction.editReply({ components: [] }).catch(() => {});
+      }
+    });
+  } catch (error) {
+    console.error("[NFLMON] trade pending error:", error);
+    await interaction.editReply({
+      content: `An error occurred: ${error.message}`,
+    });
+  }
+}
+
+/**
+ * Handle /nflmon trade cancel
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ */
+async function handleTradeCancel(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const userId = interaction.user.id;
+    const tradeId = interaction.options.getInteger("trade_id");
+
+    const result = await nflmonDb.cancelTrade(userId, tradeId);
+
+    if (!result.success) {
+      const errorMsg = TRADE_ERRORS[result.error] || "Failed to cancel trade.";
+      await interaction.editReply({ content: errorMsg });
+      return;
+    }
+
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x808080)
+          .setTitle("Trade Cancelled")
+          .setDescription(`Trade #${tradeId} has been cancelled.`),
+      ],
+    });
+  } catch (error) {
+    console.error("[NFLMON] trade cancel error:", error);
+    await interaction.editReply({
+      content: `An error occurred: ${error.message}`,
+    });
+  }
+}
+
 // =============================================================================
 // AUTOCOMPLETE HANDLER
 // =============================================================================
@@ -873,7 +1502,8 @@ export async function autocomplete(interaction) {
   try {
     const focusedOption = interaction.options.getFocused(true);
 
-    if (focusedOption.name === "id") {
+    // Handle both "id" and "my_nflmon" options (both are NFLmon IDs for the current user)
+    if (focusedOption.name === "id" || focusedOption.name === "my_nflmon") {
       const userId = interaction.user.id;
       const searchValue = focusedOption.value.toString().toLowerCase();
 

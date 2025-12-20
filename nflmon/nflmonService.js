@@ -545,3 +545,191 @@ export function buildStatsEmbed(stats, trainingNflmon) {
 
   return embed;
 }
+
+// =============================================================================
+// TRADE EMBEDS
+// =============================================================================
+
+/**
+ * Build embed for trade offer confirmation (shown to sender)
+ * @param {object} trade - Trade record from createTrade()
+ * @param {object} fromNflmon - Sender's NFLmon being offered
+ * @param {object} toNflmon - Recipient's NFLmon requested (or null)
+ * @param {object} fromPlayer - Player data for fromNflmon
+ * @param {object} toPlayer - Player data for toNflmon (or null)
+ * @returns {EmbedBuilder}
+ */
+export function buildTradeOfferEmbed(trade, fromNflmon, toNflmon, fromPlayer, toPlayer) {
+  const embed = new EmbedBuilder()
+    .setColor(0xf39c12)
+    .setTitle("Trade Offer Sent!")
+    .setDescription(`You offered a trade to <@${trade.to_user_id}>`);
+
+  // What you're offering (with null safety)
+  const fromName = fromPlayer?.name || "Unknown Player";
+  const fromPos = fromPlayer?.position || "??";
+  let offerText = `**${fromName}** (${fromPos}) - ${formatRarity(fromNflmon?.rarity)}`;
+  if (trade.coins_offered > 0) offerText += `\n+ 🪙 ${trade.coins_offered} coins`;
+  embed.addFields({ name: "You're Offering", value: offerText, inline: true });
+
+  // What you're requesting
+  const requestText = toNflmon && toPlayer
+    ? `**${toPlayer.name}** (${toPlayer.position}) - ${formatRarity(toNflmon.rarity)}`
+    : "*Nothing (Gift)*";
+  embed.addFields({ name: "You're Requesting", value: requestText, inline: true });
+
+  embed.setFooter({ text: `Trade ID: ${trade.id} | Expires in 24 hours` });
+  return embed;
+}
+
+/**
+ * Build embed for trade notification (DM to recipient)
+ * @param {object} trade - Trade record
+ * @param {object} fromNflmon - Sender's NFLmon being offered
+ * @param {object} toNflmon - Recipient's NFLmon requested (or null)
+ * @param {object} fromPlayer - Player data for fromNflmon
+ * @param {object} toPlayer - Player data for toNflmon (or null)
+ * @param {string} senderUsername - Sender's Discord username
+ * @returns {EmbedBuilder}
+ */
+export function buildTradeReceivedEmbed(trade, fromNflmon, toNflmon, fromPlayer, toPlayer, senderUsername) {
+  const embed = new EmbedBuilder()
+    .setColor(0xf39c12)
+    .setTitle("New Trade Offer!")
+    .setDescription(`**${senderUsername}** wants to trade with you!`);
+
+  // What they're offering (with null safety)
+  const fromName = fromPlayer?.name || "Unknown Player";
+  const fromPos = fromPlayer?.position || "??";
+  let offerText = `**${fromName}** (${fromPos}) - ${formatRarity(fromNflmon?.rarity)}`;
+  if (trade.coins_offered > 0) offerText += `\n+ 🪙 ${trade.coins_offered} coins`;
+  embed.addFields({ name: "They're Offering", value: offerText, inline: true });
+
+  // What they want
+  const requestText = toNflmon && toPlayer
+    ? `**${toPlayer.name}** (${toPlayer.position}) - ${formatRarity(toNflmon.rarity)}`
+    : "*Nothing (Gift!)*";
+  embed.addFields({ name: "They Want", value: requestText, inline: true });
+
+  embed.setFooter({ text: `Trade ID: ${trade.id} | Expires: 24 hours | Click Accept/Reject below` });
+  return embed;
+}
+
+/**
+ * Build embed for pending trades list
+ * @param {object[]} trades - Array of pending trades
+ * @param {string} userId - Current user's ID
+ * @param {number} page - Current page
+ * @param {number} totalPages - Total pages
+ * @returns {EmbedBuilder}
+ */
+export function buildPendingTradesEmbed(trades, userId, page, totalPages) {
+  const embed = new EmbedBuilder()
+    .setColor(0x3498db)
+    .setTitle("Your Pending Trades");
+
+  if (trades.length === 0) {
+    embed.setDescription("You have no pending trades.");
+  } else {
+    embed.setDescription(`Total: ${trades.length} pending trade(s)`);
+
+    for (const trade of trades) {
+      const isIncoming = trade.to_user_id === userId;
+      const direction = isIncoming ? "📥 INCOMING" : "📤 OUTGOING";
+      const otherUser = isIncoming ? trade.from_user_id : trade.to_user_id;
+
+      embed.addFields({
+        name: `${direction} - Trade #${trade.id}`,
+        value: `With: <@${otherUser}>\nExpires: <t:${Math.floor(new Date(trade.expires_at).getTime() / 1000)}:R>`,
+        inline: true,
+      });
+    }
+  }
+
+  embed.setFooter({ text: `Page ${page}/${totalPages}` });
+  return embed;
+}
+
+/**
+ * Build embed for trade result (accepted/rejected)
+ * @param {boolean} accepted - Whether trade was accepted
+ * @param {object} fromPlayer - Player data for offered NFLmon
+ * @param {object} toPlayer - Player data for requested NFLmon (or null)
+ * @param {number} coinsOffered - Coins offered in trade
+ * @returns {EmbedBuilder}
+ */
+export function buildTradeResultEmbed(accepted, fromPlayer, toPlayer, coinsOffered) {
+  const embed = new EmbedBuilder()
+    .setColor(accepted ? 0x2ecc71 : 0x808080)
+    .setTitle(accepted ? "Trade Completed!" : "Trade Declined");
+
+  if (accepted) {
+    const fromName = fromPlayer?.name || "Unknown Player";
+    let desc = `**${fromName}** was traded`;
+    if (toPlayer) desc += ` for **${toPlayer?.name || "Unknown Player"}**`;
+    if (coinsOffered > 0) desc += ` + 🪙 ${coinsOffered}`;
+    embed.setDescription(desc);
+  } else {
+    embed.setDescription("The trade offer was declined.");
+  }
+
+  return embed;
+}
+
+// =============================================================================
+// DEX EMBEDS
+// =============================================================================
+
+/**
+ * Get rarity emoji for DEX display
+ * @param {string} rarityPool - Rarity pool ID
+ * @returns {string} Emoji
+ */
+function getRarityEmoji(rarityPool) {
+  const emojis = {
+    legendary: "🌟",
+    epic: "💜",
+    rare: "💎",
+    uncommon: "🟢",
+    common: "⚪",
+  };
+  return emojis[rarityPool] || "⚪";
+}
+
+/**
+ * Build DEX embed for encyclopedia browsing
+ * @param {object[]} players - Array of player objects to display
+ * @param {number} page - Current page
+ * @param {number} totalPages - Total pages
+ * @param {number} totalCount - Total players matching filter
+ * @param {object} filters - Applied filters { search, rarity }
+ * @returns {EmbedBuilder}
+ */
+export function buildDexEmbed(players, page, totalPages, totalCount, filters) {
+  const embed = new EmbedBuilder()
+    .setColor(0xe74c3c)
+    .setTitle("NFLmon Dex");
+
+  let desc = `Showing ${players.length} of ${totalCount} players`;
+  if (filters.search) desc += `\nSearch: "${filters.search}"`;
+  if (filters.rarity) desc += `\nRarity: ${formatRarity(filters.rarity)}`;
+  embed.setDescription(desc);
+
+  if (players.length === 0) {
+    embed.addFields({ name: "No Results", value: "No NFLmon match your search criteria." });
+  } else {
+    // Discord embeds have a max of 25 fields - limit to 24 to be safe
+    const displayPlayers = players.slice(0, 24);
+    for (const player of displayPlayers) {
+      const rarityEmoji = getRarityEmoji(player?.rarityPool);
+      embed.addFields({
+        name: `${rarityEmoji} ${player?.name || "Unknown"}`,
+        value: `${player?.team || "??"} | ${player?.position || "??"} | #${player?.number || "?"}`,
+        inline: true,
+      });
+    }
+  }
+
+  embed.setFooter({ text: `Page ${page}/${totalPages} | Use /nflmon bench to see your collection` });
+  return embed;
+}

@@ -1,7 +1,7 @@
 // NFLmon Database Operations
 // CRUD operations for the NFLmon collection system
 
-import { sql } from "@vercel/postgres";
+import { sql, db } from "@vercel/postgres";
 import * as economyDb from "../economy/economyDb.js";
 import {
   getLevelFromXp,
@@ -611,6 +611,156 @@ export async function rejectTrade(userId, tradeId) {
     RETURNING *
   `;
   return result.rows[0] || null;
+}
+
+/**
+ * Accept a trade (recipient only) - atomic ownership transfer with transaction safety
+ * @param {string} userId - Recipient user ID
+ * @param {number} tradeId - Trade ID
+ * @returns {Promise<{success: boolean, trade?: object, fromNflmon?: object, toNflmon?: object, error?: string}>}
+ */
+export async function acceptTrade(userId, tradeId) {
+  // Get a dedicated client for transaction
+  const client = await db.connect();
+
+  try {
+    // Start transaction
+    await client.sql`BEGIN`;
+
+    // 1. Fetch and validate trade with row-level lock
+    const tradeResult = await client.sql`
+      SELECT * FROM nflmon_trades
+      WHERE id = ${tradeId}
+      FOR UPDATE
+    `;
+    const trade = tradeResult.rows[0];
+    if (!trade) {
+      await client.sql`ROLLBACK`;
+      return { success: false, error: "NOT_FOUND" };
+    }
+    if (trade.to_user_id !== userId) {
+      await client.sql`ROLLBACK`;
+      return { success: false, error: "NOT_RECIPIENT" };
+    }
+    if (trade.status !== "pending") {
+      await client.sql`ROLLBACK`;
+      return { success: false, error: "NOT_PENDING" };
+    }
+    if (new Date() > new Date(trade.expires_at)) {
+      await client.sql`ROLLBACK`;
+      return { success: false, error: "EXPIRED" };
+    }
+
+    // 2. Validate from_nflmon with lock
+    const fromResult = await client.sql`
+      SELECT * FROM nflmon_bench
+      WHERE id = ${trade.from_nflmon_id} AND user_id = ${trade.from_user_id}
+      FOR UPDATE
+    `;
+    const fromNflmon = fromResult.rows[0];
+    if (!fromNflmon) {
+      await client.sql`ROLLBACK`;
+      return { success: false, error: "FROM_NFLMON_UNAVAILABLE" };
+    }
+    if (fromNflmon.training_slot !== null) {
+      await client.sql`ROLLBACK`;
+      return { success: false, error: "FROM_NFLMON_TRAINING" };
+    }
+
+    // 3. Validate to_nflmon if 1:1 trade (with lock)
+    let toNflmon = null;
+    if (trade.to_nflmon_id) {
+      const toResult = await client.sql`
+        SELECT * FROM nflmon_bench
+        WHERE id = ${trade.to_nflmon_id} AND user_id = ${trade.to_user_id}
+        FOR UPDATE
+      `;
+      toNflmon = toResult.rows[0];
+      if (!toNflmon) {
+        await client.sql`ROLLBACK`;
+        return { success: false, error: "TO_NFLMON_UNAVAILABLE" };
+      }
+      if (toNflmon.training_slot !== null) {
+        await client.sql`ROLLBACK`;
+        return { success: false, error: "TO_NFLMON_TRAINING" };
+      }
+    }
+
+    // 4. Validate coins if offered (with lock on sender's economy record)
+    if (trade.coins_offered > 0) {
+      const senderResult = await client.sql`
+        SELECT * FROM economy_users
+        WHERE user_id = ${trade.from_user_id}
+        FOR UPDATE
+      `;
+      const sender = senderResult.rows[0];
+      if (!sender || sender.wallet < trade.coins_offered) {
+        await client.sql`ROLLBACK`;
+        return { success: false, error: "INSUFFICIENT_COINS" };
+      }
+    }
+
+    // 5. Execute transfers (all within transaction)
+    // Transfer from_nflmon to recipient
+    await client.sql`
+      UPDATE nflmon_bench
+      SET user_id = ${trade.to_user_id},
+          acquired_source = 'trade',
+          acquired_from_user = ${trade.from_user_id}
+      WHERE id = ${trade.from_nflmon_id}
+    `;
+
+    // Transfer to_nflmon to sender (if 1:1 trade)
+    if (trade.to_nflmon_id) {
+      await client.sql`
+        UPDATE nflmon_bench
+        SET user_id = ${trade.from_user_id},
+            acquired_source = 'trade',
+            acquired_from_user = ${trade.to_user_id}
+        WHERE id = ${trade.to_nflmon_id}
+      `;
+    }
+
+    // Transfer coins if offered (direct SQL within transaction)
+    if (trade.coins_offered > 0) {
+      await client.sql`
+        UPDATE economy_users
+        SET wallet = wallet - ${trade.coins_offered}
+        WHERE user_id = ${trade.from_user_id}
+      `;
+      await client.sql`
+        UPDATE economy_users
+        SET wallet = wallet + ${trade.coins_offered}
+        WHERE user_id = ${trade.to_user_id}
+      `;
+    }
+
+    // 6. Mark trade completed
+    const completedResult = await client.sql`
+      UPDATE nflmon_trades
+      SET status = 'completed'
+      WHERE id = ${tradeId}
+      RETURNING *
+    `;
+
+    // Commit transaction
+    await client.sql`COMMIT`;
+
+    return {
+      success: true,
+      trade: completedResult.rows[0],
+      fromNflmon,
+      toNflmon,
+    };
+  } catch (error) {
+    // Rollback on any error
+    await client.sql`ROLLBACK`;
+    console.error("[NFLMON] acceptTrade transaction failed:", error);
+    return { success: false, error: "TRANSACTION_FAILED" };
+  } finally {
+    // Always release the client back to the pool
+    client.release();
+  }
 }
 
 // =============================================================================
