@@ -17,7 +17,177 @@ import {
   formatRarity,
   getEvolutionEmoji,
   isMaxLevel,
+  type Rarity,
+  type EvolutionStage,
+  type IVs,
+  type Stats,
+  type RarityId,
+  type XpProgress,
 } from './nflmonConfig.js';
+import type { Nflmon, NflmonStats, AcceptTradeResult } from './nflmonDb.js';
+
+// =============================================================================
+// TYPE DEFINITIONS
+// =============================================================================
+
+/**
+ * NFL Player data from JSON
+ */
+export interface NflPlayer {
+  readonly id: string;
+  readonly name: string;
+  readonly team: string;
+  readonly position: string;
+  readonly number: number;
+  readonly imageUrl: string;
+  readonly rarityPool: RarityId;
+  readonly abilities: readonly string[];
+  readonly tags: readonly string[];
+  readonly alternateImages: Record<string, string>;
+}
+
+/**
+ * Players JSON type
+ */
+type PlayersMap = Record<string, NflPlayer>;
+
+/**
+ * Roll result from rollForNflmon
+ */
+export interface RollResult {
+  readonly nflmon: Nflmon;
+  readonly player: NflPlayer;
+  readonly rarity: Rarity | null;
+}
+
+/**
+ * XP result entry for a single NFLmon
+ */
+export interface XpResultEntry {
+  readonly nflmon: Nflmon;
+  readonly player: NflPlayer | null;
+  readonly xpGained: number;
+  readonly levelsGained: number;
+  readonly evolved: boolean;
+  readonly newStage: EvolutionStage | null;
+}
+
+/**
+ * XP result from addXpToTraining
+ */
+export interface XpResult {
+  readonly results: XpResultEntry[];
+  readonly xpAmount: number;
+}
+
+/**
+ * Multi-roll result
+ */
+export interface MultiRollResult {
+  readonly results: RollResult[];
+  readonly success: boolean;
+}
+
+/**
+ * Display data for NFLmon view
+ */
+export interface DisplayData {
+  readonly id: number;
+  readonly level: number;
+  readonly currentXp: number;
+  readonly nickname: string | null;
+  readonly isFavorite: boolean;
+  readonly trainingSlot: number | null;
+  readonly variant: string;
+  readonly acquiredAt: Date | string;
+  readonly acquiredSource: string;
+  readonly player: NflPlayer;
+  readonly displayName: string;
+  readonly rarity: Rarity | null;
+  readonly rarityName: string;
+  readonly rarityColor: number;
+  readonly stats: Stats;
+  readonly ivs: IVs;
+  readonly ivTotal: number;
+  readonly evolutionStage: EvolutionStage;
+  readonly evolutionEmoji: string;
+  readonly canEvolve: boolean;
+  readonly nextStage: EvolutionStage | null;
+  readonly evolutionReason: string | null;
+  readonly xpProgress: XpProgress;
+  readonly xpPercent: number;
+  readonly isMaxLevel: boolean;
+}
+
+/**
+ * Leaderboard entry
+ */
+export interface LeaderboardEntry {
+  readonly username: string;
+  readonly value: number;
+}
+
+/**
+ * Dex filters
+ */
+export interface DexFilters {
+  readonly search?: string;
+  readonly rarity?: string;
+}
+
+/**
+ * Trade process result
+ */
+export interface TradeProcessResult {
+  readonly success: boolean;
+  readonly responseEmbed: EmbedBuilder;
+  readonly announceEmbed?: EmbedBuilder;
+  readonly error?: string;
+}
+
+/**
+ * Bench record from database (partial for typing)
+ */
+export interface BenchRecord {
+  readonly id: number;
+  readonly player_id: string;
+  readonly level: number;
+  readonly rarity: string;
+  readonly current_xp: number;
+  readonly iv_speed: number;
+  readonly iv_power: number;
+  readonly iv_agility: number;
+  readonly iv_awareness: number;
+  readonly iv_hp: number;
+  readonly evolution_stage: string;
+  readonly nickname: string | null;
+  readonly is_favorite: boolean;
+  readonly training_slot: number | null;
+  readonly variant: string;
+  readonly acquired_at: Date | string;
+  readonly acquired_source: string;
+}
+
+/**
+ * Pending trade from database
+ */
+export interface PendingTrade {
+  readonly id: number;
+  readonly from_user_id: string;
+  readonly to_user_id: string;
+  readonly expires_at: Date | string;
+  readonly from_username: string;
+  readonly to_username: string;
+  readonly coins_offered: number;
+}
+
+/**
+ * Trade error key type
+ */
+export type TradeErrorKey = keyof typeof TRADE_ERRORS;
+
+// Cast the players JSON to the correct type
+const players = nflmonPlayers as PlayersMap;
 
 // =============================================================================
 // PLAYER DATA FUNCTIONS
@@ -25,64 +195,64 @@ import {
 
 /**
  * Get a single player by ID from the players JSON
- * @param {string} playerId - Player ID (e.g., "mahomes_patrick")
- * @returns {object|null} Player object or null
+ * @param playerId - Player ID (e.g., "mahomes_patrick")
+ * @returns Player object or null
  */
-export function getPlayer(playerId) {
-  return nflmonPlayers[playerId] || null;
+export function getPlayer(playerId: string): NflPlayer | null {
+  return players[playerId] || null;
 }
 
 /**
  * Get all players from the players JSON
- * @returns {object[]} Array of all player objects
+ * @returns Array of all player objects
  */
-export function getAllPlayers() {
-  return Object.values(nflmonPlayers);
+export function getAllPlayers(): NflPlayer[] {
+  return Object.values(players);
 }
 
 /**
  * Select a random player from the pool
- * @returns {object|null} Random player object or null if pool is empty
+ * @returns Random player object or null if pool is empty
  */
-export function getRandomPlayer() {
-  const players = getAllPlayers();
-  if (players.length === 0) return null;
-  return players[Math.floor(Math.random() * players.length)];
+export function getRandomPlayer(): NflPlayer | null {
+  const allPlayers = getAllPlayers();
+  if (allPlayers.length === 0) return null;
+  return allPlayers[Math.floor(Math.random() * allPlayers.length)];
 }
 
 /**
  * Get players filtered by position
- * @param {string} position - Position code (QB, RB, WR, etc.)
- * @returns {object[]} Array of players at that position
+ * @param position - Position code (QB, RB, WR, etc.)
+ * @returns Array of players at that position
  */
-export function getPlayersByPosition(position) {
+export function getPlayersByPosition(position: string): NflPlayer[] {
   return getAllPlayers().filter((p) => p.position.toUpperCase() === position.toUpperCase());
 }
 
 /**
  * Get players filtered by team
- * @param {string} team - Team abbreviation (KC, BUF, etc.)
- * @returns {object[]} Array of players on that team
+ * @param team - Team abbreviation (KC, BUF, etc.)
+ * @returns Array of players on that team
  */
-export function getPlayersByTeam(team) {
+export function getPlayersByTeam(team: string): NflPlayer[] {
   return getAllPlayers().filter((p) => p.team.toUpperCase() === team.toUpperCase());
 }
 
 /**
  * Get players filtered by rarity pool
- * @param {string} rarityPool - Rarity level (legendary, epic, rare, uncommon, common)
- * @returns {object[]} Array of players with that rarity
+ * @param rarityPool - Rarity level (legendary, epic, rare, uncommon, common)
+ * @returns Array of players with that rarity
  */
-export function getPlayersByRarity(rarityPool) {
+export function getPlayersByRarity(rarityPool: string): NflPlayer[] {
   return getAllPlayers().filter((p) => p.rarityPool.toLowerCase() === rarityPool.toLowerCase());
 }
 
 /**
  * Get N random common players for starter selection
- * @param {number} count - Number of players to return
- * @returns {object[]} Array of random common players
+ * @param count - Number of players to return
+ * @returns Array of random common players
  */
-export function getRandomCommonPlayers(count) {
+export function getRandomCommonPlayers(count: number): NflPlayer[] {
   const commonPlayers = getPlayersByRarity('common');
   if (commonPlayers.length === 0) return [];
 
@@ -97,12 +267,16 @@ export function getRandomCommonPlayers(count) {
 
 /**
  * Roll for a new NFLmon and add to user's bench
- * @param {string} userId - Discord user ID
- * @param {string} username - Discord username
- * @param {string} source - Acquisition source (wordle, trivia, shop, trade)
- * @returns {Promise<{nflmon: object, player: object, rarity: object}|null>}
+ * @param userId - Discord user ID
+ * @param username - Discord username
+ * @param source - Acquisition source (wordle, trivia, shop, trade)
+ * @returns Roll result or null on failure
  */
-export async function rollForNflmon(userId, username, source) {
+export async function rollForNflmon(
+  userId: string,
+  username: string,
+  source: string
+): Promise<RollResult | null> {
   try {
     const player = getRandomPlayer();
     if (!player) {
@@ -144,11 +318,11 @@ export async function rollForNflmon(userId, username, source) {
 
 /**
  * Add XP to all NFLmon in training from an activity
- * @param {string} userId - Discord user ID
- * @param {string} source - XP source (wordle_win, wordle_first, trivia_correct, blackjack_win)
- * @returns {Promise<{results: Array, xpAmount: number}>}
+ * @param userId - Discord user ID
+ * @param source - XP source (wordle_win, wordle_first, trivia_correct, blackjack_win)
+ * @returns XP result with results and amount
  */
-export async function addXpToTraining(userId, source) {
+export async function addXpToTraining(userId: string, source: string): Promise<XpResult> {
   try {
     const xpAmount = getRandomXp(source);
     if (xpAmount <= 0) {
@@ -158,7 +332,7 @@ export async function addXpToTraining(userId, source) {
     const results = await nflmonDb.addXpToAllTraining(userId, xpAmount);
 
     // Enrich results with player data
-    const enrichedResults = results.map((result) => ({
+    const enrichedResults: XpResultEntry[] = results.map((result) => ({
       ...result,
       player: getPlayer(result.nflmon.player_id),
     }));
@@ -170,7 +344,7 @@ export async function addXpToTraining(userId, source) {
           `[NFLMON] ${result.player?.name || 'Unknown'} leveled up to ${result.nflmon.level}`
         );
       }
-      if (result.evolved) {
+      if (result.evolved && result.newStage) {
         console.log(
           `[NFLMON] ${result.player?.name || 'Unknown'} evolved to ${result.newStage.name}!`
         );
@@ -189,13 +363,17 @@ export async function addXpToTraining(userId, source) {
 
 /**
  * Roll multiple NFLmon for shop pack purchases
- * @param {string} userId - Discord user ID
- * @param {string} username - Discord username
- * @param {number} count - Number of NFLmon to roll
- * @returns {Promise<{results: Array, success: boolean}>}
+ * @param userId - Discord user ID
+ * @param username - Discord username
+ * @param count - Number of NFLmon to roll
+ * @returns Multi-roll result
  */
-export async function rollMultipleNflmon(userId, username, count) {
-  const results = [];
+export async function rollMultipleNflmon(
+  userId: string,
+  username: string,
+  count: number
+): Promise<MultiRollResult> {
+  const results: RollResult[] = [];
 
   for (let i = 0; i < count; i++) {
     const result = await rollForNflmon(userId, username, 'shop');
@@ -212,11 +390,11 @@ export async function rollMultipleNflmon(userId, username, count) {
 
 /**
  * Build embed showing all NFLmon from a pack opening
- * @param {Array} results - Array of rollForNflmon results
- * @param {string} packName - Name of pack opened
- * @returns {EmbedBuilder}
+ * @param results - Array of rollForNflmon results
+ * @param packName - Name of pack opened
+ * @returns EmbedBuilder
  */
-export function buildPackResultEmbed(results, packName) {
+export function buildPackResultEmbed(results: RollResult[], packName: string): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0xffd700)
     .setTitle(`${packName} Opened!`)
@@ -225,7 +403,7 @@ export function buildPackResultEmbed(results, packName) {
   const lines = results.map((result, i) => {
     const { player, rarity } = result;
     const emoji = getEvolutionEmoji('rookie');
-    return `${i + 1}. ${emoji} **${player.name}** (${player.position}) - ${rarity.name}`;
+    return `${i + 1}. ${emoji} **${player.name}** (${player.position}) - ${rarity?.name || 'Unknown'}`;
   });
 
   embed.addFields({ name: 'Your New NFLmon', value: lines.join('\n') });
@@ -240,10 +418,10 @@ export function buildPackResultEmbed(results, packName) {
 
 /**
  * Transform a raw DB record into a display-ready object
- * @param {object} benchRecord - Raw record from nflmon_bench table
- * @returns {object|null} Enriched display data or null if player not found
+ * @param benchRecord - Raw record from nflmon_bench table
+ * @returns Enriched display data or null if player not found
  */
-export function getDisplayData(benchRecord) {
+export function getDisplayData(benchRecord: BenchRecord | null): DisplayData | null {
   if (!benchRecord) return null;
 
   const player = getPlayer(benchRecord.player_id);
@@ -252,7 +430,7 @@ export function getDisplayData(benchRecord) {
     return null;
   }
 
-  const ivs = {
+  const ivs: IVs = {
     speed: benchRecord.iv_speed,
     power: benchRecord.iv_power,
     agility: benchRecord.iv_agility,
@@ -314,10 +492,10 @@ export function getDisplayData(benchRecord) {
 
 /**
  * Build the main NFLmon card embed for /nflmon view
- * @param {object} displayData - Output from getDisplayData()
- * @returns {EmbedBuilder}
+ * @param displayData - Output from getDisplayData()
+ * @returns EmbedBuilder
  */
-export function buildNflmonCard(displayData) {
+export function buildNflmonCard(displayData: DisplayData): EmbedBuilder {
   const { player, stats, ivs, ivTotal, evolutionEmoji, rarityName, rarityColor } = displayData;
 
   const embed = new EmbedBuilder()
@@ -347,7 +525,7 @@ export function buildNflmonCard(displayData) {
     ? '**MAX LEVEL**'
     : `XP: ${displayData.xpProgress.current}/${displayData.xpProgress.needed} (${displayData.xpPercent}%)`;
 
-  if (displayData.canEvolve) {
+  if (displayData.canEvolve && displayData.nextStage) {
     progressText += `\nReady to evolve to **${displayData.nextStage.name}**!`;
   }
 
@@ -358,7 +536,7 @@ export function buildNflmonCard(displayData) {
   });
 
   // Training/Favorite status
-  const statusParts = [];
+  const statusParts: string[] = [];
   if (displayData.trainingSlot) {
     statusParts.push(`Training Slot ${displayData.trainingSlot}`);
   }
@@ -382,21 +560,21 @@ export function buildNflmonCard(displayData) {
 
 /**
  * Build the "You caught!" embed for drops
- * @param {object} rollResult - Output from rollForNflmon()
- * @returns {EmbedBuilder}
+ * @param rollResult - Output from rollForNflmon()
+ * @returns EmbedBuilder
  */
-export function buildDropEmbed(rollResult) {
+export function buildDropEmbed(rollResult: RollResult): EmbedBuilder {
   const { nflmon, player, rarity } = rollResult;
 
   const embed = new EmbedBuilder()
-    .setColor(rarity.color)
+    .setColor(rarity?.color ?? 0x95a5a6)
     .setTitle('New NFLmon Caught!')
     .setThumbnail(player.imageUrl)
     .setDescription(
       `You caught **${player.name}**!\n\n` +
         `**Team:** ${player.team}\n` +
         `**Position:** ${player.position}\n` +
-        `**Rarity:** ${rarity.name}\n\n` +
+        `**Rarity:** ${rarity?.name ?? 'Unknown'}\n\n` +
         `Use \`/nflmon view ${nflmon.id}\` to see stats!`
     );
 
@@ -405,10 +583,10 @@ export function buildDropEmbed(rollResult) {
 
 /**
  * Build the XP results embed for training notifications
- * @param {object} xpResult - Output from addXpToTraining()
- * @returns {EmbedBuilder|null} Embed or null if no training NFLmon
+ * @param xpResult - Output from addXpToTraining()
+ * @returns EmbedBuilder or null if no training NFLmon
  */
-export function buildXpResultsEmbed(xpResult) {
+export function buildXpResultsEmbed(xpResult: XpResult): EmbedBuilder | null {
   const { results, xpAmount } = xpResult;
 
   if (results.length === 0) return null;
@@ -425,7 +603,7 @@ export function buildXpResultsEmbed(xpResult) {
     if (result.levelsGained > 0) {
       line += ` +${result.levelsGained} level(s)!`;
     }
-    if (result.evolved) {
+    if (result.evolved && result.newStage) {
       line += ` Evolved to ${result.newStage.name}!`;
     }
 
@@ -439,13 +617,18 @@ export function buildXpResultsEmbed(xpResult) {
 
 /**
  * Build a compact bench list embed for /nflmon bench
- * @param {object[]} benchRecords - Array of DB records
- * @param {number} page - Current page number
- * @param {number} totalPages - Total number of pages
- * @param {number} totalCount - Total count of NFLmon
- * @returns {EmbedBuilder}
+ * @param benchRecords - Array of DB records
+ * @param page - Current page number
+ * @param totalPages - Total number of pages
+ * @param totalCount - Total count of NFLmon
+ * @returns EmbedBuilder
  */
-export function buildBenchEmbed(benchRecords, page, totalPages, totalCount) {
+export function buildBenchEmbed(
+  benchRecords: BenchRecord[],
+  page: number,
+  totalPages: number,
+  totalCount: number
+): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0x3498db)
     .setTitle('Your NFLmon Bench')
@@ -477,12 +660,12 @@ export function buildBenchEmbed(benchRecords, page, totalPages, totalCount) {
 
 /**
  * Build a leaderboard embed
- * @param {object[]} entries - Leaderboard entries from getLeaderboard()
- * @param {string} category - Category name for display
- * @returns {EmbedBuilder}
+ * @param entries - Leaderboard entries from getLeaderboard()
+ * @param category - Category name for display
+ * @returns EmbedBuilder
  */
-export function buildLeaderboardEmbed(entries, category) {
-  const categoryTitles = {
+export function buildLeaderboardEmbed(entries: LeaderboardEntry[], category: string): EmbedBuilder {
+  const categoryTitles: Record<string, string> = {
     total_caught: 'Most NFLmon Caught',
     legendary_count: 'Most Legendaries',
     highest_level_reached: 'Highest Level',
@@ -509,11 +692,11 @@ export function buildLeaderboardEmbed(entries, category) {
 
 /**
  * Build user stats embed for /nflmon stats
- * @param {object} stats - Stats from getOrCreateStats()
- * @param {object[]} trainingNflmon - NFLmon in training
- * @returns {EmbedBuilder}
+ * @param stats - Stats from getOrCreateStats()
+ * @param trainingNflmon - NFLmon in training
+ * @returns EmbedBuilder
  */
-export function buildStatsEmbed(stats, trainingNflmon) {
+export function buildStatsEmbed(stats: NflmonStats, trainingNflmon: BenchRecord[]): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0x9b59b6)
     .setTitle('Your NFLmon Stats')
@@ -548,14 +731,14 @@ export function buildStatsEmbed(stats, trainingNflmon) {
 
 /**
  * Build embed for trade offer confirmation (shown to sender)
- * @param {object} trade - Trade record from createTrade()
- * @param {object} fromNflmon - Sender's NFLmon being offered
- * @param {object} toNflmon - Recipient's NFLmon requested (or null)
- * @param {object} fromPlayer - Player data for fromNflmon
- * @param {object} toPlayer - Player data for toNflmon (or null)
- * @returns {EmbedBuilder}
  */
-export function buildTradeOfferEmbed(trade, fromNflmon, toNflmon, fromPlayer, toPlayer) {
+export function buildTradeOfferEmbed(
+  trade: PendingTrade,
+  fromNflmon: Nflmon | null,
+  toNflmon: Nflmon | null,
+  fromPlayer: NflPlayer | null,
+  toPlayer: NflPlayer | null
+): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0xf39c12)
     .setTitle('Trade Offer Sent!')
@@ -564,7 +747,8 @@ export function buildTradeOfferEmbed(trade, fromNflmon, toNflmon, fromPlayer, to
   // What you're offering (with null safety)
   const fromName = fromPlayer?.name || 'Unknown Player';
   const fromPos = fromPlayer?.position || '??';
-  let offerText = `**${fromName}** (${fromPos}) - ${formatRarity(fromNflmon?.rarity)}`;
+  const fromRarityDisplay = fromNflmon?.rarity ? formatRarity(fromNflmon.rarity) : 'Unknown';
+  let offerText = `**${fromName}** (${fromPos}) - ${fromRarityDisplay}`;
   if (trade.coins_offered > 0) offerText += `\n+ 🪙 ${trade.coins_offered} coins`;
   embed.addFields({ name: "You're Offering", value: offerText, inline: true });
 
@@ -581,22 +765,15 @@ export function buildTradeOfferEmbed(trade, fromNflmon, toNflmon, fromPlayer, to
 
 /**
  * Build embed for trade notification (DM to recipient)
- * @param {object} trade - Trade record
- * @param {object} fromNflmon - Sender's NFLmon being offered
- * @param {object} toNflmon - Recipient's NFLmon requested (or null)
- * @param {object} fromPlayer - Player data for fromNflmon
- * @param {object} toPlayer - Player data for toNflmon (or null)
- * @param {string} senderUsername - Sender's Discord username
- * @returns {EmbedBuilder}
  */
 export function buildTradeReceivedEmbed(
-  trade,
-  fromNflmon,
-  toNflmon,
-  fromPlayer,
-  toPlayer,
-  senderUsername
-) {
+  trade: PendingTrade,
+  fromNflmon: Nflmon | null,
+  toNflmon: Nflmon | null,
+  fromPlayer: NflPlayer | null,
+  toPlayer: NflPlayer | null,
+  senderUsername: string
+): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0xf39c12)
     .setTitle('New Trade Offer!')
@@ -605,7 +782,8 @@ export function buildTradeReceivedEmbed(
   // What they're offering (with null safety)
   const fromName = fromPlayer?.name || 'Unknown Player';
   const fromPos = fromPlayer?.position || '??';
-  let offerText = `**${fromName}** (${fromPos}) - ${formatRarity(fromNflmon?.rarity)}`;
+  const fromRarityDisplay = fromNflmon?.rarity ? formatRarity(fromNflmon.rarity) : 'Unknown';
+  let offerText = `**${fromName}** (${fromPos}) - ${fromRarityDisplay}`;
   if (trade.coins_offered > 0) offerText += `\n+ 🪙 ${trade.coins_offered} coins`;
   embed.addFields({ name: "They're Offering", value: offerText, inline: true });
 
@@ -624,13 +802,13 @@ export function buildTradeReceivedEmbed(
 
 /**
  * Build embed for pending trades list
- * @param {object[]} trades - Array of pending trades
- * @param {string} userId - Current user's ID
- * @param {number} page - Current page
- * @param {number} totalPages - Total pages
- * @returns {EmbedBuilder}
  */
-export function buildPendingTradesEmbed(trades, userId, page, totalPages) {
+export function buildPendingTradesEmbed(
+  trades: PendingTrade[],
+  userId: string,
+  page: number,
+  totalPages: number
+): EmbedBuilder {
   const embed = new EmbedBuilder().setColor(0x3498db).setTitle('Your Pending Trades');
 
   if (trades.length === 0) {
@@ -657,13 +835,13 @@ export function buildPendingTradesEmbed(trades, userId, page, totalPages) {
 
 /**
  * Build embed for trade result (accepted/rejected)
- * @param {boolean} accepted - Whether trade was accepted
- * @param {object} fromPlayer - Player data for offered NFLmon
- * @param {object} toPlayer - Player data for requested NFLmon (or null)
- * @param {number} coinsOffered - Coins offered in trade
- * @returns {EmbedBuilder}
  */
-export function buildTradeResultEmbed(accepted, fromPlayer, toPlayer, coinsOffered) {
+export function buildTradeResultEmbed(
+  accepted: boolean,
+  fromPlayer: NflPlayer | null,
+  toPlayer: NflPlayer | null,
+  coinsOffered: number
+): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(accepted ? 0x2ecc71 : 0x808080)
     .setTitle(accepted ? 'Trade Completed!' : 'Trade Declined');
@@ -687,43 +865,41 @@ export function buildTradeResultEmbed(accepted, fromPlayer, toPlayer, coinsOffer
 
 /**
  * Get rarity emoji for DEX display
- * @param {string} rarityPool - Rarity pool ID
- * @returns {string} Emoji
  */
-function getRarityEmoji(rarityPool) {
-  const emojis = {
+function getRarityEmoji(rarityPool: string | undefined): string {
+  const emojis: Record<string, string> = {
     legendary: '🌟',
     epic: '💜',
     rare: '💎',
     uncommon: '🟢',
     common: '⚪',
   };
-  return emojis[rarityPool] || '⚪';
+  return emojis[rarityPool ?? ''] || '⚪';
 }
 
 /**
  * Build DEX embed for encyclopedia browsing
- * @param {object[]} players - Array of player objects to display
- * @param {number} page - Current page
- * @param {number} totalPages - Total pages
- * @param {number} totalCount - Total players matching filter
- * @param {object} filters - Applied filters { search, rarity }
- * @returns {EmbedBuilder}
  */
-export function buildDexEmbed(players, page, totalPages, totalCount, filters) {
+export function buildDexEmbed(
+  displayPlayers: NflPlayer[],
+  page: number,
+  totalPages: number,
+  totalCount: number,
+  filters: DexFilters
+): EmbedBuilder {
   const embed = new EmbedBuilder().setColor(0xe74c3c).setTitle('NFLmon Dex');
 
-  let desc = `Showing ${players.length} of ${totalCount} players`;
+  let desc = `Showing ${displayPlayers.length} of ${totalCount} players`;
   if (filters.search) desc += `\nSearch: "${filters.search}"`;
   if (filters.rarity) desc += `\nRarity: ${formatRarity(filters.rarity)}`;
   embed.setDescription(desc);
 
-  if (players.length === 0) {
+  if (displayPlayers.length === 0) {
     embed.addFields({ name: 'No Results', value: 'No NFLmon match your search criteria.' });
   } else {
     // Discord embeds have a max of 25 fields - limit to 24 to be safe
-    const displayPlayers = players.slice(0, 24);
-    for (const player of displayPlayers) {
+    const playersToShow = displayPlayers.slice(0, 24);
+    for (const player of playersToShow) {
       const rarityEmoji = getRarityEmoji(player?.rarityPool);
       embed.addFields({
         name: `${rarityEmoji} ${player?.name || 'Unknown'}`,
@@ -759,19 +935,19 @@ export const TRADE_ERRORS = {
   INSUFFICIENT_COINS: 'The sender no longer has enough coins.',
   SELF_TRADE: 'You cannot trade with yourself.',
   TRANSACTION_FAILED: 'Transaction failed. Please try again.',
-};
+} as const;
 
 /**
  * Process trade accept action and return embeds
- * @param {string} userId - User accepting the trade
- * @param {number} tradeId - Trade ID
- * @returns {Promise<{success: boolean, responseEmbed: EmbedBuilder, announceEmbed?: EmbedBuilder, error?: string}>}
  */
-export async function processTradeAccept(userId, tradeId) {
+export async function processTradeAccept(
+  userId: string,
+  tradeId: number
+): Promise<TradeProcessResult> {
   const result = await nflmonDb.acceptTrade(userId, tradeId);
 
   if (!result.success) {
-    const errorMsg = TRADE_ERRORS[result.error] || 'Trade failed.';
+    const errorMsg = TRADE_ERRORS[result.error as TradeErrorKey] || 'Trade failed.';
     const responseEmbed = new EmbedBuilder()
       .setColor(0xff0000)
       .setTitle('Trade Failed')
@@ -779,16 +955,19 @@ export async function processTradeAccept(userId, tradeId) {
     return { success: false, responseEmbed, error: result.error };
   }
 
+  // Type guard for successful result
+  const successResult = result as AcceptTradeResult & { success: true };
+
   // Get player names
-  const fromPlayer = getPlayer(result.fromNflmon.player_id);
-  const toPlayer = result.toNflmon ? getPlayer(result.toNflmon.player_id) : null;
+  const fromPlayer = getPlayer(successResult.fromNflmon.player_id);
+  const toPlayer = successResult.toNflmon ? getPlayer(successResult.toNflmon.player_id) : null;
 
   // Build response embed
   const responseEmbed = buildTradeResultEmbed(
     true,
     fromPlayer,
     toPlayer,
-    result.trade.coins_offered
+    successResult.trade.coins_offered
   );
 
   // Build announcement embed
@@ -798,10 +977,10 @@ export async function processTradeAccept(userId, tradeId) {
     .setColor(0x2ecc71)
     .setTitle('Trade Completed!')
     .setDescription(
-      `**${result.trade.from_username}** traded **${fromName}** ` +
-        `to **${result.trade.to_username}**` +
+      `<@${successResult.trade.from_user_id}> traded **${fromName}** ` +
+        `to <@${successResult.trade.to_user_id}>` +
         (toName ? ` for **${toName}**` : '') +
-        (result.trade.coins_offered > 0 ? ` + ${result.trade.coins_offered} coins` : '')
+        (successResult.trade.coins_offered > 0 ? ` + ${successResult.trade.coins_offered} coins` : '')
     );
 
   return { success: true, responseEmbed, announceEmbed };
@@ -809,11 +988,11 @@ export async function processTradeAccept(userId, tradeId) {
 
 /**
  * Process trade reject action and return embed
- * @param {string} userId - User rejecting the trade
- * @param {number} tradeId - Trade ID
- * @returns {Promise<{success: boolean, responseEmbed: EmbedBuilder}>}
  */
-export async function processTradeReject(userId, tradeId) {
+export async function processTradeReject(
+  userId: string,
+  tradeId: number
+): Promise<TradeProcessResult> {
   await nflmonDb.rejectTrade(userId, tradeId);
 
   const responseEmbed = new EmbedBuilder()
@@ -826,20 +1005,21 @@ export async function processTradeReject(userId, tradeId) {
 
 /**
  * Process trade cancel action and return embed
- * @param {string} userId - User cancelling the trade
- * @param {number} tradeId - Trade ID
- * @returns {Promise<{success: boolean, responseEmbed: EmbedBuilder, error?: string}>}
  */
-export async function processTradeCancel(userId, tradeId) {
+export async function processTradeCancel(
+  userId: string,
+  tradeId: number
+): Promise<TradeProcessResult> {
   const result = await nflmonDb.cancelTrade(userId, tradeId);
 
-  if (!result.success) {
-    const errorMsg = TRADE_ERRORS[result.error] || 'Failed to cancel trade.';
+  // cancelTrade returns the trade if successful, null if failed (not sender or not pending)
+  if (!result) {
+    const errorMsg = TRADE_ERRORS.NOT_SENDER;
     const responseEmbed = new EmbedBuilder()
       .setColor(0xff0000)
       .setTitle('Error')
       .setDescription(errorMsg);
-    return { success: false, responseEmbed, error: result.error };
+    return { success: false, responseEmbed, error: 'NOT_SENDER' };
   }
 
   const responseEmbed = new EmbedBuilder()

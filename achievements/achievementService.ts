@@ -1,39 +1,53 @@
-import { EmbedBuilder } from 'discord.js';
+import { Client, EmbedBuilder, TextChannel } from 'discord.js';
 import * as achievementDb from './achievementDb.js';
-import { ACTION_TYPES, getAchievement } from './achievementConfig.js';
+import {
+  ACTION_TYPES,
+  getAchievement,
+  type ActionType,
+  type AchievementKey,
+} from './achievementConfig.js';
 import { CHANNELS, formatCurrency } from '../economy/economyConfig.js';
 import * as economyDb from '../economy/economyDb.js';
 import * as wordleDb from '../wordle/wordleDb.js';
 
+// ============ Type Definitions ============
+
 /**
- * @typedef {Object} ActionMetadata
- * @property {string} actionType - The type of action (from ACTION_TYPES)
- * @property {string} userId - Discord user ID who performed the action
- * @property {string} username - Discord username
- * @property {import('discord.js').Client} client - Discord client for channel access
- * @property {number} [amount] - Amount involved in the action (optional)
- * @property {string} [targetUserId] - Target user ID if applicable (optional)
- * @property {string} [targetUsername] - Target username if applicable (optional)
+ * Metadata about an action that may trigger achievements
  */
+export interface ActionMetadata {
+  readonly actionType: ActionType;
+  readonly userId: string;
+  readonly username: string;
+  readonly client: Client;
+  readonly amount?: number;
+  readonly targetUserId?: string;
+  readonly targetUsername?: string;
+}
 
 /**
  * Map of action types to the achievements they can unlock
- * @type {Object.<string, string[]>}
  */
-const ACTION_TO_ACHIEVEMENTS = {
+type ActionToAchievements = Record<string, AchievementKey[]>;
+
+// ============ Configuration ============
+
+const ACTION_TO_ACHIEVEMENTS: ActionToAchievements = {
   [ACTION_TYPES.ROB_SUCCESS]: ['THIEF'],
   [ACTION_TYPES.WORDLE_SOLVE]: ['WORDLE_5_SOLVES', 'WORDLE_10_SOLVES'],
   [ACTION_TYPES.WORDLE_FIRST_SOLVE]: ['WORDLE_FIRST_SOLVE'],
 };
 
+// ============ Public Functions ============
+
 /**
  * Check for and grant any applicable achievements based on an action
  * This is the main public function that should be called after money-related actions
  *
- * @param {ActionMetadata} metadata - Metadata about the action that occurred
- * @returns {Promise<string[]>} - Array of achievement keys that were newly granted
+ * @param metadata - Metadata about the action that occurred
+ * @returns Array of achievement keys that were newly granted
  */
-export async function checkForAchievements(metadata) {
+export async function checkForAchievements(metadata: ActionMetadata): Promise<AchievementKey[]> {
   const { actionType, userId, username, client } = metadata;
 
   // Get the list of achievements that could be unlocked by this action
@@ -43,7 +57,7 @@ export async function checkForAchievements(metadata) {
     return [];
   }
 
-  const grantedAchievements = [];
+  const grantedAchievements: AchievementKey[] = [];
 
   for (const achievementKey of possibleAchievements) {
     try {
@@ -76,13 +90,18 @@ export async function checkForAchievements(metadata) {
   return grantedAchievements;
 }
 
+// ============ Private Functions ============
+
 /**
  * Check if the criteria for a specific achievement are met
- * @param {string} achievementKey - The achievement key to check
- * @param {ActionMetadata} metadata - Action metadata
- * @returns {Promise<boolean>} - True if criteria are met
+ * @param achievementKey - The achievement key to check
+ * @param metadata - Action metadata
+ * @returns True if criteria are met
  */
-async function checkAchievementCriteria(achievementKey, metadata) {
+async function checkAchievementCriteria(
+  achievementKey: AchievementKey,
+  metadata: ActionMetadata
+): Promise<boolean> {
   switch (achievementKey) {
     case 'THIEF':
       // THIEF is granted on any successful rob
@@ -95,13 +114,13 @@ async function checkAchievementCriteria(achievementKey, metadata) {
     case 'WORDLE_5_SOLVES': {
       // Check if user has solved 5 or more Wordle puzzles
       const stats5 = await wordleDb.getUserStats(metadata.userId);
-      return stats5 && stats5.games_won >= 5;
+      return stats5 !== null && stats5.games_won >= 5;
     }
 
     case 'WORDLE_10_SOLVES': {
       // Check if user has solved 10 or more Wordle puzzles
       const stats10 = await wordleDb.getUserStats(metadata.userId);
-      return stats10 && stats10.games_won >= 10;
+      return stats10 !== null && stats10.games_won >= 10;
     }
 
     default:
@@ -111,12 +130,15 @@ async function checkAchievementCriteria(achievementKey, metadata) {
 
 /**
  * Announce an achievement to the town-square channel
- * @param {import('discord.js').Client} client - Discord client
- * @param {string} userId - Discord user ID
- * @param {string} achievementKey - Achievement key
- * @returns {Promise<void>}
+ * @param client - Discord client
+ * @param userId - Discord user ID
+ * @param achievementKey - Achievement key
  */
-async function announceAchievement(client, userId, achievementKey) {
+async function announceAchievement(
+  client: Client,
+  userId: string,
+  achievementKey: AchievementKey
+): Promise<void> {
   if (!CHANNELS.TOWN_SQUARE) {
     return;
   }
@@ -128,7 +150,9 @@ async function announceAchievement(client, userId, achievementKey) {
 
   try {
     const townSquare = await client.channels.fetch(CHANNELS.TOWN_SQUARE);
-    if (!townSquare) {
+
+    // Type guard: Check if channel exists and is text-based
+    if (!townSquare || !townSquare.isTextBased()) {
       return;
     }
 
@@ -150,7 +174,7 @@ async function announceAchievement(client, userId, achievementKey) {
       )
       .setTimestamp();
 
-    await townSquare.send({ embeds: [embed] });
+    await (townSquare as TextChannel).send({ embeds: [embed] });
   } catch (error) {
     console.error('Failed to announce achievement:', error);
   }

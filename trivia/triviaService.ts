@@ -1,23 +1,95 @@
 import cron from 'node-cron';
 import crypto from 'crypto';
-import { EmbedBuilder } from 'discord.js';
+import { Client, EmbedBuilder, Message, TextChannel } from 'discord.js';
 import * as triviaDb from './triviaDb.js';
-import { checkAnswer } from './answerMatcher.ts';
+import { checkAnswer } from './answerMatcher.js';
 import * as economyDb from '../economy/economyDb.js';
 import nflQuestions from './nflQuestions.json' with { type: 'json' };
 import wpflQuestions from './wpflQuestions.json' with { type: 'json' };
 import * as nflmonService from '../nflmon/nflmonService.js';
 import { DROP_CONFIG } from '../nflmon/nflmonConfig.js';
 
+// ============ Type Definitions ============
+
+/**
+ * Trivia category type
+ */
+export type TriviaCategory = 'nfl' | 'wpfl';
+
+/**
+ * Trivia question from JSON files
+ */
+export interface TriviaQuestion {
+  readonly id: string | number;
+  readonly question: string;
+  readonly answer: string;
+  readonly acceptable_answers?: readonly string[];
+  readonly point_value?: number;
+  readonly source_data?: unknown;
+}
+
+/**
+ * Question with computed hash
+ */
+interface QuestionWithHash {
+  readonly question: TriviaQuestion;
+  readonly hash: string;
+}
+
+/**
+ * Trivia winner record
+ */
+export interface TriviaWinner {
+  readonly username: string;
+}
+
+/**
+ * Active question record from database
+ */
+export interface ActiveQuestion {
+  readonly id: number;
+  readonly category: TriviaCategory;
+  readonly question: string;
+  readonly answer: string;
+  readonly acceptable_answers: readonly string[] | null;
+  readonly point_value: number;
+  readonly channel_id: string | null;
+  readonly window_closes_at: string | Date;
+  readonly is_closed: boolean;
+}
+
+/**
+ * User answer record from database
+ */
+interface UserAnswerRecord {
+  readonly is_correct: boolean;
+  readonly attempt_count: number;
+}
+
+/**
+ * Recorded answer result
+ */
+interface RecordedAnswer {
+  readonly attempt_count: number;
+}
+
+// ============ Service Class ============
+
+/**
+ * Background service for trivia question scheduling and handling
+ * Follows the same pattern as TrainingNotificationService
+ */
 export class TriviaService {
-  constructor(client) {
+  private readonly client: Client;
+
+  constructor(client: Client) {
     this.client = client;
   }
 
   /**
    * Initialize the trivia scheduler
    */
-  init() {
+  init(): void {
     const hours = [9, 11, 13, 15, 17, 19, 21];
 
     hours.forEach((hour) => {
@@ -50,9 +122,9 @@ export class TriviaService {
 
   /**
    * Send a trivia question to the channel
-   * @param {string} category - 'nfl' or 'wpfl'
+   * @param category - 'nfl' or 'wpfl'
    */
-  async sendQuestion(category) {
+  async sendQuestion(category: TriviaCategory): Promise<void> {
     try {
       const channelId = process.env.TRIVIA_CHANNEL_ID;
       if (!channelId) {
@@ -61,28 +133,29 @@ export class TriviaService {
       }
 
       const channel = await this.client.channels.fetch(channelId);
-      if (!channel) {
-        console.error('[TRIVIA] Could not find trivia channel');
+      if (!channel || !channel.isTextBased()) {
+        console.error('[TRIVIA] Could not find trivia channel or not text-based');
         return;
       }
 
       // Get questions for category
-      const questions = category === 'nfl' ? nflQuestions : wpflQuestions;
+      const questions: TriviaQuestion[] =
+        category === 'nfl' ? (nflQuestions as TriviaQuestion[]) : (wpflQuestions as TriviaQuestion[]);
 
       // Build list of unasked questions with their hashes
-      const unaskedQuestions = [];
+      const unaskedQuestions: QuestionWithHash[] = [];
 
       for (const q of questions) {
         // Calculate hash based on category
-        // NFL: use question.id
+        // NFL: use question.id (converted to string)
         // WPFL: hash source_data if exists, otherwise fall back to question.id
-        let hash;
+        let hash: string;
         if (category === 'nfl') {
-          hash = q.id;
+          hash = String(q.id);
         } else {
           hash = q.source_data
             ? crypto.createHash('md5').update(JSON.stringify(q.source_data)).digest('hex')
-            : q.id; // Fallback to id if no source_data
+            : String(q.id); // Fallback to id if no source_data
         }
 
         const asked = await triviaDb.isQuestionAsked(hash);
@@ -92,8 +165,8 @@ export class TriviaService {
       }
 
       // Pick a random unasked question
-      let unaskedQuestion = null;
-      let questionHash = null;
+      let unaskedQuestion: TriviaQuestion | null = null;
+      let questionHash: string | null = null;
 
       if (unaskedQuestions.length > 0) {
         const randomIndex = Math.floor(Math.random() * unaskedQuestions.length);
@@ -102,9 +175,9 @@ export class TriviaService {
         questionHash = selected.hash;
       }
 
-      if (!unaskedQuestion) {
+      if (!unaskedQuestion || questionHash === null) {
         console.warn(`[TRIVIA] No unasked ${category.toUpperCase()} questions remaining!`);
-        await channel.send({
+        await (channel as TextChannel).send({
           content: `No more ${category.toUpperCase()} trivia questions available!`,
         });
         return;
@@ -117,12 +190,15 @@ export class TriviaService {
       const windowClosesAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
       // Save to active questions
+      const acceptableAnswersJson = unaskedQuestion.acceptable_answers?.length
+        ? JSON.stringify(unaskedQuestion.acceptable_answers)
+        : null;
       const activeQuestion = await triviaDb.saveActiveQuestion({
         category,
-        questionId: unaskedQuestion.id,
+        questionId: unaskedQuestion.id != null ? String(unaskedQuestion.id) : null,
         question: unaskedQuestion.question,
         answer: unaskedQuestion.answer,
-        acceptableAnswers: unaskedQuestion.acceptable_answers || [],
+        acceptableAnswers: acceptableAnswersJson,
         pointValue: unaskedQuestion.point_value || 1,
         sourceData: unaskedQuestion.source_data
           ? JSON.stringify(unaskedQuestion.source_data)
@@ -133,7 +209,7 @@ export class TriviaService {
 
       // Build and send embed
       const embed = this.buildQuestionEmbed(unaskedQuestion, category, windowClosesAt);
-      await channel.send({ embeds: [embed] });
+      await (channel as TextChannel).send({ embeds: [embed] });
 
       console.log(`[TRIVIA] Posted ${category.toUpperCase()} question #${activeQuestion.id}`);
     } catch (error) {
@@ -143,9 +219,9 @@ export class TriviaService {
 
   /**
    * Handle a DM message (trivia answer attempt)
-   * @param {Message} message - Discord message
+   * @param message - Discord message
    */
-  async handleDM(message) {
+  async handleDM(message: Message): Promise<void> {
     const content = message.content.trim();
 
     // Parse for category prefix
@@ -157,11 +233,12 @@ export class TriviaService {
       return;
     }
 
-    const category = nflMatch ? 'nfl' : 'wpfl';
-    const userAnswer = (nflMatch || wpflMatch)[1].trim();
+    const category: TriviaCategory = nflMatch ? 'nfl' : 'wpfl';
+    const matchResult = nflMatch || wpflMatch;
+    const userAnswer = matchResult![1].trim();
 
     // Get active question
-    const activeQuestion = await triviaDb.getActiveQuestion(category);
+    const activeQuestion = (await triviaDb.getActiveQuestion(category)) as ActiveQuestion | null;
 
     if (!activeQuestion) {
       await message.reply(`No active ${category.toUpperCase()} trivia right now!`);
@@ -175,7 +252,10 @@ export class TriviaService {
     }
 
     // Check if user already answered
-    const existingAnswer = await triviaDb.getUserAnswer(activeQuestion.id, message.author.id);
+    const existingAnswer = (await triviaDb.getUserAnswer(
+      activeQuestion.id,
+      message.author.id
+    )) as UserAnswerRecord | null;
 
     // If already correct, don't allow more attempts
     if (existingAnswer && existingAnswer.is_correct) {
@@ -192,21 +272,21 @@ export class TriviaService {
       return;
     }
 
-    // Check the answer
+    // Check the answer - spread to convert readonly to mutable for checkAnswer
     const questionData = {
       answer: activeQuestion.answer,
-      acceptable_answers: activeQuestion.acceptable_answers || [],
+      acceptable_answers: activeQuestion.acceptable_answers ? [...activeQuestion.acceptable_answers] : [],
     };
 
     const isCorrect = checkAnswer(userAnswer, questionData);
 
     // Record the answer (this increments attempt_count)
-    const recorded = await triviaDb.recordAnswer({
+    const recorded = (await triviaDb.recordAnswer({
       questionId: activeQuestion.id,
       userId: message.author.id,
       username: message.author.username,
       isCorrect,
-    });
+    })) as RecordedAnswer;
 
     if (isCorrect) {
       // Award points immediately
@@ -237,8 +317,8 @@ export class TriviaService {
       }
 
       // === NFLmon Integration ===
-      let nflmonDropped = null;
-      let xpResult = null;
+      let nflmonDropped: nflmonService.RollResult | null = null;
+      let xpResult: nflmonService.XpResult | null = null;
 
       // Roll for NFLmon drop (15% chance)
       if (Math.random() < DROP_CONFIG.TRIVIA_CORRECT_CHANCE) {
@@ -253,7 +333,7 @@ export class TriviaService {
       xpResult = await nflmonService.addXpToTraining(message.author.id, 'trivia_correct');
 
       // Build combined reply message
-      let replyParts = [];
+      const replyParts: string[] = [];
 
       if (pointsAwarded) {
         const coinText = coinsAwarded > 0 ? ` and 🪙 ${coinsAwarded} coins` : '';
@@ -265,7 +345,7 @@ export class TriviaService {
       // Add NFLmon drop info to same message
       if (nflmonDropped) {
         replyParts.push(
-          `🎮 You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity.name})! Use \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`
+          `🎮 You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity?.name ?? 'Unknown'})! Use \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`
         );
       }
 
@@ -302,29 +382,33 @@ export class TriviaService {
 
   /**
    * Close the answer window and reveal the answer
-   * @param {string} category - 'nfl' or 'wpfl'
+   * @param category - 'nfl' or 'wpfl'
    */
-  async closeWindow(category) {
+  async closeWindow(category: TriviaCategory): Promise<void> {
     try {
-      const activeQuestion = await triviaDb.getActiveQuestion(category);
+      const activeQuestion = (await triviaDb.getActiveQuestion(category)) as ActiveQuestion | null;
 
       if (!activeQuestion || activeQuestion.is_closed) {
         return;
       }
 
       // Get all correct answers (points already awarded in handleDM)
-      const winners = await triviaDb.getCorrectAnswers(activeQuestion.id);
+      const winners = (await triviaDb.getCorrectAnswers(activeQuestion.id)) as TriviaWinner[];
 
       // Close the question
       await triviaDb.closeQuestion(activeQuestion.id);
 
       // Post results to channel
       const channelId = activeQuestion.channel_id || process.env.TRIVIA_CHANNEL_ID;
+      if (!channelId) {
+        return;
+      }
+
       const channel = await this.client.channels.fetch(channelId);
 
-      if (channel) {
+      if (channel && channel.isTextBased()) {
         const embed = this.buildResultsEmbed(activeQuestion, winners, category);
-        await channel.send({ embeds: [embed] });
+        await (channel as TextChannel).send({ embeds: [embed] });
       }
 
       console.log(
@@ -337,15 +421,19 @@ export class TriviaService {
 
   /**
    * Announce in channel when a user gets the correct answer
-   * @param {object} activeQuestion - The active question
-   * @param {string} username - The user who got it correct
+   * @param activeQuestion - The active question
+   * @param username - The user who got it correct
    */
-  async announceCorrectAnswer(activeQuestion, username) {
+  async announceCorrectAnswer(activeQuestion: ActiveQuestion, username: string): Promise<void> {
     try {
       const channelId = activeQuestion.channel_id || process.env.TRIVIA_CHANNEL_ID;
+      if (!channelId) {
+        return;
+      }
+
       const channel = await this.client.channels.fetch(channelId);
-      if (channel) {
-        await channel.send(`**${username}** got the answer correct!`);
+      if (channel && channel.isTextBased()) {
+        await (channel as TextChannel).send(`**${username}** got the answer correct!`);
       }
     } catch (error) {
       console.error('[TRIVIA] Error announcing correct answer:', error);
@@ -354,14 +442,18 @@ export class TriviaService {
 
   /**
    * Announce in channel when a user exhausts their guesses
-   * @param {object} activeQuestion - The active question
-   * @param {string} username - The user who struck out
+   * @param activeQuestion - The active question
+   * @param username - The user who struck out
    */
-  async announceExhaustedGuesses(activeQuestion, username) {
+  async announceExhaustedGuesses(activeQuestion: ActiveQuestion, username: string): Promise<void> {
     try {
       const channelId = activeQuestion.channel_id || process.env.TRIVIA_CHANNEL_ID;
+      if (!channelId) {
+        return;
+      }
+
       const channel = await this.client.channels.fetch(channelId);
-      if (channel) {
+      if (channel && channel.isTextBased()) {
         const roasts = [
           `**${username}** used all their guesses and still couldn't get it!`,
           `**${username}** has exhausted their guesses. Better luck next time!`,
@@ -370,7 +462,7 @@ export class TriviaService {
           `**${username}** couldn't crack it. Maybe stick to multiple choice?`,
         ];
         const roast = roasts[Math.floor(Math.random() * roasts.length)];
-        await channel.send(roast);
+        await (channel as TextChannel).send(roast);
       }
     } catch (error) {
       console.error('[TRIVIA] Error announcing exhausted guesses:', error);
@@ -379,12 +471,12 @@ export class TriviaService {
 
   /**
    * Build question embed
-   * @param {object} question - Question data
-   * @param {string} category - 'nfl' or 'wpfl'
-   * @param {Date} windowClosesAt - When the window closes
-   * @returns {EmbedBuilder}
+   * @param question - Question data
+   * @param category - 'nfl' or 'wpfl'
+   * @param windowClosesAt - When the window closes
+   * @returns Notification embed
    */
-  buildQuestionEmbed(question, category, windowClosesAt) {
+  buildQuestionEmbed(question: TriviaQuestion, category: TriviaCategory, windowClosesAt: Date): EmbedBuilder {
     const color = category === 'nfl' ? 0x013369 : 0x00ff88;
     const title = category === 'nfl' ? 'NFL Trivia' : 'WPFL Trivia';
 
@@ -412,12 +504,12 @@ export class TriviaService {
 
   /**
    * Build results embed
-   * @param {object} question - Question data
-   * @param {array} winners - Array of winners
-   * @param {string} category - 'nfl' or 'wpfl'
-   * @returns {EmbedBuilder}
+   * @param question - Question data
+   * @param winners - Array of winners
+   * @param category - 'nfl' or 'wpfl'
+   * @returns Results embed
    */
-  buildResultsEmbed(question, winners, category) {
+  buildResultsEmbed(question: ActiveQuestion, winners: TriviaWinner[], category: TriviaCategory): EmbedBuilder {
     const color = category === 'nfl' ? 0x013369 : 0x00ff88;
     const title = category === 'nfl' ? 'NFL Trivia Results' : 'WPFL Trivia Results';
 
