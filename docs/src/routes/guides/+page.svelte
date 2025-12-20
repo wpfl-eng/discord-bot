@@ -23,6 +23,13 @@
 			href: '/guides/gambling',
 			icon: 'dice',
 			topics: ['Slots payouts', 'Blackjack basics', 'Risk management', 'Expected value']
+		},
+		{
+			title: 'Red Zone',
+			description: 'Master the push-your-luck football game for a 10x payout',
+			href: '/guides/redzone',
+			icon: 'football',
+			topics: ['Field positions', 'Fumble risk', 'Cash out strategy', 'Leaderboards']
 		}
 	];
 </script>

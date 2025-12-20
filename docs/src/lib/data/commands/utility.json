@@ -114,6 +114,55 @@
       "relatedCommands": []
     },
     {
+      "name": "wordle",
+      "description": "Play Wordle! Guess the 5-letter word",
+      "longDescription": "Play the classic word-guessing game. You have 6 attempts to guess a 5-letter word. After each guess, colored tiles show how close you were: green means the letter is correct and in the right spot, yellow means the letter is in the word but wrong spot, and black means the letter isn't in the word. Be the first to solve for bonus coins and a Lucky Letter item!",
+      "category": "Utility",
+      "categorySlug": "utility",
+      "usage": ["/wordle", "/wordle guess:crane"],
+      "options": [
+        {
+          "name": "guess",
+          "description": "Your 5-letter guess",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "ephemeral": true,
+      "examples": [
+        {
+          "input": "/wordle",
+          "output": "Wordle #42\n⬜⬜⬜⬜⬜\n⬜⬜⬜⬜⬜\n⬜⬜⬜⬜⬜\n⬜⬜⬜⬜⬜\n⬜⬜⬜⬜⬜\n⬜⬜⬜⬜⬜\nGuesses: 0/6 | Use /wordle guess:<word>"
+        },
+        {
+          "input": "/wordle guess:crane",
+          "output": "Wordle #42\n🟨⬛🟩⬛🟩\n⬜⬜⬜⬜⬜\n...\n5 guesses remaining"
+        },
+        {
+          "input": "/wordle guess:shade",
+          "output": "Wordle #42 - Victory!\n🟩🟩🟩🟩🟩\nAnswer: SHADE\nReward: 🪙 500 (First Solve!)",
+          "note": "First solver bonus"
+        }
+      ],
+      "tips": [
+        "You have 6 guesses to find the word",
+        "🟩 = correct letter, correct position",
+        "🟨 = correct letter, wrong position",
+        "⬛ = letter not in word",
+        "First solver gets +200 bonus coins and a Lucky Letter",
+        "Words rotate hourly after being solved",
+        "Start with words that have common letters (CRANE, SLATE, ADIEU)"
+      ],
+      "gameConfig": {
+        "maxGuesses": 6,
+        "wordLength": 5,
+        "baseReward": 300,
+        "firstSolverBonus": 200,
+        "rotationHours": 1
+      },
+      "relatedCommands": ["trivia", "daily"]
+    },
+    {
       "name": "namecolor",
       "description": "Change your display name color in the server",
       "longDescription": "Customize your name color in the server by creating a personal color role. Choose from predefined colors or specify any hex color code. Each user gets their own unique color role that only affects their display.",

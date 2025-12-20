@@ -13,6 +13,7 @@ import training from './training.json';
 import trivia from './trivia.json';
 import betting from './betting.json';
 import utility from './utility.json';
+import stocks from './stocks.json';
 
 // Validate all categories at load time in development
 const rawCategories = [
@@ -26,7 +27,8 @@ const rawCategories = [
 	training,
 	trivia,
 	betting,
-	utility
+	utility,
+	stocks
 ];
 
 function validateCategories(data: unknown[]): CommandCategory[] {
