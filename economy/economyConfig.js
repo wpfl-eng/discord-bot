@@ -103,16 +103,17 @@ export const SLOTS_PAYOUTS = {
 };
 
 // Red Zone field positions - yard line -> { multiplier, fumbleChance }
+// Tuned for moderate difficulty - reduced multipliers, increased fumble risk
 export const REDZONE_FIELD_POSITIONS = {
-  20: { multiplier: 1.0, fumbleChance: 0, label: "Own 20" },
-  30: { multiplier: 1.2, fumbleChance: 0.08, label: "Own 30" },
-  40: { multiplier: 1.5, fumbleChance: 0.12, label: "Own 40" },
-  50: { multiplier: 2.0, fumbleChance: 0.18, label: "Midfield" },
-  60: { multiplier: 2.8, fumbleChance: 0.25, label: "Opp 40" },
-  70: { multiplier: 4.0, fumbleChance: 0.33, label: "Opp 30" },
-  80: { multiplier: 5.5, fumbleChance: 0.42, label: "Red Zone" },
-  90: { multiplier: 7.5, fumbleChance: 0.52, label: "Opp 10" },
-  100: { multiplier: 10.0, fumbleChance: 0, label: "Touchdown!" },
+  20: { multiplier: 1.0, fumbleChance: 0.05, label: "Own 20" },
+  30: { multiplier: 1.1, fumbleChance: 0.15, label: "Own 30" },
+  40: { multiplier: 1.3, fumbleChance: 0.20, label: "Own 40" },
+  50: { multiplier: 1.6, fumbleChance: 0.25, label: "Midfield" },
+  60: { multiplier: 2.2, fumbleChance: 0.32, label: "Opp 40" },
+  70: { multiplier: 3.0, fumbleChance: 0.40, label: "Opp 30" },
+  80: { multiplier: 4.0, fumbleChance: 0.50, label: "Red Zone" },
+  90: { multiplier: 5.5, fumbleChance: 0.60, label: "Opp 10" },
+  100: { multiplier: 8.0, fumbleChance: 0, label: "Touchdown!" },
 };
 
 // Channel IDs from environment variables
