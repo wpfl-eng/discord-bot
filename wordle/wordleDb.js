@@ -37,7 +37,8 @@ export async function initializeWord() {
 
 /**
  * Check if word rotation is needed and rotate if conditions are met
- * Conditions: time >= ROTATION_HOURS AND solved = true
+ * Conditions: time >= ROTATION_HOURS AND someone has attempted (win or loss)
+ * Does NOT rotate if no one has touched the word
  * @returns {Promise<object>} Current or new word record
  */
 export async function rotateWordIfNeeded() {
@@ -51,8 +52,16 @@ export async function rotateWordIfNeeded() {
   const hoursSinceSet =
     (Date.now() - new Date(current.set_at).getTime()) / (1000 * 60 * 60);
 
-  // Only rotate if: time exceeded AND word has been solved
-  if (hoursSinceSet >= CONFIG.ROTATION_HOURS && current.solved) {
+  // Check if anyone has attempted this word (win or loss)
+  const attemptsResult = await sql`
+    SELECT 1 FROM wordle_user_games
+    WHERE word = ${current.current_word}
+    LIMIT 1
+  `;
+  const hasAttempts = attemptsResult.rows.length > 0;
+
+  // Only rotate if: time exceeded AND someone has attempted
+  if (hoursSinceSet >= CONFIG.ROTATION_HOURS && hasAttempts) {
     // Get all previously used words to avoid repeats
     const usedWordsResult = await sql`
       SELECT DISTINCT current_word FROM wordle_words
@@ -98,7 +107,8 @@ export async function markWordSolved(wordId, userId, username) {
 }
 
 /**
- * Get time remaining until next word rotation (if current is solved)
+ * Get time remaining until next word rotation
+ * Note: This is only called when user has completed their game, so hasAttempts is implied
  * @param {object} currentWord - Current word record
  * @returns {object} { canRotate, minutesRemaining }
  */
@@ -112,7 +122,8 @@ export function getRotationInfo(currentWord) {
   const hoursRemaining = Math.max(0, CONFIG.ROTATION_HOURS - hoursSinceSet);
 
   return {
-    canRotate: currentWord.solved && hoursRemaining <= 0,
+    // canRotate when time is up (hasAttempts is implied since user completed their game)
+    canRotate: hoursRemaining <= 0,
     minutesRemaining: Math.ceil(hoursRemaining * 60),
   };
 }

@@ -151,7 +151,7 @@ function createLossEmbed(game, currentWord) {
       { name: "Guesses", value: formatGuessCount(guesses.length), inline: true }
     )
     .setFooter({
-      text: "The word will change once someone solves it (after 2 hours)",
+      text: "New word available in 1 hours",
     })
     .setTimestamp();
 }
@@ -173,10 +173,8 @@ function createAlreadyPlayedEmbed(game, currentWord) {
 
   if (rotationInfo.canRotate) {
     footerText += " A new word is available!";
-  } else if (currentWord.solved && rotationInfo.minutesRemaining > 0) {
+  } else if (rotationInfo.minutesRemaining > 0) {
     footerText += ` Next word in ${rotationInfo.minutesRemaining} minutes.`;
-  } else if (!currentWord.solved) {
-    footerText += " Waiting for someone to solve it first.";
   }
 
   const embed = new EmbedBuilder()
