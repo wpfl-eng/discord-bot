@@ -1,0 +1,257 @@
+# NFLmon System - Implementation Plan
+
+## Overview
+A Pokemon-style collectible system featuring real NFL players that integrates with existing economy and game systems.
+
+### User Decisions
+- **Theme**: Real NFL players (current active ~500+ players)
+- **Stats**: 4 simplified abstract stats (Speed, Power, Agility, Awareness)
+- **Evolution**: Career stages (Rookie → Pro → All-Pro → Hall of Famer)
+- **Rarity**: Accessible (8-10% legendary drop rate)
+- **Images**: External URLs stored per player
+- **Scope**: Collection only for now (battles can be added later)
+
+---
+
+## File Structure
+
+```
+discord-bot/
+├── nflmon/
+│   ├── nflmonConfig.js      # Rarities, stats, XP formulas, shop packs
+│   ├── nflmonDb.js          # CRUD operations for bench/trades
+│   ├── nflmonService.js     # Core logic: rolling, XP, evolution
+│   └── nflmonPlayers.json   # 500+ player definitions
+├── discordCommands/
+│   └── nflmon/
+│       └── nflmon.js        # Main command with subcommands
+├── migrations/
+│   └── 005_nflmon.sql       # Database tables
+```
+
+---
+
+## Database Schema
+
+### `nflmon_bench` - User's collected NFLmon
+```sql
+CREATE TABLE nflmon_bench (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(20) NOT NULL,
+  player_id VARCHAR(50) NOT NULL,
+  nickname VARCHAR(50),
+  level INTEGER DEFAULT 1,
+  current_xp INTEGER DEFAULT 0,
+  evolution_stage VARCHAR(20) DEFAULT 'rookie',  -- rookie/pro/all_pro/hall_of_famer
+  rarity VARCHAR(20) NOT NULL,                    -- common/uncommon/rare/epic/legendary
+  iv_speed INTEGER, iv_power INTEGER, iv_agility INTEGER, iv_awareness INTEGER,
+  acquired_source VARCHAR(50) NOT NULL,           -- wordle/trivia/shop/trade/daily
+  acquired_from_user VARCHAR(20),
+  is_favorite BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT FALSE,
+  acquired_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### `nflmon_trades` - Trade escrow system
+```sql
+CREATE TABLE nflmon_trades (
+  id SERIAL PRIMARY KEY,
+  from_user_id VARCHAR(20) NOT NULL,
+  to_user_id VARCHAR(20) NOT NULL,
+  from_nflmon_id INTEGER REFERENCES nflmon_bench(id),
+  to_nflmon_id INTEGER REFERENCES nflmon_bench(id),
+  coins_offered INTEGER DEFAULT 0,
+  status VARCHAR(20) DEFAULT 'pending',  -- pending/accepted/rejected/cancelled/expired
+  expires_at TIMESTAMP DEFAULT NOW() + INTERVAL '24 hours'
+);
+```
+
+### `nflmon_stats` - User statistics
+```sql
+CREATE TABLE nflmon_stats (
+  user_id VARCHAR(20) PRIMARY KEY,
+  username VARCHAR(100),
+  total_caught INTEGER DEFAULT 0,
+  total_evolved INTEGER DEFAULT 0,
+  legendary_count INTEGER DEFAULT 0,
+  highest_level_reached INTEGER DEFAULT 0
+);
+```
+
+---
+
+## Core Systems
+
+### 1. Rarity System
+| Rarity | Drop Weight | Sell Value | Stat Multiplier |
+|--------|-------------|------------|-----------------|
+| Common | 50% | 50 coins | 1.0x |
+| Uncommon | 25% | 100 coins | 1.1x |
+| Rare | 12% | 250 coins | 1.2x |
+| Epic | 5% | 500 coins | 1.35x |
+| Legendary | 8% | 1000 coins | 1.5x |
+
+### 2. Evolution Stages
+| Stage | Level Range | Emoji | Requirements |
+|-------|-------------|-------|--------------|
+| Rookie | 1-20 | 🌱 | Starting stage |
+| Pro | 21-40 | ⭐ | Level 21+ |
+| All-Pro | 41-60 | 🌟 | Level 41+ |
+| Hall of Famer | 61-100 | 👑 | Level 61+, Rare+ rarity |
+
+### 3. Stats System
+Base stats by position + IVs (0-15 each) + level scaling + rarity multiplier
+
+**Position Base Stats:**
+- QB: SPD 60, PWR 50, AGI 65, AWR 80
+- RB: SPD 80, PWR 70, AGI 75, AWR 55
+- WR: SPD 85, PWR 50, AGI 80, AWR 60
+- TE: SPD 65, PWR 75, AGI 60, AWR 65
+
+### 4. XP & Leveling
+- Level cap: 100
+- Formula: `XP_for_level = level² × 100`
+- Sources: wordle_win (10-20), wordle_first (25-35), trivia_correct (5-15), blackjack_win (3-8)
+
+### 5. Acquisition Sources
+| Source | Drop Chance | Rarity Boost |
+|--------|-------------|--------------|
+| Wordle win | 15% | 0 |
+| Wordle first solve | 100% | +2 |
+| Trivia correct | 10% | 0 |
+| Shop packs | 100% | varies |
+| Daily | 5% | -1 |
+
+---
+
+## Commands
+
+```
+/nflmon bench [rarity]      - View your collection
+/nflmon view <id>           - Detailed view with stats
+/nflmon active <id>         - Set active NFLmon (receives XP)
+/nflmon nickname <id> [name] - Set/clear nickname
+/nflmon evolve <id>         - Evolve if conditions met
+/nflmon sell <id>           - Sell for coins (with confirmation)
+/nflmon trade @user <offer> [request] [coins] - Create trade
+/nflmon trades              - View pending trades
+/nflmon dex [search]        - Encyclopedia
+/nflmon stats               - Your statistics
+/nflmon leaderboard [cat]   - Rankings (total/legendary/level/evolved)
+```
+
+---
+
+## Integration Points
+
+### Wordle (`discordCommands/wordle/wordle.js`)
+- On win: 15% chance to drop NFLmon + XP to active
+- On first solve: 100% drop with +2 rarity boost
+
+### Trivia (`trivia/triviaService.js`)
+- On correct answer: 10% drop chance + XP to active
+
+### Shop (`discordCommands/shop/shop.js`)
+Add NFLmon packs category:
+- Starter Pack: 500 coins, 1 NFLmon, -1 rarity boost
+- Pro Pack: 1500 coins, 3 NFLmon, 0 boost
+- Elite Pack: 5000 coins, 5 NFLmon, +2 boost
+
+---
+
+## Implementation Phases
+
+### Phase 1: Foundation
+- [ ] Create `nflmon/` directory structure
+- [ ] Implement `nflmonConfig.js` (rarities, stats, formulas)
+- [ ] Create `migrations/005_nflmon.sql` and run migration
+- [ ] Seed `nflmonPlayers.json` with initial 50-100 players
+
+### Phase 2: Database Layer
+- [ ] Implement `nflmonDb.js` following `inventoryDb.js` pattern
+  - CRUD for bench, trades, stats
+  - Atomic sell/transfer operations
+
+### Phase 3: Service Layer
+- [ ] Implement `nflmonService.js`
+  - `rollForNflmon(userId, username, source)` - core drop mechanic
+  - `addXpToActive(userId, source)` - XP system
+  - `evolve(userId, nflmonId)` - evolution logic
+  - `getDisplayData(benchRecord)` - stat calculations
+
+### Phase 4: Commands
+- [ ] Create `discordCommands/nflmon/nflmon.js`
+- [ ] Implement all subcommands
+- [ ] Run `node deploy-commands.js`
+
+### Phase 5: Game Integration
+- [ ] Update wordle.js for drops and XP
+- [ ] Update triviaService.js for drops and XP
+- [ ] Add NFLmon packs to shop
+
+### Phase 6: Trading & Polish
+- [ ] Implement trade offer/accept/reject flow
+- [ ] Complete `/nflmon dex` encyclopedia
+- [ ] Expand player data to 500+ players
+
+---
+
+## Critical Files to Modify
+
+| File | Action |
+|------|--------|
+| `nflmon/nflmonConfig.js` | CREATE - All constants and formulas |
+| `nflmon/nflmonDb.js` | CREATE - Database operations |
+| `nflmon/nflmonService.js` | CREATE - Core business logic |
+| `nflmon/nflmonPlayers.json` | CREATE - Player data |
+| `migrations/005_nflmon.sql` | CREATE - Database schema |
+| `discordCommands/nflmon/nflmon.js` | CREATE - Main command |
+| `discordCommands/wordle/wordle.js` | MODIFY - Add NFLmon drops (~line 324) |
+| `trivia/triviaService.js` | MODIFY - Add NFLmon drops |
+| `discordCommands/shop/shop.js` | MODIFY - Add pack category |
+
+---
+
+## Player Data Strategy
+
+`nflmonPlayers.json` structure:
+```json
+{
+  "mahomes_patrick": {
+    "id": "mahomes_patrick",
+    "name": "Patrick Mahomes",
+    "team": "KC",
+    "position": "QB",
+    "number": 15,
+    "imageUrl": "https://...",
+    "rarityPool": "legendary"
+  }
+}
+```
+
+**Rarity Assignment:**
+- Legendary (~40): MVP candidates, generational talents
+- Epic (~60): All-Pro caliber, franchise players
+- Rare (~100): Pro Bowl caliber
+- Uncommon (~150): Quality starters
+- Common (~150+): Backups, rotation players
+
+---
+
+## Key Service Function Signatures
+
+```javascript
+// nflmonService.js
+rollForNflmon(userId, username, source, rarityBoostOverride?) → Promise<NFLmon|null>
+addXpToActive(userId, source) → Promise<{nflmon, xpGained, levelsGained}>
+evolve(userId, nflmonId) → Promise<{success, nflmon?, newStage?, error?}>
+getDisplayData(benchRecord) → {stats, ivTotal, canEvolve, displayName, ...}
+
+// nflmonDb.js
+getBench(userId, options?) → Promise<NFLmon[]>
+addNflmon(data) → Promise<NFLmon>
+addXp(nflmonId, amount) → Promise<{nflmon, levelsGained}>
+sellNflmon(userId, nflmonId) → Promise<{success, value?, error?}>
+transferNflmon(nflmonId, fromUserId, toUserId) → Promise<NFLmon|null>
+```
