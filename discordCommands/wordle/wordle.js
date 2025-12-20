@@ -21,6 +21,8 @@ import * as inventoryDb from "../../inventory/inventoryDb.js";
 import { formatCurrency, CHANNELS } from "../../economy/economyConfig.js";
 import { checkForAchievements } from "../../achievements/achievementService.js";
 import { ACTION_TYPES } from "../../achievements/achievementConfig.js";
+import * as nflmonService from "../../nflmon/nflmonService.js";
+import { DROP_CONFIG } from "../../nflmon/nflmonConfig.js";
 
 export const data = new SlashCommandBuilder()
   .setName("wordle")
@@ -325,6 +327,28 @@ export async function execute(interaction) {
         await inventoryDb.addItem(userId, REWARDS.FIRST_SOLVER_ITEM, 1);
       }
 
+      // === NFLmon Integration ===
+      let nflmonDropped = null;
+      let xpResult = null;
+
+      // Determine drop chance (100% for first solver, 20% for regular wins)
+      const dropChance = isFirstSolver
+        ? DROP_CONFIG.WORDLE_FIRST_CHANCE
+        : DROP_CONFIG.WORDLE_WIN_CHANCE;
+
+      // Roll for NFLmon drop
+      if (Math.random() < dropChance) {
+        nflmonDropped = await nflmonService.rollForNflmon(
+          userId,
+          username,
+          "wordle"
+        );
+      }
+
+      // Award XP to training NFLmon
+      const xpSource = isFirstSolver ? "wordle_first" : "wordle_win";
+      xpResult = await nflmonService.addXpToTraining(userId, xpSource);
+
       // Record game result and complete game
       await wordleDb.recordGameResult({
         userId,
@@ -363,6 +387,28 @@ export async function execute(interaction) {
       // Update game object with completed guesses for embed
       updatedGame.guesses = guesses;
       const embed = createWinEmbed(updatedGame, currentWord, reward, isFirstSolver);
+
+      // Add NFLmon info to embed
+      if (nflmonDropped) {
+        embed.addFields({
+          name: "NFLmon Caught!",
+          value: `You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity.name})!\nUse \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`,
+        });
+      }
+
+      if (xpResult && xpResult.results.length > 0) {
+        const xpLines = xpResult.results.map((r) => {
+          let line = `${r.player?.name || "Unknown"} +${xpResult.xpAmount} XP`;
+          if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
+          if (r.evolved) line += ` EVOLVED!`;
+          return line;
+        });
+        embed.addFields({
+          name: "Training XP",
+          value: xpLines.join("\n"),
+        });
+      }
+
       await interaction.editReply({ embeds: [embed] });
       return;
     }

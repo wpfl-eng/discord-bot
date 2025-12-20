@@ -179,6 +179,53 @@ export async function addXpToTraining(userId, source) {
   }
 }
 
+/**
+ * Roll multiple NFLmon for shop pack purchases
+ * @param {string} userId - Discord user ID
+ * @param {string} username - Discord username
+ * @param {number} count - Number of NFLmon to roll
+ * @returns {Promise<{results: Array, success: boolean}>}
+ */
+export async function rollMultipleNflmon(userId, username, count) {
+  const results = [];
+
+  for (let i = 0; i < count; i++) {
+    const result = await rollForNflmon(userId, username, "shop");
+    if (result) {
+      results.push(result);
+    }
+  }
+
+  return {
+    results,
+    success: results.length > 0,
+  };
+}
+
+/**
+ * Build embed showing all NFLmon from a pack opening
+ * @param {Array} results - Array of rollForNflmon results
+ * @param {string} packName - Name of pack opened
+ * @returns {EmbedBuilder}
+ */
+export function buildPackResultEmbed(results, packName) {
+  const embed = new EmbedBuilder()
+    .setColor(0xffd700)
+    .setTitle(`${packName} Opened!`)
+    .setDescription(`You received **${results.length}** NFLmon!`);
+
+  const lines = results.map((result, i) => {
+    const { player, rarity } = result;
+    const emoji = getEvolutionEmoji("rookie");
+    return `${i + 1}. ${emoji} **${player.name}** (${player.position}) - ${rarity.name}`;
+  });
+
+  embed.addFields({ name: "Your New NFLmon", value: lines.join("\n") });
+  embed.setFooter({ text: "Use /nflmon bench to view your collection" });
+
+  return embed;
+}
+
 // =============================================================================
 // DISPLAY DATA FUNCTION
 // =============================================================================

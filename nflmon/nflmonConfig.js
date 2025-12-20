@@ -94,6 +94,21 @@ export const XP_SOURCES = {
   blackjack_win: { min: 3, max: 8 },
 };
 
+// ============ DROP CONFIG ============
+// Probability of NFLmon dropping from activities
+export const DROP_CONFIG = {
+  WORDLE_WIN_CHANCE: 0.20, // 20% chance on any wordle win
+  WORDLE_FIRST_CHANCE: 1.0, // 100% guaranteed on first solve
+  TRIVIA_CORRECT_CHANCE: 0.15, // 15% chance on correct trivia answer
+};
+
+// ============ SHOP PACKS ============
+export const SHOP_PACKS = {
+  starter_pack: { name: "Starter Pack", price: 500, quantity: 1 },
+  pro_pack: { name: "Pro Pack", price: 1500, quantity: 3 },
+  elite_pack: { name: "Elite Pack", price: 5000, quantity: 5 },
+};
+
 // ============ ACQUISITION SOURCES ============
 export const ACQUISITION_SOURCES = {
   WORDLE: "wordle",

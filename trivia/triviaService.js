@@ -6,6 +6,8 @@ import { checkAnswer } from "./answerMatcher.js";
 import * as economyDb from "../economy/economyDb.js";
 import nflQuestions from "./nflQuestions.json" with { type: "json" };
 import wpflQuestions from "./wpflQuestions.json" with { type: "json" };
+import * as nflmonService from "../nflmon/nflmonService.js";
+import { DROP_CONFIG } from "../nflmon/nflmonConfig.js";
 
 export class TriviaService {
   constructor(client) {
@@ -242,6 +244,25 @@ export class TriviaService {
         }
       }
 
+      // === NFLmon Integration ===
+      let nflmonDropped = null;
+      let xpResult = null;
+
+      // Roll for NFLmon drop (15% chance)
+      if (Math.random() < DROP_CONFIG.TRIVIA_CORRECT_CHANCE) {
+        nflmonDropped = await nflmonService.rollForNflmon(
+          message.author.id,
+          message.author.username,
+          "trivia"
+        );
+      }
+
+      // Award XP to training NFLmon
+      xpResult = await nflmonService.addXpToTraining(
+        message.author.id,
+        "trivia_correct"
+      );
+
       if (pointsAwarded) {
         const coinText = coinsAwarded > 0 ? ` and 🪙 ${coinsAwarded} coins` : "";
         await message.reply(
@@ -251,6 +272,23 @@ export class TriviaService {
         await message.reply(
           `Correct! There was an issue adding points - please contact an admin.`
         );
+      }
+
+      // Send NFLmon notifications via DM
+      if (nflmonDropped) {
+        await message.reply(
+          `You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity.name})! Use \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`
+        );
+      }
+
+      if (xpResult && xpResult.results.length > 0) {
+        const xpLines = xpResult.results.map((r) => {
+          let line = `${r.player?.name || "Unknown"} +${xpResult.xpAmount} XP`;
+          if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
+          if (r.evolved) line += ` EVOLVED!`;
+          return line;
+        });
+        await message.reply(`**Training XP:** ${xpLines.join(", ")}`);
       }
 
       // Announce in channel (no answer reveal)
