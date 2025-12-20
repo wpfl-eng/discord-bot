@@ -10,6 +10,7 @@ A Pokemon-style collectible system featuring real NFL players that integrates wi
 - **Rarity**: Accessible (8-10% legendary drop rate)
 - **Images**: External URLs stored per player
 - **Scope**: Collection only for now (battles can be added later)
+- **Training**: NFLmon in training slots receive XP; slots purchasable in shop
 
 ---
 
@@ -48,9 +49,10 @@ CREATE TABLE nflmon_bench (
   acquired_source VARCHAR(50) NOT NULL,           -- wordle/trivia/shop/trade/daily
   acquired_from_user VARCHAR(20),
   is_favorite BOOLEAN DEFAULT FALSE,
-  is_active BOOLEAN DEFAULT FALSE,
+  training_slot INTEGER CHECK (training_slot >= 1 AND training_slot <= 5),  -- NULL = not training
   acquired_at TIMESTAMP DEFAULT NOW()
 );
+CREATE INDEX idx_nflmon_training ON nflmon_bench(user_id) WHERE training_slot IS NOT NULL;
 ```
 
 ### `nflmon_trades` - Trade escrow system
@@ -75,7 +77,8 @@ CREATE TABLE nflmon_stats (
   total_caught INTEGER DEFAULT 0,
   total_evolved INTEGER DEFAULT 0,
   legendary_count INTEGER DEFAULT 0,
-  highest_level_reached INTEGER DEFAULT 0
+  highest_level_reached INTEGER DEFAULT 0,
+  max_training_slots INTEGER DEFAULT 1 CHECK (max_training_slots >= 1 AND max_training_slots <= 5)
 );
 ```
 
@@ -123,21 +126,43 @@ Base stats by position + IVs (0-15 each) + level scaling + rarity multiplier
 | Shop packs | 100% | varies |
 | Daily | 5% | -1 |
 
+### 6. Training Slots System
+NFLmon assigned to training slots receive XP from user activities.
+
+**Mechanics:**
+- Users start with **1 training slot**
+- Can purchase up to **5 total slots** from shop
+- Each slot can hold 1 NFLmon
+- **All NFLmon in training receive FULL XP** (not split) - incentivizes buying more slots
+- Assign via `/nflmon train <id> [slot]`, remove via `/nflmon untrain <id>`
+
+**XP Distribution:**
+When user wins wordle/trivia/blackjack/etc:
+1. Query all NFLmon where `training_slot IS NOT NULL`
+2. Each gets the full XP amount for that activity
+3. Handle level-ups for each independently
+
+**Shop Item:**
+- "Training Slot Expansion" - 3000 coins
+- Increases `max_training_slots` by 1
+- Max 5 slots total (4 additional purchases)
+
 ---
 
 ## Commands
 
 ```
-/nflmon bench [rarity]      - View your collection
+/nflmon bench [rarity]      - View your collection (shows training status)
 /nflmon view <id>           - Detailed view with stats
-/nflmon active <id>         - Set active NFLmon (receives XP)
+/nflmon train <id> [slot]   - Assign NFLmon to training slot (receives XP)
+/nflmon untrain <id>        - Remove NFLmon from training
 /nflmon nickname <id> [name] - Set/clear nickname
 /nflmon evolve <id>         - Evolve if conditions met
 /nflmon sell <id>           - Sell for coins (with confirmation)
 /nflmon trade @user <offer> [request] [coins] - Create trade
 /nflmon trades              - View pending trades
 /nflmon dex [search]        - Encyclopedia
-/nflmon stats               - Your statistics
+/nflmon stats               - Your statistics (includes training slots info)
 /nflmon leaderboard [cat]   - Rankings (total/legendary/level/evolved)
 ```
 
@@ -146,17 +171,23 @@ Base stats by position + IVs (0-15 each) + level scaling + rarity multiplier
 ## Integration Points
 
 ### Wordle (`discordCommands/wordle/wordle.js`)
-- On win: 15% chance to drop NFLmon + XP to active
+- On win: 15% chance to drop NFLmon + XP to all training NFLmon
 - On first solve: 100% drop with +2 rarity boost
 
 ### Trivia (`trivia/triviaService.js`)
-- On correct answer: 10% drop chance + XP to active
+- On correct answer: 10% drop chance + XP to all training NFLmon
+
+### Blackjack/Slots/Redzone
+- On win: XP to all training NFLmon (amount varies by game)
 
 ### Shop (`discordCommands/shop/shop.js`)
-Add NFLmon packs category:
+**NFLmon Packs:**
 - Starter Pack: 500 coins, 1 NFLmon, -1 rarity boost
 - Pro Pack: 1500 coins, 3 NFLmon, 0 boost
 - Elite Pack: 5000 coins, 5 NFLmon, +2 boost
+
+**Training Slots:**
+- Training Slot Expansion: 3000 coins, +1 max slot (up to 5 total)
 
 ---
 
@@ -176,9 +207,10 @@ Add NFLmon packs category:
 ### Phase 3: Service Layer
 - [ ] Implement `nflmonService.js`
   - `rollForNflmon(userId, username, source)` - core drop mechanic
-  - `addXpToActive(userId, source)` - XP system
+  - `addXpToTraining(userId, source)` - XP to all training NFLmon
   - `evolve(userId, nflmonId)` - evolution logic
   - `getDisplayData(benchRecord)` - stat calculations
+  - Training slot management (set, remove, purchase)
 
 ### Phase 4: Commands
 - [ ] Create `discordCommands/nflmon/nflmon.js`
@@ -244,14 +276,18 @@ Add NFLmon packs category:
 ```javascript
 // nflmonService.js
 rollForNflmon(userId, username, source, rarityBoostOverride?) → Promise<NFLmon|null>
-addXpToActive(userId, source) → Promise<{nflmon, xpGained, levelsGained}>
+addXpToTraining(userId, source) → Promise<Array<{nflmon, xpGained, levelsGained}>>
 evolve(userId, nflmonId) → Promise<{success, nflmon?, newStage?, error?}>
 getDisplayData(benchRecord) → {stats, ivTotal, canEvolve, displayName, ...}
 
 // nflmonDb.js
 getBench(userId, options?) → Promise<NFLmon[]>
+getTrainingNflmon(userId) → Promise<NFLmon[]>
 addNflmon(data) → Promise<NFLmon>
 addXp(nflmonId, amount) → Promise<{nflmon, levelsGained}>
+setTrainingSlot(userId, nflmonId, slot) → Promise<NFLmon|null>
+removeFromTraining(userId, nflmonId) → Promise<NFLmon|null>
 sellNflmon(userId, nflmonId) → Promise<{success, value?, error?}>
 transferNflmon(nflmonId, fromUserId, toUserId) → Promise<NFLmon|null>
+purchaseTrainingSlot(userId) → Promise<{success, newMax?, error?}>
 ```
