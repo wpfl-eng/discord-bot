@@ -678,3 +678,25 @@ export async function getUserRank(userId, category = "total_caught") {
     value: parseInt(result.rows[0].value),
   };
 }
+
+/**
+ * Evolve an NFLmon to a new stage
+ * @param {string} userId - User ID for ownership check
+ * @param {number} nflmonId - NFLmon ID
+ * @param {string} newStageId - New evolution stage ID
+ * @returns {Promise<object|null>} Updated NFLmon or null
+ */
+export async function evolveNflmon(userId, nflmonId, newStageId) {
+  const result = await sql`
+    UPDATE nflmon_bench
+    SET evolution_stage = ${newStageId}
+    WHERE id = ${nflmonId} AND user_id = ${userId}
+    RETURNING *
+  `;
+
+  if (result.rows[0]) {
+    await incrementStat(userId, "total_evolved", 1);
+  }
+
+  return result.rows[0] || null;
+}
