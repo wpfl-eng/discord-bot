@@ -71,6 +71,9 @@ export async function logRound(data: LogRoundData): Promise<number> {
     )
     RETURNING id
   `;
+  if (!result.rows[0]) {
+    throw new Error('Failed to insert roulette round - no ID returned');
+  }
   return result.rows[0].id;
 }
 
