@@ -1,16 +1,11 @@
 // Training Utility Functions
 // Grid rendering, time formatting, and slot management helpers
 
-import { TRAINING_CONFIG, getPosition, getState, StateName } from './trainingConfig.js';
+import { TRAINING_CONFIG, getPosition, getState } from './trainingConfig.js';
+import type { TrainingSlot } from './trainingDb.js';
 
-// ============ TYPE DEFINITIONS ============
-
-export interface TrainingSlot {
-  readonly slot_index: number;
-  readonly state: StateName;
-  readonly rookie_type?: string;
-  readonly ready_at?: Date | string | null;
-}
+// Re-export TrainingSlot for consumers that import from utils
+export type { TrainingSlot };
 
 export interface StatusSummary {
   empty: number;

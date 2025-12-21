@@ -24,7 +24,7 @@ import {
   type RarityId,
   type XpProgress,
 } from './nflmonConfig.js';
-import type { Nflmon, NflmonStats, AcceptTradeResult } from './nflmonDb.js';
+import type { Nflmon, NflmonStats, AcceptTradeResult, NflmonTrade } from './nflmonDb.js';
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -804,7 +804,7 @@ export function buildTradeReceivedEmbed(
  * Build embed for pending trades list
  */
 export function buildPendingTradesEmbed(
-  trades: PendingTrade[],
+  trades: NflmonTrade[],
   userId: string,
   page: number,
   totalPages: number

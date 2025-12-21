@@ -21,8 +21,14 @@ function createSlot(
   extras: Partial<TrainingSlot> = {}
 ): TrainingSlot {
   return {
+    id: 1,
+    user_id: 'test-user',
     slot_index: index,
     state,
+    rookie_type: null,
+    planted_at: null,
+    ready_at: null,
+    wilts_at: null,
     ...extras,
   };
 }

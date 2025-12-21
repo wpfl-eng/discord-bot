@@ -6,8 +6,22 @@ import {
   ButtonStyle,
   ComponentType,
   StringSelectMenuBuilder,
+  ChatInputCommandInteraction,
+  ButtonInteraction,
+  StringSelectMenuInteraction,
 } from 'discord.js';
 import * as trainingDb from '../../training/trainingDb.js';
+import type {
+  SlotOperationResult,
+  DraftResult,
+  GraduateResult,
+  ClearResult,
+  TrainingSlot,
+  SlotOperationError,
+  DraftError,
+  GraduateError,
+  ClearError,
+} from '../../training/trainingDb.js';
 import * as inventoryDb from '../../inventory/inventoryDb.js';
 import {
   renderGrid,
@@ -15,8 +29,27 @@ import {
   getActionableSlots,
   getStatusSummary,
 } from '../../training/trainingUtils.js';
+import type { StatusSummary } from '../../training/trainingUtils.js';
 import { getPosition, getPositionKeys } from '../../training/trainingConfig.js';
+import type { TrainingPosition } from '../../training/trainingConfig.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
+
+// ============ Local Types ============
+
+interface GraduatedPlayer {
+  position: string;
+  value: number;
+}
+
+interface ErrorDetails {
+  needed?: number;
+  have?: number;
+  position?: string;
+}
+
+type TrainingError = SlotOperationError | DraftError | GraduateError | ClearError | string;
+
+// ============ Command Definition ============
 
 export const data = new SlashCommandBuilder()
   .setName('train')
@@ -28,9 +61,8 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Execute the train command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === 'view') {
@@ -49,7 +81,7 @@ export async function execute(interaction) {
 /**
  * Handle /train view
  */
-async function handleView(interaction) {
+async function handleView(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -67,7 +99,7 @@ async function handleView(interaction) {
     const embed = buildViewEmbed(username, currentSlots, isNew);
 
     // Build buttons
-    const row = new ActionRowBuilder().addComponents(
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId('train_manage')
         .setLabel('Manage')
@@ -89,10 +121,10 @@ async function handleView(interaction) {
     const collector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 120000,
-      filter: (i) => i.user.id === userId,
+      filter: (i: ButtonInteraction) => i.user.id === userId,
     });
 
-    collector.on('collect', async (buttonInteraction) => {
+    collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
       if (buttonInteraction.customId === 'train_refresh') {
         await buttonInteraction.deferUpdate();
         await trainingDb.refreshSlotStates(userId);
@@ -110,8 +142,9 @@ async function handleView(interaction) {
     });
   } catch (error) {
     console.error('train view error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
@@ -119,7 +152,7 @@ async function handleView(interaction) {
 /**
  * Build the view embed
  */
-function buildViewEmbed(username, slots, isNew) {
+function buildViewEmbed(username: string, slots: TrainingSlot[], isNew: boolean): EmbedBuilder {
   const embed = new EmbedBuilder().setColor(0x2ecc71).setTitle(`🏟️ ${username}'s Training Ground`);
 
   if (isNew) {
@@ -160,7 +193,7 @@ function buildViewEmbed(username, slots, isNew) {
 /**
  * Handle /train manage
  */
-async function handleManage(interaction) {
+async function handleManage(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -174,8 +207,9 @@ async function handleManage(interaction) {
     await showManageMenu(interaction, userId);
   } catch (error) {
     console.error('train manage error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
@@ -183,9 +217,9 @@ async function handleManage(interaction) {
 /**
  * Show the management menu with action buttons
  */
-async function showManageMenu(interaction, userId) {
+async function showManageMenu(interaction: ChatInputCommandInteraction, userId: string): Promise<void> {
   const slots = await trainingDb.getTrainingSlots(userId);
-  const summary = getStatusSummary(slots);
+  const summary: StatusSummary = getStatusSummary(slots);
 
   // Get tool quantities
   const setupKitQty = await inventoryDb.getItemQuantity(userId, 'tool_setup_kit');
@@ -215,7 +249,7 @@ async function showManageMenu(interaction, userId) {
     .setTimestamp();
 
   // Build action buttons based on what's possible
-  const buttons = [];
+  const buttons: ButtonBuilder[] = [];
 
   // Setup button - if there are empty slots and user has tool
   if (summary.empty > 0 && setupKitQty > 0) {
@@ -282,9 +316,9 @@ async function showManageMenu(interaction, userId) {
   );
 
   // Split into rows (max 5 per row)
-  const rows = [];
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
   for (let i = 0; i < buttons.length; i += 5) {
-    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons.slice(i, i + 5)));
   }
 
   const response = await interaction.editReply({
@@ -296,10 +330,10 @@ async function showManageMenu(interaction, userId) {
   const collector = response.createMessageComponentCollector({
     componentType: ComponentType.Button,
     time: 120000,
-    filter: (i) => i.user.id === userId,
+    filter: (i: ButtonInteraction) => i.user.id === userId,
   });
 
-  collector.on('collect', async (btnInteraction) => {
+  collector.on('collect', async (btnInteraction: ButtonInteraction) => {
     const action = btnInteraction.customId.replace('train_action_', '');
 
     try {
@@ -320,15 +354,16 @@ async function showManageMenu(interaction, userId) {
       }
     } catch (error) {
       console.error(`train action ${action} error:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       try {
         if (btnInteraction.deferred || btnInteraction.replied) {
           await btnInteraction.followUp({
-            content: `Error: ${error.message}`,
+            content: `Error: ${errorMessage}`,
             ephemeral: true,
           });
         } else {
           await btnInteraction.reply({
-            content: `Error: ${error.message}`,
+            content: `Error: ${errorMessage}`,
             ephemeral: true,
           });
         }
@@ -348,14 +383,18 @@ async function showManageMenu(interaction, userId) {
 /**
  * Setup all empty slots
  */
-async function handleSetupAll(btnInteraction, interaction, userId) {
+async function handleSetupAll(
+  btnInteraction: ButtonInteraction,
+  interaction: ChatInputCommandInteraction,
+  userId: string
+): Promise<void> {
   await btnInteraction.deferUpdate();
 
   const slots = await trainingDb.getTrainingSlots(userId);
   const emptySlots = getActionableSlots(slots, 'setup');
   const indexes = emptySlots.map((s) => s.slot_index);
 
-  const result = await trainingDb.setupSlots(userId, indexes);
+  const result: SlotOperationResult = await trainingDb.setupSlots(userId, indexes);
 
   if (!result.success) {
     await btnInteraction.followUp({
@@ -377,14 +416,18 @@ async function handleSetupAll(btnInteraction, interaction, userId) {
 /**
  * Hydrate all prepared slots
  */
-async function handleHydrateAll(btnInteraction, interaction, userId) {
+async function handleHydrateAll(
+  btnInteraction: ButtonInteraction,
+  interaction: ChatInputCommandInteraction,
+  userId: string
+): Promise<void> {
   await btnInteraction.deferUpdate();
 
   const slots = await trainingDb.getTrainingSlots(userId);
   const preparedSlots = getActionableSlots(slots, 'hydrate');
   const indexes = preparedSlots.map((s) => s.slot_index);
 
-  const result = await trainingDb.hydrateSlots(userId, indexes);
+  const result: SlotOperationResult = await trainingDb.hydrateSlots(userId, indexes);
 
   if (!result.success) {
     await btnInteraction.followUp({
@@ -406,23 +449,29 @@ async function handleHydrateAll(btnInteraction, interaction, userId) {
 /**
  * Show draft position menu
  */
-async function handleDraftMenu(btnInteraction, interaction, userId) {
+async function handleDraftMenu(
+  btnInteraction: ButtonInteraction,
+  interaction: ChatInputCommandInteraction,
+  userId: string
+): Promise<void> {
   await btnInteraction.deferUpdate();
 
   // Get available contracts
   const positions = getPositionKeys();
-  const contractCounts = {};
+  const contractCounts: Record<string, number> = {};
 
   for (const pos of positions) {
-    const config = getPosition(pos);
-    contractCounts[pos] = await inventoryDb.getItemQuantity(userId, config.contractItemType);
+    const config: TrainingPosition | null = getPosition(pos);
+    if (config) {
+      contractCounts[pos] = await inventoryDb.getItemQuantity(userId, config.contractItemType);
+    }
   }
 
   // Build select menu for positions
   const options = positions
     .filter((pos) => contractCounts[pos] > 0)
     .map((pos) => {
-      const config = getPosition(pos);
+      const config = getPosition(pos)!;
       return {
         label: `${config.displayName} (${contractCounts[pos]} contracts)`,
         value: pos,
@@ -444,7 +493,7 @@ async function handleDraftMenu(btnInteraction, interaction, userId) {
     .setPlaceholder('Select a position to draft')
     .addOptions(options);
 
-  const row = new ActionRowBuilder().addComponents(select);
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
 
   const draftEmbed = new EmbedBuilder()
     .setColor(0x3498db)
@@ -453,7 +502,11 @@ async function handleDraftMenu(btnInteraction, interaction, userId) {
     .addFields({
       name: 'Your Contracts',
       value: positions
-        .map((p) => `${getPosition(p).emoji} ${p}: **${contractCounts[p]}**`)
+        .map((p) => {
+          const config = getPosition(p);
+          return config ? `${config.emoji} ${p}: **${contractCounts[p]}**` : '';
+        })
+        .filter(Boolean)
         .join('\n'),
       inline: true,
     });
@@ -468,10 +521,10 @@ async function handleDraftMenu(btnInteraction, interaction, userId) {
   const selectCollector = selectResponse.createMessageComponentCollector({
     componentType: ComponentType.StringSelect,
     time: 60000,
-    filter: (i) => i.user.id === userId,
+    filter: (i: StringSelectMenuInteraction) => i.user.id === userId,
   });
 
-  selectCollector.on('collect', async (selectInteraction) => {
+  selectCollector.on('collect', async (selectInteraction: StringSelectMenuInteraction) => {
     await selectInteraction.deferUpdate();
 
     const position = selectInteraction.values[0];
@@ -489,7 +542,11 @@ async function handleDraftMenu(btnInteraction, interaction, userId) {
 /**
  * Draft to the first available hydrated slot
  */
-async function draftToFirstHydrated(interaction, userId, position) {
+async function draftToFirstHydrated(
+  interaction: ChatInputCommandInteraction,
+  userId: string,
+  position: string
+): Promise<void> {
   const slots = await trainingDb.getTrainingSlots(userId);
   const hydratedSlots = getActionableSlots(slots, 'draft');
 
@@ -503,7 +560,7 @@ async function draftToFirstHydrated(interaction, userId, position) {
   }
 
   const slotIndex = hydratedSlots[0].slot_index;
-  const result = await trainingDb.draftRookie(userId, slotIndex, position);
+  const result: DraftResult = await trainingDb.draftRookie(userId, slotIndex, position);
 
   if (!result.success) {
     await interaction.followUp({
@@ -515,10 +572,12 @@ async function draftToFirstHydrated(interaction, userId, position) {
   }
 
   const config = getPosition(position);
-  await interaction.followUp({
-    content: `${config.emoji} Drafted a **${config.displayName}** rookie! Training for ${config.trainTimeMinutes} minutes.`,
-    ephemeral: true,
-  });
+  if (config) {
+    await interaction.followUp({
+      content: `${config.emoji} Drafted a **${config.displayName}** rookie! Training for ${config.trainTimeMinutes} minutes.`,
+      ephemeral: true,
+    });
+  }
 
   await showManageMenu(interaction, userId);
 }
@@ -526,17 +585,21 @@ async function draftToFirstHydrated(interaction, userId, position) {
 /**
  * Graduate all ready players
  */
-async function handleGraduateAll(btnInteraction, interaction, userId) {
+async function handleGraduateAll(
+  btnInteraction: ButtonInteraction,
+  interaction: ChatInputCommandInteraction,
+  userId: string
+): Promise<void> {
   await btnInteraction.deferUpdate();
 
   const slots = await trainingDb.getTrainingSlots(userId);
   const readySlots = getActionableSlots(slots, 'graduate');
 
   let totalValue = 0;
-  const graduated = [];
+  const graduated: GraduatedPlayer[] = [];
 
   for (const slot of readySlots) {
-    const result = await trainingDb.graduateSlot(userId, slot.slot_index);
+    const result: GraduateResult = await trainingDb.graduateSlot(userId, slot.slot_index);
     if (result.success) {
       totalValue += result.value;
       graduated.push({ position: result.position, value: result.value });
@@ -552,7 +615,11 @@ async function handleGraduateAll(btnInteraction, interaction, userId) {
   }
 
   const details = graduated
-    .map((g) => `${getPosition(g.position).emoji} ${g.position}: ${formatCurrency(g.value)}`)
+    .map((g) => {
+      const config = getPosition(g.position);
+      return config ? `${config.emoji} ${g.position}: ${formatCurrency(g.value)}` : '';
+    })
+    .filter(Boolean)
     .join('\n');
 
   await btnInteraction.followUp({
@@ -579,7 +646,11 @@ async function handleGraduateAll(btnInteraction, interaction, userId) {
 /**
  * Clear all busted slots
  */
-async function handleClearAll(btnInteraction, interaction, userId) {
+async function handleClearAll(
+  btnInteraction: ButtonInteraction,
+  interaction: ChatInputCommandInteraction,
+  userId: string
+): Promise<void> {
   await btnInteraction.deferUpdate();
 
   const slots = await trainingDb.getTrainingSlots(userId);
@@ -587,7 +658,7 @@ async function handleClearAll(btnInteraction, interaction, userId) {
 
   let cleared = 0;
   for (const slot of bustedSlots) {
-    const result = await trainingDb.clearBustedSlot(userId, slot.slot_index);
+    const result: ClearResult = await trainingDb.clearBustedSlot(userId, slot.slot_index);
     if (result.success) cleared++;
   }
 
@@ -612,7 +683,7 @@ async function handleClearAll(btnInteraction, interaction, userId) {
 /**
  * Handle /train settings
  */
-async function handleSettings(interaction) {
+async function handleSettings(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -640,7 +711,7 @@ async function handleSettings(interaction) {
       .setEmoji(isEnabled ? '🔕' : '🔔')
       .setStyle(isEnabled ? ButtonStyle.Secondary : ButtonStyle.Primary);
 
-    const row = new ActionRowBuilder().addComponents(button);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
     const response = await interaction.editReply({
       embeds: [embed],
@@ -651,14 +722,16 @@ async function handleSettings(interaction) {
     const collector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 60000,
-      filter: (i) => i.user.id === userId,
+      filter: (i: ButtonInteraction) => i.user.id === userId,
     });
 
-    collector.on('collect', async (btnInteraction) => {
+    collector.on('collect', async (btnInteraction: ButtonInteraction) => {
       await btnInteraction.deferUpdate();
 
       // Toggle the setting
       const currentGround = await trainingDb.getTrainingGround(userId);
+      if (!currentGround) return;
+
       const newValue = !currentGround.notify_ready;
       await trainingDb.updateNotificationSetting(userId, newValue);
 
@@ -678,7 +751,7 @@ async function handleSettings(interaction) {
         .setEmoji(newValue ? '🔕' : '🔔')
         .setStyle(newValue ? ButtonStyle.Secondary : ButtonStyle.Primary);
 
-      const newRow = new ActionRowBuilder().addComponents(newButton);
+      const newRow = new ActionRowBuilder<ButtonBuilder>().addComponents(newButton);
 
       await interaction.editReply({
         embeds: [newEmbed],
@@ -698,8 +771,9 @@ async function handleSettings(interaction) {
     });
   } catch (error) {
     console.error('train settings error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
@@ -709,7 +783,7 @@ async function handleSettings(interaction) {
 /**
  * Handle /train stats
  */
-async function handleStats(interaction) {
+async function handleStats(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -728,11 +802,13 @@ async function handleStats(interaction) {
 
     // Get inventory counts for each rookie type
     const positions = getPositionKeys();
-    const rosterLines = [];
+    const rosterLines: string[] = [];
     for (const pos of positions) {
       const config = getPosition(pos);
-      const qty = await inventoryDb.getItemQuantity(userId, config.rookieItemType);
-      rosterLines.push(`${config.emoji} ${config.displayName}: **${qty}**`);
+      if (config) {
+        const qty = await inventoryDb.getItemQuantity(userId, config.rookieItemType);
+        rosterLines.push(`${config.emoji} ${config.displayName}: **${qty}**`);
+      }
     }
 
     // Format created date
@@ -773,8 +849,9 @@ async function handleStats(interaction) {
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error('train stats error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
@@ -784,8 +861,8 @@ async function handleStats(interaction) {
 /**
  * Get user-friendly error message
  */
-function getErrorMessage(error, details = {}) {
-  const messages = {
+function getErrorMessage(error: TrainingError, details: ErrorDetails = {}): string {
+  const messages: Record<string, string> = {
     NO_SLOTS_SELECTED: 'No slots selected!',
     INSUFFICIENT_TOOLS: `Not enough tools! Need ${details.needed}, have ${details.have}.`,
     NO_EMPTY_SLOTS: 'No empty slots to set up!',
