@@ -138,28 +138,47 @@ export async function getTagIdForCategory(categorySlug: string): Promise<number 
 // ============ Market Operations ============
 
 /**
+ * Parse a market array field that may be a JSON string or already an array
+ * The Polymarket API returns these fields as JSON strings, not arrays
+ */
+function parseMarketArrayField(field: string | string[] | undefined): string[] {
+  if (Array.isArray(field)) return field;
+  if (typeof field === 'string') {
+    try {
+      const parsed = JSON.parse(field) as unknown;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+/**
  * Check if a market has valid structure for transformation
  */
 function isValidMarket(market: PolymarketMarket): boolean {
-  return (
-    Array.isArray(market.outcomes) &&
-    Array.isArray(market.outcomePrices) &&
-    Array.isArray(market.clobTokenIds) &&
-    market.outcomes.length > 0
-  );
+  const outcomes = parseMarketArrayField(market.outcomes);
+  const outcomePrices = parseMarketArrayField(market.outcomePrices);
+  const clobTokenIds = parseMarketArrayField(market.clobTokenIds);
+  return outcomes.length > 0 && outcomePrices.length > 0 && clobTokenIds.length > 0;
 }
 
 /**
  * Transform API market to display format
  */
 function transformMarket(market: PolymarketMarket): MarketDisplay {
-  const outcomes: OutcomeDisplay[] = market.outcomes.map((name, index) => {
-    const price = parseFloat(market.outcomePrices[index] || '0');
+  const outcomes = parseMarketArrayField(market.outcomes);
+  const outcomePrices = parseMarketArrayField(market.outcomePrices);
+  const clobTokenIds = parseMarketArrayField(market.clobTokenIds);
+
+  const outcomesDisplay: OutcomeDisplay[] = outcomes.map((name, index) => {
+    const price = parseFloat(outcomePrices[index] || '0');
     return {
       index,
       name,
       price,
-      clobTokenId: market.clobTokenIds[index] || '',
+      clobTokenId: clobTokenIds[index] || '',
       payoutMultiplier: price > 0 ? 1 / price : 0,
     };
   });
@@ -168,7 +187,7 @@ function transformMarket(market: PolymarketMarket): MarketDisplay {
     id: market.id,
     slug: market.slug,
     question: market.question,
-    outcomes,
+    outcomes: outcomesDisplay,
     endDate: new Date(market.endDate),
     closed: market.closed,
     volume: parseFloat(market.volume || '0'),

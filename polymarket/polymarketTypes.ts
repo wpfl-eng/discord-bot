@@ -14,15 +14,16 @@ export interface PolymarketTag {
 
 /**
  * Market from Polymarket Gamma API
+ * Note: outcomes, outcomePrices, and clobTokenIds come as JSON strings from the API
  */
 export interface PolymarketMarket {
   readonly id: string;
   readonly slug: string;
   readonly question: string;
   readonly description: string;
-  readonly outcomes: string[]; // ["Trump", "Harris", "Other"]
-  readonly outcomePrices: string[]; // ["0.35", "0.42", "0.23"] - strings from API
-  readonly clobTokenIds: string[]; // Token IDs for each outcome
+  readonly outcomes: string[] | string; // API returns JSON string: "[\"Yes\", \"No\"]"
+  readonly outcomePrices: string[] | string; // API returns JSON string: "[\"0.35\", \"0.65\"]"
+  readonly clobTokenIds: string[] | string; // API returns JSON string of token IDs
   readonly endDate: string; // ISO timestamp
   readonly closed: boolean;
   readonly volume: string;
