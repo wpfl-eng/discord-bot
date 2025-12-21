@@ -15,7 +15,6 @@ import {
 } from 'discord.js';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { TriviaService } from './trivia/triviaService.js';
-import { TrainingNotificationService } from './training/trainingNotificationService.js';
 import * as nflmonService from './nflmon/nflmonService.js';
 import { isValidCommandModule } from './types/commands.js';
 
@@ -35,15 +34,10 @@ const client = new Client({
 const triviaService = new TriviaService(client);
 client.triviaService = triviaService;
 
-// Initialize training notification service
-const trainingNotificationService = new TrainingNotificationService(client);
-client.trainingNotificationService = trainingNotificationService;
-
 // When the client is ready, run this code (only once)
 client.once('ready', () => {
   console.log('Ready!');
   triviaService.init();
-  trainingNotificationService.init();
 });
 
 client.commands = new Collection();

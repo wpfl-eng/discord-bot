@@ -38,9 +38,7 @@ function buildInventoryEmbed(username: string, inventory: InventoryItem[]): Inve
     .setTimestamp();
 
   if (inventory.length === 0) {
-    embed.setDescription(
-      'Your inventory is empty!\n\nYou can get items from the `/shop` or by training rookies.'
-    );
+    embed.setDescription('Your inventory is empty!\n\nYou can get items from the `/shop`.');
     return { embed, sellableItems: [] };
   }
 

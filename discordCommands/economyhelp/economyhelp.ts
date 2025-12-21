@@ -39,21 +39,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       { name: '🏆 /eleaderboard', value: 'View the top 10 wealthiest users', inline: false },
       {
         name: '🛒 /shop',
-        value: 'Buy padlocks, bank expansions, and training supplies',
+        value: 'Buy padlocks and bank expansions',
         inline: false,
       },
-      { name: '📦 /inventory', value: 'View and sell items from your inventory', inline: false },
-      { name: '\u200B', value: '**🏟️ Training Ground**', inline: false },
-      { name: '🏟️ /train view', value: 'View your training facility', inline: false },
-      {
-        name: '🔧 /train manage',
-        value: 'Manage training slots (setup, hydrate, draft, graduate)',
-        inline: false,
-      },
-      { name: '🔔 /train settings', value: 'Configure notification settings', inline: false },
-      { name: '📊 /train stats', value: 'View your training statistics', inline: false }
+      { name: '📦 /inventory', value: 'View and sell items from your inventory', inline: false }
     )
-    .setFooter({ text: 'Tip: Train rookies and sell them for profit!' })
+    .setFooter({ text: 'Tip: Use /shop to gear up!' })
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed], ephemeral: true });

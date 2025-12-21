@@ -1,13 +1,11 @@
 import { Collection } from 'discord.js';
 import type { TriviaService } from '../trivia/triviaService.js';
-import type { TrainingNotificationService } from '../training/trainingNotificationService.js';
 import type { CommandModule } from './commands.js';
 
 declare module 'discord.js' {
   interface Client {
     commands: Collection<string, CommandModule>;
     triviaService: TriviaService;
-    trainingNotificationService: TrainingNotificationService;
   }
 }
 

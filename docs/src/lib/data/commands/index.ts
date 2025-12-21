@@ -9,7 +9,6 @@ import economy from './economy.json';
 import gambling from './gambling.json';
 import robbery from './robbery.json';
 import shopInventory from './shop-inventory.json';
-import training from './training.json';
 import trivia from './trivia.json';
 import betting from './betting.json';
 import utility from './utility.json';
@@ -26,7 +25,6 @@ const rawCategories = [
 	gambling,
 	robbery,
 	shopInventory,
-	training,
 	trivia,
 	betting,
 	utility,
