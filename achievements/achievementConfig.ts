@@ -3,7 +3,13 @@
 
 // ============ TYPE DEFINITIONS ============
 
-export type AchievementKey = 'THIEF' | 'WORDLE_FIRST_SOLVE' | 'WORDLE_5_SOLVES' | 'WORDLE_10_SOLVES';
+export type AchievementKey =
+  | 'THIEF'
+  | 'WORDLE_FIRST_SOLVE'
+  | 'WORDLE_5_SOLVES'
+  | 'WORDLE_10_SOLVES'
+  | 'VIDEO_POKER_ROYAL'
+  | 'VIDEO_POKER_STREAK';
 
 export type ActionType =
   | 'ROB_SUCCESS'
@@ -19,7 +25,10 @@ export type ActionType =
   | 'REDZONE_WIN'
   | 'REDZONE_LOSE'
   | 'WORDLE_SOLVE'
-  | 'WORDLE_FIRST_SOLVE';
+  | 'WORDLE_FIRST_SOLVE'
+  | 'VIDEO_POKER_WIN'
+  | 'VIDEO_POKER_LOSE'
+  | 'VIDEO_POKER_ROYAL_FLUSH';
 
 export interface Achievement {
   readonly name: string;
@@ -53,6 +62,16 @@ export const ACHIEVEMENTS: Record<AchievementKey, Achievement> = {
     description: 'Successfully solve 10 Wordle puzzles',
     rewardValue: 1000,
   },
+  VIDEO_POKER_ROYAL: {
+    name: 'Royal Treatment',
+    description: 'Hit a Royal Flush in Video Poker',
+    rewardValue: 5000,
+  },
+  VIDEO_POKER_STREAK: {
+    name: 'Hot Hand',
+    description: 'Win 5 Video Poker hands in a row',
+    rewardValue: 500,
+  },
 } as const;
 
 /**
@@ -73,6 +92,9 @@ export const ACTION_TYPES: Record<ActionType, ActionType> = {
   REDZONE_LOSE: 'REDZONE_LOSE',
   WORDLE_SOLVE: 'WORDLE_SOLVE',
   WORDLE_FIRST_SOLVE: 'WORDLE_FIRST_SOLVE',
+  VIDEO_POKER_WIN: 'VIDEO_POKER_WIN',
+  VIDEO_POKER_LOSE: 'VIDEO_POKER_LOSE',
+  VIDEO_POKER_ROYAL_FLUSH: 'VIDEO_POKER_ROYAL_FLUSH',
 } as const;
 
 // ============ HELPER FUNCTIONS ============
