@@ -1,10 +1,12 @@
 import {
+  ChatInputCommandInteraction,
   SlashCommandBuilder,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  ButtonInteraction,
 } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import {
@@ -14,14 +16,42 @@ import {
   REDZONE_FIELD_POSITIONS,
   CHANNELS,
 } from '../../economy/economyConfig.js';
+import type { FieldPosition } from '../../economy/economyConfig.js';
 import * as redzoneDb from '../../redzone/redzoneDb.js';
+import type { GameOutcome, RedzoneStats } from '../../redzone/redzoneDb.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
+import type { EconomyUser } from '../../types/database.js';
 
-/** @type {Map<string, object>} */
-const activeGames = new Map();
-/** @type {Map<string, number>} */
-const redzoneCooldowns = new Map();
+// ============ Type Definitions ============
+
+/**
+ * Game state for an active Red Zone game
+ */
+interface RedzoneGameState {
+  readonly bet: number;
+  readonly originalBet: number;
+  yardLine: number;
+  yardsGained: number;
+  phase: 'playing' | 'finished';
+}
+
+/**
+ * Result of running a play
+ */
+interface PlayResult {
+  readonly fumbled: boolean;
+  readonly yardsGained: number;
+  readonly touchdown: boolean;
+}
+
+// ============ Module State ============
+
+/** Active games keyed by user ID */
+const activeGames: Map<string, RedzoneGameState> = new Map();
+
+/** Cooldowns keyed by user ID (timestamp of last game) */
+const redzoneCooldowns: Map<string, number> = new Map();
 
 export const data = new SlashCommandBuilder()
   .setName('redzone')
@@ -35,30 +65,30 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Get the field position data for a given yard line
- * @param {number} yardLine - Current yard line (20-100)
- * @returns {{multiplier: number, fumbleChance: number, label: string}}
+ * @param yardLine - Current yard line (20-100)
+ * @returns Field position data with multiplier and fumble chance
  */
-function getFieldPosition(yardLine) {
+function getFieldPosition(yardLine: number): FieldPosition {
   // Find the closest 10-yard marker at or below the current position
-  const marker = Math.floor(yardLine / 10) * 10;
-  const clampedMarker = Math.min(Math.max(marker, 20), 100);
-  return REDZONE_FIELD_POSITIONS[clampedMarker] || REDZONE_FIELD_POSITIONS[20];
+  const marker: number = Math.floor(yardLine / 10) * 10;
+  const clampedMarker: number = Math.min(Math.max(marker, 20), 100);
+  return REDZONE_FIELD_POSITIONS[clampedMarker] ?? REDZONE_FIELD_POSITIONS[20];
 }
 
 /**
  * Render a visual field progress bar
- * @param {number} yardLine - Current yard line (20-100)
- * @returns {string} - Visual representation of field position
+ * @param yardLine - Current yard line (20-100)
+ * @returns Visual representation of field position
  */
-function renderField(yardLine) {
-  const totalYards = 80; // 20 to 100
-  const progress = yardLine - 20;
-  const barLength = 20;
-  const filled = Math.floor((progress / totalYards) * barLength);
+function renderField(yardLine: number): string {
+  const totalYards: number = 80; // 20 to 100
+  const progress: number = yardLine - 20;
+  const barLength: number = 20;
+  const filled: number = Math.floor((progress / totalYards) * barLength);
 
   // Create progress bar with football marker
-  let bar = '';
-  for (let i = 0; i < barLength; i++) {
+  let bar: string = '';
+  for (let i: number = 0; i < barLength; i++) {
     if (i < filled) {
       bar += '=';
     } else if (i === filled) {
@@ -73,10 +103,10 @@ function renderField(yardLine) {
 
 /**
  * Get a description of the field position
- * @param {number} yardLine - Current yard line
- * @returns {string}
+ * @param yardLine - Current yard line
+ * @returns Description string
  */
-function getFieldDescription(yardLine) {
+function getFieldDescription(yardLine: number): string {
   if (yardLine >= 100) return 'TOUCHDOWN!';
   if (yardLine >= 80) return `Opp ${100 - yardLine} - RED ZONE`;
   if (yardLine >= 50) return `Opp ${100 - yardLine}`;
@@ -86,17 +116,17 @@ function getFieldDescription(yardLine) {
 
 /**
  * Create the game embed
- * @param {object} game - Game state
- * @param {string} status - Status message
- * @param {number} color - Embed color
- * @returns {EmbedBuilder}
+ * @param game - Game state
+ * @param status - Status message
+ * @param color - Embed color
+ * @returns Configured embed builder
  */
-function createGameEmbed(game, status, color) {
-  const position = getFieldPosition(game.yardLine);
-  const potentialPayout = Math.floor(game.bet * position.multiplier);
-  const profit = potentialPayout - game.bet;
+function createGameEmbed(game: RedzoneGameState, status: string, color: number): EmbedBuilder {
+  const position: FieldPosition = getFieldPosition(game.yardLine);
+  const potentialPayout: number = Math.floor(game.bet * position.multiplier);
+  const profit: number = potentialPayout - game.bet;
 
-  const embed = new EmbedBuilder()
+  const embed: EmbedBuilder = new EmbedBuilder()
     .setColor(color)
     .setTitle('🏈 RED ZONE 🏈')
     .setDescription(
@@ -118,46 +148,46 @@ function createGameEmbed(game, status, color) {
 
 /**
  * Create action buttons
- * @param {boolean} disabled - Whether buttons should be disabled
- * @returns {ActionRowBuilder}
+ * @param disabled - Whether buttons should be disabled
+ * @returns Action row with buttons
  */
-function createButtons(disabled = false) {
-  const runButton = new ButtonBuilder()
+function createButtons(disabled: boolean = false): ActionRowBuilder<ButtonBuilder> {
+  const runButton: ButtonBuilder = new ButtonBuilder()
     .setCustomId('redzone_run')
     .setLabel('🏈 Run Play')
     .setStyle(ButtonStyle.Primary)
     .setDisabled(disabled);
 
-  const cashOutButton = new ButtonBuilder()
+  const cashOutButton: ButtonBuilder = new ButtonBuilder()
     .setCustomId('redzone_cashout')
     .setLabel('💰 Cash Out')
     .setStyle(ButtonStyle.Success)
     .setDisabled(disabled);
 
-  return new ActionRowBuilder().addComponents(runButton, cashOutButton);
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(runButton, cashOutButton);
 }
 
 /**
  * Create a "Play Again" button row
- * @param {number} originalBet - The original bet amount
- * @returns {ActionRowBuilder}
+ * @param originalBet - The original bet amount
+ * @returns Action row with play again button
  */
-function createPlayAgainRow(originalBet) {
-  const playAgainButton = new ButtonBuilder()
+function createPlayAgainRow(originalBet: number): ActionRowBuilder<ButtonBuilder> {
+  const playAgainButton: ButtonBuilder = new ButtonBuilder()
     .setCustomId(`redzone_replay_${originalBet}`)
     .setLabel(`Play Again (${formatCurrency(originalBet)})`)
     .setStyle(ButtonStyle.Success);
 
-  return new ActionRowBuilder().addComponents(playAgainButton);
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(playAgainButton);
 }
 
 /**
  * Run a play - advance and check for fumble
- * @param {object} game - Game state
- * @returns {{fumbled: boolean, yardsGained: number, touchdown: boolean}}
+ * @param game - Game state (mutated)
+ * @returns Play result with fumble, yards gained, and touchdown status
  */
-function runPlay(game) {
-  const position = getFieldPosition(game.yardLine);
+function runPlay(game: RedzoneGameState): PlayResult {
+  const position: FieldPosition = getFieldPosition(game.yardLine);
 
   // Check for fumble first
   if (Math.random() < position.fumbleChance) {
@@ -165,7 +195,7 @@ function runPlay(game) {
   }
 
   // Gain yards
-  const yards = randomInt(CONFIG.REDZONE_YARD_GAIN_MIN, CONFIG.REDZONE_YARD_GAIN_MAX);
+  const yards: number = randomInt(CONFIG.REDZONE_YARD_GAIN_MIN, CONFIG.REDZONE_YARD_GAIN_MAX);
   game.yardLine = Math.min(game.yardLine + yards, 100);
   game.yardsGained += yards;
 
@@ -179,18 +209,23 @@ function runPlay(game) {
 
 /**
  * Resolve the game with a final outcome
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- * @param {object} game - Game state
- * @param {string} userId - User ID
- * @param {'touchdown'|'fumble'|'cashout'} outcome - Game outcome
+ * @param interaction - The Discord command interaction
+ * @param game - Game state
+ * @param userId - User ID
+ * @param outcome - Game outcome
  */
-async function resolveGame(interaction, game, userId, outcome) {
-  const position = getFieldPosition(game.yardLine);
-  let payout = 0;
-  let color;
-  let title;
-  let description;
-  let isBigWin = false;
+async function resolveGame(
+  interaction: ChatInputCommandInteraction,
+  game: RedzoneGameState,
+  userId: string,
+  outcome: GameOutcome
+): Promise<void> {
+  const position: FieldPosition = getFieldPosition(game.yardLine);
+  let payout: number = 0;
+  let color: number;
+  let title: string;
+  let description: string;
+  let isBigWin: boolean = false;
 
   switch (outcome) {
     case 'touchdown':
@@ -217,17 +252,25 @@ async function resolveGame(interaction, game, userId, outcome) {
   }
 
   // Award payout if any
-  let updatedUser;
+  let updatedUser: EconomyUser | null;
   if (payout > 0) {
     updatedUser = await economyDb.gambleWin(userId, payout);
   } else {
     updatedUser = await economyDb.getUser(userId);
   }
 
-  const profit = payout - game.bet;
+  // Handle null case
+  if (!updatedUser) {
+    await interaction.editReply({
+      content: 'Something went wrong. Please try again.',
+    });
+    return;
+  }
+
+  const profit: number = payout - game.bet;
 
   // Record stats
-  let stats = null;
+  let stats: RedzoneStats | null = null;
   try {
     stats = await redzoneDb.recordGameResult({
       userId,
@@ -237,24 +280,22 @@ async function resolveGame(interaction, game, userId, outcome) {
       payout,
       yardsGained: game.yardsGained,
     });
-  } catch (statsError) {
+  } catch (statsError: unknown) {
     console.error('Failed to record redzone stats:', statsError);
   }
 
   // Check for achievements (non-blocking)
   // Touchdown and cashout with profit are wins, fumble is a loss
-  const isWin = outcome === 'touchdown' || (outcome === 'cashout' && payout > game.bet);
+  const isWin: boolean = outcome === 'touchdown' || (outcome === 'cashout' && payout > game.bet);
   checkForAchievements({
     actionType: isWin ? ACTION_TYPES.REDZONE_WIN : ACTION_TYPES.REDZONE_LOSE,
     userId,
     username: interaction.user.username,
     client: interaction.client,
     amount: isWin ? payout : game.bet,
-    outcome,
-    yardsGained: game.yardsGained,
-  }).catch((err) => console.error('Failed to check achievements:', err));
+  }).catch((err: unknown) => console.error('Failed to check achievements:', err));
 
-  const embed = new EmbedBuilder()
+  const embed: EmbedBuilder = new EmbedBuilder()
     .setColor(color)
     .setTitle(title)
     .setDescription(`${renderField(game.yardLine)}\n\n` + description)
@@ -274,7 +315,7 @@ async function resolveGame(interaction, game, userId, outcome) {
     .setTimestamp();
 
   // Add streak info to footer
-  let footerText = '';
+  let footerText: string = '';
   if (stats) {
     if (outcome === 'touchdown' && stats.current_td_streak > 1) {
       footerText = `${stats.current_td_streak} touchdown streak! 🔥`;
@@ -290,8 +331,8 @@ async function resolveGame(interaction, game, userId, outcome) {
   }
 
   // Show result with Play Again button
-  const canPlayAgain = updatedUser.wallet >= game.originalBet;
-  const components = [createButtons(true)];
+  const canPlayAgain: boolean = updatedUser.wallet >= game.originalBet;
+  const components: ActionRowBuilder<ButtonBuilder>[] = [createButtons(true)];
   if (canPlayAgain) {
     components.push(createPlayAgainRow(game.originalBet));
   }
@@ -306,17 +347,17 @@ async function resolveGame(interaction, game, userId, outcome) {
     const replayCollector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 30000,
-      filter: (i) => i.user.id === userId && i.customId.startsWith('redzone_replay_'),
+      filter: (i: ButtonInteraction) => i.user.id === userId && i.customId.startsWith('redzone_replay_'),
     });
 
-    replayCollector.on('collect', async (buttonInteraction) => {
+    replayCollector.on('collect', async (buttonInteraction: ButtonInteraction) => {
       // Check cooldown
-      const lastGame = redzoneCooldowns.get(userId);
+      const lastGame: number | undefined = redzoneCooldowns.get(userId);
       if (lastGame) {
-        const elapsed = Date.now() - lastGame;
-        const cooldownMs = CONFIG.REDZONE_COOLDOWN_SECONDS * 1000;
+        const elapsed: number = Date.now() - lastGame;
+        const cooldownMs: number = CONFIG.REDZONE_COOLDOWN_SECONDS * 1000;
         if (elapsed < cooldownMs) {
-          const remaining = Math.ceil((cooldownMs - elapsed) / 1000);
+          const remaining: number = Math.ceil((cooldownMs - elapsed) / 1000);
           await buttonInteraction.reply({
             content: `Slow down! You can play again in ${remaining} seconds.`,
             ephemeral: true,
@@ -335,7 +376,7 @@ async function resolveGame(interaction, game, userId, outcome) {
       }
 
       // Check wallet
-      const currentUser = await economyDb.getUser(userId);
+      const currentUser: EconomyUser | null = await economyDb.getUser(userId);
       if (!currentUser || currentUser.wallet < game.originalBet) {
         await buttonInteraction.reply({
           content: `You don't have enough coins! Need ${formatCurrency(game.originalBet)}.`,
@@ -352,7 +393,7 @@ async function resolveGame(interaction, game, userId, outcome) {
       await executeNewGame(interaction, game.originalBet);
     });
 
-    replayCollector.on('end', async (collected, reason) => {
+    replayCollector.on('end', async (_collected: unknown, reason: string) => {
       if (reason === 'time') {
         try {
           await interaction.editReply({
@@ -370,8 +411,8 @@ async function resolveGame(interaction, game, userId, outcome) {
   if (isBigWin && CHANNELS.CASINO) {
     try {
       const casinoChannel = await interaction.client.channels.fetch(CHANNELS.CASINO);
-      if (casinoChannel) {
-        const announcementEmbed = new EmbedBuilder()
+      if (casinoChannel && 'send' in casinoChannel) {
+        const announcementEmbed: EmbedBuilder = new EmbedBuilder()
           .setColor(0x2ecc71)
           .setTitle('🏆 TOUCHDOWN! 🏆')
           .setDescription(
@@ -385,7 +426,7 @@ async function resolveGame(interaction, game, userId, outcome) {
 
         await casinoChannel.send({ embeds: [announcementEmbed] });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to send casino announcement:', error);
     }
   }
@@ -396,14 +437,17 @@ async function resolveGame(interaction, game, userId, outcome) {
 
 /**
  * Start a new Red Zone game
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- * @param {number} amount - Bet amount
+ * @param interaction - The Discord command interaction
+ * @param amount - Bet amount
  */
-async function executeNewGame(interaction, amount) {
-  const userId = interaction.user.id;
+async function executeNewGame(
+  interaction: ChatInputCommandInteraction,
+  amount: number
+): Promise<void> {
+  const userId: string = interaction.user.id;
 
   // Deduct bet
-  const betResult = await economyDb.gambleLose(userId, amount);
+  const betResult: EconomyUser | null = await economyDb.gambleLose(userId, amount);
   if (!betResult) {
     await interaction.editReply({
       content: 'Something went wrong placing your bet. Please try again.',
@@ -415,7 +459,7 @@ async function executeNewGame(interaction, amount) {
   redzoneCooldowns.set(userId, Date.now());
 
   // Initialize game state
-  const game = {
+  const game: RedzoneGameState = {
     bet: amount,
     originalBet: amount,
     yardLine: 20, // Start at own 20
@@ -426,12 +470,12 @@ async function executeNewGame(interaction, amount) {
   activeGames.set(userId, game);
 
   // Show initial game state
-  const embed = createGameEmbed(
+  const embed: EmbedBuilder = createGameEmbed(
     game,
     'Your ball at your own 20. Run a play or cash out!',
     0xf1c40f
   );
-  const row = createButtons(false);
+  const row: ActionRowBuilder<ButtonBuilder> = createButtons(false);
 
   const response = await interaction.editReply({
     embeds: [embed],
@@ -442,11 +486,11 @@ async function executeNewGame(interaction, amount) {
   const collector = response.createMessageComponentCollector({
     componentType: ComponentType.Button,
     time: CONFIG.REDZONE_TIMEOUT_SECONDS * 1000,
-    filter: (i) => i.user.id === userId && !i.customId.startsWith('redzone_replay_'),
+    filter: (i: ButtonInteraction) => i.user.id === userId && !i.customId.startsWith('redzone_replay_'),
   });
 
-  collector.on('collect', async (buttonInteraction) => {
-    const currentGame = activeGames.get(userId);
+  collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
+    const currentGame: RedzoneGameState | undefined = activeGames.get(userId);
     if (!currentGame || currentGame.phase !== 'playing') {
       await buttonInteraction.reply({
         content: 'This game is no longer active.',
@@ -455,10 +499,10 @@ async function executeNewGame(interaction, amount) {
       return;
     }
 
-    const action = buttonInteraction.customId;
+    const action: string = buttonInteraction.customId;
 
     if (action === 'redzone_run') {
-      const result = runPlay(currentGame);
+      const result: PlayResult = runPlay(currentGame);
 
       if (result.fumbled) {
         currentGame.phase = 'finished';
@@ -472,9 +516,9 @@ async function executeNewGame(interaction, amount) {
         await resolveGame(interaction, currentGame, userId, 'touchdown');
       } else {
         // Continue playing - show updated position
-        const position = getFieldPosition(currentGame.yardLine);
-        const statusMsg = `📣 Great run! +${result.yardsGained} yards! Fumble risk: ${Math.round(position.fumbleChance * 100)}%`;
-        const embedUpdate = createGameEmbed(currentGame, statusMsg, 0xf1c40f);
+        const position: FieldPosition = getFieldPosition(currentGame.yardLine);
+        const statusMsg: string = `📣 Great run! +${result.yardsGained} yards! Fumble risk: ${Math.round(position.fumbleChance * 100)}%`;
+        const embedUpdate: EmbedBuilder = createGameEmbed(currentGame, statusMsg, 0xf1c40f);
         await buttonInteraction.update({
           embeds: [embedUpdate],
           components: [createButtons(false)],
@@ -488,8 +532,8 @@ async function executeNewGame(interaction, amount) {
     }
   });
 
-  collector.on('end', async (collected, reason) => {
-    const currentGame = activeGames.get(userId);
+  collector.on('end', async (_collected: unknown, reason: string) => {
+    const currentGame: RedzoneGameState | undefined = activeGames.get(userId);
     if (reason === 'time' && currentGame && currentGame.phase === 'playing') {
       // Auto cash out on timeout
       currentGame.phase = 'finished';
@@ -500,23 +544,23 @@ async function executeNewGame(interaction, amount) {
 
 /**
  * Execute the redzone command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ * @param interaction - The Discord command interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const userId = interaction.user.id;
-    const username = interaction.user.username;
-    const betStr = interaction.options.getString('bet').toLowerCase();
+    const userId: string = interaction.user.id;
+    const username: string = interaction.user.username;
+    const betStr: string = interaction.options.getString('bet')!.toLowerCase();
 
     // Check cooldown
-    const lastGame = redzoneCooldowns.get(userId);
+    const lastGame: number | undefined = redzoneCooldowns.get(userId);
     if (lastGame) {
-      const elapsed = Date.now() - lastGame;
-      const cooldownMs = CONFIG.REDZONE_COOLDOWN_SECONDS * 1000;
+      const elapsed: number = Date.now() - lastGame;
+      const cooldownMs: number = CONFIG.REDZONE_COOLDOWN_SECONDS * 1000;
       if (elapsed < cooldownMs) {
-        const remaining = Math.ceil((cooldownMs - elapsed) / 1000);
+        const remaining: number = Math.ceil((cooldownMs - elapsed) / 1000);
         await interaction.editReply({
           content: `Slow down! You can play again in ${remaining} seconds.`,
         });
@@ -533,10 +577,10 @@ export async function execute(interaction) {
     }
 
     // Get or create user
-    const userData = await economyDb.getOrCreateUser(userId, username);
+    const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
 
     // Parse bet amount
-    let amount;
+    let amount: number;
     if (betStr === 'all' || betStr === 'max') {
       amount = userData.wallet;
     } else {
@@ -568,7 +612,7 @@ export async function execute(interaction) {
 
     // Check wallet balance
     if (userData.wallet < amount) {
-      const embed = new EmbedBuilder()
+      const embed: EmbedBuilder = new EmbedBuilder()
         .setColor(0xe74c3c)
         .setTitle('🏈 Red Zone - Insufficient Funds')
         .setDescription(
@@ -585,11 +629,12 @@ export async function execute(interaction) {
 
     // Start the game
     await executeNewGame(interaction, amount);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('redzone command error:', error);
     activeGames.delete(interaction.user.id);
+    const message: string = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }
