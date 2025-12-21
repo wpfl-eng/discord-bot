@@ -51,7 +51,7 @@ export const API_CONFIG = {
 export const FEATURED_CATEGORIES = [
   { slug: 'politics', label: 'Politics', emoji: '🏛️' },
   { slug: 'sports', label: 'Sports', emoji: '🏈' },
-  { slug: 'crypto', label: 'Crypto', emoji: '₿' },
+  { slug: 'crypto', label: 'Crypto', emoji: '💎' },
   { slug: 'entertainment', label: 'Culture', emoji: '🎬' },
 ] as const;
 
