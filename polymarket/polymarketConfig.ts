@@ -61,9 +61,22 @@ export const FEATURED_CATEGORIES = [
 ] as const;
 
 /**
- * Tag IDs mapped to category slugs (populated at runtime from API)
+ * Known tag IDs for featured categories (fallback values from Polymarket API)
+ * These are used as defaults in case the tags API fails or returns incomplete data
  */
-export const categoryTagIds: Map<string, number> = new Map();
+export const KNOWN_TAG_IDS: Record<string, number> = {
+  'world-affairs': 366,
+  'bitcoin': 235,
+  'trump': 126,
+} as const;
+
+/**
+ * Tag IDs mapped to category slugs (populated at runtime from API)
+ * Pre-populated with known fallback values
+ */
+export const categoryTagIds: Map<string, number> = new Map(
+  Object.entries(KNOWN_TAG_IDS)
+);
 
 // ============ Display Formatting ============
 

@@ -71,10 +71,19 @@ export async function getTags(): Promise<PolymarketTag[]> {
     return tagsCache;
   }
 
-  tagsCache = await fetchTagsFromAPI();
-  tagsCacheTime = now;
+  const fetchedTags = await fetchTagsFromAPI();
 
-  // Update category tag ID mappings
+  // Only update cache if we got valid results - don't overwrite with empty
+  if (fetchedTags.length === 0) {
+    console.warn('[Polymarket] Tags API returned empty - using cached/fallback values');
+    return tagsCache;
+  }
+
+  tagsCache = fetchedTags;
+  tagsCacheTime = now;
+  console.log(`[Polymarket] Fetched ${tagsCache.length} tags from API`);
+
+  // Update category tag ID mappings (only update, don't remove existing fallbacks)
   for (const category of FEATURED_CATEGORIES) {
     // Skip trending - it's handled specially without a tag filter
     if (category.slug === TRENDING_SLUG) continue;
@@ -84,7 +93,12 @@ export async function getTags(): Promise<PolymarketTag[]> {
              t.label.toLowerCase() === category.slug.toLowerCase()
     );
     if (tag) {
-      categoryTagIds.set(category.slug, tag.id);
+      // API returns id as string, convert to number for consistency
+      const tagId = typeof tag.id === 'string' ? parseInt(tag.id, 10) : tag.id;
+      categoryTagIds.set(category.slug, tagId);
+      console.log(`[Polymarket] Mapped category '${category.slug}' to tag ID ${tagId}`);
+    } else {
+      console.warn(`[Polymarket] No tag found for category '${category.slug}' - using fallback if available`);
     }
   }
 
@@ -98,9 +112,10 @@ export async function getTagIdForCategory(categorySlug: string): Promise<number 
   // Ensure cache is populated
   await getTags();
 
-  // Check our featured category mappings first
+  // Check our featured category mappings first (includes fallback values)
   const cachedId = categoryTagIds.get(categorySlug);
   if (cachedId !== undefined) {
+    console.log(`[Polymarket] Using cached tag ID ${cachedId} for category '${categorySlug}'`);
     return cachedId;
   }
 
@@ -110,7 +125,14 @@ export async function getTagIdForCategory(categorySlug: string): Promise<number 
            t.label.toLowerCase() === categorySlug.toLowerCase()
   );
 
-  return tag?.id ?? null;
+  if (tag) {
+    const tagId = typeof tag.id === 'string' ? parseInt(tag.id, 10) : tag.id;
+    console.log(`[Polymarket] Found tag ID ${tagId} for category '${categorySlug}' via search`);
+    return tagId;
+  }
+
+  console.error(`[Polymarket] No tag ID found for category '${categorySlug}'`);
+  return null;
 }
 
 // ============ Market Operations ============
@@ -150,17 +172,19 @@ export async function getMarketsByTag(
 ): Promise<MarketDisplay[]> {
   try {
     const url = `${API_CONFIG.BASE_URL}/markets?tag_id=${tagId}&closed=false&limit=${limit}&order=volume&ascending=false`;
+    console.log(`[Polymarket] Fetching markets for tag_id=${tagId}`);
     const response = await throttledFetch(url);
 
     if (!response.ok) {
-      console.error(`Failed to fetch markets: ${response.status}`);
+      console.error(`[Polymarket] Failed to fetch markets: ${response.status} ${response.statusText}`);
       return [];
     }
 
     const markets = (await response.json()) as PolymarketMarket[];
+    console.log(`[Polymarket] Found ${markets.length} markets for tag_id=${tagId}`);
     return markets.map(transformMarket);
   } catch (error) {
-    console.error('Error fetching markets by tag:', error);
+    console.error('[Polymarket] Error fetching markets by tag:', error);
     return [];
   }
 }
