@@ -45,14 +45,19 @@ export const API_CONFIG = {
 // ============ Featured Categories ============
 
 /**
+ * Special category slug for trending markets (no tag filter, uses volume ordering)
+ */
+export const TRENDING_SLUG = 'trending' as const;
+
+/**
  * Categories to show as main buttons
  * These are curated from Polymarket's tags for best UX
  */
 export const FEATURED_CATEGORIES = [
-  { slug: 'politics', label: 'Politics', emoji: '🏛️' },
-  { slug: 'sports', label: 'Sports', emoji: '🏈' },
-  { slug: 'crypto', label: 'Crypto', emoji: '💎' },
-  { slug: 'entertainment', label: 'Culture', emoji: '🎬' },
+  { slug: TRENDING_SLUG, label: 'Trending', emoji: '🔥' },
+  { slug: 'world-affairs', label: 'World', emoji: '🌍' },
+  { slug: 'bitcoin', label: 'Crypto', emoji: '💎' },
+  { slug: 'trump', label: 'Trump', emoji: '🇺🇸' },
 ] as const;
 
 /**

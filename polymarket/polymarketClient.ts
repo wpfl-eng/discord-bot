@@ -1,7 +1,7 @@
 // Polymarket API Client
 // Wrapper for Polymarket Gamma API with caching
 
-import { API_CONFIG, CONFIG, FEATURED_CATEGORIES, categoryTagIds } from './polymarketConfig.js';
+import { API_CONFIG, CONFIG, FEATURED_CATEGORIES, TRENDING_SLUG, categoryTagIds } from './polymarketConfig.js';
 import type {
   PolymarketTag,
   PolymarketMarket,
@@ -76,6 +76,9 @@ export async function getTags(): Promise<PolymarketTag[]> {
 
   // Update category tag ID mappings
   for (const category of FEATURED_CATEGORIES) {
+    // Skip trending - it's handled specially without a tag filter
+    if (category.slug === TRENDING_SLUG) continue;
+
     const tag = tagsCache.find(
       (t) => t.slug.toLowerCase() === category.slug.toLowerCase() ||
              t.label.toLowerCase() === category.slug.toLowerCase()
@@ -163,12 +166,40 @@ export async function getMarketsByTag(
 }
 
 /**
+ * Get popular/trending markets by volume (no tag filter)
+ */
+export async function getPopularMarkets(
+  limit: number = API_CONFIG.DEFAULT_MARKET_LIMIT
+): Promise<MarketDisplay[]> {
+  try {
+    const url = `${API_CONFIG.BASE_URL}/markets?closed=false&limit=${limit}&order=volume&ascending=false`;
+    const response = await throttledFetch(url);
+
+    if (!response.ok) {
+      console.error(`Failed to fetch popular markets: ${response.status}`);
+      return [];
+    }
+
+    const markets = (await response.json()) as PolymarketMarket[];
+    return markets.map(transformMarket);
+  } catch (error) {
+    console.error('Error fetching popular markets:', error);
+    return [];
+  }
+}
+
+/**
  * Get markets by category slug
  */
 export async function getMarketsByCategory(
   categorySlug: string,
   limit: number = API_CONFIG.DEFAULT_MARKET_LIMIT
 ): Promise<MarketDisplay[]> {
+  // Handle trending specially - no tag filter, just top markets by volume
+  if (categorySlug === TRENDING_SLUG) {
+    return getPopularMarkets(limit);
+  }
+
   const tagId = await getTagIdForCategory(categorySlug);
   if (tagId === null) {
     console.error(`No tag found for category: ${categorySlug}`);
