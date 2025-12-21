@@ -1,5 +1,6 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, TextChannel } from 'discord.js';
 import * as triviaDb from '../../trivia/triviaDb.js';
+import type { TriviaCategory } from '../../trivia/triviaDb.js';
 
 export const data = new SlashCommandBuilder()
   .setName('trivia')
@@ -15,9 +16,9 @@ export const data = new SlashCommandBuilder()
       )
   );
 
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   // Check if user is authorized to run trivia command
-  const triviaAdminIds = process.env.TRIVIA_ADMIN_USER_IDS?.split(',') || [];
+  const triviaAdminIds: string[] = process.env.TRIVIA_ADMIN_USER_IDS?.split(',') || [];
   if (triviaAdminIds.length > 0 && !triviaAdminIds.includes(interaction.user.id)) {
     await interaction.reply({
       content: "You don't have permission to use this command.",
@@ -28,7 +29,7 @@ export async function execute(interaction) {
 
   await interaction.deferReply({ ephemeral: true });
 
-  const category = interaction.options.getString('category');
+  const category = interaction.options.getString('category') as TriviaCategory;
   const triviaService = interaction.client.triviaService;
 
   if (!triviaService) {
@@ -40,9 +41,9 @@ export async function execute(interaction) {
 
   try {
     // Get the trivia channel
-    const triviaChannelId = process.env.TRIVIA_CHANNEL_ID;
-    const triviaChannel = triviaChannelId
-      ? await interaction.client.channels.fetch(triviaChannelId)
+    const triviaChannelId: string | undefined = process.env.TRIVIA_CHANNEL_ID;
+    const triviaChannel: TextChannel | null = triviaChannelId
+      ? ((await interaction.client.channels.fetch(triviaChannelId)) as TextChannel | null)
       : null;
 
     // Check if there's an active question for this category
@@ -64,10 +65,11 @@ export async function execute(interaction) {
     await interaction.editReply({
       content: `${category.toUpperCase()} trivia question posted!`,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('trivia command error:', error);
+    const message: string = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `Error posting trivia: ${error.message}`,
+      content: `Error posting trivia: ${message}`,
     });
   }
 }

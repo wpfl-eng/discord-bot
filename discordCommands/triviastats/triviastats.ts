@@ -1,5 +1,6 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, User } from 'discord.js';
 import * as triviaDb from '../../trivia/triviaDb.js';
+import type { TriviaScore } from '../../trivia/triviaDb.js';
 
 export const data = new SlashCommandBuilder()
   .setName('triviastats')
@@ -11,13 +12,13 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
   );
 
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  const targetUser = interaction.options.getUser('user') || interaction.user;
+  const targetUser: User = interaction.options.getUser('user') || interaction.user;
 
   try {
-    const stats = await triviaDb.getUserStats(targetUser.id);
+    const stats: TriviaScore | null = await triviaDb.getUserStats(targetUser.id);
 
     if (!stats) {
       await interaction.editReply({
@@ -56,10 +57,11 @@ export async function execute(interaction) {
     }
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('triviastats command error:', error);
+    const message: string = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `Error fetching stats: ${error.message}`,
+      content: `Error fetching stats: ${message}`,
     });
   }
 }
