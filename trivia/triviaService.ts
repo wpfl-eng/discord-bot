@@ -142,7 +142,10 @@ export class TriviaService {
       const questions: TriviaQuestion[] =
         category === 'nfl' ? (nflQuestions as TriviaQuestion[]) : (wpflQuestions as TriviaQuestion[]);
 
-      // Build list of unasked questions with their hashes
+      // Fetch all asked hashes in one query (performance optimization)
+      const askedHashes = await triviaDb.getAskedHashes(category);
+
+      // Build list of unasked questions with their hashes (in-memory filtering)
       const unaskedQuestions: QuestionWithHash[] = [];
 
       for (const q of questions) {
@@ -158,8 +161,7 @@ export class TriviaService {
             : String(q.id); // Fallback to id if no source_data
         }
 
-        const asked = await triviaDb.isQuestionAsked(hash);
-        if (!asked) {
+        if (!askedHashes.has(hash)) {
           unaskedQuestions.push({ question: q, hash });
         }
       }

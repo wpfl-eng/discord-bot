@@ -159,6 +159,19 @@ export async function isQuestionAsked(hash: string): Promise<boolean> {
 }
 
 /**
+ * Get all asked question hashes for a category
+ * @param category - 'nfl' or 'wpfl'
+ * @returns Set of question hashes that have been asked
+ */
+export async function getAskedHashes(category: TriviaCategory): Promise<Set<string>> {
+  const result = await sql<{ question_hash: string }>`
+    SELECT question_hash FROM trivia_history
+    WHERE category = ${category}
+  `;
+  return new Set(result.rows.map(row => row.question_hash));
+}
+
+/**
  * Record that a question has been asked
  * @param hash - Question hash
  * @param category - 'nfl' or 'wpfl'
