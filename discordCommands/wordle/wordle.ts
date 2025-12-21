@@ -468,14 +468,22 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         const modal = createGuessModal(currentWord.word_number);
         await buttonInteraction.showModal(modal);
 
+        // Wait for modal submission (60 second timeout)
+        let modalInteraction: ModalSubmitInteraction;
         try {
-          // Wait for modal submission (60 second timeout)
-          const modalInteraction = await buttonInteraction.awaitModalSubmit({
+          modalInteraction = await buttonInteraction.awaitModalSubmit({
             time: 60000,
             filter: (mi: ModalSubmitInteraction) =>
               mi.customId === 'wordle_guess_modal' && mi.user.id === userId,
           });
+        } catch {
+          // Modal was dismissed or timed out - silently continue
+          // User can click the button again
+          return;
+        }
 
+        // Process the modal submission
+        try {
           await modalInteraction.deferUpdate();
 
           const guess = modalInteraction.fields.getTextInputValue('wordle_guess_input').toLowerCase();
@@ -520,24 +528,31 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             username
           );
 
-          // Update the original message
+          // Update the original message using modalInteraction
           if (result.isOver) {
             // Game over - remove button
-            await interaction.editReply({
+            await modalInteraction.editReply({
               embeds: [result.embed],
               components: [],
             });
             collector.stop(result.won ? 'won' : 'lost');
           } else {
             // Game continues - keep button
-            await interaction.editReply({
+            await modalInteraction.editReply({
               embeds: [result.embed],
               components: [createGuessButton(false)],
             });
           }
-        } catch {
-          // Modal was dismissed or timed out - silently continue
-          // User can click the button again
+        } catch (processingError) {
+          console.error('Error processing wordle guess:', processingError);
+          try {
+            await modalInteraction.followUp({
+              content: 'An error occurred processing your guess. Please try again.',
+              ephemeral: true,
+            });
+          } catch {
+            // followUp may fail if interaction expired
+          }
         }
       } catch (error) {
         console.error('Error handling wordle button interaction:', error);
