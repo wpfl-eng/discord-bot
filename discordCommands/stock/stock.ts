@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import * as stockDb from '../../stock/stockDb.js';
 import * as stockApi from '../../stock/stockApi.js';
@@ -12,8 +12,21 @@ import {
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 
+// ============================================================
+// Type Definitions
+// ============================================================
+
+interface CooldownResult {
+  readonly onCooldown: boolean;
+  readonly remainingSeconds?: number;
+}
+
+// ============================================================
+// Module State
+// ============================================================
+
 // In-memory cooldown tracking (resets on bot restart - acceptable for 30s cooldown)
-const tradeCooldowns = new Map();
+const tradeCooldowns: Map<string, number> = new Map();
 
 export const data = new SlashCommandBuilder()
   .setName('stock')
@@ -69,9 +82,8 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Execute the stock command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand();
 
   switch (subcommand) {
@@ -92,10 +104,8 @@ export async function execute(interaction) {
 
 /**
  * Check and enforce trade cooldown
- * @param {string} userId - Discord user ID
- * @returns {{onCooldown: boolean, remainingSeconds?: number}}
  */
-function checkCooldown(userId) {
+function checkCooldown(userId: string): CooldownResult {
   const lastTrade = tradeCooldowns.get(userId);
   if (lastTrade) {
     const elapsed = Date.now() - lastTrade;
@@ -112,22 +122,21 @@ function checkCooldown(userId) {
 
 /**
  * Handle /stock buy subcommand
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleBuy(interaction) {
+async function handleBuy(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const ticker = interaction.options.getString('ticker');
-    const amount = interaction.options.getInteger('amount');
+    const ticker = interaction.options.getString('ticker', true);
+    const amount = interaction.options.getInteger('amount', true);
 
     // Check cooldown
     const cooldown = checkCooldown(userId);
     if (cooldown.onCooldown) {
       await interaction.editReply({
-        content: STOCK_MESSAGES.COOLDOWN(cooldown.remainingSeconds),
+        content: STOCK_MESSAGES.COOLDOWN(cooldown.remainingSeconds ?? 0),
       });
       return;
     }
@@ -220,35 +229,33 @@ async function handleBuy(interaction) {
       username,
       client: interaction.client,
       amount,
-      ticker: quote.ticker,
-      shares,
-    }).catch((err) => console.error('Failed to check achievements:', err));
-  } catch (error) {
+    }).catch((err: unknown) => console.error('Failed to check achievements:', err));
+  } catch (error: unknown) {
     console.error('stock buy error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }
 
 /**
  * Handle /stock sell subcommand
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleSell(interaction) {
+async function handleSell(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const ticker = interaction.options.getString('ticker');
-    const sharesToSell = interaction.options.getNumber('shares');
+    const ticker = interaction.options.getString('ticker', true);
+    const sharesToSell = interaction.options.getNumber('shares', true);
 
     // Check cooldown
     const cooldown = checkCooldown(userId);
     if (cooldown.onCooldown) {
       await interaction.editReply({
-        content: STOCK_MESSAGES.COOLDOWN(cooldown.remainingSeconds),
+        content: STOCK_MESSAGES.COOLDOWN(cooldown.remainingSeconds ?? 0),
       });
       return;
     }
@@ -358,23 +365,20 @@ async function handleSell(interaction) {
       username,
       client: interaction.client,
       amount: sellResult.proceeds,
-      ticker: quote.ticker,
-      shares: sharesToSell,
-      profit: sellResult.profit,
-    }).catch((err) => console.error('Failed to check achievements:', err));
-  } catch (error) {
+    }).catch((err: unknown) => console.error('Failed to check achievements:', err));
+  } catch (error: unknown) {
     console.error('stock sell error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }
 
 /**
  * Handle /stock portfolio subcommand
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handlePortfolio(interaction) {
+async function handlePortfolio(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -427,23 +431,23 @@ async function handlePortfolio(interaction) {
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('stock portfolio error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }
 
 /**
  * Handle /stock quote subcommand
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleQuote(interaction) {
+async function handleQuote(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const ticker = interaction.options.getString('ticker');
+    const ticker = interaction.options.getString('ticker', true);
 
     if (!stockApi.isValidTickerFormat(ticker)) {
       await interaction.editReply({
@@ -459,7 +463,9 @@ async function handleQuote(interaction) {
     }
 
     const { data: quote } = quoteResult;
-    const isPositive = quote.change >= 0;
+    const change = quote.change ?? 0;
+    const changePercent = quote.changePercent ?? 0;
+    const isPositive = change >= 0;
     const changeEmoji = isPositive ? '+' : '';
     const changeColor = isPositive ? 0x2ecc71 : 0xe74c3c;
 
@@ -470,7 +476,7 @@ async function handleQuote(interaction) {
       .addFields(
         {
           name: 'Change',
-          value: `${changeEmoji}$${formatPrice(quote.change)} (${changeEmoji}${quote.changePercent?.toFixed(2)}%)`,
+          value: `${changeEmoji}$${formatPrice(change)} (${changeEmoji}${changePercent.toFixed(2)}%)`,
           inline: true,
         },
         {
@@ -484,10 +490,11 @@ async function handleQuote(interaction) {
       .setFooter({ text: 'Data from Finnhub' });
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('stock quote error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }

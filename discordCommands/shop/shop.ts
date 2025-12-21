@@ -5,6 +5,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  ChatInputCommandInteraction,
 } from 'discord.js';
 import { sql } from '@vercel/postgres';
 import * as economyDb from '../../economy/economyDb.js';
@@ -13,9 +14,54 @@ import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
 import * as nflmonDb from '../../nflmon/nflmonDb.js';
 import { TRAINING_CONFIG } from '../../nflmon/nflmonConfig.js';
+import type { EconomyUser } from '../../types/database.js';
+import type { RollResult } from '../../nflmon/nflmonService.js';
+
+// ============================================================
+// Type Definitions
+// ============================================================
+
+type ShopItemType = 'economy' | 'inventory' | 'nflmon_pack' | 'nflmon_training';
+
+interface ShopItem {
+  readonly id: string;
+  readonly name: string;
+  readonly emoji: string;
+  readonly price: number;
+  readonly description: string;
+  readonly type: ShopItemType;
+  readonly inventoryQuantity?: number;
+  readonly quantity?: number;
+}
+
+interface ShopCategory {
+  readonly name: string;
+  readonly emoji: string;
+  readonly items: ShopItem[];
+}
+
+interface BuyInventoryResult {
+  readonly success: boolean;
+  readonly user?: EconomyUser;
+  readonly error?: string;
+}
+
+interface PurchaseDetails {
+  bankCapacity?: number;
+  quantity?: number;
+  nflmonPack?: boolean;
+  packResults?: RollResult[];
+  packName?: string;
+  trainingSlot?: boolean;
+  newMax?: number;
+}
+
+// ============================================================
+// Shop Configuration
+// ============================================================
 
 // Shop items organized by category
-const SHOP_CATEGORIES = {
+const SHOP_CATEGORIES: Record<string, ShopCategory> = {
   economy: {
     name: 'Economy Items',
     emoji: '💰',
@@ -141,29 +187,28 @@ const SHOP_CATEGORIES = {
   },
 };
 
+// ============================================================
+// Helper Functions
+// ============================================================
+
 /**
  * Get all items as a flat array
- * @returns {array}
  */
-function getAllItems() {
+function getAllItems(): ShopItem[] {
   return Object.values(SHOP_CATEGORIES).flatMap((cat) => cat.items);
 }
 
 /**
  * Find an item by ID
- * @param {string} itemId
- * @returns {object|null}
  */
-function findItem(itemId) {
-  return getAllItems().find((item) => item.id === itemId) || null;
+function findItem(itemId: string): ShopItem | null {
+  return getAllItems().find((item) => item.id === itemId) ?? null;
 }
 
 /**
  * Build the shop embed
- * @param {object} userData
- * @returns {EmbedBuilder}
  */
-function buildShopEmbed(userData) {
+function buildShopEmbed(userData: EconomyUser): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0x9b59b6)
     .setTitle('🛒 Economy Shop')
@@ -200,12 +245,10 @@ function buildShopEmbed(userData) {
 
 /**
  * Build shop buttons (split into rows of 5 max)
- * @param {object} userData
- * @returns {ActionRowBuilder[]}
  */
-function buildShopButtons(userData) {
+function buildShopButtons(userData: EconomyUser): ActionRowBuilder<ButtonBuilder>[] {
   const allItems = getAllItems();
-  const rows = [];
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
 
   // Discord allows max 5 buttons per row
   for (let i = 0; i < allItems.length; i += 5) {
@@ -222,7 +265,7 @@ function buildShopButtons(userData) {
         .setDisabled(!canAfford || alreadyOwned);
     });
 
-    rows.push(new ActionRowBuilder().addComponents(buttons));
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
   }
 
   return rows;
@@ -230,11 +273,10 @@ function buildShopButtons(userData) {
 
 /**
  * Build disabled buttons for collector end
- * @returns {ActionRowBuilder[]}
  */
-function buildDisabledButtons() {
+function buildDisabledButtons(): ActionRowBuilder<ButtonBuilder>[] {
   const allItems = getAllItems();
-  const rows = [];
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
 
   for (let i = 0; i < allItems.length; i += 5) {
     const rowItems = allItems.slice(i, i + 5);
@@ -247,7 +289,7 @@ function buildDisabledButtons() {
         .setDisabled(true)
     );
 
-    rows.push(new ActionRowBuilder().addComponents(buttons));
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
   }
 
   return rows;
@@ -255,13 +297,13 @@ function buildDisabledButtons() {
 
 /**
  * Purchase an inventory item (atomic wallet deduction + inventory add with rollback)
- * @param {string} userId
- * @param {string} itemId
- * @param {number} price
- * @param {number} quantity
- * @returns {Promise<{success: boolean, user?: object, error?: string}>}
  */
-async function buyInventoryItem(userId, itemId, price, quantity) {
+async function buyInventoryItem(
+  userId: string,
+  itemId: string,
+  price: number,
+  quantity: number
+): Promise<BuyInventoryResult> {
   // Atomic wallet deduction
   const result = await sql`
     UPDATE economy_users
@@ -288,8 +330,12 @@ async function buyInventoryItem(userId, itemId, price, quantity) {
     return { success: false, error: 'INVENTORY_ADD_FAILED' };
   }
 
-  return { success: true, user: result.rows[0] };
+  return { success: true, user: result.rows[0] as EconomyUser };
 }
+
+// ============================================================
+// Command Definition
+// ============================================================
 
 export const data = new SlashCommandBuilder()
   .setName('shop')
@@ -297,9 +343,8 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Execute the shop command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -340,6 +385,15 @@ export async function execute(interaction) {
       // Re-fetch user data
       const currentUser = await economyDb.getUser(userId);
 
+      // Check if user still exists
+      if (!currentUser) {
+        await buttonInteraction.reply({
+          content: 'User data not found!',
+          ephemeral: true,
+        });
+        return;
+      }
+
       // Check if they can still afford it
       if (currentUser.wallet < item.price) {
         await buttonInteraction.reply({
@@ -359,8 +413,8 @@ export async function execute(interaction) {
       }
 
       // Process purchase based on type
-      let updatedUser;
-      let purchaseDetails = {};
+      let updatedUser: EconomyUser | null | undefined;
+      const purchaseDetails: PurchaseDetails = {};
 
       if (item.type === 'economy') {
         // Economy items: direct effects
@@ -376,13 +430,15 @@ export async function execute(interaction) {
         }
       } else if (item.type === 'inventory') {
         // Inventory items: add to user inventory
-        const result = await buyInventoryItem(userId, item.id, item.price, item.inventoryQuantity);
+        const inventoryQty = item.inventoryQuantity ?? 1;
+        const result = await buyInventoryItem(userId, item.id, item.price, inventoryQty);
         if (result.success) {
           updatedUser = result.user;
-          purchaseDetails.quantity = item.inventoryQuantity;
+          purchaseDetails.quantity = inventoryQty;
         }
       } else if (item.type === 'nflmon_pack') {
         // NFLmon pack: deduct wallet and roll NFLmon
+        const packQty = item.quantity ?? 1;
         const deductResult = await sql`
           UPDATE economy_users
           SET wallet = wallet - ${item.price}
@@ -394,10 +450,10 @@ export async function execute(interaction) {
             const packResult = await nflmonService.rollMultipleNflmon(
               userId,
               username,
-              item.quantity
+              packQty
             );
             if (packResult.success) {
-              updatedUser = deductResult.rows[0];
+              updatedUser = deductResult.rows[0] as EconomyUser;
               purchaseDetails.nflmonPack = true;
               purchaseDetails.packResults = packResult.results;
               purchaseDetails.packName = item.name;
@@ -405,7 +461,7 @@ export async function execute(interaction) {
               // Refund on failure
               await sql`UPDATE economy_users SET wallet = wallet + ${item.price} WHERE user_id = ${userId}`;
             }
-          } catch (packError) {
+          } catch (packError: unknown) {
             // Refund on exception
             console.error('[SHOP] NFLmon pack error, refunding:', packError);
             await sql`UPDATE economy_users SET wallet = wallet + ${item.price} WHERE user_id = ${userId}`;
@@ -469,9 +525,10 @@ export async function execute(interaction) {
 
       // NFLmon pack purchase - show pack opening results
       if (purchaseDetails.nflmonPack && purchaseDetails.packResults) {
-        const packLines = purchaseDetails.packResults.map((result, i) => {
-          const { player, rarity } = result;
-          return `${i + 1}. **${player.name}** (${player.position}) - ${rarity.name}`;
+        const packLines = purchaseDetails.packResults.map((rollResult: RollResult, i: number) => {
+          const { player, rarity } = rollResult;
+          const rarityName = rarity?.name ?? 'Unknown';
+          return `${i + 1}. **${player.name}** (${player.position}) - ${rarityName}`;
         });
         purchaseEmbed.addFields({
           name: '🎮 NFLmon Received',
@@ -495,13 +552,15 @@ export async function execute(interaction) {
 
       // Update the shop display
       const newUserData = await economyDb.getUser(userId);
-      const newEmbed = buildShopEmbed(newUserData);
-      const newComponents = buildShopButtons(newUserData);
+      if (newUserData) {
+        const newEmbed = buildShopEmbed(newUserData);
+        const newComponents = buildShopButtons(newUserData);
 
-      await interaction.editReply({
-        embeds: [newEmbed],
-        components: newComponents,
-      });
+        await interaction.editReply({
+          embeds: [newEmbed],
+          components: newComponents,
+        });
+      }
     });
 
     collector.on('end', async () => {
@@ -514,10 +573,11 @@ export async function execute(interaction) {
         })
         .catch(() => {});
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('shop command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }

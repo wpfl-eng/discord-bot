@@ -1,7 +1,7 @@
 // Wordle Discord Command
 // Play Wordle! Guess the 5-letter word.
 
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import * as wordleDb from '../../wordle/wordleDb.js';
 import {
   renderBoard,
@@ -18,6 +18,8 @@ import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
 import { DROP_CONFIG } from '../../nflmon/nflmonConfig.js';
+import type { WordleWord, WordleUserGame } from '../../wordle/wordleDb.js';
+import type { RollResult, XpResult } from '../../nflmon/nflmonService.js';
 
 export const data = new SlashCommandBuilder()
   .setName('wordle')
@@ -28,14 +30,14 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Create the main game embed showing the board
- * @param {object} game - User game record
- * @param {object} currentWord - Current word record
- * @param {string} footer - Footer text
- * @param {number} color - Embed color
- * @param {boolean} showAnswer - Whether to reveal the answer
- * @returns {EmbedBuilder}
  */
-function createGameEmbed(game, currentWord, footer, color, showAnswer = false) {
+function createGameEmbed(
+  game: WordleUserGame | null,
+  currentWord: WordleWord,
+  footer: string,
+  color: number,
+  showAnswer: boolean = false
+): EmbedBuilder {
   const guesses = game?.guesses || [];
   const answer = currentWord.current_word;
 
@@ -79,13 +81,13 @@ function createGameEmbed(game, currentWord, footer, color, showAnswer = false) {
 
 /**
  * Create win embed with rewards
- * @param {object} game - User game record
- * @param {object} currentWord - Current word record
- * @param {number} reward - Total reward amount
- * @param {boolean} isFirstSolver - Whether user is first solver
- * @returns {EmbedBuilder}
  */
-function createWinEmbed(game, currentWord, reward, isFirstSolver) {
+function createWinEmbed(
+  game: WordleUserGame,
+  currentWord: WordleWord,
+  reward: number,
+  isFirstSolver: boolean
+): EmbedBuilder {
   const guesses = game.guesses;
   const answer = currentWord.current_word;
   const color = isFirstSolver ? COLORS.FIRST_SOLVE : COLORS.WON;
@@ -118,11 +120,8 @@ function createWinEmbed(game, currentWord, reward, isFirstSolver) {
 
 /**
  * Create loss embed showing the answer
- * @param {object} game - User game record
- * @param {object} currentWord - Current word record
- * @returns {EmbedBuilder}
  */
-function createLossEmbed(game, currentWord) {
+function createLossEmbed(game: WordleUserGame, currentWord: WordleWord): EmbedBuilder {
   const guesses = game.guesses;
   const answer = currentWord.current_word;
 
@@ -135,18 +134,15 @@ function createLossEmbed(game, currentWord) {
       { name: 'Guesses', value: formatGuessCount(guesses.length), inline: true }
     )
     .setFooter({
-      text: 'New word available in 1 hours',
+      text: 'New word available in 1 hour',
     })
     .setTimestamp();
 }
 
 /**
  * Create embed for already completed games
- * @param {object} game - User game record
- * @param {object} currentWord - Current word record
- * @returns {EmbedBuilder}
  */
-function createAlreadyPlayedEmbed(game, currentWord) {
+function createAlreadyPlayedEmbed(game: WordleUserGame, currentWord: WordleWord): EmbedBuilder {
   const answer = currentWord.current_word;
   const color = game.won ? COLORS.WON : COLORS.LOST;
   const rotationInfo = wordleDb.getRotationInfo(currentWord);
@@ -176,17 +172,18 @@ function createAlreadyPlayedEmbed(game, currentWord) {
 
 /**
  * Announce first solver to town square
- * @param {import('discord.js').Client} client - Discord client
- * @param {string} userId - Discord user ID
- * @param {object} currentWord - Current word record
- * @param {number} guessCount - Number of guesses used
  */
-async function announceFirstSolver(client, userId, currentWord, guessCount) {
+async function announceFirstSolver(
+  client: Client,
+  userId: string,
+  currentWord: WordleWord,
+  guessCount: number
+): Promise<void> {
   if (!CHANNELS.TOWN_SQUARE) return;
 
   try {
     const channel = await client.channels.fetch(CHANNELS.TOWN_SQUARE);
-    if (!channel) return;
+    if (!channel || !('send' in channel)) return;
 
     const embed = new EmbedBuilder()
       .setColor(COLORS.FIRST_SOLVE)
@@ -210,9 +207,8 @@ async function announceFirstSolver(client, userId, currentWord, guessCount) {
 
 /**
  * Execute the wordle command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -236,6 +232,14 @@ export async function execute(interaction) {
       if (!game) {
         game = await wordleDb.getUserGame(userId, answer);
       }
+    }
+
+    // This should never happen after the above checks, but satisfy TypeScript
+    if (!game) {
+      await interaction.editReply({
+        content: 'Failed to create or retrieve game. Please try again.',
+      });
+      return;
     }
 
     // Handle already completed game
@@ -297,8 +301,8 @@ export async function execute(interaction) {
       }
 
       // === NFLmon Integration ===
-      let nflmonDropped = null;
-      let xpResult = null;
+      let nflmonDropped: RollResult | null = null;
+      let xpResult: XpResult | null = null;
 
       // Determine drop chance (100% for first solver, 20% for regular wins)
       const dropChance = isFirstSolver
@@ -346,15 +350,14 @@ export async function execute(interaction) {
         );
       }
 
-      // Update game object with completed guesses for embed
-      updatedGame.guesses = guesses;
       const embed = createWinEmbed(updatedGame, currentWord, reward, isFirstSolver);
 
       // Add NFLmon info to embed
       if (nflmonDropped) {
+        const rarityName = nflmonDropped.rarity?.name ?? 'Unknown';
         embed.addFields({
           name: 'NFLmon Caught!',
-          value: `You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity.name})!\nUse \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`,
+          value: `You caught **${nflmonDropped.player.name}** (${rarityName})!\nUse \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`,
         });
       }
 
@@ -386,7 +389,6 @@ export async function execute(interaction) {
       });
       await wordleDb.completeGame(updatedGame.id, false);
 
-      updatedGame.guesses = guesses;
       const embed = createLossEmbed(updatedGame, currentWord);
       await interaction.editReply({ embeds: [embed] });
       return;
@@ -396,13 +398,13 @@ export async function execute(interaction) {
     const remaining = CONFIG.MAX_GUESSES - guesses.length;
     const footer = `${remaining} guess${remaining === 1 ? '' : 'es'} remaining. Use /wordle guess:<word>`;
 
-    updatedGame.guesses = guesses;
     const embed = createGameEmbed(updatedGame, currentWord, footer, COLORS.PLAYING);
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Wordle command error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }

@@ -5,19 +5,33 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  ChatInputCommandInteraction,
+  AutocompleteInteraction,
 } from 'discord.js';
 import * as inventoryDb from '../../inventory/inventoryDb.js';
 import * as economyDb from '../../economy/economyDb.js';
 import { ITEM_CATEGORIES, getItemDefinition } from '../../inventory/inventoryConfig.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
+import type { InventoryItem, SellError } from '../../inventory/inventoryDb.js';
+import type { ItemCategory } from '../../inventory/inventoryConfig.js';
+
+// ============================================================
+// Type Definitions
+// ============================================================
+
+interface InventoryEmbedResult {
+  readonly embed: EmbedBuilder;
+  readonly sellableItems: InventoryItem[];
+}
+
+// ============================================================
+// Helper Functions
+// ============================================================
 
 /**
  * Build the inventory embed (shared between view and refresh)
- * @param {string} username - User's display name
- * @param {array} inventory - Array of inventory items
- * @returns {{embed: EmbedBuilder, sellableItems: array}}
  */
-function buildInventoryEmbed(username, inventory) {
+function buildInventoryEmbed(username: string, inventory: InventoryItem[]): InventoryEmbedResult {
   const embed = new EmbedBuilder()
     .setColor(0x3498db)
     .setTitle(`📦 ${username}'s Inventory`)
@@ -31,7 +45,7 @@ function buildInventoryEmbed(username, inventory) {
   }
 
   // Group items by category
-  const itemsByCategory = {};
+  const itemsByCategory: Record<string, string[]> = {};
 
   for (const item of inventory) {
     const def = getItemDefinition(item.item_type);
@@ -52,13 +66,13 @@ function buildInventoryEmbed(username, inventory) {
 
   // Sort categories by order and add fields
   const sortedCategories = Object.keys(itemsByCategory).sort((a, b) => {
-    const orderA = ITEM_CATEGORIES[a]?.order || 99;
-    const orderB = ITEM_CATEGORIES[b]?.order || 99;
+    const orderA = ITEM_CATEGORIES[a as ItemCategory]?.order ?? 99;
+    const orderB = ITEM_CATEGORIES[b as ItemCategory]?.order ?? 99;
     return orderA - orderB;
   });
 
   for (const category of sortedCategories) {
-    const categoryInfo = ITEM_CATEGORIES[category];
+    const categoryInfo = ITEM_CATEGORIES[category as ItemCategory];
     const categoryName = categoryInfo
       ? `${categoryInfo.emoji} ${categoryInfo.displayName}`
       : category;
@@ -87,22 +101,22 @@ function buildInventoryEmbed(username, inventory) {
 
 /**
  * Build sell buttons for sellable items
- * @param {array} sellableItems - Array of sellable inventory items
- * @returns {array} - Array of ActionRowBuilder components
  */
-function buildSellButtons(sellableItems) {
+function buildSellButtons(
+  sellableItems: InventoryItem[]
+): ActionRowBuilder<ButtonBuilder>[] {
   if (sellableItems.length === 0) return [];
 
   const buttons = sellableItems.slice(0, 5).map((item) => {
     const def = getItemDefinition(item.item_type);
     return new ButtonBuilder()
       .setCustomId(`inv_sell_${item.item_type}`)
-      .setLabel(`Sell ${def.displayName}`)
+      .setLabel(`Sell ${def?.displayName ?? item.item_type}`)
       .setEmoji('💰')
       .setStyle(ButtonStyle.Success);
   });
 
-  return [new ActionRowBuilder().addComponents(buttons)];
+  return [new ActionRowBuilder<ButtonBuilder>().addComponents(buttons)];
 }
 
 export const data = new SlashCommandBuilder()
@@ -125,11 +139,14 @@ export const data = new SlashCommandBuilder()
       )
   );
 
+// ============================================================
+// Command Execution
+// ============================================================
+
 /**
  * Execute the inventory command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === 'view') {
@@ -141,9 +158,8 @@ export async function execute(interaction) {
 
 /**
  * Handle /inventory view subcommand
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleView(interaction) {
+async function handleView(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -178,11 +194,12 @@ async function handleView(interaction) {
         const result = await inventoryDb.sellItem(userId, itemType, 1);
 
         if (!result.success) {
-          const errorMessages = {
+          const errorMessages: Record<SellError, string> = {
             NOT_SELLABLE: 'This item cannot be sold!',
             INSUFFICIENT_QUANTITY: "You don't have any of this item to sell!",
             REMOVE_FAILED: 'Failed to remove item from inventory.',
             WALLET_UPDATE_FAILED: 'Failed to add coins to your wallet.',
+            INVALID_QUANTITY: 'Invalid quantity specified.',
           };
 
           await buttonInteraction.reply({
@@ -193,13 +210,15 @@ async function handleView(interaction) {
         }
 
         const def = getItemDefinition(itemType);
+        const displayName = def?.displayName ?? itemType;
+        const emoji = def?.emoji ?? '📦';
 
         // Create success embed
         const saleEmbed = new EmbedBuilder()
           .setColor(0x2ecc71)
           .setTitle('💰 Sale Successful!')
           .setDescription(
-            `Sold **1x ${def.emoji} ${def.displayName}** for ${formatCurrency(result.earnings)}!`
+            `Sold **1x ${emoji} ${displayName}** for ${formatCurrency(result.earnings)}!`
           )
           .addFields({
             name: 'New Balance',
@@ -226,26 +245,26 @@ async function handleView(interaction) {
         await interaction.editReply({ components: [] }).catch(() => {});
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('inventory view error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }
 
 /**
  * Handle /inventory sell subcommand
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleSell(interaction) {
+async function handleSell(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const itemType = interaction.options.getString('item');
-    const quantity = interaction.options.getInteger('quantity') || 1;
+    const itemType = interaction.options.getString('item', true);
+    const quantity = interaction.options.getInteger('quantity') ?? 1;
 
     // Ensure user exists
     await economyDb.getOrCreateUser(userId, username);
@@ -279,7 +298,7 @@ async function handleSell(interaction) {
     const result = await inventoryDb.sellItem(userId, itemType, quantity);
 
     if (!result.success) {
-      const errorMessages = {
+      const errorMessages: Record<SellError, string> = {
         NOT_SELLABLE: 'This item cannot be sold!',
         INSUFFICIENT_QUANTITY: "You don't have enough of this item!",
         REMOVE_FAILED: 'Failed to remove item from inventory.',
@@ -320,19 +339,19 @@ async function handleSell(interaction) {
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('inventory sell error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${message}`,
     });
   }
 }
 
 /**
  * Autocomplete handler for item selection
- * @param {import('discord.js').AutocompleteInteraction} interaction
  */
-export async function autocomplete(interaction) {
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   try {
     const focusedOption = interaction.options.getFocused(true);
 
@@ -356,9 +375,11 @@ export async function autocomplete(interaction) {
         })
         .map((item) => {
           const def = getItemDefinition(item.item_type);
-          const value = item.item_value || def.baseValue;
+          const value = item.item_value ?? def?.baseValue ?? 0;
+          const displayName = def?.displayName ?? item.item_type;
+          const emoji = def?.emoji ?? '📦';
           return {
-            name: `${def.emoji} ${def.displayName} x${item.quantity} (${formatCurrency(value)} each)`,
+            name: `${emoji} ${displayName} x${item.quantity} (${formatCurrency(value)} each)`,
             value: item.item_type,
           };
         })
@@ -366,7 +387,7 @@ export async function autocomplete(interaction) {
 
       await interaction.respond(choices);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('inventory autocomplete error:', error);
     await interaction.respond([]);
   }
