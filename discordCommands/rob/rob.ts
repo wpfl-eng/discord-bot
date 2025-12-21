@@ -136,10 +136,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const isSuccess: boolean = Math.random() < CONFIG.ROB_SUCCESS_RATE;
 
     if (isSuccess) {
-      // Calculate stolen amount (10-30% of target's wallet)
-      const stealPercent: number =
-        CONFIG.ROB_MIN_PERCENT + Math.random() * (CONFIG.ROB_MAX_PERCENT - CONFIG.ROB_MIN_PERCENT);
-      const stolenAmount: number = Math.floor(targetData.wallet * stealPercent);
+      // Flat 100 coins stolen on successful rob
+      const stolenAmount: number = 100;
 
       // Transfer money atomically
       const { from: updatedVictim, to: updatedAttacker }: TransferResult = await economyDb.transferBetweenUsers(
