@@ -43,6 +43,12 @@ export interface EconomyConfig {
   readonly REDZONE_YARD_GAIN_MIN: number;
   readonly REDZONE_YARD_GAIN_MAX: number;
 
+  // Video Poker
+  readonly VIDEO_POKER_MIN: number;
+  readonly VIDEO_POKER_MAX: number;
+  readonly VIDEO_POKER_COOLDOWN_SECONDS: number;
+  readonly VIDEO_POKER_TIMEOUT_SECONDS: number;
+
   // Rob
   readonly ROB_SUCCESS_RATE: number;
   readonly ROB_MIN_PERCENT: number;
@@ -138,6 +144,12 @@ export const CONFIG: EconomyConfig = {
   REDZONE_TIMEOUT_SECONDS: 120,
   REDZONE_YARD_GAIN_MIN: 5,
   REDZONE_YARD_GAIN_MAX: 20,
+
+  // Video Poker
+  VIDEO_POKER_MIN: 10,
+  VIDEO_POKER_MAX: 10000,
+  VIDEO_POKER_COOLDOWN_SECONDS: 5,
+  VIDEO_POKER_TIMEOUT_SECONDS: 120,
 
   // Rob
   ROB_SUCCESS_RATE: 0.4,

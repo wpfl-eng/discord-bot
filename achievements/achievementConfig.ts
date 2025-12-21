@@ -10,7 +10,9 @@ export type AchievementKey =
   | 'WORDLE_10_SOLVES'
   | 'ORACLE'
   | 'FORTUNE_TELLER'
-  | 'WHALE';
+  | 'WHALE'
+  | 'VIDEO_POKER_ROYAL'
+  | 'VIDEO_POKER_STREAK';
 
 export type ActionType =
   | 'ROB_SUCCESS'
@@ -29,7 +31,10 @@ export type ActionType =
   | 'WORDLE_FIRST_SOLVE'
   | 'PREDICTION_WIN'
   | 'PREDICTION_LOSE'
-  | 'PREDICTION_PLACE';
+  | 'PREDICTION_PLACE'
+  | 'VIDEO_POKER_WIN'
+  | 'VIDEO_POKER_LOSE'
+  | 'VIDEO_POKER_ROYAL_FLUSH';
 
 export interface Achievement {
   readonly name: string;
@@ -78,6 +83,16 @@ export const ACHIEVEMENTS: Record<AchievementKey, Achievement> = {
     description: 'Win a prediction payout of 5,000+ coins',
     rewardValue: 500,
   },
+  VIDEO_POKER_ROYAL: {
+    name: 'Royal Treatment',
+    description: 'Hit a Royal Flush in Video Poker',
+    rewardValue: 5000,
+  },
+  VIDEO_POKER_STREAK: {
+    name: 'Hot Hand',
+    description: 'Win 5 Video Poker hands in a row',
+    rewardValue: 500,
+  },
 } as const;
 
 /**
@@ -101,6 +116,9 @@ export const ACTION_TYPES: Record<ActionType, ActionType> = {
   PREDICTION_WIN: 'PREDICTION_WIN',
   PREDICTION_LOSE: 'PREDICTION_LOSE',
   PREDICTION_PLACE: 'PREDICTION_PLACE',
+  VIDEO_POKER_WIN: 'VIDEO_POKER_WIN',
+  VIDEO_POKER_LOSE: 'VIDEO_POKER_LOSE',
+  VIDEO_POKER_ROYAL_FLUSH: 'VIDEO_POKER_ROYAL_FLUSH',
 } as const;
 
 // ============ HELPER FUNCTIONS ============
