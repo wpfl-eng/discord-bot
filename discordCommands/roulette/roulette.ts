@@ -47,9 +47,9 @@ export const data = new SlashCommandBuilder()
 // ============ AUTOCOMPLETE ============
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
-  const focused = interaction.options.getFocused().toLowerCase();
+  const focused: string = interaction.options.getFocused().toLowerCase();
 
-  const filtered = ALL_BET_TYPES.filter((t) => t.toLowerCase().startsWith(focused)).slice(0, 25);
+  const filtered: string[] = ALL_BET_TYPES.filter((t) => t.toLowerCase().startsWith(focused)).slice(0, 25);
 
   await interaction.respond(
     filtered.map((t) => ({
@@ -62,7 +62,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 // ============ EXECUTE ============
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  const subcommand = interaction.options.getSubcommand();
+  const subcommand: string = interaction.options.getSubcommand();
 
   if (subcommand === 'bet') {
     await handleBet(interaction);
@@ -72,13 +72,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 async function handleBet(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const userId = interaction.user.id;
-  const username = interaction.user.username;
-  const amount = interaction.options.getInteger('amount', true);
-  const betType = interaction.options.getString('type', true).toLowerCase();
+  const userId: string = interaction.user.id;
+  const username: string = interaction.user.username;
+  const amount: number = interaction.options.getInteger('amount', true);
+  const betType: string = interaction.options.getString('type', true).toLowerCase();
 
   // Check if in roulette channel
-  const rouletteChannelId = rouletteState.getRouletteChannelId();
+  const rouletteChannelId: string | undefined = rouletteState.getRouletteChannelId();
   if (!rouletteChannelId) {
     await interaction.editReply({
       content: 'Roulette is not configured. Contact an admin.',
@@ -129,7 +129,13 @@ async function handleBet(interaction: ChatInputCommandInteraction): Promise<void
 
   // Start round if needed
   if (!rouletteState.hasActiveRound()) {
-    const channel = interaction.channel as TextChannel;
+    if (!interaction.channel) {
+      await interaction.editReply({
+        content: 'This command must be used in a text channel.',
+      });
+      return;
+    }
+    const channel: TextChannel = interaction.channel as TextChannel;
     await rouletteState.startRound(interaction.client, channel);
   }
 
@@ -143,10 +149,10 @@ async function handleBet(interaction: ChatInputCommandInteraction): Promise<void
   });
 
   // Build confirmation with user's full bet slate
-  const userBets = rouletteState.getUserBets(userId);
-  const totalBet = userBets.reduce((sum, b) => sum + b.amount, 0);
+  const userBets: rouletteState.RouletteBet[] = rouletteState.getUserBets(userId);
+  const totalBet: number = userBets.reduce((sum, b) => sum + b.amount, 0);
 
-  const betLines = userBets.map((b) => `• ${formatAmount(b.amount)} on ${getBetDisplay(b.betType)}`);
+  const betLines: string[] = userBets.map((b) => `• ${formatAmount(b.amount)} on ${getBetDisplay(b.betType)}`);
 
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)
