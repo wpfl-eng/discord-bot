@@ -26,6 +26,9 @@ import * as blackjackDb from '../../blackjack/blackjackDb.js';
 import type { BlackjackStats } from '../../blackjack/blackjackDb.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
+import * as nflmonService from '../../nflmon/nflmonService.js';
+import type { XpResult } from '../../nflmon/nflmonService.js';
+import { getEvolutionEmoji } from '../../nflmon/nflmonConfig.js';
 
 // ============================================================
 // Type Definitions
@@ -311,6 +314,17 @@ async function resolveGame(
     }).catch((err) => console.error('Failed to check achievements:', err));
   }
 
+  // Award NFLmon XP for wins (non-blocking)
+  let xpResult: XpResult | null = null;
+  if (isWin) {
+    try {
+      const xpSource: string = isBlackjack ? 'blackjack_natural' : 'blackjack_win';
+      xpResult = await nflmonService.addXpToTraining(userId, xpSource);
+    } catch (err) {
+      console.error('[BLACKJACK] XP award failed:', err);
+    }
+  }
+
   const embed = createGameEmbed(game, outcome, color, false);
 
   // Update fields with payout info
@@ -324,6 +338,27 @@ async function resolveGame(
     },
     { name: 'Balance', value: formatCurrency(updatedUser?.wallet ?? 0), inline: true }
   );
+
+  // Add NFLmon Training field if XP was earned
+  if (xpResult && xpResult.results.length > 0) {
+    const xpLines: string[] = xpResult.results.map((result) => {
+      const name: string = result.player?.name || 'Unknown';
+      const emoji: string = getEvolutionEmoji(result.nflmon.evolution_stage);
+      let line = `${emoji} ${name} Lv.${result.nflmon.level}`;
+      if (result.levelsGained > 0) {
+        line += ` (+${result.levelsGained} level${result.levelsGained > 1 ? 's' : ''}!)`;
+      }
+      if (result.evolved && result.newStage) {
+        line += ` Evolved to ${result.newStage.name}!`;
+      }
+      return line;
+    });
+    embed.addFields({
+      name: `NFLmon Training: +${xpResult.xpAmount} XP`,
+      value: xpLines.join('\n'),
+      inline: false,
+    });
+  }
 
   // Build footer with outcome and streak
   let footerText: string = outcome;
