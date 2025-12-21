@@ -6,7 +6,7 @@
 export type RarityId = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type EvolutionStageId = 'rookie' | 'pro' | 'all_pro' | 'hall_of_famer';
 export type PositionId = 'QB' | 'RB' | 'WR' | 'TE' | 'K' | 'OL' | 'DL' | 'LB' | 'CB' | 'S';
-export type XpSourceId = 'wordle_win' | 'wordle_first' | 'trivia_correct' | 'blackjack_win';
+export type XpSourceId = 'wordle_win' | 'wordle_first' | 'trivia_correct' | 'blackjack_win' | 'roulette_win';
 export type AcquisitionSource = 'wordle' | 'trivia' | 'shop' | 'trade';
 export type ShopPackId = 'starter_pack' | 'pro_pack' | 'elite_pack';
 
@@ -169,6 +169,7 @@ export const XP_SOURCES: Record<XpSourceId, XpRange> = {
   wordle_first: { min: 25, max: 35 },
   trivia_correct: { min: 5, max: 15 },
   blackjack_win: { min: 3, max: 8 },
+  roulette_win: { min: 3, max: 8 },
 } as const;
 
 // ============ DROP CONFIG ============
