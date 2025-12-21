@@ -9,6 +9,7 @@ import {
 import { CHANNELS, formatCurrency } from '../economy/economyConfig.js';
 import * as economyDb from '../economy/economyDb.js';
 import * as wordleDb from '../wordle/wordleDb.js';
+import * as polymarketDb from '../polymarket/polymarketDb.js';
 
 // ============ Type Definitions ============
 
@@ -36,6 +37,7 @@ const ACTION_TO_ACHIEVEMENTS: ActionToAchievements = {
   [ACTION_TYPES.ROB_SUCCESS]: ['THIEF'],
   [ACTION_TYPES.WORDLE_SOLVE]: ['WORDLE_5_SOLVES', 'WORDLE_10_SOLVES'],
   [ACTION_TYPES.WORDLE_FIRST_SOLVE]: ['WORDLE_FIRST_SOLVE'],
+  [ACTION_TYPES.PREDICTION_WIN]: ['ORACLE', 'FORTUNE_TELLER', 'WHALE'],
 };
 
 // ============ Public Functions ============
@@ -121,6 +123,23 @@ async function checkAchievementCriteria(
       // Check if user has solved 10 or more Wordle puzzles
       const stats10 = await wordleDb.getUserStats(metadata.userId);
       return stats10 !== null && stats10.games_won >= 10;
+    }
+
+    case 'ORACLE': {
+      // Granted on first prediction win
+      const wonCount = await polymarketDb.countWonBets(metadata.userId);
+      return wonCount === 1; // Just won their first
+    }
+
+    case 'FORTUNE_TELLER': {
+      // Granted on 10th prediction win
+      const wonCount10 = await polymarketDb.countWonBets(metadata.userId);
+      return wonCount10 >= 10;
+    }
+
+    case 'WHALE': {
+      // Granted when winning a payout of 5000+ coins
+      return metadata.amount !== undefined && metadata.amount >= 5000;
     }
 
     default:

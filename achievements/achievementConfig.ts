@@ -3,7 +3,14 @@
 
 // ============ TYPE DEFINITIONS ============
 
-export type AchievementKey = 'THIEF' | 'WORDLE_FIRST_SOLVE' | 'WORDLE_5_SOLVES' | 'WORDLE_10_SOLVES';
+export type AchievementKey =
+  | 'THIEF'
+  | 'WORDLE_FIRST_SOLVE'
+  | 'WORDLE_5_SOLVES'
+  | 'WORDLE_10_SOLVES'
+  | 'ORACLE'
+  | 'FORTUNE_TELLER'
+  | 'WHALE';
 
 export type ActionType =
   | 'ROB_SUCCESS'
@@ -19,7 +26,10 @@ export type ActionType =
   | 'REDZONE_WIN'
   | 'REDZONE_LOSE'
   | 'WORDLE_SOLVE'
-  | 'WORDLE_FIRST_SOLVE';
+  | 'WORDLE_FIRST_SOLVE'
+  | 'PREDICTION_WIN'
+  | 'PREDICTION_LOSE'
+  | 'PREDICTION_PLACE';
 
 export interface Achievement {
   readonly name: string;
@@ -53,6 +63,21 @@ export const ACHIEVEMENTS: Record<AchievementKey, Achievement> = {
     description: 'Successfully solve 10 Wordle puzzles',
     rewardValue: 1000,
   },
+  ORACLE: {
+    name: '🔮 Oracle',
+    description: 'Win your first prediction market bet',
+    rewardValue: 250,
+  },
+  FORTUNE_TELLER: {
+    name: '🎱 Fortune Teller',
+    description: 'Win 10 prediction market bets',
+    rewardValue: 1000,
+  },
+  WHALE: {
+    name: '🐋 Whale',
+    description: 'Win a prediction payout of 5,000+ coins',
+    rewardValue: 500,
+  },
 } as const;
 
 /**
@@ -73,6 +98,9 @@ export const ACTION_TYPES: Record<ActionType, ActionType> = {
   REDZONE_LOSE: 'REDZONE_LOSE',
   WORDLE_SOLVE: 'WORDLE_SOLVE',
   WORDLE_FIRST_SOLVE: 'WORDLE_FIRST_SOLVE',
+  PREDICTION_WIN: 'PREDICTION_WIN',
+  PREDICTION_LOSE: 'PREDICTION_LOSE',
+  PREDICTION_PLACE: 'PREDICTION_PLACE',
 } as const;
 
 // ============ HELPER FUNCTIONS ============
