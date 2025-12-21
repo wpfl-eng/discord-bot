@@ -1,7 +1,21 @@
 // Wordle Discord Command
 // Play Wordle! Guess the 5-letter word.
 
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
+import {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ChatInputCommandInteraction,
+  Client,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ComponentType,
+  ButtonInteraction,
+  ModalSubmitInteraction,
+} from 'discord.js';
 import * as wordleDb from '../../wordle/wordleDb.js';
 import {
   renderBoard,
@@ -23,10 +37,7 @@ import type { RollResult, XpResult } from '../../nflmon/nflmonService.js';
 
 export const data = new SlashCommandBuilder()
   .setName('wordle')
-  .setDescription('Play Wordle! Guess the 5-letter word.')
-  .addStringOption((option) =>
-    option.setName('guess').setDescription('Your 5-letter guess').setMinLength(5).setMaxLength(5)
-  );
+  .setDescription('Play Wordle! Guess the 5-letter word.');
 
 /**
  * Create the main game embed showing the board
@@ -206,6 +217,177 @@ async function announceFirstSolver(
 }
 
 /**
+ * Create the "Make Guess" button component
+ */
+function createGuessButton(disabled: boolean = false): ActionRowBuilder<ButtonBuilder> {
+  const button = new ButtonBuilder()
+    .setCustomId('wordle_guess')
+    .setLabel('Make Guess')
+    .setEmoji('📝')
+    .setStyle(ButtonStyle.Primary)
+    .setDisabled(disabled);
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+}
+
+/**
+ * Create the modal for guess input
+ */
+function createGuessModal(wordNumber: number): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId('wordle_guess_modal')
+    .setTitle(`Wordle #${wordNumber} - Enter Guess`);
+
+  const guessInput = new TextInputBuilder()
+    .setCustomId('wordle_guess_input')
+    .setLabel('Your 5-letter guess')
+    .setStyle(TextInputStyle.Short)
+    .setMinLength(5)
+    .setMaxLength(5)
+    .setPlaceholder('Enter a 5-letter word')
+    .setRequired(true);
+
+  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(guessInput);
+  modal.addComponents(row);
+
+  return modal;
+}
+
+/**
+ * Process a guess and handle win/loss/continue states
+ */
+async function processGuess(
+  interaction: ChatInputCommandInteraction,
+  game: WordleUserGame,
+  currentWord: WordleWord,
+  guess: string,
+  userId: string,
+  username: string
+): Promise<{ updatedGame: WordleUserGame; isOver: boolean; won: boolean; embed: EmbedBuilder }> {
+  const answer = currentWord.current_word;
+
+  // Add the guess
+  const updatedGame = await wordleDb.addGuess(game.id, guess, game.guesses || []);
+  const guesses = updatedGame.guesses;
+
+  // Check game state
+  const { isOver, won } = checkGameState(guesses, answer);
+
+  if (won) {
+    // Mark word as solved and check if first solver
+    const wordResult = await wordleDb.markWordSolved(currentWord.id, userId, username);
+    const isFirstSolver = wordResult.is_first_solver;
+
+    // Calculate and award reward
+    const reward = calculateReward(isFirstSolver);
+    await economyDb.addToWallet(userId, reward);
+
+    // Award item if first solver
+    if (isFirstSolver) {
+      await inventoryDb.addItem(userId, REWARDS.FIRST_SOLVER_ITEM, 1);
+    }
+
+    // === NFLmon Integration ===
+    let nflmonDropped: RollResult | null = null;
+    let xpResult: XpResult | null = null;
+
+    // Determine drop chance (100% for first solver, 20% for regular wins)
+    const dropChance = isFirstSolver
+      ? DROP_CONFIG.WORDLE_FIRST_CHANCE
+      : DROP_CONFIG.WORDLE_WIN_CHANCE;
+
+    // Roll for NFLmon drop
+    if (Math.random() < dropChance) {
+      nflmonDropped = await nflmonService.rollForNflmon(userId, username, 'wordle');
+    }
+
+    // Award XP to training NFLmon
+    const xpSource = isFirstSolver ? 'wordle_first' : 'wordle_win';
+    xpResult = await nflmonService.addXpToTraining(userId, xpSource);
+
+    // Record game result and complete game
+    await wordleDb.recordGameResult({
+      userId,
+      username,
+      won: true,
+      guessCount: guesses.length,
+      wasFirstSolver: isFirstSolver,
+    });
+    await wordleDb.completeGame(updatedGame.id, true);
+
+    // Check for achievements (non-blocking)
+    checkForAchievements({
+      actionType: ACTION_TYPES.WORDLE_SOLVE,
+      userId,
+      username,
+      client: interaction.client,
+    }).catch((err) => console.error('Failed to check wordle achievements:', err));
+
+    if (isFirstSolver) {
+      checkForAchievements({
+        actionType: ACTION_TYPES.WORDLE_FIRST_SOLVE,
+        userId,
+        username,
+        client: interaction.client,
+      }).catch((err) => console.error('Failed to check first solve achievement:', err));
+
+      // Announce first solver
+      announceFirstSolver(interaction.client, userId, currentWord, guesses.length).catch((err) =>
+        console.error('Failed to announce first solver:', err)
+      );
+    }
+
+    const embed = createWinEmbed(updatedGame, currentWord, reward, isFirstSolver);
+
+    // Add NFLmon info to embed
+    if (nflmonDropped) {
+      const rarityName = nflmonDropped.rarity?.name ?? 'Unknown';
+      embed.addFields({
+        name: 'NFLmon Caught!',
+        value: `You caught **${nflmonDropped.player.name}** (${rarityName})!\nUse \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`,
+      });
+    }
+
+    if (xpResult && xpResult.results.length > 0) {
+      const xpLines = xpResult.results.map((r) => {
+        let line = `${r.player?.name || 'Unknown'} +${xpResult.xpAmount} XP`;
+        if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
+        if (r.evolved) line += ` EVOLVED!`;
+        return line;
+      });
+      embed.addFields({
+        name: 'Training XP',
+        value: xpLines.join('\n'),
+      });
+    }
+
+    return { updatedGame, isOver: true, won: true, embed };
+  }
+
+  if (isOver) {
+    // Loss - out of guesses
+    await wordleDb.recordGameResult({
+      userId,
+      username,
+      won: false,
+      guessCount: guesses.length,
+      wasFirstSolver: false,
+    });
+    await wordleDb.completeGame(updatedGame.id, false);
+
+    const embed = createLossEmbed(updatedGame, currentWord);
+    return { updatedGame, isOver: true, won: false, embed };
+  }
+
+  // Game continues
+  const remaining = CONFIG.MAX_GUESSES - guesses.length;
+  const footer = `${remaining} guess${remaining === 1 ? '' : 'es'} remaining. Click the button to guess!`;
+
+  const embed = createGameEmbed(updatedGame, currentWord, footer, COLORS.PLAYING);
+  return { updatedGame, isOver: false, won: false, embed };
+}
+
+/**
  * Execute the wordle command
  */
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -214,7 +396,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const guess = interaction.options.getString('guess')?.toLowerCase();
 
     // Ensure user exists in economy system
     await economyDb.getOrCreateUser(userId, username);
@@ -242,164 +423,155 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    // Handle already completed game
+    // Handle already completed game - no button needed
     if (game.completed) {
       const embed = createAlreadyPlayedEmbed(game, currentWord);
       await interaction.editReply({ embeds: [embed] });
       return;
     }
 
-    // Handle no guess provided - show current state
-    if (!guess) {
-      const guesses = game.guesses || [];
-      const footer =
-        guesses.length === 0
-          ? 'Use /wordle guess:<word> to make your first guess!'
-          : `Use /wordle guess:<word> to continue. ${CONFIG.MAX_GUESSES - guesses.length} guesses remaining.`;
-
-      const embed = createGameEmbed(game, currentWord, footer, COLORS.PLAYING);
-      await interaction.editReply({ embeds: [embed] });
-      return;
-    }
-
-    // Validate guess is a valid word
-    if (!isValidWord(guess)) {
-      await interaction.editReply({
-        content: `"${guess.toUpperCase()}" is not in the word list. Try a different word!`,
-      });
-      return;
-    }
-
-    // Check for duplicate guess
-    const existingGuesses = game.guesses || [];
-    if (existingGuesses.includes(guess)) {
-      await interaction.editReply({
-        content: `You already guessed "${guess.toUpperCase()}". Try a different word!`,
-      });
-      return;
-    }
-
-    // Add the guess
-    const updatedGame = await wordleDb.addGuess(game.id, guess, existingGuesses);
-    const guesses = updatedGame.guesses;
-
-    // Check game state
-    const { isOver, won } = checkGameState(guesses, answer);
-
-    if (won) {
-      // Mark word as solved and check if first solver
-      const wordResult = await wordleDb.markWordSolved(currentWord.id, userId, username);
-      const isFirstSolver = wordResult.is_first_solver;
-
-      // Calculate and award reward
-      const reward = calculateReward(isFirstSolver);
-      await economyDb.addToWallet(userId, reward);
-
-      // Award item if first solver
-      if (isFirstSolver) {
-        await inventoryDb.addItem(userId, REWARDS.FIRST_SOLVER_ITEM, 1);
-      }
-
-      // === NFLmon Integration ===
-      let nflmonDropped: RollResult | null = null;
-      let xpResult: XpResult | null = null;
-
-      // Determine drop chance (100% for first solver, 20% for regular wins)
-      const dropChance = isFirstSolver
-        ? DROP_CONFIG.WORDLE_FIRST_CHANCE
-        : DROP_CONFIG.WORDLE_WIN_CHANCE;
-
-      // Roll for NFLmon drop
-      if (Math.random() < dropChance) {
-        nflmonDropped = await nflmonService.rollForNflmon(userId, username, 'wordle');
-      }
-
-      // Award XP to training NFLmon
-      const xpSource = isFirstSolver ? 'wordle_first' : 'wordle_win';
-      xpResult = await nflmonService.addXpToTraining(userId, xpSource);
-
-      // Record game result and complete game
-      await wordleDb.recordGameResult({
-        userId,
-        username,
-        won: true,
-        guessCount: guesses.length,
-        wasFirstSolver: isFirstSolver,
-      });
-      await wordleDb.completeGame(updatedGame.id, true);
-
-      // Check for achievements (non-blocking)
-      checkForAchievements({
-        actionType: ACTION_TYPES.WORDLE_SOLVE,
-        userId,
-        username,
-        client: interaction.client,
-      }).catch((err) => console.error('Failed to check wordle achievements:', err));
-
-      if (isFirstSolver) {
-        checkForAchievements({
-          actionType: ACTION_TYPES.WORDLE_FIRST_SOLVE,
-          userId,
-          username,
-          client: interaction.client,
-        }).catch((err) => console.error('Failed to check first solve achievement:', err));
-
-        // Announce first solver
-        announceFirstSolver(interaction.client, userId, currentWord, guesses.length).catch((err) =>
-          console.error('Failed to announce first solver:', err)
-        );
-      }
-
-      const embed = createWinEmbed(updatedGame, currentWord, reward, isFirstSolver);
-
-      // Add NFLmon info to embed
-      if (nflmonDropped) {
-        const rarityName = nflmonDropped.rarity?.name ?? 'Unknown';
-        embed.addFields({
-          name: 'NFLmon Caught!',
-          value: `You caught **${nflmonDropped.player.name}** (${rarityName})!\nUse \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`,
-        });
-      }
-
-      if (xpResult && xpResult.results.length > 0) {
-        const xpLines = xpResult.results.map((r) => {
-          let line = `${r.player?.name || 'Unknown'} +${xpResult.xpAmount} XP`;
-          if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
-          if (r.evolved) line += ` EVOLVED!`;
-          return line;
-        });
-        embed.addFields({
-          name: 'Training XP',
-          value: xpLines.join('\n'),
-        });
-      }
-
-      await interaction.editReply({ embeds: [embed] });
-      return;
-    }
-
-    if (isOver) {
-      // Loss - out of guesses
-      await wordleDb.recordGameResult({
-        userId,
-        username,
-        won: false,
-        guessCount: guesses.length,
-        wasFirstSolver: false,
-      });
-      await wordleDb.completeGame(updatedGame.id, false);
-
-      const embed = createLossEmbed(updatedGame, currentWord);
-      await interaction.editReply({ embeds: [embed] });
-      return;
-    }
-
-    // Game continues
+    // Show current state with "Make Guess" button
+    const guesses = game.guesses || [];
     const remaining = CONFIG.MAX_GUESSES - guesses.length;
-    const footer = `${remaining} guess${remaining === 1 ? '' : 'es'} remaining. Use /wordle guess:<word>`;
+    const footer =
+      guesses.length === 0
+        ? 'Click the button below to make your first guess!'
+        : `${remaining} guess${remaining === 1 ? '' : 'es'} remaining. Click the button to guess!`;
 
-    const embed = createGameEmbed(updatedGame, currentWord, footer, COLORS.PLAYING);
-    await interaction.editReply({ embeds: [embed] });
+    const embed = createGameEmbed(game, currentWord, footer, COLORS.PLAYING);
+    const response = await interaction.editReply({
+      embeds: [embed],
+      components: [createGuessButton(false)],
+    });
+
+    // Create collector for button clicks (5 minute timeout)
+    const collector = response.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 300000, // 5 minutes
+      filter: (i: ButtonInteraction) => i.user.id === userId && i.customId === 'wordle_guess',
+    });
+
+    collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
+      try {
+        // Re-fetch game state in case it was modified elsewhere
+        const freshGame = await wordleDb.getUserGame(userId, answer);
+        if (!freshGame || freshGame.completed) {
+          await buttonInteraction.reply({
+            content: 'This game has already ended. Use `/wordle` to see your results or start a new game.',
+            ephemeral: true,
+          });
+          collector.stop('completed');
+          return;
+        }
+
+        // Show modal for guess input
+        const modal = createGuessModal(currentWord.word_number);
+        await buttonInteraction.showModal(modal);
+
+        try {
+          // Wait for modal submission (60 second timeout)
+          const modalInteraction = await buttonInteraction.awaitModalSubmit({
+            time: 60000,
+            filter: (mi: ModalSubmitInteraction) =>
+              mi.customId === 'wordle_guess_modal' && mi.user.id === userId,
+          });
+
+          await modalInteraction.deferUpdate();
+
+          const guess = modalInteraction.fields.getTextInputValue('wordle_guess_input').toLowerCase();
+
+          // Validate guess is a valid word
+          if (!isValidWord(guess)) {
+            await modalInteraction.followUp({
+              content: `"${guess.toUpperCase()}" is not in the word list. Try a different word!`,
+              ephemeral: true,
+            });
+            return;
+          }
+
+          // Re-fetch game state again before adding guess (most up-to-date state)
+          const gameBeforeGuess = await wordleDb.getUserGame(userId, answer);
+          if (!gameBeforeGuess || gameBeforeGuess.completed) {
+            await modalInteraction.followUp({
+              content: 'This game has already ended.',
+              ephemeral: true,
+            });
+            collector.stop('completed');
+            return;
+          }
+
+          // Check for duplicate guess
+          const existingGuesses = gameBeforeGuess.guesses || [];
+          if (existingGuesses.includes(guess)) {
+            await modalInteraction.followUp({
+              content: `You already guessed "${guess.toUpperCase()}". Try a different word!`,
+              ephemeral: true,
+            });
+            return;
+          }
+
+          // Process the guess
+          const result = await processGuess(
+            interaction,
+            gameBeforeGuess,
+            currentWord,
+            guess,
+            userId,
+            username
+          );
+
+          // Update the original message
+          if (result.isOver) {
+            // Game over - remove button
+            await interaction.editReply({
+              embeds: [result.embed],
+              components: [],
+            });
+            collector.stop(result.won ? 'won' : 'lost');
+          } else {
+            // Game continues - keep button
+            await interaction.editReply({
+              embeds: [result.embed],
+              components: [createGuessButton(false)],
+            });
+          }
+        } catch {
+          // Modal was dismissed or timed out - silently continue
+          // User can click the button again
+        }
+      } catch (error) {
+        console.error('Error handling wordle button interaction:', error);
+        try {
+          await buttonInteraction.reply({
+            content: 'An error occurred. Please try again.',
+            ephemeral: true,
+          });
+        } catch {
+          // Interaction may have already been acknowledged
+        }
+      }
+    });
+
+    collector.on('end', async (_collected, reason) => {
+      if (reason === 'time') {
+        // Session timed out - show message and disable button
+        try {
+          const expiredEmbed = createGameEmbed(
+            game,
+            currentWord,
+            'Session expired - use /wordle to continue your game.',
+            COLORS.PLAYING
+          );
+          await interaction.editReply({
+            embeds: [expiredEmbed],
+            components: [createGuessButton(true)],
+          });
+        } catch {
+          // Message may have been deleted
+        }
+      }
+      // 'won', 'lost', and 'completed' reasons already handled
+    });
   } catch (error: unknown) {
     console.error('Wordle command error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
