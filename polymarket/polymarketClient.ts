@@ -138,6 +138,18 @@ export async function getTagIdForCategory(categorySlug: string): Promise<number 
 // ============ Market Operations ============
 
 /**
+ * Check if a market has valid structure for transformation
+ */
+function isValidMarket(market: PolymarketMarket): boolean {
+  return (
+    Array.isArray(market.outcomes) &&
+    Array.isArray(market.outcomePrices) &&
+    Array.isArray(market.clobTokenIds) &&
+    market.outcomes.length > 0
+  );
+}
+
+/**
  * Transform API market to display format
  */
 function transformMarket(market: PolymarketMarket): MarketDisplay {
@@ -182,7 +194,7 @@ export async function getMarketsByTag(
 
     const markets = (await response.json()) as PolymarketMarket[];
     console.log(`[Polymarket] Found ${markets.length} markets for tag_id=${tagId}`);
-    return markets.map(transformMarket);
+    return markets.filter(isValidMarket).map(transformMarket);
   } catch (error) {
     console.error('[Polymarket] Error fetching markets by tag:', error);
     return [];
@@ -205,7 +217,7 @@ export async function getPopularMarkets(
     }
 
     const markets = (await response.json()) as PolymarketMarket[];
-    return markets.map(transformMarket);
+    return markets.filter(isValidMarket).map(transformMarket);
   } catch (error) {
     console.error('Error fetching popular markets:', error);
     return [];
@@ -247,6 +259,10 @@ export async function getMarketBySlug(slug: string): Promise<MarketDisplay | nul
     }
 
     const market = (await response.json()) as PolymarketMarket;
+    if (!isValidMarket(market)) {
+      console.warn(`[Polymarket] Market ${slug} has invalid structure, skipping`);
+      return null;
+    }
     return transformMarket(market);
   } catch (error) {
     console.error('Error fetching market by slug:', error);
@@ -271,7 +287,7 @@ export async function getMarketsByIds(ids: string[]): Promise<MarketDisplay[]> {
     }
 
     const markets = (await response.json()) as PolymarketMarket[];
-    return markets.map(transformMarket);
+    return markets.filter(isValidMarket).map(transformMarket);
   } catch (error) {
     console.error('Error fetching markets by IDs:', error);
     return [];
