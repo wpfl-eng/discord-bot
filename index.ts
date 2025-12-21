@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -10,11 +10,14 @@ import {
   ActivityType,
   Partials,
   EmbedBuilder,
+  type ButtonInteraction,
+  type TextChannel,
 } from 'discord.js';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { TriviaService } from './trivia/triviaService.js';
 import { TrainingNotificationService } from './training/trainingNotificationService.js';
 import * as nflmonService from './nflmon/nflmonService.js';
+import { isValidCommandModule } from './types/commands.js';
 
 // Create a new client instance
 const client = new Client({
@@ -68,13 +71,13 @@ try {
 
   // Process command files in the root of discordCommands
   for (const file of commandFiles) {
-    if (file.endsWith('.js')) {
+    if (file.endsWith('.js') || file.endsWith('.ts')) {
       const filePath = path.join(foldersPath, file);
       const fileUrl = pathToFileURL(filePath).href;
-      const command = await import(fileUrl);
-      // Set a new item in the Collection with the key as the command name and the value as the exported module
-      if ('data' in command && 'execute' in command) {
-        client.commands.set(command.data.name, command);
+      const commandModule = await import(fileUrl);
+      // Validate before type assertion
+      if (isValidCommandModule(commandModule)) {
+        client.commands.set(commandModule.data.name, commandModule);
       } else {
         console.log(
           `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
@@ -86,15 +89,17 @@ try {
   // Process command files in subdirectories
   for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
-    const folderCommandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js') || file.endsWith('.ts'));
+    const folderCommandFiles = fs
+      .readdirSync(commandsPath)
+      .filter((file) => file.endsWith('.js') || file.endsWith('.ts'));
 
     for (const file of folderCommandFiles) {
       const filePath = path.join(commandsPath, file);
       const fileUrl = pathToFileURL(filePath).href;
-      const command = await import(fileUrl);
-      // Set a new item in the Collection with the key as the command name and the value as the exported module
-      if ('data' in command && 'execute' in command) {
-        client.commands.set(command.data.name, command);
+      const commandModule = await import(fileUrl);
+      // Validate before type assertion
+      if (isValidCommandModule(commandModule)) {
+        client.commands.set(commandModule.data.name, commandModule);
       } else {
         console.log(
           `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
@@ -110,9 +115,8 @@ client.login(process.env.DISCORD_TOKEN);
 
 /**
  * Handle NFLmon trade button interactions (accept/reject from DMs)
- * @param {import('discord.js').ButtonInteraction} interaction
  */
-async function handleNflmonTradeButton(interaction) {
+async function handleNflmonTradeButton(interaction: ButtonInteraction): Promise<void> {
   try {
     const [, , action, tradeIdStr] = interaction.customId.split('_');
     const tradeId = parseInt(tradeIdStr);
@@ -132,12 +136,13 @@ async function handleNflmonTradeButton(interaction) {
           const channelId = process.env.GENERAL_CHANNEL_ID;
           if (channelId) {
             const channel = await interaction.client.channels.fetch(channelId);
-            if (channel) {
-              await channel.send({ embeds: [result.announceEmbed] });
+            if (channel && 'send' in channel) {
+              await (channel as TextChannel).send({ embeds: [result.announceEmbed] });
             }
           }
         } catch (announceError) {
-          console.log('[NFLMON] Could not announce trade:', announceError.message);
+          const errorMessage = announceError instanceof Error ? announceError.message : 'Unknown error';
+          console.log('[NFLMON] Could not announce trade:', errorMessage);
         }
       }
     } else if (action === 'reject') {
@@ -162,7 +167,8 @@ async function handleNflmonTradeButton(interaction) {
       });
     } catch (updateError) {
       // Button may have already been handled
-      console.log('[NFLMON] Could not update trade button:', updateError.message);
+      const errorMessage = updateError instanceof Error ? updateError.message : 'Unknown error';
+      console.log('[NFLMON] Could not update trade button:', errorMessage);
     }
   }
 }
@@ -209,7 +215,7 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('ready', () => {
-  client.user.setActivity('Jaguars Highlights', {
+  client.user?.setActivity('Jaguars Highlights', {
     type: ActivityType.Watching,
   });
 });
@@ -217,7 +223,7 @@ client.on('ready', () => {
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('CommishBot, reporting for duty.'));
+app.get('/', (_req: Request, res: Response) => res.send('CommishBot, reporting for duty.'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Listening on port ${PORT}...`));

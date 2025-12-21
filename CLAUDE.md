@@ -52,18 +52,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-### Draft Trends Precomputation
-The drafttrends command requires precomputed data. Run this after drafts or weekly during season:
-```bash
-node precompute-draft-trends.js
-# Or with custom date range:
-node precompute-draft-trends.js 2020 2024
-```
-
 ### Discord Command Deployment
 After adding or modifying slash commands, deploy them to Discord:
 ```bash
-node deploy-commands.js
+npx tsx deploy-commands.ts
 ```
 
 ## Architecture
@@ -71,21 +63,23 @@ node deploy-commands.js
 This is a Discord bot for fantasy football league management (CommishBot) that integrates with ESPN and Sleeper fantasy platforms.
 
 ### Core Structure
-- **Entry point**: `index.js` - Initializes Discord client, loads commands dynamically, runs Express health check server
-- **Commands**: Located in `/discordCommands/[commandname]/[commandname].js`
+- **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, runs Express health check server
+- **Commands**: Located in `/discordCommands/[commandname]/[commandname].ts`
 - **External APIs**: ESPN Fantasy Football (custom fork), Sleeper API, OpenAI
 - **Database**: PostgreSQL via @vercel/postgres (tables: pins, Bets)
 - **Misc Data**: `/data`
 
 ### Command Pattern
 Each command must export:
-```javascript
+```typescript
+import { SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
+
 export const data = new SlashCommandBuilder()
   .setName("commandname")
   .setDescription("Description")
   // Add options as needed
 
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   // Handle the interaction
   await interaction.reply({ content: "Response", ephemeral: true });
 }
