@@ -1,5 +1,6 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 import * as blackjackDb from '../../blackjack/blackjackDb.js';
+import type { LeaderboardCategory, LeaderboardEntry } from '../../blackjack/blackjackDb.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
@@ -21,17 +22,14 @@ export const data = new SlashCommandBuilder()
       )
   );
 
-/**
- * Execute the blackjackleaderboard command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  const category = interaction.options.getString('category') || 'games';
+  const category: LeaderboardCategory =
+    (interaction.options.getString('category') as LeaderboardCategory) || 'games';
 
   try {
-    const leaderboard = await blackjackDb.getLeaderboard(category, 10);
+    const leaderboard: LeaderboardEntry[] = await blackjackDb.getLeaderboard(category, 10);
 
     if (leaderboard.length === 0) {
       await interaction.editReply({
@@ -40,13 +38,13 @@ export async function execute(interaction) {
       return;
     }
 
-    const medals = ['🥇', '🥈', '🥉'];
+    const medals: string[] = ['🥇', '🥈', '🥉'];
 
     // Format entries based on category
-    const leaderboardText = leaderboard
-      .map((entry, index) => {
-        const medal = medals[index] || `${index + 1}.`;
-        let statText = '';
+    const leaderboardText: string = leaderboard
+      .map((entry: LeaderboardEntry, index: number) => {
+        const medal: string = medals[index] || `${index + 1}.`;
+        let statText: string = '';
 
         switch (category) {
           case 'games':
@@ -62,7 +60,7 @@ export async function execute(interaction) {
             statText = `${entry.blackjacks_hit} blackjacks in ${entry.games_played} games`;
             break;
           case 'profit': {
-            const profit = entry.net_profit;
+            const profit: number = entry.net_profit ?? 0;
             statText = `${profit >= 0 ? '+' : ''}${formatCurrency(profit)}`;
             break;
           }
@@ -70,7 +68,7 @@ export async function execute(interaction) {
             statText = `${entry.best_win_streak} win streak`;
             break;
           case 'biggest_win':
-            statText = `${formatCurrency(entry.biggest_win)}`;
+            statText = `${formatCurrency(entry.biggest_win ?? 0)}`;
             break;
           default:
             statText = `${entry.games_played} games`;
@@ -81,7 +79,7 @@ export async function execute(interaction) {
       .join('\n');
 
     // Category titles
-    const categoryTitles = {
+    const categoryTitles: Record<LeaderboardCategory, string> = {
       games: 'Most Games Played',
       wins: 'Most Wins',
       winrate: 'Highest Win Rate',
@@ -99,10 +97,11 @@ export async function execute(interaction) {
       .setFooter({ text: category === 'winrate' ? 'Minimum 20 games required' : 'Top 10 players' });
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('blackjackleaderboard command error:', error);
+    const message: string = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `Error fetching leaderboard: ${error.message}`,
+      content: `Error fetching leaderboard: ${message}`,
     });
   }
 }

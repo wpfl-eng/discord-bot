@@ -1,5 +1,6 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, User } from 'discord.js';
 import * as blackjackDb from '../../blackjack/blackjackDb.js';
+import type { BlackjackStats } from '../../blackjack/blackjackDb.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
 
 export const data = new SlashCommandBuilder()
@@ -12,17 +13,13 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
   );
 
-/**
- * Execute the blackjackstats command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
- */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  const targetUser = interaction.options.getUser('user') || interaction.user;
+  const targetUser: User = interaction.options.getUser('user') || interaction.user;
 
   try {
-    const stats = await blackjackDb.getUserStats(targetUser.id);
+    const stats: BlackjackStats | null = await blackjackDb.getUserStats(targetUser.id);
 
     if (!stats) {
       await interaction.editReply({
@@ -32,17 +29,17 @@ export async function execute(interaction) {
     }
 
     // Calculate derived stats
-    const winRate =
+    const winRate: string =
       stats.games_played > 0 ? ((stats.games_won / stats.games_played) * 100).toFixed(1) : '0.0';
-    const netProfit = stats.total_won - stats.total_wagered;
-    const record = `${stats.games_won}-${stats.games_lost}-${stats.pushes}`;
-    const doubleRate =
+    const netProfit: number = stats.total_won - stats.total_wagered;
+    const record: string = `${stats.games_won}-${stats.games_lost}-${stats.pushes}`;
+    const doubleRate: string =
       stats.doubles_attempted > 0
         ? ((stats.doubles_won / stats.doubles_attempted) * 100).toFixed(0)
         : 'N/A';
 
     // Determine embed color based on profit
-    const embedColor = netProfit > 0 ? 0x2ecc71 : netProfit < 0 ? 0xe74c3c : 0x3498db;
+    const embedColor: number = netProfit > 0 ? 0x2ecc71 : netProfit < 0 ? 0xe74c3c : 0x3498db;
 
     const embed = new EmbedBuilder()
       .setColor(embedColor)
@@ -127,10 +124,11 @@ export async function execute(interaction) {
     }
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('blackjackstats command error:', error);
+    const message: string = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `Error fetching stats: ${error.message}`,
+      content: `Error fetching stats: ${message}`,
     });
   }
 }
