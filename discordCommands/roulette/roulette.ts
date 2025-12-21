@@ -9,6 +9,7 @@ import {
   TextChannel,
 } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
+import type { EconomyUser } from '../../economy/economyDb.js';
 import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
 import {
   ALL_BET_TYPES,
@@ -65,7 +66,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const subcommand: string = interaction.options.getSubcommand();
 
   if (subcommand === 'bet') {
-    await handleBet(interaction);
+    try {
+      await handleBet(interaction);
+    } catch (error: unknown) {
+      console.error('[ROULETTE] Command error:', error);
+      const message: string = error instanceof Error ? error.message : 'Unknown error';
+
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: `An error occurred: ${message}`,
+          ephemeral: true,
+        });
+      } else {
+        await interaction.editReply({
+          content: `An error occurred: ${message}`,
+        });
+      }
+    }
   }
 }
 
@@ -102,7 +119,7 @@ async function handleBet(interaction: ChatInputCommandInteraction): Promise<void
   }
 
   // Get user data
-  const userData = await economyDb.getOrCreateUser(userId, username);
+  const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
 
   // Check balance
   if (userData.wallet < amount) {
@@ -119,7 +136,7 @@ async function handleBet(interaction: ChatInputCommandInteraction): Promise<void
   }
 
   // Deduct coins immediately
-  const deductResult = await economyDb.deductFromWallet(userId, amount);
+  const deductResult: EconomyUser | null = await economyDb.deductFromWallet(userId, amount);
   if (!deductResult) {
     await interaction.editReply({
       content: 'Failed to place bet. Please try again.',
