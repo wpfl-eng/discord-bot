@@ -1,5 +1,69 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import fetch from 'node-fetch';
+import type { FantasyMatchupResponse } from '../../types/api.js';
+import { calculateStats } from '../../helpers/draftTrendsUtils.js';
+
+interface PlayoffOwnerStats {
+  owner: string;
+  playoffGames: number;
+  playoffWins: number;
+  playoffPoints: number[];
+  regularPoints: number[];
+  eliteGames: number;
+  chokeGames: number;
+}
+
+interface PlayoffResult extends PlayoffOwnerStats {
+  avgPlayoffPoints: number;
+  avgRegularPoints: number;
+  playoffDiff: number;
+  winPct: string;
+  bestGame: number;
+  worstGame: number;
+  consistency: number;
+}
+
+interface CloseGameOwnerStats {
+  owner: string;
+  closeGames: number;
+  closeWins: number;
+  nailBiters: number;
+  nailBiterWins: number;
+  margins: number[];
+  highScoringWins: number;
+  lowScoringLosses: number;
+}
+
+interface CloseGameResult extends CloseGameOwnerStats {
+  winPct: string;
+  nailBiterWinPct: string;
+  avgMargin: string;
+}
+
+interface HighStakesOwnerStats {
+  owner: string;
+  highStakesGames: number;
+  highStakesWins: number;
+  highStakesPoints: number[];
+  boom: number;
+  bust: number;
+}
+
+interface HighStakesResult extends HighStakesOwnerStats {
+  avgPoints: number;
+  winPct: string;
+  boomRate: string;
+  bustRate: string;
+  bestGame: number;
+  consistency: number;
+}
+
+interface WeeklyScoreData {
+  totalPoints: number;
+  gameCount: number;
+  games: FantasyMatchupResponse[];
+  avgPoints?: number;
+}
 
 export const data = new SlashCommandBuilder()
   .setName('clutch')
@@ -32,12 +96,7 @@ export const data = new SlashCommandBuilder()
       .setMaxValue(2025)
   );
 
-/**
- * Executes the clutch performance command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction - Discord interaction
- */
-export async function execute(interaction) {
-  // Defer immediately
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
   try {
@@ -45,7 +104,6 @@ export async function execute(interaction) {
     const inputSeasonMin = interaction.options.getInteger('seasonmin');
     const inputSeasonMax = interaction.options.getInteger('seasonmax');
 
-    // Handle season range like drafttrends
     let seasonMin = inputSeasonMin;
     let seasonMax = inputSeasonMax;
 
@@ -58,31 +116,30 @@ export async function execute(interaction) {
       seasonMin = 2015;
     }
 
-    // Swap if backwards
-    if (seasonMin > seasonMax) {
+    if (seasonMin && seasonMax && seasonMin > seasonMax) {
       [seasonMin, seasonMax] = [seasonMax, seasonMin];
     }
 
     console.log(`[CLUTCH] Analyzing ${analysisType} for seasons ${seasonMin}-${seasonMax}`);
 
-    let embed;
+    let embed: EmbedBuilder;
 
     switch (analysisType) {
       case 'playoffs':
-        embed = await analyzePlayoffPerformance(seasonMin, seasonMax);
+        embed = await analyzePlayoffPerformance(seasonMin ?? 2015, seasonMax ?? 2025);
         break;
       case 'close':
-        embed = await analyzeCloseGamePerformance(seasonMin, seasonMax);
+        embed = await analyzeCloseGamePerformance(seasonMin ?? 2015, seasonMax ?? 2025);
         break;
       case 'highstakes':
-        embed = await analyzeHighStakesPerformance(seasonMin, seasonMax);
+        embed = await analyzeHighStakesPerformance(seasonMin ?? 2015, seasonMax ?? 2025);
         break;
       default:
         throw new Error('Invalid analysis type');
     }
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[CLUTCH] Error:', error);
     await interaction.editReply(
       'An error occurred while analyzing clutch performance. Please try again.'
@@ -90,17 +147,13 @@ export async function execute(interaction) {
   }
 }
 
-/**
- * Analyzes playoff performance (weeks 14-17)
- * @param {number} seasonMin - Minimum season
- * @param {number} seasonMax - Maximum season
- * @returns {EmbedBuilder} Embed with playoff analysis
- */
-async function analyzePlayoffPerformance(seasonMin, seasonMax) {
+async function analyzePlayoffPerformance(
+  seasonMin: number,
+  seasonMax: number
+): Promise<EmbedBuilder> {
   try {
     console.log(`[CLUTCH] Fetching playoff data for ${seasonMin}-${seasonMax}`);
 
-    // Fetch playoff and regular season data
     const playoffUrl = `https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMin=${seasonMin}&seasonMax=${seasonMax}&weekMin=14&weekMax=17`;
     const regularUrl = `https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMin=${seasonMin}&seasonMax=${seasonMax}&weekMin=1&weekMax=13`;
 
@@ -113,15 +166,12 @@ async function analyzePlayoffPerformance(seasonMin, seasonMax) {
       throw new Error('Failed to fetch data');
     }
 
-    const playoffData = await playoffResponse.json();
-    const regularData = await regularResponse.json();
+    const playoffData = (await playoffResponse.json()) as FantasyMatchupResponse[];
+    const regularData = (await regularResponse.json()) as FantasyMatchupResponse[];
 
-    // Process the data
-    const ownerStats = {};
+    const ownerStats: Record<string, PlayoffOwnerStats> = {};
 
-    // Process playoff games
     playoffData.forEach((game) => {
-      // Process both teams
       [
         { owner: game.teamA, points: game.teamAPoints, won: game.teamAPoints > game.teamBPoints },
         { owner: game.teamB, points: game.teamBPoints, won: game.teamBPoints > game.teamAPoints },
@@ -145,7 +195,6 @@ async function analyzePlayoffPerformance(seasonMin, seasonMax) {
       });
     });
 
-    // Process regular season games
     regularData.forEach((game) => {
       if (ownerStats[game.teamA]) {
         ownerStats[game.teamA].regularPoints.push(game.teamAPoints);
@@ -155,9 +204,8 @@ async function analyzePlayoffPerformance(seasonMin, seasonMax) {
       }
     });
 
-    // Calculate stats
-    const results = Object.values(ownerStats)
-      .filter((owner) => owner.playoffGames >= 2) // Need at least 2 playoff games
+    const results: PlayoffResult[] = Object.values(ownerStats)
+      .filter((owner) => owner.playoffGames >= 2)
       .map((owner) => {
         const avgPlayoff =
           owner.playoffPoints.reduce((a, b) => a + b, 0) / owner.playoffPoints.length;
@@ -174,15 +222,14 @@ async function analyzePlayoffPerformance(seasonMin, seasonMax) {
           winPct: ((owner.playoffWins / owner.playoffGames) * 100).toFixed(1),
           bestGame: Math.max(...owner.playoffPoints),
           worstGame: Math.min(...owner.playoffPoints),
-          consistency: calculateStdDev(owner.playoffPoints),
+          consistency: calculateStats(owner.playoffPoints).stdDev,
         };
       })
       .sort((a, b) => b.avgPlayoffPoints - a.avgPlayoffPoints);
 
-    // Build embed
     const seasonRange = seasonMin === seasonMax ? `(${seasonMin})` : `(${seasonMin}-${seasonMax})`;
     const embed = new EmbedBuilder()
-      .setTitle(`❄️ Playoff Performance Analysis ${seasonRange}`)
+      .setTitle(`Playoff Performance Analysis ${seasonRange}`)
       .setDescription(`*"Championships are won in December"*`)
       .setColor(0x5865f2)
       .setTimestamp()
@@ -197,7 +244,6 @@ async function analyzePlayoffPerformance(seasonMin, seasonMax) {
       return embed;
     }
 
-    // Top performers
     const clutchPlayers = results.slice(0, 5).map((player, idx) => {
       const emoji = idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🏆';
       const trend = player.playoffDiff > 5 ? '📈' : player.playoffDiff < -5 ? '📉' : '➡️';
@@ -210,80 +256,73 @@ async function analyzePlayoffPerformance(seasonMin, seasonMax) {
     });
 
     embed.addFields({
-      name: '🏆 Playoff Performers',
+      name: 'Playoff Performers',
       value: clutchPlayers.join('\n\n') || 'No data available',
       inline: false,
     });
 
-    // Biggest chokers
     const chokers = results
       .filter((p) => p.playoffDiff < -5 && p.playoffGames >= 3)
       .sort((a, b) => a.playoffDiff - b.playoffDiff)
       .slice(0, 3)
-      .map((player) => {
-        return `**${player.owner}**: ${player.playoffDiff.toFixed(1)} pts drop 🥶`;
-      });
+      .map((player) => `**${player.owner}**: ${player.playoffDiff.toFixed(1)} pts drop`);
 
     if (chokers.length > 0) {
       embed.addFields({
-        name: '❄️ Playoff Chokers',
+        name: 'Playoff Chokers',
         value: chokers.join('\n'),
         inline: true,
       });
     }
 
-    // Best single game
-    const bestGames = results
+    const bestGames = [...results]
       .sort((a, b) => b.bestGame - a.bestGame)
       .slice(0, 3)
       .map((player) => `**${player.owner}**: ${player.bestGame.toFixed(1)} pts`);
 
     if (bestGames.length > 0) {
       embed.addFields({
-        name: '🚀 Best Playoff Games',
+        name: 'Best Playoff Games',
         value: bestGames.join('\n'),
         inline: true,
       });
     }
 
-    // Fun stats
-    const mostElite = results.sort((a, b) => b.eliteGames - a.eliteGames)[0];
-    const mostChokes = results.sort((a, b) => b.chokeGames - a.chokeGames)[0];
+    const sortedByElite = [...results].sort((a, b) => b.eliteGames - a.eliteGames);
+    const sortedByChokes = [...results].sort((a, b) => b.chokeGames - a.chokeGames);
+    const mostElite = sortedByElite[0];
+    const mostChokes = sortedByChokes[0];
 
     if (mostElite && mostChokes) {
       const funStats = [
-        `💥 **Most 150+ Games**: ${mostElite.owner} (${mostElite.eliteGames})`,
-        `💩 **Most Sub-80 Games**: ${mostChokes.owner} (${mostChokes.chokeGames})`,
+        `**Most 150+ Games**: ${mostElite.owner} (${mostElite.eliteGames})`,
+        `**Most Sub-80 Games**: ${mostChokes.owner} (${mostChokes.chokeGames})`,
       ];
 
       embed.addFields({
-        name: '📊 Notable Stats',
+        name: 'Notable Stats',
         value: funStats.join('\n'),
         inline: false,
       });
     }
 
     return embed;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[CLUTCH] Playoff analysis error:', error);
     return new EmbedBuilder()
-      .setTitle('❄️ Playoff Performance Analysis')
+      .setTitle('Playoff Performance Analysis')
       .setDescription('Error fetching playoff data. Please try again.')
       .setColor(0xff0000);
   }
 }
 
-/**
- * Analyzes performance in close games
- * @param {number} seasonMin - Minimum season
- * @param {number} seasonMax - Maximum season
- * @returns {EmbedBuilder} Embed with close game analysis
- */
-async function analyzeCloseGamePerformance(seasonMin, seasonMax) {
+async function analyzeCloseGamePerformance(
+  seasonMin: number,
+  seasonMax: number
+): Promise<EmbedBuilder> {
   try {
     console.log(`[CLUTCH] Fetching close game data for ${seasonMin}-${seasonMax}`);
 
-    // Fetch all matchup data
     const url = `https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMin=${seasonMin}&seasonMax=${seasonMax}`;
     const response = await fetch(url);
 
@@ -291,16 +330,12 @@ async function analyzeCloseGamePerformance(seasonMin, seasonMax) {
       throw new Error('Failed to fetch data');
     }
 
-    const allGames = await response.json();
-
-    // Filter for close games (margin <= 10)
+    const allGames = (await response.json()) as FantasyMatchupResponse[];
     const closeGames = allGames.filter((game) => game.margin <= 10);
 
-    // Process close games
-    const ownerStats = {};
+    const ownerStats: Record<string, CloseGameOwnerStats> = {};
 
     closeGames.forEach((game) => {
-      // Process both teams
       [
         {
           owner: game.teamA,
@@ -342,8 +377,7 @@ async function analyzeCloseGamePerformance(seasonMin, seasonMax) {
       });
     });
 
-    // Calculate stats and sort
-    const results = Object.values(ownerStats)
+    const results: CloseGameResult[] = Object.values(ownerStats)
       .filter((owner) => owner.closeGames >= 3)
       .map((owner) => ({
         ...owner,
@@ -354,12 +388,11 @@ async function analyzeCloseGamePerformance(seasonMin, seasonMax) {
             : '0.0',
         avgMargin: (owner.margins.reduce((a, b) => a + b, 0) / owner.margins.length).toFixed(1),
       }))
-      .sort((a, b) => parseFloat(b.winPct) - parseFloat(a.winPct));
+      .sort((a, b) => Number.parseFloat(b.winPct) - Number.parseFloat(a.winPct));
 
-    // Build embed
     const seasonRange = seasonMin === seasonMax ? `(${seasonMin})` : `(${seasonMin}-${seasonMax})`;
     const embed = new EmbedBuilder()
-      .setTitle(`💫 Close Game Performance ${seasonRange}`)
+      .setTitle(`Close Game Performance ${seasonRange}`)
       .setDescription(`*Games decided by 10 points or less - where every decision matters*`)
       .setColor(0xf0b232)
       .setTimestamp()
@@ -374,50 +407,45 @@ async function analyzeCloseGamePerformance(seasonMin, seasonMax) {
       return embed;
     }
 
-    // Close game specialists
     const specialists = results.slice(0, 5).map((player, idx) => {
       const emoji = ['🎯', '💪', '⚡', '🌟', '✨'][idx];
       return `${emoji} **${player.owner}**: ${player.closeWins}-${player.closeGames - player.closeWins} (${player.winPct}%)`;
     });
 
     embed.addFields({
-      name: '🏆 Close Game Kings',
+      name: 'Close Game Kings',
       value: specialists.join('\n'),
       inline: true,
     });
 
-    // Heartbreak leaders
-    const heartbreaks = results
-      .sort((a, b) => parseFloat(a.winPct) - parseFloat(b.winPct))
+    const heartbreaks = [...results]
+      .sort((a, b) => Number.parseFloat(a.winPct) - Number.parseFloat(b.winPct))
       .slice(0, 3)
-      .map((player) => {
-        return `**${player.owner}**: ${player.closeGames - player.closeWins} losses`;
-      });
+      .map((player) => `**${player.owner}**: ${player.closeGames - player.closeWins} losses`);
 
     embed.addFields({
-      name: '💔 Heartbreak Leaders',
+      name: 'Heartbreak Leaders',
       value: heartbreaks.join('\n'),
       inline: true,
     });
 
-    // Nail biter specialists (games decided by 3 or less)
     const nailBiters = results
       .filter((p) => p.nailBiters >= 3)
-      .sort((a, b) => parseFloat(b.nailBiterWinPct) - parseFloat(a.nailBiterWinPct))
+      .sort((a, b) => Number.parseFloat(b.nailBiterWinPct) - Number.parseFloat(a.nailBiterWinPct))
       .slice(0, 3)
-      .map((player) => {
-        return `**${player.owner}**: ${player.nailBiterWins}/${player.nailBiters} (${player.nailBiterWinPct}%)`;
-      });
+      .map(
+        (player) =>
+          `**${player.owner}**: ${player.nailBiterWins}/${player.nailBiters} (${player.nailBiterWinPct}%)`
+      );
 
     if (nailBiters.length > 0) {
       embed.addFields({
-        name: '🔥 Nail Biter Specialists',
-        value: nailBiters.join('\n') + '\n*Games decided by ≤3 points*',
+        name: 'Nail Biter Specialists',
+        value: nailBiters.join('\n') + '\n*Games decided by <=3 points*',
         inline: false,
       });
     }
 
-    // Most high-scoring close wins
     const highScorers = results
       .filter((p) => p.highScoringWins > 0)
       .sort((a, b) => b.highScoringWins - a.highScoringWins)
@@ -426,13 +454,12 @@ async function analyzeCloseGamePerformance(seasonMin, seasonMax) {
 
     if (highScorers.length > 0) {
       embed.addFields({
-        name: '💪 High-Scoring Close Wins',
+        name: 'High-Scoring Close Wins',
         value: highScorers.join('\n') + '\n*130+ point nail biters*',
         inline: true,
       });
     }
 
-    // Most low-scoring close losses
     const lowScorers = results
       .filter((p) => p.lowScoringLosses > 0)
       .sort((a, b) => b.lowScoringLosses - a.lowScoringLosses)
@@ -441,33 +468,29 @@ async function analyzeCloseGamePerformance(seasonMin, seasonMax) {
 
     if (lowScorers.length > 0) {
       embed.addFields({
-        name: '😭 Low-Scoring Heartbreaks',
+        name: 'Low-Scoring Heartbreaks',
         value: lowScorers.join('\n') + '\n*Sub-90 point close losses*',
         inline: true,
       });
     }
 
     return embed;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[CLUTCH] Close game analysis error:', error);
     return new EmbedBuilder()
-      .setTitle('💫 Close Game Performance')
+      .setTitle('Close Game Performance')
       .setDescription('Error fetching close game data. Please try again.')
       .setColor(0xff0000);
   }
 }
 
-/**
- * Analyzes high stakes performance
- * @param {number} seasonMin - Minimum season
- * @param {number} seasonMax - Maximum season
- * @returns {EmbedBuilder} Embed with high stakes analysis
- */
-async function analyzeHighStakesPerformance(seasonMin, seasonMax) {
+async function analyzeHighStakesPerformance(
+  seasonMin: number,
+  seasonMax: number
+): Promise<EmbedBuilder> {
   try {
     console.log(`[CLUTCH] Fetching high stakes data for ${seasonMin}-${seasonMax}`);
 
-    // Fetch matchup data for analysis
     const url = `https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMin=${seasonMin}&seasonMax=${seasonMax}`;
     const response = await fetch(url);
 
@@ -475,10 +498,9 @@ async function analyzeHighStakesPerformance(seasonMin, seasonMax) {
       throw new Error('Failed to fetch data');
     }
 
-    const allGames = await response.json();
+    const allGames = (await response.json()) as FantasyMatchupResponse[];
 
-    // Group games by week to find high-stakes weeks (high total scoring)
-    const weeklyScores = {};
+    const weeklyScores: Record<string, WeeklyScoreData> = {};
     allGames.forEach((game) => {
       const weekKey = `${game.season}-${game.week}`;
       if (!weeklyScores[weekKey]) {
@@ -493,26 +515,22 @@ async function analyzeHighStakesPerformance(seasonMin, seasonMax) {
       weeklyScores[weekKey].games.push(game);
     });
 
-    // Calculate average points per week and find high-stakes weeks
     Object.keys(weeklyScores).forEach((weekKey) => {
       weeklyScores[weekKey].avgPoints =
         weeklyScores[weekKey].totalPoints / (weeklyScores[weekKey].gameCount * 2);
     });
 
-    // Get top 25% scoring weeks
     const sortedWeeks = Object.entries(weeklyScores).sort(
-      ([, a], [, b]) => b.avgPoints - a.avgPoints
+      ([, a], [, b]) => (b.avgPoints ?? 0) - (a.avgPoints ?? 0)
     );
-    const highStakesThreshold =
-      sortedWeeks[Math.floor(sortedWeeks.length * 0.25)]?.[1]?.avgPoints || 100;
+    const thresholdIndex = Math.floor(sortedWeeks.length * 0.25);
+    const highStakesThreshold = sortedWeeks[thresholdIndex]?.[1]?.avgPoints ?? 100;
 
-    // Process high-stakes games
-    const ownerStats = {};
+    const ownerStats: Record<string, HighStakesOwnerStats> = {};
 
-    sortedWeeks.forEach(([_weekKey, weekData]) => {
-      if (weekData.avgPoints >= highStakesThreshold) {
+    sortedWeeks.forEach(([, weekData]) => {
+      if ((weekData.avgPoints ?? 0) >= highStakesThreshold) {
         weekData.games.forEach((game) => {
-          // Process both teams
           [
             {
               owner: game.teamA,
@@ -545,28 +563,26 @@ async function analyzeHighStakesPerformance(seasonMin, seasonMax) {
       }
     });
 
-    // Calculate stats
-    const results = Object.values(ownerStats)
+    const results: HighStakesResult[] = Object.values(ownerStats)
       .filter((owner) => owner.highStakesGames >= 3)
       .map((owner) => {
         const avgPoints =
           owner.highStakesPoints.reduce((a, b) => a + b, 0) / owner.highStakesPoints.length;
         return {
           ...owner,
-          avgPoints: avgPoints,
+          avgPoints,
           winPct: ((owner.highStakesWins / owner.highStakesGames) * 100).toFixed(1),
           boomRate: ((owner.boom / owner.highStakesGames) * 100).toFixed(1),
           bustRate: ((owner.bust / owner.highStakesGames) * 100).toFixed(1),
           bestGame: Math.max(...owner.highStakesPoints),
-          consistency: calculateStdDev(owner.highStakesPoints),
+          consistency: calculateStats(owner.highStakesPoints).stdDev,
         };
       })
       .sort((a, b) => b.avgPoints - a.avgPoints);
 
-    // Build embed
     const seasonRange = seasonMin === seasonMax ? `(${seasonMin})` : `(${seasonMin}-${seasonMax})`;
     const embed = new EmbedBuilder()
-      .setTitle(`🔥 High Stakes Performance ${seasonRange}`)
+      .setTitle(`High Stakes Performance ${seasonRange}`)
       .setDescription(`*Performance in the top 25% highest-scoring weeks*`)
       .setColor(0xe74c3c)
       .setTimestamp()
@@ -581,7 +597,6 @@ async function analyzeHighStakesPerformance(seasonMin, seasonMax) {
       return embed;
     }
 
-    // High stakes heroes
     const heroes = results.slice(0, 5).map((player, idx) => {
       const emoji = ['🔥', '⚡', '💪', '🌟', '✨'][idx];
       return (
@@ -591,25 +606,24 @@ async function analyzeHighStakesPerformance(seasonMin, seasonMax) {
     });
 
     embed.addFields({
-      name: '🏆 High Stakes Heroes',
+      name: 'High Stakes Heroes',
       value: heroes.join('\n\n'),
       inline: false,
     });
 
-    // Boom/Bust analysis
-    const boomKings = results
-      .sort((a, b) => parseFloat(b.boomRate) - parseFloat(a.boomRate))
+    const boomKings = [...results]
+      .sort((a, b) => Number.parseFloat(b.boomRate) - Number.parseFloat(a.boomRate))
       .slice(0, 3)
       .map((player) => `**${player.owner}**: ${player.boomRate}% boom rate`);
 
-    const bustKings = results
-      .sort((a, b) => parseFloat(b.bustRate) - parseFloat(a.bustRate))
+    const bustKings = [...results]
+      .sort((a, b) => Number.parseFloat(b.bustRate) - Number.parseFloat(a.bustRate))
       .slice(0, 3)
       .map((player) => `**${player.owner}**: ${player.bustRate}% bust rate`);
 
     if (boomKings.length > 0) {
       embed.addFields({
-        name: '💥 Boom Kings',
+        name: 'Boom Kings',
         value: boomKings.join('\n') + '\n*140+ pts in high stakes*',
         inline: true,
       });
@@ -617,42 +631,31 @@ async function analyzeHighStakesPerformance(seasonMin, seasonMax) {
 
     if (bustKings.length > 0) {
       embed.addFields({
-        name: '💩 Bust Alert',
+        name: 'Bust Alert',
         value: bustKings.join('\n') + '\n*<90 pts in high stakes*',
         inline: true,
       });
     }
 
-    // Most consistent in chaos
-    const consistent = results
+    const consistent = [...results]
       .sort((a, b) => a.consistency - b.consistency)
       .slice(0, 3)
       .map((player) => `**${player.owner}**: ${player.consistency.toFixed(1)} std dev`);
 
     if (consistent.length > 0) {
       embed.addFields({
-        name: '🎯 Steady in the Storm',
+        name: 'Steady in the Storm',
         value: consistent.join('\n') + '\n*Most consistent in high-scoring weeks*',
         inline: false,
       });
     }
 
     return embed;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[CLUTCH] High stakes analysis error:', error);
     return new EmbedBuilder()
-      .setTitle('🔥 High Stakes Performance')
+      .setTitle('High Stakes Performance')
       .setDescription('Error fetching high stakes data. Please try again.')
       .setColor(0xff0000);
   }
-}
-
-/**
- * Helper function to calculate standard deviation
- */
-function calculateStdDev(numbers) {
-  if (numbers.length === 0) return 0;
-  const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
-  const variance = numbers.reduce((sum, num) => sum + Math.pow(num - mean, 2), 0) / numbers.length;
-  return Math.sqrt(variance);
 }

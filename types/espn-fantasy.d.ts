@@ -22,13 +22,57 @@ declare module 'espn-fantasy-football-api/node.js' {
     awayScore?: number;
   }
 
+  /**
+   * ESPN Team data returned by getTeamsAtWeek
+   */
+  export interface EspnTeam {
+    id: number;
+    wins: number;
+    losses: number;
+    ties: number;
+    playoffSeed: number;
+    finalStandingsPosition?: number;
+  }
+
+  /**
+   * Player information in activity
+   */
+  export interface ActivityPlayer {
+    playerPoolEntry?: {
+      player: {
+        fullName: string;
+      };
+    };
+    player: {
+      fullName: string;
+    };
+  }
+
+  /**
+   * Activity action types
+   */
+  export type ActivityActionType = 'FA ADDED' | 'DROPPED' | 'TRADED' | 'WAIVER ADDED';
+
+  /**
+   * Single activity action (transaction)
+   */
+  export interface ActivityAction {
+    team: { id: number };
+    ids: { to?: number };
+    player: ActivityPlayer;
+    bidAmount?: number;
+    date: number;
+    action: ActivityActionType;
+  }
+
   export class Client {
     constructor(options: EspnClientOptions);
     setCookies(cookies: CookieOptions): void;
     getBoxscoreForWeek(options: BoxscoreOptions): Promise<BoxscoreMatchup[]>;
-    getTeamsAtWeek(options: { seasonId: number; scoringPeriodId: number }): Promise<unknown[]>;
+    getTeamsAtWeek(options: { seasonId: number; scoringPeriodId: number }): Promise<EspnTeam[]>;
     getFreeAgents(options: { seasonId: number; scoringPeriodId: number }): Promise<unknown[]>;
     getHistoricalScoreboardForWeek(options: BoxscoreOptions): Promise<unknown[]>;
+    getRecentActivity(options: { seasonId: number }): Promise<ActivityAction[][]>;
   }
 
   const _default: { Client: typeof Client };

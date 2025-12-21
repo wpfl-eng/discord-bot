@@ -1,7 +1,7 @@
-// standings.js
-import { SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { Client } from '../../espnClient.cjs';
-import { espnMembers } from '../../constants/espnMembers.ts';
+import type { EspnTeam } from 'espn-fantasy-football-api/node.js';
+import { espnMembers } from '../../constants/espnMembers.js';
 
 export const data = new SlashCommandBuilder()
   .setName('standings')
@@ -23,20 +23,24 @@ export const data = new SlashCommandBuilder()
       .setMaxValue(new Date().getFullYear())
   );
 
-export const getStandings = async (espnClient, matchupYear, matchupWeek) => {
-  const teams = await espnClient.getTeamsAtWeek({
+export const getStandings = async (
+  espnClient: Client,
+  matchupYear: number,
+  matchupWeek: number
+): Promise<string> => {
+  const teams: EspnTeam[] = await espnClient.getTeamsAtWeek({
     seasonId: matchupYear,
     scoringPeriodId: matchupWeek,
   });
 
   const sortedTeams = teams.sort(
-    (a, b) =>
-      (a.finalStandingsPosition || a.playoffSeed) - (b.finalStandingsPosition || b.playoffSeed)
+    (a: EspnTeam, b: EspnTeam) =>
+      (a.finalStandingsPosition ?? a.playoffSeed) - (b.finalStandingsPosition ?? b.playoffSeed)
   );
 
   return sortedTeams
-    .map((team, index) => {
-      const member = espnMembers.find((member) => member.id === team.id);
+    .map((team: EspnTeam, index: number) => {
+      const member = espnMembers.find((m) => m.id === team.id);
       const memberName = member?.name ?? 'Unknown';
       const position = index + 1;
       const record = `(${team.wins}-${team.losses}-${team.ties})`;
@@ -53,32 +57,41 @@ export const getStandings = async (espnClient, matchupYear, matchupWeek) => {
     .join('\n');
 };
 
-export const execute = async (interaction) => {
+export const execute = async (interaction: ChatInputCommandInteraction): Promise<void> => {
   const matchupWeek = interaction.options.getInteger('week');
   const matchupYear = interaction.options.getInteger('year');
 
   const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
   if (!LEAGUE_ID || !ESPN_S2 || !SWID) {
-    return await interaction.reply({
+    await interaction.reply({
       content: 'Missing required environment variables',
       ephemeral: true,
     });
+    return;
+  }
+
+  if (!matchupWeek || !matchupYear) {
+    await interaction.reply({
+      content: 'Week and year are required',
+      ephemeral: true,
+    });
+    return;
   }
 
   await interaction.deferReply();
 
   try {
-    const espnClient = new Client({ leagueId: parseInt(LEAGUE_ID, 10) });
+    const espnClient = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
     espnClient.setCookies({ espnS2: ESPN_S2, SWID });
 
     const response = await getStandings(espnClient, matchupYear, matchupWeek);
 
     await interaction.editReply({ content: response });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Standings command error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
-      ephemeral: true,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 };

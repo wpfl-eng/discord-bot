@@ -19,7 +19,7 @@ export interface TriviaActiveQuestion {
   readonly question_id: string | null;
   readonly question: string;
   readonly answer: string;
-  readonly acceptable_answers: string | null;
+  readonly acceptable_answers: string[] | null;  // PostgreSQL TEXT[] returns as JS array
   readonly point_value: number;
   readonly source_data: string | null;
   readonly channel_id: string;

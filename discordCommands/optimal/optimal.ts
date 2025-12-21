@@ -1,5 +1,6 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import fetch from 'node-fetch';
+import type { OptimalCoachingResponse } from '../../types/api.js';
 
 export const data = new SlashCommandBuilder()
   .setName('optimal')
@@ -21,37 +22,33 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
   );
 
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  const year = interaction.options.getInteger('year') || 2025;
-  const week = interaction.options.getInteger('week') || 9;
+  // Options are required, so non-null assertion is safe
+  const year = interaction.options.getInteger('year')!;
+  const week = interaction.options.getInteger('week')!;
 
-  let url = `https://wpflapi.azurewebsites.net/api/optimalcoaching/pointsfor/${year}`;
-  if (week) {
-    url += `?week=${week}`;
-  }
+  const url = `https://wpflapi.azurewebsites.net/api/optimalcoaching/pointsfor/${year}?week=${week}`;
 
   try {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
+    const responseData = (await response.json()) as OptimalCoachingResponse[];
 
-    if (data.length === 0) {
+    if (responseData.length === 0) {
       await interaction.editReply('No data found for the specified criteria.');
       return;
     }
 
-    const formattedData = formatCoachingData(data);
+    const formattedData = formatCoachingData(responseData);
 
-    const title = week
-      ? `Optimal Coaching Data for Year ${year}, Week ${week}`
-      : `Optimal Coaching Data for Year ${year}`;
+    const title = `Optimal Coaching Data for Year ${year}, Week ${week}`;
 
     await interaction.editReply(`**${title}**\n\n${formattedData}`);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching optimal coaching data:', error);
     await interaction.editReply(
       'An error occurred while fetching the data. Please try again later.'
@@ -59,11 +56,10 @@ export async function execute(interaction) {
   }
 }
 
-const formatCoachingData = (data) => {
-  // Sort the data by efficiency (highest to lowest)
+const formatCoachingData = (data: OptimalCoachingResponse[]): string => {
   const sortedData = data.sort((a, b) => {
-    const efficiencyA = a.actualPointsFor / a.optimalPointsFor;
-    const efficiencyB = b.actualPointsFor / b.optimalPointsFor;
+    const efficiencyA = a.optimalPointsFor > 0 ? a.actualPointsFor / a.optimalPointsFor : 0;
+    const efficiencyB = b.optimalPointsFor > 0 ? b.actualPointsFor / b.optimalPointsFor : 0;
     return efficiencyB - efficiencyA;
   });
 
@@ -71,7 +67,8 @@ const formatCoachingData = (data) => {
     .map(({ owner, actualPointsFor, optimalPointsFor }, index) => {
       const actual = Number(actualPointsFor).toFixed(2);
       const optimal = Number(optimalPointsFor).toFixed(2);
-      const efficiency = ((actualPointsFor / optimalPointsFor) * 100).toFixed(2);
+      const efficiency =
+        optimalPointsFor > 0 ? ((actualPointsFor / optimalPointsFor) * 100).toFixed(2) : '0.00';
       const bench = (optimalPointsFor - actualPointsFor).toFixed(2);
 
       return [

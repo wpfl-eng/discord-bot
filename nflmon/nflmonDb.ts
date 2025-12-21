@@ -403,7 +403,7 @@ export async function addNflmon(data: AddNflmonData): Promise<Nflmon | null> {
     ) VALUES (
       ${userId}, ${playerId}, ${rarity}, 'rookie',
       ${ivs.speed}, ${ivs.power}, ${ivs.agility}, ${ivs.awareness}, ${ivs.hp},
-      ${acquiredSource}, ${acquiredFromUser}, ${variant}, ${JSON.stringify(metadata)}
+      ${acquiredSource}, ${acquiredFromUser}, ${variant}, ${JSON.stringify(metadata)}::jsonb
     )
     RETURNING *
   `;
@@ -660,7 +660,7 @@ export async function sellNflmon(
         ${nflmon.iv_power}, ${nflmon.iv_agility}, ${nflmon.iv_awareness},
         ${nflmon.iv_hp}, ${nflmon.acquired_source}, ${nflmon.acquired_from_user},
         ${nflmon.is_favorite}, ${nflmon.training_slot}, ${nflmon.variant},
-        ${JSON.stringify(nflmon.metadata)}, ${nflmon.acquired_at instanceof Date ? nflmon.acquired_at.toISOString() : nflmon.acquired_at}
+        ${JSON.stringify(nflmon.metadata)}::jsonb, ${nflmon.acquired_at instanceof Date ? nflmon.acquired_at.toISOString() : nflmon.acquired_at}
       )
     `;
     console.error(`Rolled back sell: wallet update failed for user ${userId}`);

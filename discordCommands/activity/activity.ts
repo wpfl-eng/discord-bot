@@ -1,55 +1,47 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
-import { espnMembers } from '../../constants/espnMembers.ts';
+import type { ActivityAction } from 'espn-fantasy-football-api/node.js';
+import { espnMembers } from '../../constants/espnMembers.js';
 import { formatDistanceToNow, subDays, format } from 'date-fns';
 
-// Define the slash command
 export const data = new SlashCommandBuilder()
   .setName('activity')
   .setDescription('Returns recent league transactions');
 
-// Main execution function for the slash command
-export const execute = async (interaction) => {
-  // Check for required environment variables
+export const execute = async (interaction: ChatInputCommandInteraction): Promise<void> => {
   const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
   if (!LEAGUE_ID || !ESPN_S2 || !SWID) {
-    return await interaction.reply({
+    await interaction.reply({
       content: 'Missing required environment variables',
       ephemeral: true,
     });
+    return;
   }
 
-  // Defer the reply to allow for processing time
   await interaction.deferReply();
 
   try {
-    // Initialize ESPN client
-    const myClient = new Client({ leagueId: parseInt(LEAGUE_ID, 10) });
+    const myClient = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
     myClient.setCookies({ espnS2: ESPN_S2, SWID });
 
-    // Get the current year for the seasonId
     const currentYear = new Date().getFullYear();
+    const activityData: ActivityAction[][] = await myClient.getRecentActivity({
+      seasonId: currentYear,
+    });
 
-    // Fetch recent activity data
-    const data = await myClient.getRecentActivity({ seasonId: currentYear });
+    const strResponse = formatActivityResponse(activityData);
 
-    // Format the activity response
-    const strResponse = formatActivityResponse(data);
-
-    // Send the formatted response
     await interaction.editReply({ content: strResponse });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Activity command error:', error);
     await interaction.editReply({
       content: 'An error occurred while fetching league activity. Please try again later.',
-      ephemeral: true,
     });
   }
 };
 
-// Format the activity data into a readable string
-const formatActivityResponse = (data) => {
+const formatActivityResponse = (data: ActivityAction[][]): string => {
   const yesterday = subDays(new Date(), 1);
   let strResponse = 'League Activity in the past 24 hours:\n';
 
@@ -70,11 +62,11 @@ const formatActivityResponse = (data) => {
   return strResponse.trim();
 };
 
-// Generate a response string for a single activity
-const getActivityResponse = (action) => {
+const getActivityResponse = (action: ActivityAction): string => {
   const { team, ids, player, bidAmount, date } = action;
   const memberName = espnMembers.find((member) => member.id === team.id)?.name ?? 'Unknown';
-  const playerName = player.playerPoolEntry?.player.fullName ?? player.player.fullName;
+  const playerName =
+    player.playerPoolEntry?.player.fullName ?? player.player?.fullName ?? 'Unknown Player';
   const activityTime = format(new Date(date), "MMM d, yyyy 'at' h:mm a");
   const timeAgo = formatDistanceToNow(new Date(date), { addSuffix: true });
 

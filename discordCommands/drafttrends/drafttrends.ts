@@ -1,11 +1,76 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { sql } from '@vercel/postgres';
 import {
   DRAFT_CONSTANTS,
   truncateFieldValue,
   validateSeasonRange,
   getDraftArchetype,
-} from '../../helpers/draftTrendsUtils.ts';
+  type OwnerStats,
+} from '../../helpers/draftTrendsUtils.js';
+
+// Database row interfaces
+interface TopTeam {
+  team: string;
+  count: number;
+  percentage: string;
+}
+
+interface RepeatPlayer {
+  player: string;
+  count: number;
+  seasons: number[];
+}
+
+interface FavoritePosition {
+  position: string;
+  percentage: string;
+}
+
+interface PositionByRound {
+  early?: Record<string, number>;
+  mid?: Record<string, number>;
+  late?: Record<string, number>;
+}
+
+interface DraftTrends {
+  consistency?: number;
+  valueHunting?: number;
+}
+
+interface ComplexStats {
+  topTeams?: TopTeam[];
+  repeatPlayers?: RepeatPlayer[];
+  favoritePosition?: FavoritePosition;
+  positionByRound?: PositionByRound;
+  positionFrequency?: Record<string, number>;
+  draftTrends?: DraftTrends;
+}
+
+interface OwnerDraftStatsRow {
+  owner: string;
+  season_min: number;
+  season_max: number;
+  total_picks: number;
+  snake_picks: number;
+  auction_picks: number;
+  auction_max_bid: number | null;
+  auction_avg_value: number | string | null;
+  auction_roi: string | null;
+  auction_hit_rate: string | null;
+  auction_bust_rate: string | null;
+  auction_total_spent: string | null;
+  avg_draft_position: string | null;
+  earliest_pick: number | null;
+  latest_pick: number | null;
+  stats_json: string | null;
+  computed_at: string;
+  complexStats?: ComplexStats;
+}
+
+interface PowerMetrics {
+  draftIQ: number;
+  riskScore: number;
+}
 
 export const data = new SlashCommandBuilder()
   .setName('drafttrends')
@@ -30,15 +95,11 @@ export const data = new SlashCommandBuilder()
       .setMaxValue(DRAFT_CONSTANTS.MAX_SEASON)
   );
 
-/**
- * Executes the draft trends command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction - Discord interaction
- */
-export async function execute(interaction) {
+export const execute = async (interaction: ChatInputCommandInteraction): Promise<void> => {
   // Defer IMMEDIATELY - we have 3 seconds to acknowledge
   try {
     await interaction.deferReply();
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[DRAFTTRENDS] Failed to defer reply:', error);
     return;
   }
@@ -55,18 +116,18 @@ export async function execute(interaction) {
     console.log(`[DRAFTTRENDS] User: ${userName}, Season: ${seasonMin}-${seasonMax}`);
 
     // First, check if we have precomputed data for this range
-    let statsResult;
+    let statsResult: { rows: OwnerDraftStatsRow[] };
     try {
       console.log('[DRAFTTRENDS] Querying database for precomputed stats...');
-      statsResult = await sql`
-        SELECT * FROM owner_draft_stats 
+      statsResult = await sql<OwnerDraftStatsRow>`
+        SELECT * FROM owner_draft_stats
         WHERE LOWER(owner) = LOWER(${userName})
         AND season_min = ${seasonMin}
         AND season_max = ${seasonMax}
         ORDER BY computed_at DESC
         LIMIT 1`;
       console.log(`[DRAFTTRENDS] Query returned ${statsResult.rows.length} rows`);
-    } catch (dbError) {
+    } catch (dbError: unknown) {
       console.error('[DRAFTTRENDS] Database query error:', dbError);
       await interaction.editReply('Database connection error. Please try again later.');
       return;
@@ -75,18 +136,18 @@ export async function execute(interaction) {
     if (statsResult.rows.length === 0) {
       console.log('[DRAFTTRENDS] No data for specific range, checking full range...');
       // Check if we have data for the full range as a fallback
-      let fullRangeResult;
+      let fullRangeResult: { rows: OwnerDraftStatsRow[] };
       try {
         console.log('[DRAFTTRENDS] Querying for full range (2010-2025)...');
-        fullRangeResult = await sql`
-          SELECT * FROM owner_draft_stats 
+        fullRangeResult = await sql<OwnerDraftStatsRow>`
+          SELECT * FROM owner_draft_stats
           WHERE LOWER(owner) = LOWER(${userName})
           AND season_min = 2010
           AND season_max = 2025
           ORDER BY computed_at DESC
           LIMIT 1`;
         console.log(`[DRAFTTRENDS] Full range query returned ${fullRangeResult.rows.length} rows`);
-      } catch (dbError) {
+      } catch (dbError: unknown) {
         console.error('[DRAFTTRENDS] Database query error (full range):', dbError);
         await interaction.editReply('Database connection error. Please try again later.');
         return;
@@ -95,21 +156,21 @@ export async function execute(interaction) {
       if (fullRangeResult.rows.length === 0) {
         console.log('[DRAFTTRENDS] No data found for user, getting owner list for suggestions...');
         // Try to find similar names for suggestions
-        let ownersResult;
+        let ownersResult: { rows: { owner: string }[] };
         try {
           console.log('[DRAFTTRENDS] Querying all owners...');
-          ownersResult = await sql`
+          ownersResult = await sql<{ owner: string }>`
             SELECT DISTINCT owner FROM owner_draft_stats
             ORDER BY owner`;
           console.log(`[DRAFTTRENDS] Found ${ownersResult.rows.length} total owners`);
-        } catch (dbError) {
+        } catch (dbError: unknown) {
           console.error('[DRAFTTRENDS] Database query error (owners):', dbError);
           await interaction.editReply('Database connection error. Please try again later.');
           return;
         }
 
         const allOwners = ownersResult.rows.map((row) => row.owner);
-        const lowerUserName = userName.toLowerCase();
+        const lowerUserName = (userName ?? '').toLowerCase();
 
         const suggestions = allOwners
           .filter((owner) => {
@@ -147,9 +208,9 @@ export async function execute(interaction) {
     if (stats.stats_json) {
       console.log('[DRAFTTRENDS] Parsing JSON stats...');
       try {
-        stats.complexStats = JSON.parse(stats.stats_json);
+        stats.complexStats = JSON.parse(stats.stats_json) as ComplexStats;
         console.log('[DRAFTTRENDS] JSON parsed successfully');
-      } catch (parseError) {
+      } catch (parseError: unknown) {
         console.error('[DRAFTTRENDS] Failed to parse JSON:', parseError);
         stats.complexStats = {};
       }
@@ -164,7 +225,7 @@ export async function execute(interaction) {
     try {
       await interaction.editReply({ embeds: embeds });
       console.log('[DRAFTTRENDS] Enhanced embeds sent successfully!');
-    } catch (embedError) {
+    } catch (embedError: unknown) {
       console.error('[DRAFTTRENDS] Enhanced embeds failed, trying simple embed:', embedError);
 
       // Fallback to simple embed
@@ -172,7 +233,7 @@ export async function execute(interaction) {
         const simpleEmbed = createSimpleEmbed(stats);
         await interaction.editReply({ embeds: [simpleEmbed] });
         console.log('[DRAFTTRENDS] Simple embed fallback sent successfully!');
-      } catch (simpleError) {
+      } catch (simpleError: unknown) {
         console.error('[DRAFTTRENDS] Simple embed also failed, using text:', simpleError);
 
         // Final fallback to text
@@ -181,70 +242,77 @@ export async function execute(interaction) {
         console.log('[DRAFTTRENDS] Text fallback sent successfully!');
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[DRAFTTRENDS] Error in command:', error);
-    console.error('[DRAFTTRENDS] Stack trace:', error.stack);
+    if (error instanceof Error) {
+      console.error('[DRAFTTRENDS] Stack trace:', error.stack);
+    }
     try {
       await interaction.editReply(
         'An error occurred while analyzing draft trends. Make sure the precomputation script has been run: `node precompute-draft-trends.js`'
       );
-    } catch (replyError) {
+    } catch (replyError: unknown) {
       console.error('[DRAFTTRENDS] Failed to send error message:', replyError);
     }
   }
-}
+};
 
-/**
- * Creates enhanced embeds for draft trends analysis
- * @param {Object} stats - Owner draft statistics
- * @returns {Array<EmbedBuilder>} Array containing main and prediction embeds
- */
-function createEnhancedDraftTrendsEmbed(stats) {
-  const complexStats = stats.complexStats || {};
+const createEnhancedDraftTrendsEmbed = (stats: OwnerDraftStatsRow): EmbedBuilder[] => {
+  const complexStats = stats.complexStats ?? {};
   const seasonRange =
     stats.season_min === stats.season_max
       ? `(${stats.season_min})`
       : `(${stats.season_min}-${stats.season_max})`;
 
   // Collect main embed fields
-  const mainFields = [];
+  const mainFields: { name: string; value: string; inline: boolean }[] = [];
 
   // Power Metrics
   const powerMetrics = calculatePowerMetrics(stats, complexStats);
   const consistency = calculateConsistency(stats, complexStats);
   const valueHunting = calculateValueHunting(stats, complexStats);
 
-  mainFields.push({
-    name: '⚡ Power Metrics',
-    value: truncateFieldValue(
-      [
-        `**Draft IQ**: ${powerMetrics.draftIQ}/100`,
-        `**Consistency**: ${consistency}/100`,
-        `**Risk Tolerance**: ${powerMetrics.riskScore}/100`,
-        `**Value Hunter**: ${valueHunting}/100`,
-      ].join('\n')
-    ),
-    inline: true,
-  });
+  const powerMetricsValue = truncateFieldValue(
+    [
+      `**Draft IQ**: ${powerMetrics.draftIQ}/100`,
+      `**Consistency**: ${consistency}/100`,
+      `**Risk Tolerance**: ${powerMetrics.riskScore}/100`,
+      `**Value Hunter**: ${valueHunting}/100`,
+    ].join('\n')
+  );
+
+  if (powerMetricsValue) {
+    mainFields.push({
+      name: '⚡ Power Metrics',
+      value: powerMetricsValue,
+      inline: true,
+    });
+  }
 
   // Signature Moves
   const signatureMoves = getSignatureMoves(stats, complexStats);
   if (signatureMoves.length > 0) {
-    mainFields.push({
-      name: '🎨 Signature Moves',
-      value: truncateFieldValue(signatureMoves.map((move) => `• ${move}`).join('\n')),
-      inline: true,
-    });
+    const signatureValue = truncateFieldValue(signatureMoves.map((move) => `• ${move}`).join('\n'));
+    if (signatureValue) {
+      mainFields.push({
+        name: '🎨 Signature Moves',
+        value: signatureValue,
+        inline: true,
+      });
+    }
   }
 
   // Elite Stats
   const eliteStats = getEliteStats(stats, complexStats);
   if (eliteStats.length > 0) {
-    mainFields.push({
-      name: '🏆 Elite Traits',
-      value: truncateFieldValue(eliteStats.map((stat) => `• ${stat}`).join('\n')),
-      inline: false,
-    });
+    const eliteValue = truncateFieldValue(eliteStats.map((stat) => `• ${stat}`).join('\n'));
+    if (eliteValue) {
+      mainFields.push({
+        name: '🏆 Elite Traits',
+        value: eliteValue,
+        inline: false,
+      });
+    }
   }
 
   // Team DNA
@@ -257,21 +325,27 @@ function createEnhancedDraftTrendsEmbed(stats) {
       })
       .join('\n');
 
-    mainFields.push({
-      name: '🧬 Team DNA',
-      value: truncateFieldValue(teamDNA),
-      inline: true,
-    });
+    const teamValue = truncateFieldValue(teamDNA);
+    if (teamValue) {
+      mainFields.push({
+        name: '🧬 Team DNA',
+        value: teamValue,
+        inline: true,
+      });
+    }
   }
 
   // Position Architecture
   const positionArchitecture = getPositionArchitecture(complexStats);
   if (positionArchitecture) {
-    mainFields.push({
-      name: '🏗️ Draft Architecture',
-      value: truncateFieldValue(positionArchitecture),
-      inline: true,
-    });
+    const posValue = truncateFieldValue(positionArchitecture);
+    if (posValue) {
+      mainFields.push({
+        name: '🏗️ Draft Architecture',
+        value: posValue,
+        inline: true,
+      });
+    }
   }
 
   // Loyalty Players
@@ -284,52 +358,78 @@ function createEnhancedDraftTrendsEmbed(stats) {
       })
       .join('\n');
 
-    mainFields.push({
-      name: '💝 Ride or Die Players',
-      value: truncateFieldValue(loyaltyStars),
-      inline: false,
-    });
+    const loyaltyValue = truncateFieldValue(loyaltyStars);
+    if (loyaltyValue) {
+      mainFields.push({
+        name: '💝 Ride or Die Players',
+        value: loyaltyValue,
+        inline: false,
+      });
+    }
   }
 
   // Create main embed
+  const ownerStats: OwnerStats = {
+    auction_max_bid: stats.auction_max_bid ?? undefined,
+    auction_avg_value:
+      typeof stats.auction_avg_value === 'number'
+        ? stats.auction_avg_value
+        : stats.auction_avg_value
+          ? parseFloat(stats.auction_avg_value)
+          : undefined,
+    complexStats: {
+      draftTrends: complexStats.draftTrends,
+      repeatPlayers: complexStats.repeatPlayers,
+    },
+  };
+
   const mainEmbed = new EmbedBuilder()
     .setColor(0xff6b35)
     .setTitle(`🎯 ${stats.owner}'s Draft DNA ${seasonRange}`)
-    .setDescription(truncateFieldValue(generatePersonalityProfile(stats), 4096))
+    .setDescription(truncateFieldValue(generatePersonalityProfile(ownerStats, stats), 4096) ?? '')
     .addFields(...mainFields)
     .setTimestamp()
     .setFooter({ text: 'WPFL Draft Intelligence™' });
 
   // Collect prediction embed fields
-  const predictionFields = [];
+  const predictionFields: { name: string; value: string; inline: boolean }[] = [];
 
   // Bold Predictions
   const predictions = generateBoldPredictions(stats, complexStats);
-  predictionFields.push({
-    name: '🎯 Bold Predictions',
-    value: truncateFieldValue(
-      predictions.map((pred, idx) => `**${idx + 1}.** ${pred}`).join('\n\n')
-    ),
-    inline: false,
-  });
-
-  // Sleeper Alerts
-  const sleeperAlerts = generateSleeperAlerts(stats, complexStats);
-  if (sleeperAlerts.length > 0) {
+  const predictValue = truncateFieldValue(
+    predictions.map((pred, idx) => `**${idx + 1}.** ${pred}`).join('\n\n')
+  );
+  if (predictValue) {
     predictionFields.push({
-      name: '😴 Sleeper Alerts',
-      value: truncateFieldValue(sleeperAlerts.join('\n')),
+      name: '🎯 Bold Predictions',
+      value: predictValue,
       inline: false,
     });
   }
 
+  // Sleeper Alerts
+  const sleeperAlerts = generateSleeperAlerts(stats, complexStats);
+  if (sleeperAlerts.length > 0) {
+    const sleeperValue = truncateFieldValue(sleeperAlerts.join('\n'));
+    if (sleeperValue) {
+      predictionFields.push({
+        name: '😴 Sleeper Alerts',
+        value: sleeperValue,
+        inline: false,
+      });
+    }
+  }
+
   // Strategic Recommendations
   const recommendations = generateStrategicRecommendations(stats, complexStats);
-  predictionFields.push({
-    name: '📊 Strategic Edge',
-    value: truncateFieldValue(recommendations.join('\n')),
-    inline: false,
-  });
+  const recsValue = truncateFieldValue(recommendations.join('\n'));
+  if (recsValue) {
+    predictionFields.push({
+      name: '📊 Strategic Edge',
+      value: recsValue,
+      inline: false,
+    });
+  }
 
   // Create prediction embed
   const predictionEmbed = new EmbedBuilder()
@@ -339,16 +439,24 @@ function createEnhancedDraftTrendsEmbed(stats) {
     .setFooter({ text: 'Powered by WPFL Predictive Analytics' });
 
   return [mainEmbed, predictionEmbed];
-}
+};
 
-/**
- * Creates a simple text response for draft trends
- * @param {Object} stats - Owner draft statistics
- * @returns {string} Formatted text response
- */
-function createTextResponse(stats) {
-  const complexStats = stats.complexStats || {};
-  const archetype = getDraftArchetype(stats);
+const createTextResponse = (stats: OwnerDraftStatsRow): string => {
+  const complexStats = stats.complexStats ?? {};
+  const ownerStats: OwnerStats = {
+    auction_max_bid: stats.auction_max_bid ?? undefined,
+    auction_avg_value:
+      typeof stats.auction_avg_value === 'number'
+        ? stats.auction_avg_value
+        : stats.auction_avg_value
+          ? parseFloat(stats.auction_avg_value)
+          : undefined,
+    complexStats: {
+      draftTrends: complexStats.draftTrends,
+      repeatPlayers: complexStats.repeatPlayers,
+    },
+  };
+  const archetype = getDraftArchetype(ownerStats);
   const totalYears = stats.season_max - stats.season_min + 1;
 
   let response = `🎯 **${stats.owner}'s Draft DNA (${stats.season_min}-${stats.season_max})**\n\n`;
@@ -390,16 +498,24 @@ function createTextResponse(stats) {
   }
 
   return response.trim();
-}
+};
 
-/**
- * Creates a simple embed using EmbedBuilder
- * @param {Object} stats - Owner draft statistics
- * @returns {EmbedBuilder} EmbedBuilder instance
- */
-function createSimpleEmbed(stats) {
-  const complexStats = stats.complexStats || {};
-  const archetype = getDraftArchetype(stats);
+const createSimpleEmbed = (stats: OwnerDraftStatsRow): EmbedBuilder => {
+  const complexStats = stats.complexStats ?? {};
+  const ownerStats: OwnerStats = {
+    auction_max_bid: stats.auction_max_bid ?? undefined,
+    auction_avg_value:
+      typeof stats.auction_avg_value === 'number'
+        ? stats.auction_avg_value
+        : stats.auction_avg_value
+          ? parseFloat(stats.auction_avg_value)
+          : undefined,
+    complexStats: {
+      draftTrends: complexStats.draftTrends,
+      repeatPlayers: complexStats.repeatPlayers,
+    },
+  };
+  const archetype = getDraftArchetype(ownerStats);
   const totalYears = stats.season_max - stats.season_min + 1;
 
   const seasonRange =
@@ -408,7 +524,7 @@ function createSimpleEmbed(stats) {
       : `(${stats.season_min}-${stats.season_max})`;
 
   // Collect all fields first
-  const fields = [];
+  const fields: { name: string; value: string; inline: boolean }[] = [];
 
   // Basic stats field
   fields.push({
@@ -420,7 +536,11 @@ function createSimpleEmbed(stats) {
   // Auction stats if available
   if (stats.auction_max_bid) {
     const avgValue =
-      typeof stats.auction_avg_value === 'number' ? stats.auction_avg_value.toFixed(1) : 'N/A';
+      typeof stats.auction_avg_value === 'number'
+        ? stats.auction_avg_value.toFixed(1)
+        : stats.auction_avg_value
+          ? parseFloat(stats.auction_avg_value).toFixed(1)
+          : 'N/A';
 
     fields.push({
       name: '💸 Auction Stats',
@@ -472,33 +592,25 @@ function createSimpleEmbed(stats) {
     .setFooter({ text: 'WPFL Draft Intelligence™' });
 
   return embed;
-}
+};
 
-/**
- * Generates a personality profile for a draft analyst
- * @param {Object} stats - Owner statistics
- * @returns {string} Formatted personality profile
- */
-function generatePersonalityProfile(stats) {
-  const profiles = [];
+const generatePersonalityProfile = (ownerStats: OwnerStats, stats: OwnerDraftStatsRow): string => {
+  const profiles: string[] = [];
 
   // Get primary archetype
-  profiles.push(getDraftArchetype(stats));
+  profiles.push(getDraftArchetype(ownerStats));
 
   // Add flavor text
   const totalYears = stats.season_max - stats.season_min + 1;
   profiles.push(`*${totalYears} years of draft dominance analyzed*`);
 
   return profiles.join('\n');
-}
+};
 
-/**
- * Calculates consistency metric based on draft patterns
- * @param {Object} stats - Basic owner statistics
- * @param {Object} complexStats - Complex statistics object
- * @returns {number} Consistency score 0-100
- */
-function calculateConsistency(stats, complexStats) {
+const calculateConsistency = (
+  stats: OwnerDraftStatsRow,
+  complexStats: ComplexStats
+): number => {
   let consistency = 50; // Base score
 
   // Position consistency - if they heavily favor one position
@@ -533,15 +645,12 @@ function calculateConsistency(stats, complexStats) {
   }
 
   return Math.min(100, Math.max(0, consistency));
-}
+};
 
-/**
- * Calculates value hunting metric
- * @param {Object} stats - Basic owner statistics
- * @param {Object} complexStats - Complex statistics object
- * @returns {number} Value hunting score 0-100
- */
-function calculateValueHunting(stats, _complexStats) {
+const calculateValueHunting = (
+  stats: OwnerDraftStatsRow,
+  _complexStats: ComplexStats
+): number => {
   let valueScore = 20; // Base score
 
   // Low average value = value hunter
@@ -571,13 +680,13 @@ function calculateValueHunting(stats, _complexStats) {
 
   // Low max bid relative to average = value hunter
   if (stats.auction_max_bid && stats.auction_avg_value) {
-    const maxBid = parseFloat(stats.auction_max_bid);
+    const maxBid = stats.auction_max_bid;
     const avgValue =
       typeof stats.auction_avg_value === 'number'
         ? stats.auction_avg_value
         : parseFloat(stats.auction_avg_value);
 
-    if (!isNaN(maxBid) && !isNaN(avgValue) && avgValue > 0) {
+    if (!isNaN(avgValue) && avgValue > 0) {
       const ratio = maxBid / avgValue;
       if (ratio < 3)
         valueScore += 20; // Doesn't splurge much
@@ -600,15 +709,12 @@ function calculateValueHunting(stats, _complexStats) {
   }
 
   return Math.min(100, Math.max(0, Math.round(valueScore)));
-}
+};
 
-/**
- * Calculates power metrics for draft analysis
- * @param {Object} stats - Basic owner statistics
- * @param {Object} complexStats - Complex statistics object
- * @returns {Object} Power metrics including draftIQ and riskScore
- */
-function calculatePowerMetrics(stats, _complexStats) {
+const calculatePowerMetrics = (
+  stats: OwnerDraftStatsRow,
+  _complexStats: ComplexStats
+): PowerMetrics => {
   let draftIQ = 50; // Base score
 
   // ROI bonus
@@ -624,11 +730,17 @@ function calculatePowerMetrics(stats, _complexStats) {
 
   // Risk score based on max bid and variance
   let riskScore = 0;
-  if (stats.auction_max_bid > 50) {
+  if (stats.auction_max_bid && stats.auction_max_bid > 50) {
     riskScore += stats.auction_max_bid - 50;
   }
-  if (stats.auction_avg_value > 20) {
-    riskScore += 20;
+  if (stats.auction_avg_value) {
+    const avgValue =
+      typeof stats.auction_avg_value === 'number'
+        ? stats.auction_avg_value
+        : parseFloat(stats.auction_avg_value);
+    if (avgValue > 20) {
+      riskScore += 20;
+    }
   }
   riskScore = Math.min(100, riskScore * 1.5);
 
@@ -636,10 +748,13 @@ function calculatePowerMetrics(stats, _complexStats) {
     draftIQ: Math.min(100, Math.round(draftIQ)),
     riskScore: Math.round(riskScore),
   };
-}
+};
 
-function getSignatureMoves(stats, complexStats) {
-  const moves = [];
+const getSignatureMoves = (
+  stats: OwnerDraftStatsRow,
+  complexStats: ComplexStats
+): string[] => {
+  const moves: string[] = [];
 
   // Position-based signatures
   if (
@@ -655,25 +770,31 @@ function getSignatureMoves(stats, complexStats) {
   }
 
   // Auction signatures
-  if (stats.auction_max_bid > 70) {
+  if (stats.auction_max_bid && stats.auction_max_bid > 70) {
     moves.push(`💸 **Big Game Hunter** - Record bid: $${stats.auction_max_bid}`);
   }
-  if (stats.auction_avg_value < 10 && stats.auction_picks > 10) {
+  if (
+    stats.auction_avg_value &&
+    ((typeof stats.auction_avg_value === 'number' && stats.auction_avg_value < 10) ||
+      (typeof stats.auction_avg_value === 'string' &&
+        parseFloat(stats.auction_avg_value) < 10)) &&
+    stats.auction_picks > 10
+  ) {
     moves.push('🔍 **Bargain Bin Boss** - Master of the $1-10 range');
   }
 
   // Team loyalty signatures
-  if (complexStats.topTeams?.[0]?.count >= 8) {
+  if (complexStats.topTeams?.[0]?.count && complexStats.topTeams[0].count >= 8) {
     moves.push(
       `${complexStats.topTeams[0].team} **Team Captain** - ${complexStats.topTeams[0].count} players drafted`
     );
   }
 
   // Round-based signatures
-  const earlyRounds = complexStats.positionByRound?.early || {};
+  const earlyRounds = complexStats.positionByRound?.early ?? {};
   const totalEarly = Object.values(earlyRounds).reduce((a, b) => a + b, 0);
-  const earlyWRs = earlyRounds['WR'] || 0;
-  const earlyRBs = earlyRounds['RB'] || 0;
+  const earlyWRs = earlyRounds['WR'] ?? 0;
+  const earlyRBs = earlyRounds['RB'] ?? 0;
 
   if (totalEarly > 0 && earlyWRs / totalEarly > 0.6) {
     moves.push('📻 **Zero-RB Zealot** - WR early and often');
@@ -682,23 +803,26 @@ function getSignatureMoves(stats, complexStats) {
   }
 
   return moves.slice(0, 4); // Limit to 4 signature moves
-}
+};
 
-function getEliteStats(stats, complexStats) {
-  const eliteTraits = [];
+const getEliteStats = (
+  stats: OwnerDraftStatsRow,
+  complexStats: ComplexStats
+): string[] => {
+  const eliteTraits: string[] = [];
 
   // Check for league-leading stats
   if (stats.auction_roi && parseFloat(stats.auction_roi) > 12) {
     eliteTraits.push(`🎯 **Elite ROI**: ${stats.auction_roi} points per dollar`);
   }
 
-  if (complexStats.draftTrends?.consistency > 85) {
+  if (complexStats.draftTrends?.consistency && complexStats.draftTrends.consistency > 85) {
     eliteTraits.push(
       `🎪 **Master of Consistency**: ${complexStats.draftTrends.consistency}/100 score`
     );
   }
 
-  if (complexStats.repeatPlayers?.length > 7) {
+  if (complexStats.repeatPlayers && complexStats.repeatPlayers.length > 7) {
     eliteTraits.push(
       `💕 **Loyalty King**: ${complexStats.repeatPlayers.length} repeat relationships`
     );
@@ -709,15 +833,15 @@ function getEliteStats(stats, complexStats) {
   }
 
   return eliteTraits;
-}
+};
 
-function getPositionArchitecture(complexStats) {
+const getPositionArchitecture = (complexStats: ComplexStats): string | null => {
   if (!complexStats.positionByRound) return null;
 
-  const architecture = [];
+  const architecture: string[] = [];
 
   // Early round strategy
-  const early = complexStats.positionByRound.early || {};
+  const early = complexStats.positionByRound.early ?? {};
   const earlyTotal = Object.values(early).reduce((a, b) => a + b, 0);
   if (earlyTotal > 0) {
     const topEarly = Object.entries(early).sort(([, a], [, b]) => b - a)[0];
@@ -728,7 +852,7 @@ function getPositionArchitecture(complexStats) {
   }
 
   // Mid round tendencies
-  const mid = complexStats.positionByRound.mid || {};
+  const mid = complexStats.positionByRound.mid ?? {};
   const midTotal = Object.values(mid).reduce((a, b) => a + b, 0);
   if (midTotal > 0) {
     const topMid = Object.entries(mid).sort(([, a], [, b]) => b - a)[0];
@@ -739,9 +863,9 @@ function getPositionArchitecture(complexStats) {
   }
 
   // Late round habits
-  const late = complexStats.positionByRound.late || {};
-  const lateQB = late['QB'] || 0;
-  const lateTE = late['TE'] || 0;
+  const late = complexStats.positionByRound.late ?? {};
+  const lateQB = late['QB'] ?? 0;
+  const lateTE = late['TE'] ?? 0;
   const lateTotal = Object.values(late).reduce((a, b) => a + b, 0);
 
   if (lateTotal > 0 && (lateQB + lateTE) / lateTotal > 0.5) {
@@ -751,16 +875,13 @@ function getPositionArchitecture(complexStats) {
   }
 
   return architecture.join('\n');
-}
+};
 
-/**
- * Generates bold predictions for future drafts
- * @param {Object} stats - Owner statistics
- * @param {Object} complexStats - Complex statistics object
- * @returns {Array<string>} Array of prediction strings
- */
-function generateBoldPredictions(stats, complexStats) {
-  const predictions = [];
+const generateBoldPredictions = (
+  stats: OwnerDraftStatsRow,
+  complexStats: ComplexStats
+): string[] => {
+  const predictions: string[] = [];
 
   // Timing-based prediction
   if (stats.avg_draft_position) {
@@ -777,7 +898,7 @@ function generateBoldPredictions(stats, complexStats) {
   }
 
   // Budget allocation prediction for auction
-  if (stats.auction_max_bid && stats.auction_avg_value) {
+  if (stats.auction_max_bid && stats.auction_avg_value && stats.auction_total_spent) {
     const totalSpent = parseFloat(stats.auction_total_spent);
     const picks = stats.auction_picks;
 
@@ -790,9 +911,11 @@ function generateBoldPredictions(stats, complexStats) {
   }
 
   // Weakness exploitation
-  const positions = complexStats.positionFrequency || {};
+  const positions = complexStats.positionFrequency ?? {};
   const lowPositions = Object.entries(positions)
-    .filter(([pos, count]) => count < stats.total_picks * 0.1 && ['QB', 'TE', 'WR'].includes(pos))
+    .filter(
+      ([pos, count]) => count < stats.total_picks * 0.1 && ['QB', 'TE', 'WR'].includes(pos)
+    )
     .map(([pos]) => pos);
 
   if (lowPositions.length > 0) {
@@ -823,10 +946,13 @@ function generateBoldPredictions(stats, complexStats) {
   }
 
   return predictions.slice(0, 4);
-}
+};
 
-function generateSleeperAlerts(stats, complexStats) {
-  const alerts = [];
+const generateSleeperAlerts = (
+  _stats: OwnerDraftStatsRow,
+  complexStats: ComplexStats
+): string[] => {
+  const alerts: string[] = [];
 
   // Based on favorite teams
   if (complexStats.topTeams && complexStats.topTeams.length > 0) {
@@ -835,25 +961,35 @@ function generateSleeperAlerts(stats, complexStats) {
   }
 
   // Based on value hunting score
-  if (complexStats.draftTrends?.valueHunting > 60) {
+  if (complexStats.draftTrends?.valueHunting && complexStats.draftTrends.valueHunting > 60) {
     alerts.push(`💎 Specializes in late-round gems - monitor their picks after round 10`);
   }
 
   // Based on position trends
-  if (complexStats.positionByRound?.late?.['WR'] > 5) {
+  if (
+    complexStats.positionByRound?.late?.['WR'] &&
+    complexStats.positionByRound.late['WR'] > 5
+  ) {
     alerts.push(`📡 Late-round WR specialist - they know something you don't`);
   }
 
   return alerts;
-}
+};
 
-function generateStrategicRecommendations(stats, complexStats) {
-  const recommendations = [];
+const generateStrategicRecommendations = (
+  stats: OwnerDraftStatsRow,
+  complexStats: ComplexStats
+): string[] => {
+  const recommendations: string[] = [];
 
   // Auction-specific strategies
   if (stats.auction_picks > 0) {
-    const avgValue = parseFloat(stats.auction_avg_value) || 15;
-    const maxBid = parseFloat(stats.auction_max_bid) || 50;
+    const avgValue = stats.auction_avg_value
+      ? typeof stats.auction_avg_value === 'number'
+        ? stats.auction_avg_value
+        : parseFloat(stats.auction_avg_value)
+      : 15;
+    const maxBid = stats.auction_max_bid ?? 50;
 
     if (maxBid > 65) {
       recommendations.push(
@@ -868,10 +1004,10 @@ function generateStrategicRecommendations(stats, complexStats) {
 
   // Position-based counter strategies
   const favPos = complexStats.favoritePosition?.position;
-  const favPct = parseFloat(complexStats.favoritePosition?.percentage || 0);
+  const favPct = parseFloat(complexStats.favoritePosition?.percentage ?? '0');
 
   if (favPos && favPct > 30) {
-    const counterMap = {
+    const counterMap: Record<string, string> = {
       RB: `🎯 **RB Addict Counter**: Let them hoard RBs - grab 3 top-10 WRs and stream RBs`,
       WR: `🏃 **WR Heavy Counter**: Lock up 2 elite RBs early while they chase receivers`,
       QB: `📉 **QB Reach Alert**: They'll grab QB rounds 3-5 - wait and grab 2 in rounds 10+`,
@@ -898,9 +1034,11 @@ function generateStrategicRecommendations(stats, complexStats) {
   }
 
   // Weakness targeting
-  const positions = complexStats.positionFrequency || {};
+  const positions = complexStats.positionFrequency ?? {};
   const weakPositions = Object.entries(positions)
-    .filter(([pos, count]) => count < stats.total_picks * 0.15 && ['QB', 'TE'].includes(pos))
+    .filter(
+      ([pos, count]) => count < stats.total_picks * 0.15 && ['QB', 'TE'].includes(pos)
+    )
     .map(([pos]) => pos);
 
   if (weakPositions.length > 0) {
@@ -910,4 +1048,4 @@ function generateStrategicRecommendations(stats, complexStats) {
   }
 
   return recommendations.slice(0, 3);
-}
+};

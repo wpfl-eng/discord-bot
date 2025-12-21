@@ -1,6 +1,6 @@
-// ewins.js
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import fetch from 'node-fetch';
+import type { ExpectedWinsResponse } from '../../types/api.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ewins')
@@ -22,36 +22,39 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
   );
 
-export const execute = async (interaction, fetchFn = fetch) => {
+export const execute = async (
+  interaction: ChatInputCommandInteraction,
+  fetchFn: typeof fetch = fetch
+): Promise<void> => {
   await interaction.deferReply();
 
-  const year = interaction.options.getInteger('year') || 2025;
-  const week = interaction.options.getInteger('week') || 9;
+  // Options are required, so non-null assertion is safe
+  const year = interaction.options.getInteger('year')!;
+  const week = interaction.options.getInteger('week')!;
 
   const url = new URL('https://wpflapi.azurewebsites.net/api/expectedwins');
-  url.searchParams.set('seasonMax', year);
-  url.searchParams.set('seasonMin', year);
-  if (week) {
-    url.searchParams.set('weekMax', week);
-    url.searchParams.set('weekMin', 1);
-  }
+  url.searchParams.set('seasonMax', String(year));
+  url.searchParams.set('seasonMin', String(year));
+  url.searchParams.set('weekMax', String(week));
+  url.searchParams.set('weekMin', '1');
 
   try {
-    const response = await fetchFn(url);
+    const response = await fetchFn(url.toString());
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
+    const responseData = (await response.json()) as ExpectedWinsResponse[];
 
-    if (data.length === 0) {
-      return await interaction.editReply('No data available for the specified period.');
+    if (responseData.length === 0) {
+      await interaction.editReply('No data available for the specified period.');
+      return;
     }
 
-    const sortedData = data.sort((a, b) => b.expectedWins - a.expectedWins);
+    const sortedData = responseData.sort((a, b) => b.expectedWins - a.expectedWins);
     const embed = createEmbed(sortedData, year, week);
 
     await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching expected wins:', error);
     await interaction.editReply(
       'An error occurred while fetching the data. Please try again later.'
@@ -59,7 +62,11 @@ export const execute = async (interaction, fetchFn = fetch) => {
   }
 };
 
-export function createEmbed(data, year, week) {
+export function createEmbed(
+  data: ExpectedWinsResponse[],
+  year: number,
+  week: number | null
+): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0x0099ff)
     .setTitle(`Expected Wins vs Actual Wins ${year}${week ? ` (Week ${week})` : ''}`)

@@ -190,15 +190,16 @@ export class TriviaService {
       const windowClosesAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
       // Save to active questions
-      const acceptableAnswersJson = unaskedQuestion.acceptable_answers?.length
-        ? JSON.stringify(unaskedQuestion.acceptable_answers)
+      // Format array as PostgreSQL array literal: {"value1","value2"}
+      const acceptableAnswers = unaskedQuestion.acceptable_answers?.length
+        ? `{${unaskedQuestion.acceptable_answers.map(a => `"${a.replace(/"/g, '\\"')}"`).join(',')}}`
         : null;
       const activeQuestion = await triviaDb.saveActiveQuestion({
         category,
         questionId: unaskedQuestion.id != null ? String(unaskedQuestion.id) : null,
         question: unaskedQuestion.question,
         answer: unaskedQuestion.answer,
-        acceptableAnswers: acceptableAnswersJson,
+        acceptableAnswers,
         pointValue: unaskedQuestion.point_value || 1,
         sourceData: unaskedQuestion.source_data
           ? JSON.stringify(unaskedQuestion.source_data)
