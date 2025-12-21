@@ -5,12 +5,12 @@
   "icon": "question",
   "commands": [
     {
-      "name": "trivia",
+      "name": "triviaquestion",
       "description": "Trigger a trivia question",
       "longDescription": "Start a trivia question in the channel with NFL general knowledge questions.",
       "category": "Trivia",
       "categorySlug": "trivia",
-      "usage": ["/trivia category:nfl"],
+      "usage": ["/triviaquestion category:nfl"],
       "options": [
         {
           "name": "category",
@@ -25,7 +25,7 @@
       "ephemeral": false,
       "examples": [
         {
-          "input": "/trivia category:nfl",
+          "input": "/triviaquestion category:nfl",
           "output": "🏈 NFL Trivia!\nQ: Which team won Super Bowl LVIII?\n[Chiefs] [49ers] [Eagles] [Ravens]"
         }
       ],
@@ -52,7 +52,7 @@
           "output": "🧠 Trivia Leaderboard\n1. AJ Boorde - 47 correct\n2. Nixon Ball - 42 correct\n..."
         }
       ],
-      "relatedCommands": ["trivia", "triviastats"]
+      "relatedCommands": ["triviaquestion", "triviastats"]
     },
     {
       "name": "triviastats",
@@ -76,7 +76,7 @@
           "output": "📊 Your Trivia Stats\nCorrect: 47 | Incorrect: 12 | Accuracy: 79.7%\nNFL: 32 | WPFL: 15"
         }
       ],
-      "relatedCommands": ["trivia", "trivialeaderboard"]
+      "relatedCommands": ["triviaquestion", "trivialeaderboard"]
     }
   ]
 }

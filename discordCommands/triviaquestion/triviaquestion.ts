@@ -3,7 +3,7 @@ import * as triviaDb from '../../trivia/triviaDb.js';
 import type { TriviaCategory } from '../../trivia/triviaDb.js';
 
 export const data = new SlashCommandBuilder()
-  .setName('trivia')
+  .setName('triviaquestion')
   .setDescription('Manually trigger a trivia question')
   .addStringOption((option) =>
     option
