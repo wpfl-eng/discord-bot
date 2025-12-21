@@ -5,9 +5,13 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  ChatInputCommandInteraction,
+  ButtonInteraction,
 } from 'discord.js';
 import * as nflmonDb from '../../nflmon/nflmonDb.js';
+import type { Nflmon } from '../../nflmon/nflmonDb.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
+import type { NflPlayer } from '../../nflmon/nflmonService.js';
 import { generateIVs } from '../../nflmon/nflmonConfig.js';
 
 export const data = new SlashCommandBuilder()
@@ -16,10 +20,8 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Build embed showing 5 starter choices
- * @param {object[]} players - Array of 5 common players
- * @returns {EmbedBuilder}
  */
-function buildStarterEmbed(players) {
+function buildStarterEmbed(players: NflPlayer[]): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0x3498db)
     .setTitle('Choose Your Starter NFLmon!')
@@ -42,10 +44,9 @@ function buildStarterEmbed(players) {
 
 /**
  * Build selection buttons for 5 players
- * @returns {ActionRowBuilder}
  */
-function buildStarterButtons() {
-  const row = new ActionRowBuilder();
+function buildStarterButtons(): ActionRowBuilder<ButtonBuilder> {
+  const row = new ActionRowBuilder<ButtonBuilder>();
 
   for (let i = 0; i < 5; i++) {
     row.addComponents(
@@ -61,11 +62,8 @@ function buildStarterButtons() {
 
 /**
  * Build success embed after selection
- * @param {object} player - Selected player
- * @param {object} nflmon - Created NFLmon record
- * @returns {EmbedBuilder}
  */
-function buildSuccessEmbed(player, nflmon) {
+function buildSuccessEmbed(player: NflPlayer, nflmon: Nflmon): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0x2ecc71)
     .setTitle('Congratulations!')
@@ -80,7 +78,7 @@ function buildSuccessEmbed(player, nflmon) {
     .setFooter({ text: 'Good luck on your NFLmon journey!' });
 }
 
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   const userId = interaction.user.id;
@@ -118,10 +116,10 @@ export async function execute(interaction) {
   const collector = response.createMessageComponentCollector({
     componentType: ComponentType.Button,
     time: 60000, // 1 minute to choose
-    filter: (i) => i.user.id === userId,
+    filter: (i: ButtonInteraction) => i.user.id === userId,
   });
 
-  collector.on('collect', async (buttonInteraction) => {
+  collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
     // Parse selection index
     const index = parseInt(buttonInteraction.customId.split('_')[2]);
     const selectedPlayer = players[index];

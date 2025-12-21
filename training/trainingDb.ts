@@ -3,7 +3,7 @@
 
 import { sql } from '@vercel/postgres';
 import * as inventoryDb from '../inventory/inventoryDb.js';
-import { TRAINING_CONFIG, getPosition, calculateGraduationValue } from './trainingConfig.js';
+import { TRAINING_CONFIG, getPosition, calculateGraduationValue, type StateName } from './trainingConfig.js';
 
 // ============ Type Definitions ============
 
@@ -27,7 +27,7 @@ export interface TrainingSlot {
   readonly id: number;
   readonly user_id: string;
   readonly slot_index: number;
-  readonly state: string;
+  readonly state: StateName;
   readonly rookie_type: string | null;
   readonly planted_at: Date | null;
   readonly ready_at: Date | null;

@@ -8,11 +8,18 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  ChatInputCommandInteraction,
+  ButtonInteraction,
+  AutocompleteInteraction,
+  TextChannel,
 } from 'discord.js';
 import * as nflmonDb from '../../nflmon/nflmonDb.js';
+import type { Nflmon, NflmonTrade, LeaderboardCategory } from '../../nflmon/nflmonDb.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
 import { TRADE_ERRORS } from '../../nflmon/nflmonService.js';
+import type { DisplayData, PendingTrade, LeaderboardEntry } from '../../nflmon/nflmonService.js';
 import { getSellValue, formatRarity } from '../../nflmon/nflmonConfig.js';
+import type { EvolutionStage } from '../../nflmon/nflmonConfig.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
 
 // =============================================================================
@@ -21,7 +28,7 @@ import { formatCurrency } from '../../economy/economyConfig.js';
 
 const ITEMS_PER_PAGE = 10;
 
-const ERROR_MESSAGES = {
+const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "NFLmon not found or doesn't belong to you.",
   IN_TRAINING: 'You must untrain this NFLmon before selling.',
   INVALID_SLOT: 'Invalid training slot. Check your available slots with `/nflmon stats`.',
@@ -31,20 +38,29 @@ const ERROR_MESSAGES = {
 };
 
 // =============================================================================
+// LOCAL TYPES
+// =============================================================================
+
+interface DexFilters {
+  r: string | null;
+  s: string | null;
+}
+
+// =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
 
 /**
  * Build pagination buttons for bench view
- * @param {number} page - Current page
- * @param {number} totalPages - Total pages
- * @param {string|null} rarity - Optional rarity filter
- * @returns {ActionRowBuilder[]}
  */
-function buildPaginationButtons(page, totalPages, rarity = null) {
+function buildPaginationButtons(
+  page: number,
+  totalPages: number,
+  rarity: string | null = null
+): ActionRowBuilder<ButtonBuilder>[] {
   if (totalPages <= 1) return [];
 
-  const row = new ActionRowBuilder();
+  const row = new ActionRowBuilder<ButtonBuilder>();
   const rarityParam = rarity ? `_${rarity}` : '';
 
   row.addComponents(
@@ -65,12 +81,10 @@ function buildPaginationButtons(page, totalPages, rarity = null) {
 
 /**
  * Build sell confirmation buttons
- * @param {number} nflmonId - NFLmon ID
- * @returns {ActionRowBuilder[]}
  */
-function buildSellConfirmButtons(nflmonId) {
+function buildSellConfirmButtons(nflmonId: number): ActionRowBuilder<ButtonBuilder>[] {
   return [
-    new ActionRowBuilder().addComponents(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(`nflmon_sell_confirm_${nflmonId}`)
         .setLabel('Confirm Sell')
@@ -85,11 +99,8 @@ function buildSellConfirmButtons(nflmonId) {
 
 /**
  * Build evolution success embed
- * @param {object} displayData - Display data from getDisplayData
- * @param {object} newStage - New evolution stage
- * @returns {EmbedBuilder}
  */
-function buildEvolutionEmbed(displayData, newStage) {
+function buildEvolutionEmbed(displayData: DisplayData, newStage: EvolutionStage): EmbedBuilder {
   const { player } = displayData;
 
   return new EmbedBuilder()
@@ -105,12 +116,10 @@ function buildEvolutionEmbed(displayData, newStage) {
 
 /**
  * Build trade response buttons (for DM)
- * @param {number} tradeId - Trade ID
- * @returns {ActionRowBuilder[]}
  */
-function buildTradeResponseButtons(tradeId) {
+function buildTradeResponseButtons(tradeId: number): ActionRowBuilder<ButtonBuilder>[] {
   return [
-    new ActionRowBuilder().addComponents(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(`nflmon_trade_accept_${tradeId}`)
         .setLabel('Accept Trade')
@@ -125,20 +134,20 @@ function buildTradeResponseButtons(tradeId) {
 
 /**
  * Build dex pagination buttons
- * @param {number} page - Current page
- * @param {number} totalPages - Total pages
- * @param {string|null} search - Search filter
- * @param {string|null} rarity - Rarity filter
- * @returns {ActionRowBuilder[]}
  */
-function buildDexPaginationButtons(page, totalPages, search, rarity) {
+function buildDexPaginationButtons(
+  page: number,
+  totalPages: number,
+  search: string | null,
+  rarity: string | null
+): ActionRowBuilder<ButtonBuilder>[] {
   if (totalPages <= 1) return [];
 
   // Encode filters as base64 JSON to avoid delimiter parsing issues
   const filterData = JSON.stringify({ r: rarity || null, s: search?.slice(0, 20) || null });
   const encodedFilters = Buffer.from(filterData).toString('base64');
 
-  const row = new ActionRowBuilder().addComponents(
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`nflmon_dex_prev_${page}_${encodedFilters}`)
       .setLabel('Previous')
@@ -156,16 +165,16 @@ function buildDexPaginationButtons(page, totalPages, search, rarity) {
 
 /**
  * Build pending trades action buttons
- * @param {object} trade - Trade object
- * @param {string} userId - Current user ID
- * @returns {ActionRowBuilder[]}
  */
-function buildPendingTradeButtons(trade, userId) {
+function buildPendingTradeButtons(
+  trade: NflmonTrade,
+  userId: string
+): ActionRowBuilder<ButtonBuilder>[] {
   const isIncoming = trade.to_user_id === userId;
 
   if (isIncoming) {
     return [
-      new ActionRowBuilder().addComponents(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId(`nflmon_trade_accept_${trade.id}`)
           .setLabel('Accept')
@@ -178,7 +187,7 @@ function buildPendingTradeButtons(trade, userId) {
     ];
   } else {
     return [
-      new ActionRowBuilder().addComponents(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId(`nflmon_trade_cancel_${trade.id}`)
           .setLabel('Cancel Trade')
@@ -370,9 +379,8 @@ export const data = new SlashCommandBuilder()
 
 /**
  * Execute the nflmon command
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-export async function execute(interaction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommandGroup = interaction.options.getSubcommandGroup();
   const subcommand = interaction.options.getSubcommand();
 
@@ -443,9 +451,8 @@ export async function execute(interaction) {
 
 /**
  * Handle /nflmon bench
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleBench(interaction) {
+async function handleBench(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -455,11 +462,11 @@ async function handleBench(interaction) {
 
     // Fetch data
     const benchRecords = await nflmonDb.getBench(userId, {
-      rarity,
+      rarity: rarity ?? undefined,
       page,
       limit: ITEMS_PER_PAGE,
     });
-    const totalCount = await nflmonDb.getBenchCount(userId, rarity);
+    const totalCount = await nflmonDb.getBenchCount(userId, rarity ?? undefined);
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
 
     // Build embed
@@ -478,17 +485,17 @@ async function handleBench(interaction) {
       const collector = response.createMessageComponentCollector({
         componentType: ComponentType.Button,
         time: 60000,
-        filter: (i) => i.user.id === userId,
+        filter: (i: ButtonInteraction) => i.user.id === userId,
       });
 
-      collector.on('collect', async (buttonInteraction) => {
+      collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
         const [, , action, currentPageStr, filterRarity] = buttonInteraction.customId.split('_');
         const currentPage = parseInt(currentPageStr);
         const newPage = action === 'prev' ? currentPage - 1 : currentPage + 1;
 
         // Fetch new page
         const newRecords = await nflmonDb.getBench(userId, {
-          rarity: filterRarity || rarity,
+          rarity: (filterRarity || rarity) ?? undefined,
           page: newPage,
           limit: ITEMS_PER_PAGE,
         });
@@ -508,22 +515,22 @@ async function handleBench(interaction) {
     }
   } catch (error) {
     console.error('[NFLMON] bench error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon view
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleView(interaction) {
+async function handleView(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger('id');
+    const nflmonId = interaction.options.getInteger('id', true);
 
     // Get NFLmon with ownership check
     const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
@@ -546,23 +553,23 @@ async function handleView(interaction) {
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error('[NFLMON] view error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon train
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleTrain(interaction) {
+async function handleTrain(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const nflmonId = interaction.options.getInteger('id');
+    const nflmonId = interaction.options.getInteger('id', true);
     let slot = interaction.options.getInteger('slot');
 
     // Ensure user stats exist
@@ -635,22 +642,22 @@ async function handleTrain(interaction) {
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error('[NFLMON] train error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon untrain
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleUntrain(interaction) {
+async function handleUntrain(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger('id');
+    const nflmonId = interaction.options.getInteger('id', true);
 
     // Get NFLmon to check if it's in training
     const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
@@ -686,22 +693,22 @@ async function handleUntrain(interaction) {
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error('[NFLMON] untrain error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon nickname
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleNickname(interaction) {
+async function handleNickname(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger('id');
+    const nflmonId = interaction.options.getInteger('id', true);
     const newName = interaction.options.getString('name') || null;
 
     // Update nickname
@@ -729,23 +736,23 @@ async function handleNickname(interaction) {
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error('[NFLMON] nickname error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon evolve
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleEvolve(interaction) {
+async function handleEvolve(interaction: ChatInputCommandInteraction): Promise<void> {
   // Evolve is PUBLIC (achievement moment)
   await interaction.deferReply({ ephemeral: false });
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger('id');
+    const nflmonId = interaction.options.getInteger('id', true);
 
     // Get NFLmon
     const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
@@ -770,7 +777,7 @@ async function handleEvolve(interaction) {
     }
 
     // Perform evolution
-    const evolved = await nflmonDb.evolveNflmon(userId, nflmonId, displayData.nextStage.id);
+    const evolved = await nflmonDb.evolveNflmon(userId, nflmonId, displayData.nextStage!.id);
 
     if (!evolved) {
       await interaction.editReply({ content: 'Evolution failed.' });
@@ -778,30 +785,30 @@ async function handleEvolve(interaction) {
     }
 
     // Build and send evolution embed
-    const embed = buildEvolutionEmbed(displayData, displayData.nextStage);
+    const embed = buildEvolutionEmbed(displayData, displayData.nextStage!);
     await interaction.editReply({ embeds: [embed] });
 
     console.log(
-      `[NFLMON] ${interaction.user.username}'s ${displayData.displayName} evolved to ${displayData.nextStage.name}`
+      `[NFLMON] ${interaction.user.username}'s ${displayData.displayName} evolved to ${displayData.nextStage!.name}`
     );
   } catch (error) {
     console.error('[NFLMON] evolve error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon sell
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleSell(interaction) {
+async function handleSell(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger('id');
+    const nflmonId = interaction.options.getInteger('id', true);
 
     // Get NFLmon for display
     const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
@@ -844,10 +851,10 @@ async function handleSell(interaction) {
     const collector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 30000,
-      filter: (i) => i.user.id === userId,
+      filter: (i: ButtonInteraction) => i.user.id === userId,
     });
 
-    collector.on('collect', async (buttonInteraction) => {
+    collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
       if (buttonInteraction.customId === 'nflmon_sell_cancel') {
         await buttonInteraction.update({
           embeds: [
@@ -906,17 +913,17 @@ async function handleSell(interaction) {
     });
   } catch (error) {
     console.error('[NFLMON] sell error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon stats
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleStats(interaction) {
+async function handleStats(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -932,42 +939,46 @@ async function handleStats(interaction) {
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error('[NFLMON] stats error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon leaderboard
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleLeaderboard(interaction) {
+async function handleLeaderboard(interaction: ChatInputCommandInteraction): Promise<void> {
   // Leaderboard is PUBLIC
   await interaction.deferReply({ ephemeral: false });
 
   try {
-    const category = interaction.options.getString('category') || 'total_caught';
+    const category = (interaction.options.getString('category') || 'total_caught') as LeaderboardCategory;
 
     // Get leaderboard entries
-    const entries = await nflmonDb.getLeaderboard(category, 10);
+    const dbEntries = await nflmonDb.getLeaderboard(category, 10);
+    // Convert to service layer LeaderboardEntry type (filter out null usernames)
+    const entries: LeaderboardEntry[] = dbEntries
+      .filter((e) => e.username !== null)
+      .map((e) => ({ username: e.username!, value: e.value }));
 
     // Build and send leaderboard embed
     const embed = nflmonService.buildLeaderboardEmbed(entries, category);
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error('[NFLMON] leaderboard error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon dex
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleDex(interaction) {
+async function handleDex(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -1001,10 +1012,10 @@ async function handleDex(interaction) {
     const paginated = players.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     const embed = nflmonService.buildDexEmbed(paginated, page, totalPages, totalCount, {
-      search,
-      rarity,
+      search: search ?? undefined,
+      rarity: rarity ?? undefined,
     });
-    const components = buildDexPaginationButtons(page, totalPages, search, rarity);
+    const components = buildDexPaginationButtons(page, totalPages, search ?? null, rarity);
 
     const response = await interaction.editReply({
       embeds: [embed],
@@ -1016,21 +1027,23 @@ async function handleDex(interaction) {
       const collector = response.createMessageComponentCollector({
         componentType: ComponentType.Button,
         time: 60000,
-        filter: (i) => i.user.id === interaction.user.id,
+        filter: (i: ButtonInteraction) => i.user.id === interaction.user.id,
       });
 
-      collector.on('collect', async (buttonInteraction) => {
+      collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
         const parts = buttonInteraction.customId.split('_');
         const action = parts[2]; // prev or next
         const currentPage = parseInt(parts[3]);
 
         // Decode base64 JSON filters
-        let filterRarity = null;
-        let filterSearch = null;
+        let filterRarity: string | null = null;
+        let filterSearch: string | null = null;
         try {
           const encodedFilters = parts[4];
           if (encodedFilters) {
-            const filterData = JSON.parse(Buffer.from(encodedFilters, 'base64').toString('utf8'));
+            const filterData: DexFilters = JSON.parse(
+              Buffer.from(encodedFilters, 'base64').toString('utf8')
+            );
             filterRarity = filterData.r || null;
             filterSearch = filterData.s || null;
           }
@@ -1054,7 +1067,7 @@ async function handleDex(interaction) {
             filteredPlayers = filteredPlayers.filter((p) => p.team.toUpperCase() === team);
           } else {
             filteredPlayers = filteredPlayers.filter((p) =>
-              p.name.toLowerCase().includes(filterSearch)
+              p.name.toLowerCase().includes(filterSearch!)
             );
           }
         }
@@ -1074,7 +1087,7 @@ async function handleDex(interaction) {
           newPage,
           newTotalPages,
           filteredPlayers.length,
-          { search: filterSearch, rarity: filterRarity }
+          { search: filterSearch ?? undefined, rarity: filterRarity ?? undefined }
         );
         const newComponents = buildDexPaginationButtons(
           newPage,
@@ -1095,24 +1108,24 @@ async function handleDex(interaction) {
     }
   } catch (error) {
     console.error('[NFLMON] dex error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon trade offer
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleTradeOffer(interaction) {
+async function handleTradeOffer(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    const targetUser = interaction.options.getUser('user');
-    const myNflmonId = interaction.options.getInteger('my_nflmon');
+    const targetUser = interaction.options.getUser('user', true);
+    const myNflmonId = interaction.options.getInteger('my_nflmon', true);
     const theirNflmonId = interaction.options.getInteger('their_nflmon');
     const coinsOffered = interaction.options.getInteger('coins') || 0;
 
@@ -1136,7 +1149,7 @@ async function handleTradeOffer(interaction) {
     }
 
     // Validate their NFLmon if specified
-    let theirNflmon = null;
+    let theirNflmon: Nflmon | null = null;
     if (theirNflmonId) {
       theirNflmon = await nflmonDb.getNflmonByUser(targetUser.id, theirNflmonId);
       if (!theirNflmon) {
@@ -1154,20 +1167,29 @@ async function handleTradeOffer(interaction) {
     }
 
     // Create the trade
-    const trade = await nflmonDb.createTrade({
+    const dbTrade = await nflmonDb.createTrade({
       fromUserId: userId,
-      fromUsername: username,
       toUserId: targetUser.id,
-      toUsername: targetUser.username,
       fromNflmonId: myNflmonId,
       toNflmonId: theirNflmonId,
       coinsOffered,
     });
 
-    if (!trade) {
+    if (!dbTrade) {
       await interaction.editReply({ content: 'Failed to create trade offer.' });
       return;
     }
+
+    // Convert to PendingTrade format for embed functions
+    const trade: PendingTrade = {
+      id: dbTrade.id,
+      from_user_id: dbTrade.from_user_id,
+      to_user_id: dbTrade.to_user_id,
+      expires_at: dbTrade.expires_at,
+      from_username: username,
+      to_username: targetUser.username,
+      coins_offered: dbTrade.coins_offered,
+    };
 
     // Get player info for embeds
     const myPlayer = nflmonService.getPlayer(myNflmon.player_id);
@@ -1202,17 +1224,17 @@ async function handleTradeOffer(interaction) {
     console.log(`[NFLMON] Trade #${trade.id} created: ${username} -> ${targetUser.username}`);
   } catch (error) {
     console.error('[NFLMON] trade offer error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon trade pending
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleTradePending(interaction) {
+async function handleTradePending(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
@@ -1244,10 +1266,10 @@ async function handleTradePending(interaction) {
     const collector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 60000,
-      filter: (i) => i.user.id === userId,
+      filter: (i: ButtonInteraction) => i.user.id === userId,
     });
 
-    collector.on('collect', async (buttonInteraction) => {
+    collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
       const [, , action, tradeIdStr] = buttonInteraction.customId.split('_');
       const tradeId = parseInt(tradeIdStr);
 
@@ -1265,12 +1287,14 @@ async function handleTradePending(interaction) {
             const channelId = process.env.GENERAL_CHANNEL_ID;
             if (channelId) {
               const channel = await interaction.client.channels.fetch(channelId);
-              if (channel) {
-                await channel.send({ embeds: [result.announceEmbed] });
+              if (channel && channel.isTextBased()) {
+                await (channel as TextChannel).send({ embeds: [result.announceEmbed] });
               }
             }
           } catch (announceError) {
-            console.log('[NFLMON] Could not announce trade:', announceError.message);
+            const errorMessage =
+              announceError instanceof Error ? announceError.message : 'Unknown error';
+            console.log('[NFLMON] Could not announce trade:', errorMessage);
           }
         }
 
@@ -1301,27 +1325,28 @@ async function handleTradePending(interaction) {
     });
   } catch (error) {
     console.error('[NFLMON] trade pending error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
 
 /**
  * Handle /nflmon trade cancel
- * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
-async function handleTradeCancel(interaction) {
+async function handleTradeCancel(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
   try {
     const userId = interaction.user.id;
-    const tradeId = interaction.options.getInteger('trade_id');
+    const tradeId = interaction.options.getInteger('trade_id', true);
 
-    const result = await nflmonDb.cancelTrade(userId, tradeId);
+    const cancelledTrade = await nflmonDb.cancelTrade(userId, tradeId);
 
-    if (!result.success) {
-      const errorMsg = TRADE_ERRORS[result.error] || 'Failed to cancel trade.';
+    if (!cancelledTrade) {
+      // cancelTrade returns null if trade not found or user isn't the sender
+      const errorMsg = TRADE_ERRORS.NOT_SENDER || 'Failed to cancel trade.';
       await interaction.editReply({ content: errorMsg });
       return;
     }
@@ -1336,8 +1361,9 @@ async function handleTradeCancel(interaction) {
     });
   } catch (error) {
     console.error('[NFLMON] trade cancel error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
-      content: `An error occurred: ${error.message}`,
+      content: `An error occurred: ${errorMessage}`,
     });
   }
 }
@@ -1348,9 +1374,8 @@ async function handleTradeCancel(interaction) {
 
 /**
  * Handle autocomplete for NFLmon ID
- * @param {import('discord.js').AutocompleteInteraction} interaction
  */
-export async function autocomplete(interaction) {
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   try {
     const focusedOption = interaction.options.getFocused(true);
 
