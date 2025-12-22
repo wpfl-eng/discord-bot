@@ -120,3 +120,26 @@ export async function logCompleteRound(
     throw error;
   }
 }
+
+// ============ QUERY OPERATIONS ============
+
+/**
+ * Get recent roulette rounds for history display
+ */
+export async function getRecentRounds(limit: number): Promise<RouletteRoundRecord[]> {
+  const result = await sql<RouletteRoundRecord>`
+    SELECT
+      id,
+      result_number,
+      result_color,
+      total_wagered,
+      total_paid,
+      bet_count,
+      player_count,
+      spun_at
+    FROM roulette_rounds
+    ORDER BY spun_at DESC
+    LIMIT ${limit}
+  `;
+  return result.rows;
+}
