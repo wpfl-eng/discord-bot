@@ -18,6 +18,7 @@ import {
   formatAmount,
 } from './rouletteConfig.js';
 import * as rouletteState from './rouletteState.js';
+import * as rouletteDb from './rouletteDb.js';
 
 // ============ COMMAND DEFINITION ============
 
@@ -43,6 +44,9 @@ export const data = new SlashCommandBuilder()
           .setRequired(true)
           .setAutocomplete(true)
       )
+  )
+  .addSubcommand((sub) =>
+    sub.setName('history').setDescription('View the last 20 roulette spins')
   );
 
 // ============ AUTOCOMPLETE ============
@@ -65,23 +69,25 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand: string = interaction.options.getSubcommand();
 
-  if (subcommand === 'bet') {
-    try {
+  try {
+    if (subcommand === 'bet') {
       await handleBet(interaction);
-    } catch (error: unknown) {
-      console.error('[ROULETTE] Command error:', error);
-      const message: string = error instanceof Error ? error.message : 'Unknown error';
+    } else if (subcommand === 'history') {
+      await handleHistory(interaction);
+    }
+  } catch (error: unknown) {
+    console.error('[ROULETTE] Command error:', error);
+    const message: string = error instanceof Error ? error.message : 'Unknown error';
 
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: `An error occurred: ${message}`,
-          ephemeral: true,
-        });
-      } else {
-        await interaction.editReply({
-          content: `An error occurred: ${message}`,
-        });
-      }
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: `An error occurred: ${message}`,
+        ephemeral: true,
+      });
+    } else {
+      await interaction.editReply({
+        content: `An error occurred: ${message}`,
+      });
     }
   }
 }
@@ -180,6 +186,70 @@ async function handleBet(interaction: ChatInputCommandInteraction): Promise<void
         betLines.join('\n') +
         `\n\nTotal: ${formatCurrency(totalBet)}`
     );
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+// ============ HISTORY HANDLER ============
+
+const COLOR_EMOJI: Record<string, string> = {
+  red: '🔴',
+  black: '⚫',
+  green: '🟢',
+};
+
+async function handleHistory(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const rounds = await rouletteDb.getRecentRounds(20);
+
+  if (rounds.length === 0) {
+    const embed = new EmbedBuilder()
+      .setColor(0x3498db)
+      .setTitle('🎰 Roulette History')
+      .setDescription('No spins recorded yet. Be the first to play!');
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  // Build compact strip display (10 per row)
+  const row1: string[] = [];
+  const row2: string[] = [];
+
+  for (let i = 0; i < rounds.length; i++) {
+    const round = rounds[i];
+    const emoji = COLOR_EMOJI[round.result_color] || '⚪';
+    const display = `${emoji}${round.result_number}`;
+
+    if (i < 10) {
+      row1.push(display);
+    } else {
+      row2.push(display);
+    }
+  }
+
+  // Count colors
+  let redCount = 0;
+  let blackCount = 0;
+  let greenCount = 0;
+
+  for (const round of rounds) {
+    if (round.result_color === 'red') redCount++;
+    else if (round.result_color === 'black') blackCount++;
+    else if (round.result_color === 'green') greenCount++;
+  }
+
+  const stripDisplay =
+    row1.join(' ') + (row2.length > 0 ? '\n' + row2.join(' ') : '');
+
+  const embed = new EmbedBuilder()
+    .setColor(0x3498db)
+    .setTitle('🎰 Last 20 Spins')
+    .setDescription(
+      stripDisplay + `\n\n📊 Red: ${redCount} | Black: ${blackCount} | Green: ${greenCount}`
+    )
+    .setFooter({ text: 'Most recent on the left' });
 
   await interaction.editReply({ embeds: [embed] });
 }
