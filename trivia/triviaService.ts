@@ -258,6 +258,8 @@ export class TriviaService {
         question: selectedQuestion.question,
         answer: selectedQuestion.answer,
         acceptableAnswers,
+        choices: selectedQuestion.choices ? [...selectedQuestion.choices] : null,
+        type: selectedQuestion.type,
         pointValue: selectedQuestion.point_value || 1,
         sourceData: selectedQuestion.metadata
           ? JSON.stringify(selectedQuestion.metadata)

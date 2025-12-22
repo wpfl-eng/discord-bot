@@ -20,6 +20,8 @@ export interface TriviaActiveQuestion {
   readonly question: string;
   readonly answer: string;
   readonly acceptable_answers: string[] | null;  // PostgreSQL TEXT[] returns as JS array
+  readonly choices: string[] | null;
+  readonly type: 'multiple_choice' | 'free_form';
   readonly point_value: number;
   readonly source_data: string | null;
   readonly channel_id: string;
@@ -64,6 +66,8 @@ export interface SaveActiveQuestionData {
   readonly question: string;
   readonly answer: string;
   readonly acceptableAnswers: string | null;
+  readonly choices: string[] | null;
+  readonly type: 'multiple_choice' | 'free_form';
   readonly pointValue: number;
   readonly sourceData: string | null;
   readonly channelId: string;
@@ -130,16 +134,20 @@ export async function getAnyActiveQuestion(): Promise<TriviaActiveQuestion | nul
 export async function saveActiveQuestion(
   data: SaveActiveQuestionData
 ): Promise<TriviaActiveQuestion> {
-  // Convert Date to ISO string for SQL
   const windowClosesAt = data.windowClosesAt instanceof Date
     ? data.windowClosesAt.toISOString()
     : data.windowClosesAt;
 
+  // Format choices as PostgreSQL array literal if present
+  const choicesArray = data.choices?.length
+    ? `{${data.choices.map(c => `"${c.replace(/"/g, '\\"')}"`).join(',')}}`
+    : null;
+
   const result = await sql<TriviaActiveQuestion>`
     INSERT INTO trivia_active
-      (category, question_id, question, answer, acceptable_answers, point_value, source_data, channel_id, window_closes_at)
+      (category, question_id, question, answer, acceptable_answers, choices, type, point_value, source_data, channel_id, window_closes_at)
     VALUES
-      (${data.category}, ${data.questionId}, ${data.question}, ${data.answer}, ${data.acceptableAnswers}, ${data.pointValue}, ${data.sourceData}, ${data.channelId}, ${windowClosesAt})
+      (${data.category}, ${data.questionId}, ${data.question}, ${data.answer}, ${data.acceptableAnswers}, ${choicesArray}, ${data.type}, ${data.pointValue}, ${data.sourceData}, ${data.channelId}, ${windowClosesAt})
     RETURNING *
   `;
   return result.rows[0];

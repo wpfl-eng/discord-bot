@@ -71,6 +71,7 @@ describe('TriviaService', () => {
       id: '1',
       question: 'Who won Super Bowl LI?',
       answer: 'Patriots',
+      type: 'free_form' as const,
       point_value: 2,
     };
     const windowClosesAt = new Date('2024-01-01T14:00:00Z');
