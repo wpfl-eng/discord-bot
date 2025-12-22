@@ -1,4 +1,4 @@
-import { Client, EmbedBuilder, TextChannel } from 'discord.js';
+import { Client } from 'discord.js';
 import * as achievementDb from './achievementDb.js';
 import {
   ACTION_TYPES,
@@ -6,7 +6,6 @@ import {
   type ActionType,
   type AchievementKey,
 } from './achievementConfig.js';
-import { CHANNELS, formatCurrency } from '../economy/economyConfig.js';
 import * as economyDb from '../economy/economyDb.js';
 import * as wordleDb from '../wordle/wordleDb.js';
 import * as polymarketDb from '../polymarket/polymarketDb.js';
@@ -50,7 +49,7 @@ const ACTION_TO_ACHIEVEMENTS: ActionToAchievements = {
  * @returns Array of achievement keys that were newly granted
  */
 export async function checkForAchievements(metadata: ActionMetadata): Promise<AchievementKey[]> {
-  const { actionType, userId, username, client } = metadata;
+  const { actionType, userId, username } = metadata;
 
   // Get the list of achievements that could be unlocked by this action
   const possibleAchievements = ACTION_TO_ACHIEVEMENTS[actionType] || [];
@@ -80,9 +79,6 @@ export async function checkForAchievements(metadata: ActionMetadata): Promise<Ac
         if (achievement && achievement.rewardValue > 0) {
           await economyDb.addToWallet(userId, achievement.rewardValue);
         }
-
-        // Announce to town-square
-        await announceAchievement(client, userId, achievementKey);
       }
     } catch (error) {
       console.error(`Error checking achievement ${achievementKey}:`, error);
@@ -144,57 +140,5 @@ async function checkAchievementCriteria(
 
     default:
       return false;
-  }
-}
-
-/**
- * Announce an achievement to the town-square channel
- * @param client - Discord client
- * @param userId - Discord user ID
- * @param achievementKey - Achievement key
- */
-async function announceAchievement(
-  client: Client,
-  userId: string,
-  achievementKey: AchievementKey
-): Promise<void> {
-  if (!CHANNELS.TOWN_SQUARE) {
-    return;
-  }
-
-  const achievement = getAchievement(achievementKey);
-  if (!achievement) {
-    return;
-  }
-
-  try {
-    const townSquare = await client.channels.fetch(CHANNELS.TOWN_SQUARE);
-
-    // Type guard: Check if channel exists and is text-based
-    if (!townSquare || !townSquare.isTextBased()) {
-      return;
-    }
-
-    const embed = new EmbedBuilder()
-      .setColor(0xffd700) // Gold color for achievements
-      .setTitle('Achievement Unlocked!')
-      .setDescription(`<@${userId}> has earned **${achievement.name}**!`)
-      .addFields(
-        {
-          name: 'Description',
-          value: achievement.description,
-          inline: false,
-        },
-        {
-          name: 'Reward',
-          value: formatCurrency(achievement.rewardValue),
-          inline: true,
-        }
-      )
-      .setTimestamp();
-
-    await (townSquare as TextChannel).send({ embeds: [embed] });
-  } catch (error) {
-    console.error('Failed to announce achievement:', error);
   }
 }

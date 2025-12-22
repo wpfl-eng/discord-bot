@@ -5,7 +5,6 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
   ChatInputCommandInteraction,
-  Client,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -27,7 +26,7 @@ import { CONFIG, COLORS, REWARDS, calculateReward } from '../../wordle/wordleCon
 import { isValidWord } from '../../wordle/wordleWords.js';
 import * as economyDb from '../../economy/economyDb.js';
 import * as inventoryDb from '../../inventory/inventoryDb.js';
-import { formatCurrency, CHANNELS } from '../../economy/economyConfig.js';
+import { formatCurrency } from '../../economy/economyConfig.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
@@ -182,41 +181,6 @@ function createAlreadyPlayedEmbed(game: WordleUserGame, currentWord: WordleWord)
 }
 
 /**
- * Announce first solver to town square
- */
-async function announceFirstSolver(
-  client: Client,
-  userId: string,
-  currentWord: WordleWord,
-  guessCount: number
-): Promise<void> {
-  if (!CHANNELS.TOWN_SQUARE) return;
-
-  try {
-    const channel = await client.channels.fetch(CHANNELS.TOWN_SQUARE);
-    if (!channel || !('send' in channel)) return;
-
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.FIRST_SOLVE)
-      .setTitle('First Solve!')
-      .setDescription(`<@${userId}> was the first to solve **Wordle #${currentWord.word_number}**!`)
-      .addFields(
-        { name: 'Guesses', value: `${guessCount}/${CONFIG.MAX_GUESSES}`, inline: true },
-        {
-          name: 'Bonus',
-          value: `${formatCurrency(REWARDS.FIRST_SOLVER_BONUS)} + Lucky Letter`,
-          inline: true,
-        }
-      )
-      .setTimestamp();
-
-    await channel.send({ embeds: [embed] });
-  } catch (error) {
-    console.error('Failed to announce first solver:', error);
-  }
-}
-
-/**
  * Create the "Make Guess" button component
  */
 function createGuessButton(disabled: boolean = false): ActionRowBuilder<ButtonBuilder> {
@@ -330,11 +294,6 @@ async function processGuess(
         username,
         client: interaction.client,
       }).catch((err) => console.error('Failed to check first solve achievement:', err));
-
-      // Announce first solver
-      announceFirstSolver(interaction.client, userId, currentWord, guesses.length).catch((err) =>
-        console.error('Failed to announce first solver:', err)
-      );
     }
 
     const embed = createWinEmbed(updatedGame, currentWord, reward, isFirstSolver);
