@@ -196,13 +196,16 @@ function transformMarket(market: PolymarketMarket): MarketDisplay {
 
 /**
  * Get markets by tag/category
+ * Filters to only show markets above MIN_MARKET_VOLUME threshold
  */
 export async function getMarketsByTag(
   tagId: number,
   limit: number = API_CONFIG.DEFAULT_MARKET_LIMIT
 ): Promise<MarketDisplay[]> {
   try {
-    const url = `${API_CONFIG.BASE_URL}/markets?tag_id=${tagId}&closed=false&limit=${limit}&order=volume&ascending=false`;
+    // Fetch extra markets to account for volume filtering
+    const fetchLimit = limit * 3;
+    const url = `${API_CONFIG.BASE_URL}/markets?tag_id=${tagId}&closed=false&limit=${fetchLimit}&order=volume&ascending=false`;
     console.log(`[Polymarket] Fetching markets for tag_id=${tagId}`);
     const response = await throttledFetch(url);
 
@@ -212,8 +215,10 @@ export async function getMarketsByTag(
     }
 
     const markets = (await response.json()) as PolymarketMarket[];
-    console.log(`[Polymarket] Found ${markets.length} markets for tag_id=${tagId}`);
-    return markets.filter(isValidMarket).map(transformMarket);
+    const transformed = markets.filter(isValidMarket).map(transformMarket);
+    const filtered = transformed.filter(m => m.volume >= CONFIG.MIN_MARKET_VOLUME);
+    console.log(`[Polymarket] Found ${markets.length} markets for tag_id=${tagId}, ${filtered.length} above volume threshold`);
+    return filtered.slice(0, limit);
   } catch (error) {
     console.error('[Polymarket] Error fetching markets by tag:', error);
     return [];

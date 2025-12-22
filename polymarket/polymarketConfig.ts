@@ -21,6 +21,9 @@ export const CONFIG = {
 
   /** Threshold for determining winning outcome (price > this = winner) */
   WINNING_PRICE_THRESHOLD: 0.95,
+
+  /** Minimum volume (USD) for a market to be displayed */
+  MIN_MARKET_VOLUME: 100_000,
 } as const;
 
 // ============ API Configuration ============
