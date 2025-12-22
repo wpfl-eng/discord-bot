@@ -49,6 +49,11 @@ export interface EconomyConfig {
   readonly VIDEO_POKER_COOLDOWN_SECONDS: number;
   readonly VIDEO_POKER_TIMEOUT_SECONDS: number;
 
+  // Craps
+  readonly CRAPS_MIN: number;
+  readonly CRAPS_MAX: number;
+  readonly CRAPS_MAX_EXPOSURE: number;
+
   // Rob
   readonly ROB_SUCCESS_RATE: number;
   readonly ROB_MIN_PERCENT: number;
@@ -150,6 +155,11 @@ export const CONFIG: EconomyConfig = {
   VIDEO_POKER_MAX: 10000,
   VIDEO_POKER_COOLDOWN_SECONDS: 5,
   VIDEO_POKER_TIMEOUT_SECONDS: 120,
+
+  // Craps
+  CRAPS_MIN: 10,
+  CRAPS_MAX: 10000,
+  CRAPS_MAX_EXPOSURE: 50000,
 
   // Rob
   ROB_SUCCESS_RATE: 0.4,
