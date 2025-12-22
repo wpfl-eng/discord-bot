@@ -84,10 +84,9 @@ export const execute = async (interaction: ChatInputCommandInteraction): Promise
 
     await interaction.editReply({ content: response });
   } catch (error: unknown) {
-    console.error('Trophies command error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[TROPHIES] Error:', error);
     await interaction.editReply({
-      content: `An error occurred: ${errorMessage}`,
+      content: 'An error occurred. Please try again.',
     });
   }
 };

@@ -31,12 +31,17 @@ export const data = new SlashCommandBuilder()
   );
 
 async function getRankedScores(week: number, year: number): Promise<Score[]> {
+  const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
+  if (!LEAGUE_ID || !ESPN_S2 || !SWID) {
+    throw new Error('Missing required ESPN environment variables');
+  }
+
   const myClient = new Client({
-    leagueId: Number.parseInt(process.env.LEAGUE_ID as string),
+    leagueId: Number.parseInt(LEAGUE_ID, 10),
   });
   myClient.setCookies({
-    espnS2: process.env.ESPN_S2,
-    SWID: process.env.SWID,
+    espnS2: ESPN_S2,
+    SWID,
   });
 
   const matchups: BoxscoreMatchup[] = await myClient.getBoxscoreForWeek({
@@ -106,7 +111,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const embed: EmbedBuilder = createEmbed(scores, week, year);
     await interaction.editReply({ embeds: [embed] });
   } catch (err: unknown) {
-    console.error(err);
-    await interaction.editReply('API returned an error. Try again later.');
+    console.error('[MEDIAN] Error:', err);
+    await interaction.editReply({
+      content: 'An error occurred. Please try again.',
+    });
   }
 }
