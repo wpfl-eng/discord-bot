@@ -5,6 +5,32 @@
 export type Suit = '♠' | '♥' | '♦' | '♣';
 export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
 
+export interface TableConfig {
+  readonly name: 'classic' | 'vegas';
+  readonly displayName: string;
+  readonly deckCount: number;
+  readonly dealerHitsSoft17: boolean;
+}
+
+// ============ TABLE CONFIGURATIONS ============
+
+export const TABLES: Readonly<Record<string, TableConfig>> = {
+  classic: {
+    name: 'classic',
+    displayName: 'Classic',
+    deckCount: 1,
+    dealerHitsSoft17: false, // S17 - stands on soft 17
+  },
+  vegas: {
+    name: 'vegas',
+    displayName: 'Vegas Strip',
+    deckCount: 6,
+    dealerHitsSoft17: true, // H17 - hits on soft 17
+  },
+} as const;
+
+export const DEFAULT_TABLE: TableConfig = TABLES.classic;
+
 export interface Card {
   readonly suit: Suit;
   readonly rank: Rank;
@@ -35,13 +61,16 @@ export const RANKS: readonly Rank[] = [
 // ============ DECK FUNCTIONS ============
 
 /**
- * Creates a new shuffled 52-card deck
+ * Creates a new shuffled deck with the specified number of 52-card decks
+ * @param deckCount - Number of decks to use (default: 1)
  */
-export function createDeck(): Deck {
+export function createDeck(deckCount: number = 1): Deck {
   const deck: Deck = [];
-  for (const suit of SUITS) {
-    for (const rank of RANKS) {
-      deck.push({ suit, rank });
+  for (let d = 0; d < deckCount; d++) {
+    for (const suit of SUITS) {
+      for (const rank of RANKS) {
+        deck.push({ suit, rank });
+      }
     }
   }
   return shuffle(deck);
@@ -189,6 +218,24 @@ export function canSplit(hand: Hand): boolean {
   return getSplitValue(hand[0]) === getSplitValue(hand[1]);
 }
 
+/**
+ * Check if a hand can be split with EXACT rank match only
+ * Only allows identical ranks (8-8, K-K, not K-Q)
+ * Used for simplified split rules
+ */
+export function canSplitExactMatch(hand: Hand): boolean {
+  if (hand.length !== 2) return false;
+  return hand[0].rank === hand[1].rank;
+}
+
+/**
+ * Check if a hand is a pair of Aces (for split aces special rules)
+ */
+export function isPairOfAces(hand: Hand): boolean {
+  if (hand.length !== 2) return false;
+  return hand[0].rank === 'A' && hand[1].rank === 'A';
+}
+
 // ============ DEALER DETECTION ============
 
 /**
@@ -220,4 +267,27 @@ export function shouldDealerPeek(dealerHand: Hand): boolean {
  */
 export function calculateInsuranceBet(originalBet: number): number {
   return Math.floor(originalBet / 2);
+}
+
+// ============ DEALER LOGIC ============
+
+/**
+ * Determine if dealer should hit based on hand value and table rules
+ * @param dealerHand - The dealer's current hand
+ * @param table - Table configuration with soft 17 rule
+ * @returns true if dealer should hit, false if dealer should stand
+ */
+export function shouldDealerHit(dealerHand: Hand, table: TableConfig): boolean {
+  const value = calculateHandValue(dealerHand);
+
+  // Always hit on < 17
+  if (value < 17) return true;
+
+  // H17 rule: hit on soft 17
+  if (value === 17 && table.dealerHitsSoft17 && isSoft(dealerHand)) {
+    return true;
+  }
+
+  // Stand on hard 17+ or soft 18+
+  return false;
 }
