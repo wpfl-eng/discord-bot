@@ -151,13 +151,25 @@ Create `scripts/fetchVideoGameQuestions.ts`:
 | Hard | 350 | 3 |
 | **Total** | 500 | |
 
+**Session Token:**
+```
+# Get session token (prevents duplicate questions)
+GET https://opentdb.com/api_token.php?command=request
+Response: { "token": "abc123..." }
+
+# Token expires after 6 hours of inactivity or when all questions exhausted
+# If exhausted, request a new token
+```
+
 **API Calls:**
 ```
-# Medium questions (3 batches)
+# Medium questions (3 batches of 50)
 https://opentdb.com/api.php?amount=50&category=15&type=multiple&difficulty=medium&token={session}
 
-# Hard questions (7 batches)
+# Hard questions (7 batches of 50)
 https://opentdb.com/api.php?amount=50&category=15&type=multiple&difficulty=hard&token={session}
+
+# Rate limit: 5 seconds between requests
 ```
 
 **Output Format:**
@@ -223,10 +235,12 @@ client.on('interactionCreate', async (interaction) => {
 
 **Response Flow:**
 1. User clicks button
-2. Bot responds with ephemeral message (only user sees)
-3. If correct: Public announcement in channel
+2. Bot responds with `interaction.reply({ ephemeral: true })` - user sees immediately
+3. If correct: Public announcement in channel via `channel.send()`
 4. If wrong: Track attempt, inform user of remaining guesses
 5. After 2 wrong: "No guesses remaining" + reveal answer
+
+**Note:** Button clicks are standalone interactions - no deferReply needed. Each click looks up question state from DB by question_id in custom_id.
 
 ### Database Changes
 
@@ -252,13 +266,36 @@ ADD COLUMN choices TEXT[];  -- PostgreSQL array for A/B/C/D
 When selecting the next question category:
 
 ```typescript
-const categoryWeights = {
+const categoryWeights: Record<string, number> = {
   nfl: 0.7,        // 70% chance
   videogames: 0.3  // 30% chance
 };
 ```
 
 This keeps NFL as primary (it's a fantasy football bot) while mixing in variety.
+
+**Selection Algorithm:**
+```typescript
+function selectWeightedCategory(availableCategories: string[]): string {
+  // 1. Filter weights to only categories with unasked questions
+  const available = availableCategories.filter(c => c in categoryWeights);
+
+  // 2. If only one category available, use it
+  if (available.length === 1) return available[0];
+
+  // 3. Normalize weights for available categories
+  const totalWeight = available.reduce((sum, c) => sum + categoryWeights[c], 0);
+
+  // 4. Weighted random selection
+  let random = Math.random() * totalWeight;
+  for (const category of available) {
+    random -= categoryWeights[category];
+    if (random <= 0) return category;
+  }
+
+  return available[0]; // fallback
+}
+```
 
 ### Future Extensibility
 
