@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import crypto from 'crypto';
-import { Client, EmbedBuilder, Message, TextChannel } from 'discord.js';
+import { Client, EmbedBuilder, Message, TextChannel, ChatInputCommandInteraction } from 'discord.js';
 import * as triviaDb from './triviaDb.js';
 import { checkAnswer } from './answerMatcher.js';
 import * as economyDb from '../economy/economyDb.js';
@@ -71,6 +71,15 @@ interface UserAnswerRecord {
  */
 interface RecordedAnswer {
   readonly attempt_count: number;
+}
+
+/**
+ * Result from processing an answer submission
+ */
+interface AnswerResult {
+  message: string;      // Response text for user
+  isCorrect: boolean;   // Did they get it right?
+  isExhausted: boolean; // Out of guesses (for roast announcement)?
 }
 
 // ============ Service Class ============
@@ -221,6 +230,157 @@ export class TriviaService {
   }
 
   /**
+   * Process an answer submission (shared logic for DM and slash command)
+   * @param userId - Discord user ID
+   * @param username - Discord username
+   * @param userAnswer - The user's answer
+   * @param activeQuestion - The active trivia question
+   * @returns Result with message text and status flags
+   */
+  private async processAnswerSubmission(
+    userId: string,
+    username: string,
+    userAnswer: string,
+    activeQuestion: ActiveQuestion
+  ): Promise<AnswerResult> {
+    const MAX_GUESSES = 2;
+
+    // Check if user already answered
+    const existingAnswer = (await triviaDb.getUserAnswer(
+      activeQuestion.id,
+      userId
+    )) as UserAnswerRecord | null;
+
+    // If already correct, don't allow more attempts
+    if (existingAnswer && existingAnswer.is_correct) {
+      return {
+        message: 'You already got this one! Wait for the next question.',
+        isCorrect: false,
+        isExhausted: false,
+      };
+    }
+
+    // Check if user has used all their guesses (2 max)
+    if (existingAnswer && existingAnswer.attempt_count >= MAX_GUESSES) {
+      return {
+        message: `You've used your ${MAX_GUESSES} guesses for this question. Wait for the next one!`,
+        isCorrect: false,
+        isExhausted: false,
+      };
+    }
+
+    // Check the answer - spread to convert readonly to mutable for checkAnswer
+    const questionData = {
+      answer: activeQuestion.answer,
+      acceptable_answers: activeQuestion.acceptable_answers ? [...activeQuestion.acceptable_answers] : [],
+    };
+
+    const isCorrect = checkAnswer(userAnswer, questionData);
+
+    // Record the answer (this increments attempt_count)
+    const recorded = (await triviaDb.recordAnswer({
+      questionId: activeQuestion.id,
+      userId,
+      username,
+      isCorrect,
+    })) as RecordedAnswer;
+
+    if (isCorrect) {
+      // Award points immediately
+      let pointsAwarded = true;
+      try {
+        await triviaDb.addPoints(
+          userId,
+          username,
+          activeQuestion.point_value,
+          activeQuestion.category
+        );
+      } catch (error) {
+        console.error('[TRIVIA] Error awarding points:', error);
+        pointsAwarded = false;
+      }
+
+      // Award economy coins (25x point value)
+      let coinsAwarded = 0;
+      if (pointsAwarded) {
+        try {
+          const coinReward = activeQuestion.point_value * 25;
+          await economyDb.getOrCreateUser(userId, username);
+          await economyDb.addToWallet(userId, coinReward);
+          coinsAwarded = coinReward;
+        } catch (error) {
+          console.error('[TRIVIA] Error awarding coins:', error);
+        }
+      }
+
+      // === NFLmon Integration ===
+      let nflmonDropped: nflmonService.RollResult | null = null;
+      let xpResult: nflmonService.XpResult | null = null;
+
+      // Roll for NFLmon drop (15% chance)
+      if (Math.random() < DROP_CONFIG.TRIVIA_CORRECT_CHANCE) {
+        nflmonDropped = await nflmonService.rollForNflmon(
+          userId,
+          username,
+          'trivia'
+        );
+      }
+
+      // Award XP to training NFLmon
+      xpResult = await nflmonService.addXpToTraining(userId, 'trivia_correct');
+
+      // Build combined reply message
+      const replyParts: string[] = [];
+
+      if (pointsAwarded) {
+        const coinText = coinsAwarded > 0 ? ` and 🪙 ${coinsAwarded} coins` : '';
+        replyParts.push(`Correct! +${activeQuestion.point_value} point(s)${coinText} added!`);
+      } else {
+        replyParts.push(`Correct! There was an issue adding points - please contact an admin.`);
+      }
+
+      // Add NFLmon drop info to same message
+      if (nflmonDropped) {
+        replyParts.push(
+          `🎮 You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity?.name ?? 'Unknown'})! Use \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`
+        );
+      }
+
+      // Add training XP info to same message
+      if (xpResult && xpResult.results.length > 0) {
+        const xpLines = xpResult.results.map((r) => {
+          let line = `${r.player?.name || 'Unknown'} +${xpResult.xpAmount} XP`;
+          if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
+          if (r.evolved) line += ` EVOLVED!`;
+          return line;
+        });
+        replyParts.push(`**Training XP:** ${xpLines.join(', ')}`);
+      }
+
+      return {
+        message: replyParts.join('\n'),
+        isCorrect: true,
+        isExhausted: false,
+      };
+    } else {
+      const attemptsLeft = MAX_GUESSES - recorded.attempt_count;
+      if (attemptsLeft > 0) {
+        return {
+          message: `Incorrect. You have ${attemptsLeft} guess${attemptsLeft === 1 ? '' : 'es'} left.`,
+          isCorrect: false,
+          isExhausted: false,
+        };
+      } else {
+        return {
+          message: `Incorrect. No guesses remaining for this question.\n\nThe answer was: **${activeQuestion.answer}**`,
+          isCorrect: false,
+          isExhausted: true,
+        };
+      }
+    }
+  }
+
+  /**
    * Handle a DM message (trivia answer attempt)
    * @param message - Discord message
    */
@@ -254,132 +414,64 @@ export class TriviaService {
       return;
     }
 
-    // Check if user already answered
-    const existingAnswer = (await triviaDb.getUserAnswer(
-      activeQuestion.id,
-      message.author.id
-    )) as UserAnswerRecord | null;
+    // Process the answer using shared logic
+    const result = await this.processAnswerSubmission(
+      message.author.id,
+      message.author.username,
+      userAnswer,
+      activeQuestion
+    );
 
-    // If already correct, don't allow more attempts
-    if (existingAnswer && existingAnswer.is_correct) {
-      await message.reply('You already got this one! Wait for the next question.');
-      return;
-    }
+    // Send the reply
+    await message.reply(result.message);
 
-    // Check if user has used all their guesses (2 max)
-    const MAX_GUESSES = 2;
-    if (existingAnswer && existingAnswer.attempt_count >= MAX_GUESSES) {
-      await message.reply(
-        `You've used your ${MAX_GUESSES} guesses for this question. Wait for the next one!`
-      );
-      return;
-    }
-
-    // Check the answer - spread to convert readonly to mutable for checkAnswer
-    const questionData = {
-      answer: activeQuestion.answer,
-      acceptable_answers: activeQuestion.acceptable_answers ? [...activeQuestion.acceptable_answers] : [],
-    };
-
-    const isCorrect = checkAnswer(userAnswer, questionData);
-
-    // Record the answer (this increments attempt_count)
-    const recorded = (await triviaDb.recordAnswer({
-      questionId: activeQuestion.id,
-      userId: message.author.id,
-      username: message.author.username,
-      isCorrect,
-    })) as RecordedAnswer;
-
-    if (isCorrect) {
-      // Award points immediately
-      let pointsAwarded = true;
-      try {
-        await triviaDb.addPoints(
-          message.author.id,
-          message.author.username,
-          activeQuestion.point_value,
-          category
-        );
-      } catch (error) {
-        console.error('[TRIVIA] Error awarding points:', error);
-        pointsAwarded = false;
-      }
-
-      // Award economy coins (25x point value)
-      let coinsAwarded = 0;
-      if (pointsAwarded) {
-        try {
-          const coinReward = activeQuestion.point_value * 25;
-          await economyDb.getOrCreateUser(message.author.id, message.author.username);
-          await economyDb.addToWallet(message.author.id, coinReward);
-          coinsAwarded = coinReward;
-        } catch (error) {
-          console.error('[TRIVIA] Error awarding coins:', error);
-        }
-      }
-
-      // === NFLmon Integration ===
-      let nflmonDropped: nflmonService.RollResult | null = null;
-      let xpResult: nflmonService.XpResult | null = null;
-
-      // Roll for NFLmon drop (15% chance)
-      if (Math.random() < DROP_CONFIG.TRIVIA_CORRECT_CHANCE) {
-        nflmonDropped = await nflmonService.rollForNflmon(
-          message.author.id,
-          message.author.username,
-          'trivia'
-        );
-      }
-
-      // Award XP to training NFLmon
-      xpResult = await nflmonService.addXpToTraining(message.author.id, 'trivia_correct');
-
-      // Build combined reply message
-      const replyParts: string[] = [];
-
-      if (pointsAwarded) {
-        const coinText = coinsAwarded > 0 ? ` and 🪙 ${coinsAwarded} coins` : '';
-        replyParts.push(`Correct! +${activeQuestion.point_value} point(s)${coinText} added!`);
-      } else {
-        replyParts.push(`Correct! There was an issue adding points - please contact an admin.`);
-      }
-
-      // Add NFLmon drop info to same message
-      if (nflmonDropped) {
-        replyParts.push(
-          `🎮 You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity?.name ?? 'Unknown'})! Use \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`
-        );
-      }
-
-      // Add training XP info to same message
-      if (xpResult && xpResult.results.length > 0) {
-        const xpLines = xpResult.results.map((r) => {
-          let line = `${r.player?.name || 'Unknown'} +${xpResult.xpAmount} XP`;
-          if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
-          if (r.evolved) line += ` EVOLVED!`;
-          return line;
-        });
-        replyParts.push(`**Training XP:** ${xpLines.join(', ')}`);
-      }
-
-      await message.reply(replyParts.join('\n'));
-
-      // Announce in channel (no answer reveal)
+    // Handle announcements
+    if (result.isCorrect) {
       await this.announceCorrectAnswer(activeQuestion, message.author.username);
-    } else {
-      const attemptsLeft = MAX_GUESSES - recorded.attempt_count;
-      if (attemptsLeft > 0) {
-        await message.reply(
-          `Incorrect. You have ${attemptsLeft} guess${attemptsLeft === 1 ? '' : 'es'} left.`
-        );
-      } else {
-        await message.reply(
-          `Incorrect. No guesses remaining for this question.\n\nThe answer was: **${activeQuestion.answer}**`
-        );
-        // Announce failure with roast
-        await this.announceExhaustedGuesses(activeQuestion, message.author.username);
-      }
+    } else if (result.isExhausted) {
+      await this.announceExhaustedGuesses(activeQuestion, message.author.username);
+    }
+  }
+
+  /**
+   * Handle a slash command trivia answer
+   * @param interaction - Discord slash command interaction (already deferred as ephemeral)
+   * @param answer - The user's answer
+   */
+  async handleSlashAnswer(
+    interaction: ChatInputCommandInteraction,
+    answer: string
+  ): Promise<void> {
+    // Get any active question (auto-detect category)
+    const activeQuestion = (await triviaDb.getAnyActiveQuestion()) as ActiveQuestion | null;
+
+    if (!activeQuestion) {
+      await interaction.editReply('No active trivia question right now!');
+      return;
+    }
+
+    // Check if window is still open
+    if (activeQuestion.is_closed || new Date() > new Date(activeQuestion.window_closes_at)) {
+      await interaction.editReply('The answer window has closed for this question!');
+      return;
+    }
+
+    // Process the answer using shared logic
+    const result = await this.processAnswerSubmission(
+      interaction.user.id,
+      interaction.user.username,
+      answer,
+      activeQuestion
+    );
+
+    // Send the ephemeral reply
+    await interaction.editReply(result.message);
+
+    // Handle announcements
+    if (result.isCorrect) {
+      await this.announceCorrectAnswer(activeQuestion, interaction.user.username);
+    } else if (result.isExhausted) {
+      await this.announceExhaustedGuesses(activeQuestion, interaction.user.username);
     }
   }
 
