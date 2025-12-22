@@ -105,9 +105,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    // Update attacker's last rob timestamp
-    await economyDb.setLastRob(attackerId);
-
     // Check if target has padlock
     if (targetData.has_padlock) {
       // Padlock blocks the rob
@@ -160,8 +157,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         return;
       }
 
-      // Update victim's robbed timestamp
+      // Update victim's robbed timestamp and attacker's cooldown
       await economyDb.setLastRobbed(targetUser.id, attackerId);
+      await economyDb.setLastRob(attackerId);
 
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
@@ -228,6 +226,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         return;
       }
 
+      // Set cooldown only after successful fine payment
+      await economyDb.setLastRob(attackerId);
+
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
         .setTitle('🚩 Pass Interference!')
@@ -263,10 +264,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }).catch((err: unknown) => console.error('Failed to check achievements:', err));
     }
   } catch (error: unknown) {
-    console.error('rob command error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[ROB] Error:', error);
     await interaction.editReply({
-      content: `An error occurred: ${message}`,
+      content: 'An error occurred. Please try again.',
     });
   }
 }

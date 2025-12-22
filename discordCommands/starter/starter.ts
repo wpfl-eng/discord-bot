@@ -120,7 +120,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     });
 
     // Parse selection index
-    const index = parseInt(buttonInteraction.customId.split('_')[2]);
+    const index = parseInt(buttonInteraction.customId.split('_')[2], 10);
     const selectedPlayer = players[index];
 
     if (!selectedPlayer) {

@@ -18,8 +18,19 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   // Check if user is authorized to run trivia command
-  const triviaAdminIds: string[] = process.env.TRIVIA_ADMIN_USER_IDS?.split(',') || [];
-  if (triviaAdminIds.length > 0 && !triviaAdminIds.includes(interaction.user.id)) {
+  const triviaAdminIds: string[] = (process.env.TRIVIA_ADMIN_USER_IDS || '')
+    .split(',')
+    .filter(Boolean);
+
+  if (triviaAdminIds.length === 0) {
+    await interaction.reply({
+      content: 'Trivia admin not configured. Set TRIVIA_ADMIN_USER_IDS environment variable.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (!triviaAdminIds.includes(interaction.user.id)) {
     await interaction.reply({
       content: "You don't have permission to use this command.",
       ephemeral: true,
@@ -66,10 +77,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       content: `${category.toUpperCase()} trivia question posted!`,
     });
   } catch (error: unknown) {
-    console.error('trivia command error:', error);
-    const message: string = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[TRIVIAQUESTION] Error:', error);
     await interaction.editReply({
-      content: `Error posting trivia: ${message}`,
+      content: 'An error occurred. Please try again.',
     });
   }
 }

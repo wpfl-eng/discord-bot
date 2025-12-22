@@ -584,7 +584,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (betStr === 'all' || betStr === 'max') {
       amount = userData.wallet;
     } else {
-      amount = parseInt(betStr);
+      amount = parseInt(betStr, 10);
     }
 
     // Validate amount

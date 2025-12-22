@@ -71,11 +71,22 @@ class Matchups extends Array<Matchup> {
 }
 
 export async function getMatchups(week: number = 1): Promise<Matchups> {
-  const response = await fetch(
-    `https://api.sleeper.app/v1/league/${process.env.SLEEPER_LEAGUE_ID}/matchups/${week}`
-  );
-  const json = (await response.json()) as SleeperMatchupData[];
-  return new Matchups(json);
+  try {
+    const response = await fetch(
+      `https://api.sleeper.app/v1/league/${process.env.SLEEPER_LEAGUE_ID}/matchups/${week}`
+    );
+
+    if (!response.ok) {
+      console.error(`[SLEEPER] API error: ${response.status} ${response.statusText}`);
+      return new Matchups([]);
+    }
+
+    const json = (await response.json()) as SleeperMatchupData[];
+    return new Matchups(json);
+  } catch (error: unknown) {
+    console.error('[SLEEPER] Fetch failed:', error);
+    return new Matchups([]);
+  }
 }
 
 export { Matchup, Matchups, type SleeperMatchupData };

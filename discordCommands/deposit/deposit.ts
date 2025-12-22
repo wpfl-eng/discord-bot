@@ -28,7 +28,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const availableSpace: number = userData.bank_capacity - userData.bank;
       amount = Math.min(userData.wallet, availableSpace);
     } else {
-      amount = parseInt(amountStr);
+      amount = parseInt(amountStr, 10);
     }
 
     // Validate amount
@@ -98,10 +98,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error: unknown) {
-    console.error('deposit command error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[DEPOSIT] Error:', error);
     await interaction.editReply({
-      content: `An error occurred: ${message}`,
+      content: 'An error occurred. Please try again.',
     });
   }
 }

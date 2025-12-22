@@ -2,6 +2,8 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import fetch from 'node-fetch';
 import type { OptimalCoachingResponse } from '../../types/api.js';
 
+const API_TIMEOUT_MS = 10000;
+
 export const data = new SlashCommandBuilder()
   .setName('optimal')
   .setDescription('Shows optimal coaching data')
@@ -31,8 +33,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const url = `https://wpflapi.azurewebsites.net/api/optimalcoaching/pointsfor/${year}?week=${week}`;
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -49,9 +56,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.editReply(`**${title}**\n\n${formattedData}`);
   } catch (error: unknown) {
-    console.error('Error fetching optimal coaching data:', error);
+    clearTimeout(timeout);
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    console.error('[OPTIMAL] Error:', isTimeout ? 'Request timed out' : error);
     await interaction.editReply(
-      'An error occurred while fetching the data. Please try again later.'
+      isTimeout
+        ? 'Request timed out. Please try again.'
+        : 'An error occurred while fetching the data. Please try again later.'
     );
   }
 }

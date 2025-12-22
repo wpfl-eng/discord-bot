@@ -35,7 +35,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       amount = userData.wallet;
       isAllIn = true;
     } else {
-      amount = parseInt(amountStr);
+      amount = parseInt(amountStr, 10);
     }
 
     // Validate amount
@@ -180,10 +180,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }).catch((err: unknown) => console.error('Failed to check achievements:', err));
     }
   } catch (error: unknown) {
-    console.error('gamble command error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[GAMBLE] Error:', error);
     await interaction.editReply({
-      content: `An error occurred: ${message}`,
+      content: 'An error occurred. Please try again.',
     });
   }
 }

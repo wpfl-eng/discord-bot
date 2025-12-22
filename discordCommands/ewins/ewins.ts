@@ -2,6 +2,8 @@ import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from '
 import fetch from 'node-fetch';
 import type { ExpectedWinsResponse } from '../../types/api.js';
 
+const API_TIMEOUT_MS = 10000;
+
 export const data = new SlashCommandBuilder()
   .setName('ewins')
   .setDescription('Returns expected wins vs actual wins by week and year')
@@ -38,8 +40,13 @@ export const execute = async (
   url.searchParams.set('weekMax', String(week));
   url.searchParams.set('weekMin', '1');
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
   try {
-    const response = await fetchFn(url.toString());
+    const response = await fetchFn(url.toString(), { signal: controller.signal });
+    clearTimeout(timeout);
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -55,9 +62,13 @@ export const execute = async (
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error: unknown) {
-    console.error('Error fetching expected wins:', error);
+    clearTimeout(timeout);
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    console.error('[EWINS] Error:', isTimeout ? 'Request timed out' : error);
     await interaction.editReply(
-      'An error occurred while fetching the data. Please try again later.'
+      isTimeout
+        ? 'Request timed out. Please try again.'
+        : 'An error occurred while fetching the data. Please try again later.'
     );
   }
 };

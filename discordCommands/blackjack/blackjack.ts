@@ -1968,7 +1968,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (amountStr === 'all' || amountStr === 'max') {
       amount = userData.wallet;
     } else {
-      amount = parseInt(amountStr);
+      amount = parseInt(amountStr, 10);
     }
 
     // Validate amount

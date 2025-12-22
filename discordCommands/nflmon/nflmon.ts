@@ -388,7 +388,7 @@ async function handleBench(interaction: ChatInputCommandInteraction): Promise<vo
 
       collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
         const [, , action, currentPageStr, filterRarity] = buttonInteraction.customId.split('_');
-        const currentPage = parseInt(currentPageStr);
+        const currentPage = parseInt(currentPageStr, 10);
         const newPage = action === 'prev' ? currentPage - 1 : currentPage + 1;
 
         // Fetch new page
@@ -682,7 +682,7 @@ async function handleDex(interaction: ChatInputCommandInteraction): Promise<void
       collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
         const parts = buttonInteraction.customId.split('_');
         const action = parts[2]; // prev or next
-        const currentPage = parseInt(parts[3]);
+        const currentPage = parseInt(parts[3], 10);
 
         // Decode base64 JSON filters
         let filterRarity: string | null = null;
@@ -920,7 +920,7 @@ async function handleTradePending(interaction: ChatInputCommandInteraction): Pro
 
     collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
       const [, , action, tradeIdStr] = buttonInteraction.customId.split('_');
-      const tradeId = parseInt(tradeIdStr);
+      const tradeId = parseInt(tradeIdStr, 10);
 
       if (action === 'accept') {
         const result = await nflmonService.processTradeAccept(userId, tradeId);

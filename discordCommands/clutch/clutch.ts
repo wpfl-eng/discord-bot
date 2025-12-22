@@ -3,6 +3,8 @@ import fetch from 'node-fetch';
 import type { FantasyMatchupResponse } from '../../types/api.js';
 import { calculateStats } from '../../helpers/draftTrendsUtils.js';
 
+const API_TIMEOUT_MS = 10000;
+
 interface PlayoffOwnerStats {
   owner: string;
   playoffGames: number;
@@ -324,7 +326,12 @@ async function analyzeCloseGamePerformance(
     console.log(`[CLUTCH] Fetching close game data for ${seasonMin}-${seasonMax}`);
 
     const url = `https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMin=${seasonMin}&seasonMax=${seasonMax}`;
-    const response = await fetch(url);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       throw new Error('Failed to fetch data');
@@ -492,7 +499,12 @@ async function analyzeHighStakesPerformance(
     console.log(`[CLUTCH] Fetching high stakes data for ${seasonMin}-${seasonMax}`);
 
     const url = `https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMin=${seasonMin}&seasonMax=${seasonMax}`;
-    const response = await fetch(url);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       throw new Error('Failed to fetch data');

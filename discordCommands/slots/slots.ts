@@ -169,7 +169,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       amount = userData.wallet;
       isAllIn = true;
     } else {
-      amount = parseInt(amountStr);
+      amount = parseInt(amountStr, 10);
     }
 
     // Validate amount

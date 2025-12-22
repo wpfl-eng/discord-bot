@@ -2,6 +2,8 @@ import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from '
 import fetch from 'node-fetch';
 import type { FantasyMatchupResponse } from '../../types/api.js';
 
+const API_TIMEOUT_MS = 10000;
+
 interface WinLossRecord {
   wins: number;
   losses: number;
@@ -112,7 +114,22 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     console.log(`[CURSED] Analyzing curses for ${userName} (${seasonMin}-${seasonMax})`);
 
     const matchupUrl = `https://wpflapi.azurewebsites.net/api/fantasyMatchupWinners?seasonMin=${seasonMin}&seasonMax=${seasonMax}`;
-    const matchupResponse = await fetch(matchupUrl);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+    let matchupResponse;
+    try {
+      matchupResponse = await fetch(matchupUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+    } catch (fetchError: unknown) {
+      clearTimeout(timeout);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        await interaction.editReply('Request timed out. Please try again.');
+        return;
+      }
+      throw fetchError;
+    }
 
     if (!matchupResponse.ok) {
       throw new Error('Failed to fetch matchup data');
