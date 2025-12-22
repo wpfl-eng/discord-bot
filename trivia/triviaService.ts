@@ -1,5 +1,15 @@
 import cron from 'node-cron';
-import { Client, EmbedBuilder, Message, TextChannel, ChatInputCommandInteraction } from 'discord.js';
+import {
+  Client,
+  EmbedBuilder,
+  Message,
+  TextChannel,
+  ChatInputCommandInteraction,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ButtonInteraction
+} from 'discord.js';
 import * as triviaDb from './triviaDb.js';
 import { checkAnswer } from './answerMatcher.js';
 import * as economyDb from '../economy/economyDb.js';
@@ -270,7 +280,14 @@ export class TriviaService {
 
       // Build and send embed
       const embed = this.buildQuestionEmbed(selectedQuestion, category, windowClosesAt);
-      await (channel as TextChannel).send({ embeds: [embed] });
+
+      // Add buttons for multiple choice questions
+      if (selectedQuestion.type === 'multiple_choice' && selectedQuestion.choices) {
+        const row = this.buildChoiceButtons(activeQuestion.id, selectedQuestion.choices);
+        await (channel as TextChannel).send({ embeds: [embed], components: [row] });
+      } else {
+        await (channel as TextChannel).send({ embeds: [embed] });
+      }
 
       console.log(`[TRIVIA] Posted ${category.toUpperCase()} question #${activeQuestion.id}`);
     } catch (error) {
@@ -583,26 +600,46 @@ export class TriviaService {
     const color = categoryLoader.getCategoryColor(category);
     const title = `${category.toUpperCase()} Trivia`;
 
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
       .setColor(color)
       .setTitle(title)
-      .setDescription(question.question)
-      .addFields({
+      .setTimestamp();
+
+    // Build description based on question type
+    if (question.type === 'multiple_choice' && question.choices) {
+      const choiceLabels = ['A', 'B', 'C', 'D'];
+      const choicesText = question.choices
+        .slice(0, 4)
+        .map((choice, i) => `**${choiceLabels[i]})** ${choice}`)
+        .join('\n');
+
+      embed.setDescription(`${question.question}\n\n${choicesText}`);
+      embed.addFields({
+        name: 'How to Answer',
+        value: 'Click a button below or use `/trivia answer:A`',
+        inline: false,
+      });
+    } else {
+      embed.setDescription(question.question);
+      embed.addFields({
         name: 'How to Answer',
         value: 'Use `/trivia answer:your answer` or DM me directly',
         inline: false,
-      })
-      .addFields({
-        name: 'Points',
-        value: `${question.point_value || 1}`,
-        inline: true,
-      })
-      .addFields({
-        name: 'Window Closes',
-        value: `<t:${Math.floor(windowClosesAt.getTime() / 1000)}:R>`,
-        inline: true,
-      })
-      .setTimestamp();
+      });
+    }
+
+    embed.addFields({
+      name: 'Points',
+      value: `${question.point_value || 1}`,
+      inline: true,
+    });
+    embed.addFields({
+      name: 'Window Closes',
+      value: `<t:${Math.floor(windowClosesAt.getTime() / 1000)}:R>`,
+      inline: true,
+    });
+
+    return embed;
   }
 
   /**
@@ -638,5 +675,24 @@ export class TriviaService {
         inline: false,
       })
       .setTimestamp();
+  }
+
+  /**
+   * Build button row for multiple choice questions
+   * @param questionId - Active question ID (for button custom_id)
+   * @param choices - Array of choice strings [A, B, C, D]
+   * @returns ActionRow with buttons
+   */
+  buildChoiceButtons(questionId: number, choices: readonly string[]): ActionRowBuilder<ButtonBuilder> {
+    const labels = ['A', 'B', 'C', 'D'];
+
+    const buttons = choices.slice(0, 4).map((_, index) =>
+      new ButtonBuilder()
+        .setCustomId(`trivia_${questionId}_${index}`)
+        .setLabel(labels[index])
+        .setStyle(ButtonStyle.Primary)
+    );
+
+    return new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
   }
 }
