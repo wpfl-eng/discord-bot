@@ -14,6 +14,9 @@ import {
   ChatInputCommandInteraction,
   ButtonInteraction,
   ModalSubmitInteraction,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  MessageComponentInteraction,
 } from 'discord.js';
 import * as polymarketClient from '../../polymarket/polymarketClient.js';
 import * as polymarketDb from '../../polymarket/polymarketDb.js';
@@ -89,36 +92,59 @@ function createMarketsEmbed(
 }
 
 /**
- * Create market list buttons (View buttons for each market)
+ * Create market selection dropdown
  */
-function createMarketButtons(
+function createMarketSelect(
   markets: MarketDisplay[]
-): ActionRowBuilder<ButtonBuilder>[] {
-  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+): ActionRowBuilder<StringSelectMenuBuilder> | null {
+  if (markets.length === 0) return null;
 
-  // Market view buttons (up to 5 per row, max 2 rows)
-  const marketButtons = markets.slice(0, CONFIG.MARKETS_PER_PAGE).map((market, idx) =>
-    new ButtonBuilder()
-      .setCustomId(`pred_view_${market.slug}`)
-      .setLabel(`${idx + 1}`)
-      .setStyle(ButtonStyle.Secondary)
-  );
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('pred_market_select')
+    .setPlaceholder('Select a market to view...');
 
-  if (marketButtons.length > 0) {
-    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(marketButtons));
+  for (const market of markets) {
+    const leadOutcome = market.outcomes[0];
+    const secondOutcome = market.outcomes[1];
+
+    const description = secondOutcome
+      ? `${leadOutcome.name}: ${formatOdds(leadOutcome.price)} | ${secondOutcome.name}: ${formatOdds(secondOutcome.price)}`
+      : `${leadOutcome.name}: ${formatOdds(leadOutcome.price)}`;
+
+    select.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(truncate(market.question, 100))
+        .setDescription(truncate(description, 100))
+        .setValue(market.slug)
+    );
   }
 
-  // Navigation row
-  const navButtons: ButtonBuilder[] = [
-    new ButtonBuilder()
-      .setCustomId('pred_back_categories')
-      .setLabel('Back')
-      .setStyle(ButtonStyle.Danger),
-  ];
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+}
 
-  rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(navButtons));
+/**
+ * Create market selection dropdown and navigation buttons
+ */
+function createMarketComponents(
+  markets: MarketDisplay[]
+): (ActionRowBuilder<StringSelectMenuBuilder> | ActionRowBuilder<ButtonBuilder>)[] {
+  const components: (ActionRowBuilder<StringSelectMenuBuilder> | ActionRowBuilder<ButtonBuilder>)[] = [];
 
-  return rows;
+  const selectRow = createMarketSelect(markets);
+  if (selectRow) {
+    components.push(selectRow);
+  }
+
+  components.push(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pred_back_categories')
+        .setLabel('Back')
+        .setStyle(ButtonStyle.Danger)
+    )
+  );
+
+  return components;
 }
 
 /**
@@ -248,183 +274,184 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     fetchReply: true,
   });
 
-  // Create collector for button interactions
+  // Create collector for button and select menu interactions
   const collector = response.createMessageComponentCollector({
-    componentType: ComponentType.Button,
     time: CONFIG.COLLECTOR_TIMEOUT_MS,
-    filter: (i: ButtonInteraction) => i.user.id === userId,
+    filter: (i) => i.user.id === userId,
   });
 
   // Track current state for navigation
   let currentMarkets: MarketDisplay[] = [];
 
-  collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
+  collector.on('collect', async (interaction: MessageComponentInteraction) => {
     try {
-      const customId = buttonInteraction.customId;
-
-      // ---- Category Selection ----
-      if (customId.startsWith('pred_cat_')) {
-        const categorySlug = customId.replace('pred_cat_', '');
-        const category = FEATURED_CATEGORIES.find((c) => c.slug === categorySlug);
-        if (!category) return;
-
-        await buttonInteraction.deferUpdate();
-
-        // Fetch markets for this category
-        currentMarkets = await polymarketClient.getMarketsByCategory(
-          categorySlug,
-          API_CONFIG.DEFAULT_MARKET_LIMIT
-        );
-
-        await buttonInteraction.editReply({
-          embeds: [createMarketsEmbed(category.label, currentMarkets)],
-          components: createMarketButtons(currentMarkets),
-        });
-        return;
-      }
-
-      // ---- View Market Detail ----
-      if (customId.startsWith('pred_view_')) {
-        const marketSlug = customId.replace('pred_view_', '');
+      // ---- Market Selection (Dropdown) ----
+      if (interaction.isStringSelectMenu() && interaction.customId === 'pred_market_select') {
+        const marketSlug = interaction.values[0];
         const market = currentMarkets.find((m) => m.slug === marketSlug);
 
         if (!market) {
-          await buttonInteraction.reply({
+          await interaction.reply({
             content: 'Market not found. Please try again.',
             ephemeral: true,
           });
           return;
         }
 
-        await buttonInteraction.deferUpdate();
-
-        await buttonInteraction.editReply({
+        await interaction.deferUpdate();
+        await interaction.editReply({
           embeds: [createMarketDetailEmbed(market)],
           components: createOutcomeButtons(market),
         });
         return;
       }
 
-      // ---- Place Bet (show modal) ----
-      if (customId.startsWith('pred_bet_')) {
-        const parts = customId.replace('pred_bet_', '').split('_');
-        const marketSlug = parts.slice(0, -1).join('_');
-        const outcomeIndex = parseInt(parts[parts.length - 1], 10);
+      // ---- All Button Interactions ----
+      if (interaction.isButton()) {
+        const customId = interaction.customId;
 
-        // Find market and outcome
-        let market = currentMarkets.find((m) => m.slug === marketSlug);
-        if (!market) {
-          // Try to fetch fresh
-          market = await polymarketClient.getMarketBySlug(marketSlug) ?? undefined;
-        }
+        // ---- Category Selection ----
+        if (customId.startsWith('pred_cat_')) {
+          const categorySlug = customId.replace('pred_cat_', '');
+          const category = FEATURED_CATEGORIES.find((c) => c.slug === categorySlug);
+          if (!category) return;
 
-        if (!market) {
-          await buttonInteraction.reply({
-            content: 'Market not found. Please try again.',
-            ephemeral: true,
+          await interaction.deferUpdate();
+
+          // Fetch markets for this category
+          currentMarkets = await polymarketClient.getMarketsByCategory(
+            categorySlug,
+            API_CONFIG.DEFAULT_MARKET_LIMIT
+          );
+
+          await interaction.editReply({
+            embeds: [createMarketsEmbed(category.label, currentMarkets)],
+            components: createMarketComponents(currentMarkets),
           });
           return;
         }
 
-        const outcome = market.outcomes[outcomeIndex];
-        if (!outcome) {
-          await buttonInteraction.reply({
-            content: 'Outcome not found. Please try again.',
-            ephemeral: true,
-          });
-          return;
-        }
+        // ---- Place Bet (show modal) ----
+        if (customId.startsWith('pred_bet_')) {
+          const parts = customId.replace('pred_bet_', '').split('_');
+          const marketSlug = parts.slice(0, -1).join('_');
+          const outcomeIndex = parseInt(parts[parts.length - 1], 10);
 
-        // Check if market is still open
-        if (market.closed) {
-          await buttonInteraction.reply({
-            content: 'This market has closed. You can no longer place bets.',
-            ephemeral: true,
-          });
-          return;
-        }
+          // Find market and outcome
+          let market = currentMarkets.find((m) => m.slug === marketSlug);
+          if (!market) {
+            // Try to fetch fresh
+            market = await polymarketClient.getMarketBySlug(marketSlug) ?? undefined;
+          }
 
-        // Show modal for bet amount
-        const modal = createBetModal(market, outcome);
-        await buttonInteraction.showModal(modal);
+          if (!market) {
+            await interaction.reply({
+              content: 'Market not found. Please try again.',
+              ephemeral: true,
+            });
+            return;
+          }
 
-        // Wait for modal submission
-        let modalInteraction: ModalSubmitInteraction;
-        try {
-          modalInteraction = await buttonInteraction.awaitModalSubmit({
-            time: 60000,
-            filter: (mi: ModalSubmitInteraction) =>
-              mi.customId.startsWith('pred_modal_') && mi.user.id === userId,
-          });
-        } catch {
-          // Modal dismissed or timed out
-          return;
-        }
+          const outcome = market.outcomes[outcomeIndex];
+          if (!outcome) {
+            await interaction.reply({
+              content: 'Outcome not found. Please try again.',
+              ephemeral: true,
+            });
+            return;
+          }
 
-        // Parse amount
-        const amountStr = modalInteraction.fields.getTextInputValue('pred_amount');
-        const amount = parseInt(amountStr, 10);
+          // Check if market is still open
+          if (market.closed) {
+            await interaction.reply({
+              content: 'This market has closed. You can no longer place bets.',
+              ephemeral: true,
+            });
+            return;
+          }
 
-        if (isNaN(amount) || amount < CONFIG.MIN_BET || amount > CONFIG.MAX_BET) {
+          // Show modal for bet amount
+          const modal = createBetModal(market, outcome);
+          await interaction.showModal(modal);
+
+          // Wait for modal submission
+          let modalInteraction: ModalSubmitInteraction;
+          try {
+            modalInteraction = await interaction.awaitModalSubmit({
+              time: 60000,
+              filter: (mi: ModalSubmitInteraction) =>
+                mi.customId.startsWith('pred_modal_') && mi.user.id === userId,
+            });
+          } catch {
+            // Modal dismissed or timed out
+            return;
+          }
+
+          // Parse amount
+          const amountStr = modalInteraction.fields.getTextInputValue('pred_amount');
+          const amount = parseInt(amountStr, 10);
+
+          if (isNaN(amount) || amount < CONFIG.MIN_BET || amount > CONFIG.MAX_BET) {
+            await modalInteraction.reply({
+              content: `Invalid amount. Please enter a number between ${CONFIG.MIN_BET} and ${CONFIG.MAX_BET}.`,
+              ephemeral: true,
+            });
+            return;
+          }
+
+          // Place the bet
+          const result = await polymarketDb.placeBet(userId, username, market, outcome, amount);
+
+          if (!result.success) {
+            const errorMessages: Record<string, string> = {
+              INSUFFICIENT_FUNDS: 'You don\'t have enough coins in your wallet.',
+              MARKET_CLOSED: 'This market has closed.',
+              INVALID_AMOUNT: `Amount must be between ${CONFIG.MIN_BET} and ${CONFIG.MAX_BET}.`,
+            };
+            await modalInteraction.reply({
+              content: `❌ ${errorMessages[result.error] || 'Failed to place bet.'}`,
+              ephemeral: true,
+            });
+            return;
+          }
+
+          const potentialPayout = calculatePayout(amount, outcome.price);
+
           await modalInteraction.reply({
-            content: `Invalid amount. Please enter a number between ${CONFIG.MIN_BET} and ${CONFIG.MAX_BET}.`,
-            ephemeral: true,
+            embeds: [createBetConfirmEmbed(market, outcome, amount, potentialPayout)],
+            ephemeral: false,
           });
           return;
         }
 
-        // Place the bet
-        const result = await polymarketDb.placeBet(userId, username, market, outcome, amount);
+        // ---- Back to Categories ----
+        if (customId === 'pred_back_categories') {
+          currentMarkets = [];
 
-        if (!result.success) {
-          const errorMessages: Record<string, string> = {
-            INSUFFICIENT_FUNDS: 'You don\'t have enough coins in your wallet.',
-            MARKET_CLOSED: 'This market has closed.',
-            INVALID_AMOUNT: `Amount must be between ${CONFIG.MIN_BET} and ${CONFIG.MAX_BET}.`,
-          };
-          await modalInteraction.reply({
-            content: `❌ ${errorMessages[result.error] || 'Failed to place bet.'}`,
-            ephemeral: true,
+          await interaction.deferUpdate();
+
+          const embed = new EmbedBuilder()
+            .setTitle('🎯 Prediction Markets')
+            .setDescription(
+              'Browse real prediction markets and bet with bot coins!\n\n' +
+              'Your bets lock in current odds. When markets resolve, winners get paid.\n\n' +
+              '**Select a category to browse:**'
+            )
+            .setColor(0x5865f2)
+            .setFooter({ text: 'Powered by Polymarket • Paper trading with bot coins' });
+
+          await interaction.editReply({
+            embeds: [embed],
+            components: [createCategoryButtons()],
           });
           return;
         }
-
-        const potentialPayout = calculatePayout(amount, outcome.price);
-
-        await modalInteraction.reply({
-          embeds: [createBetConfirmEmbed(market, outcome, amount, potentialPayout)],
-          ephemeral: false,
-        });
-        return;
-      }
-
-      // ---- Back to Categories ----
-      if (customId === 'pred_back_categories') {
-        currentMarkets = [];
-
-        await buttonInteraction.deferUpdate();
-
-        const embed = new EmbedBuilder()
-          .setTitle('🎯 Prediction Markets')
-          .setDescription(
-            'Browse real prediction markets and bet with bot coins!\n\n' +
-            'Your bets lock in current odds. When markets resolve, winners get paid.\n\n' +
-            '**Select a category to browse:**'
-          )
-          .setColor(0x5865f2)
-          .setFooter({ text: 'Powered by Polymarket • Paper trading with bot coins' });
-
-        await buttonInteraction.editReply({
-          embeds: [embed],
-          components: [createCategoryButtons()],
-        });
-        return;
       }
     } catch (error) {
-      console.error('[Predictions] Button interaction error:', error);
+      console.error('[Predictions] Interaction error:', error);
       try {
-        if (!buttonInteraction.replied && !buttonInteraction.deferred) {
-          await buttonInteraction.reply({
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
             content: 'An error occurred. Please try again.',
             ephemeral: true,
           });
