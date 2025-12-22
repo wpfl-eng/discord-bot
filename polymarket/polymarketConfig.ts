@@ -24,6 +24,9 @@ export const CONFIG = {
 
   /** Minimum volume (USD) for a market to be displayed */
   MIN_MARKET_VOLUME: 100_000,
+
+  /** Maximum outcome price for competitive markets (filter lopsided) */
+  MAX_COMPETITIVE_PRICE: 0.75,
 } as const;
 
 // ============ API Configuration ============
@@ -58,9 +61,9 @@ export const TRENDING_SLUG = 'trending' as const;
  */
 export const FEATURED_CATEGORIES = [
   { slug: TRENDING_SLUG, label: 'Trending', emoji: '🔥' },
-  { slug: 'world-affairs', label: 'World', emoji: '🌍' },
-  { slug: 'bitcoin', label: 'Crypto', emoji: '💎' },
-  { slug: 'trump', label: 'Trump', emoji: '🇺🇸' },
+  { slug: 'nfl', label: 'NFL', emoji: '🏈' },
+  { slug: 'box-office', label: 'Movies', emoji: '🎬' },
+  { slug: 'ai', label: 'AI', emoji: '🤖' },
 ] as const;
 
 /**
@@ -68,9 +71,9 @@ export const FEATURED_CATEGORIES = [
  * These are used as defaults in case the tags API fails or returns incomplete data
  */
 export const KNOWN_TAG_IDS: Record<string, number> = {
-  'world-affairs': 366,
-  'bitcoin': 235,
-  'trump': 126,
+  'nfl': 450,
+  'box-office': 51,
+  'ai': 439,
 } as const;
 
 /**
