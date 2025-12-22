@@ -336,3 +336,15 @@ export async function cachePrice(ticker: string, price: number): Promise<void> {
       updated_at = NOW()
   `;
 }
+
+/**
+ * Get all unique tickers held by any user
+ * Used for backfilling stock_prices cache
+ * @returns Array of unique ticker symbols
+ */
+export async function getAllHeldTickers(): Promise<string[]> {
+  const result = await sql<{ ticker: string }>`
+    SELECT DISTINCT ticker FROM stock_holdings ORDER BY ticker
+  `;
+  return result.rows.map((row: { ticker: string }) => row.ticker);
+}
