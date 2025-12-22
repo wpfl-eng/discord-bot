@@ -2,6 +2,7 @@
 // Handles fetching real-time stock quotes
 
 import { STOCK_CONFIG, STOCK_MESSAGES } from './stockConfig.js';
+import { cachePrice } from './stockDb.js';
 
 // ============ TYPE DEFINITIONS ============
 
@@ -77,6 +78,11 @@ export async function getQuote(ticker: string): Promise<QuoteResult> {
     if (data.c === 0 && data.pc === 0) {
       return { success: false, error: STOCK_MESSAGES.INVALID_TICKER };
     }
+
+    // Cache price for leaderboard calculations (fire-and-forget)
+    cachePrice(normalizedTicker, data.c).catch((err: unknown) =>
+      console.error(`[STOCK] Failed to cache price for ${normalizedTicker}:`, err)
+    );
 
     return {
       success: true,
