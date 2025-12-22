@@ -88,6 +88,7 @@ export interface SlotPayouts {
   readonly tripleStar: number;
   readonly tripleStadium: number;
   readonly tripleCommon: number;
+  readonly twoJackpot: number;
   readonly twoSpecial: number;
   readonly twoMatching: number;
 }
@@ -109,16 +110,16 @@ export interface ChannelConfig {
 
 export const CONFIG: EconomyConfig = {
   // Daily rewards
-  DAILY_AMOUNT: 100,
+  DAILY_AMOUNT: 2000,
   DAILY_STREAK_BONUS: 10,
   DAILY_STREAK_MAX_BONUS: 100,
   DAILY_COOLDOWN_HOURS: 24,
   DAILY_STREAK_EXPIRE_HOURS: 48,
 
   // Work
-  WORK_MIN: 20,
-  WORK_MAX: 80,
-  WORK_SUCCESS_RATE: 0.7,
+  WORK_MIN: 500,
+  WORK_MAX: 500,
+  WORK_SUCCESS_RATE: 1.0,
   WORK_COOLDOWN_MINUTES: 30,
 
   // Gamble
@@ -236,12 +237,13 @@ export const CURRENCY_EMOJI = '🪙' as const;
 export const CURRENCY_NAME = 'coins' as const;
 
 // Slots symbols - football themed
+// Weights adjusted for ~10% house edge (was ~27%)
 export const SLOTS_SYMBOLS: readonly SlotSymbol[] = [
-  { emoji: '🏈', name: 'Football', weight: 25, tier: 'common' },
-  { emoji: '⚽', name: 'Ball', weight: 20, tier: 'common' },
+  { emoji: '🏈', name: 'Football', weight: 22, tier: 'common' },
+  { emoji: '⚽', name: 'Ball', weight: 18, tier: 'common' },
   { emoji: '🎯', name: 'Target', weight: 15, tier: 'common' },
-  { emoji: '🏟️', name: 'Stadium', weight: 15, tier: 'uncommon' },
-  { emoji: '⭐', name: 'Star', weight: 10, tier: 'uncommon' },
+  { emoji: '🏟️', name: 'Stadium', weight: 18, tier: 'uncommon' },
+  { emoji: '⭐', name: 'Star', weight: 12, tier: 'uncommon' },
   { emoji: '🥇', name: 'Gold', weight: 8, tier: 'rare' },
   { emoji: '🏆', name: 'Trophy', weight: 5, tier: 'rare' },
   { emoji: '🎰', name: 'Jackpot', weight: 2, tier: 'legendary' },
@@ -255,21 +257,22 @@ export const SLOTS_PAYOUTS: SlotPayouts = {
   tripleStar: 7,
   tripleStadium: 5,
   tripleCommon: 3,
+  twoJackpot: 5, // Near-miss bonus for 2 jackpot symbols
   twoSpecial: 2,
   twoMatching: 2,
 } as const;
 
 // Red Zone field positions - yard line -> { multiplier, fumbleChance }
-// Tuned for moderate difficulty - reduced multipliers, increased fumble risk
+// Fumble rates increased at mid-field to close +EV exploit
 export const REDZONE_FIELD_POSITIONS: Readonly<Record<number, FieldPosition>> = {
   20: { multiplier: 1.0, fumbleChance: 0.05, label: 'Own 20' },
   30: { multiplier: 1.1, fumbleChance: 0.15, label: 'Own 30' },
-  40: { multiplier: 1.3, fumbleChance: 0.2, label: 'Own 40' },
-  50: { multiplier: 1.6, fumbleChance: 0.25, label: 'Midfield' },
-  60: { multiplier: 2.2, fumbleChance: 0.32, label: 'Opp 40' },
-  70: { multiplier: 3.0, fumbleChance: 0.4, label: 'Opp 30' },
-  80: { multiplier: 4.0, fumbleChance: 0.5, label: 'Red Zone' },
-  90: { multiplier: 5.5, fumbleChance: 0.6, label: 'Opp 10' },
+  40: { multiplier: 1.3, fumbleChance: 0.25, label: 'Own 40' },
+  50: { multiplier: 1.6, fumbleChance: 0.32, label: 'Midfield' },
+  60: { multiplier: 2.2, fumbleChance: 0.38, label: 'Opp 40' },
+  70: { multiplier: 3.0, fumbleChance: 0.45, label: 'Opp 30' },
+  80: { multiplier: 4.0, fumbleChance: 0.55, label: 'Red Zone' },
+  90: { multiplier: 5.5, fumbleChance: 0.65, label: 'Opp 10' },
   100: { multiplier: 8.0, fumbleChance: 0, label: 'Touchdown!' },
 } as const;
 

@@ -300,11 +300,11 @@ export class TriviaService {
         pointsAwarded = false;
       }
 
-      // Award economy coins (25x point value)
+      // Award economy coins (2500 per correct answer)
       let coinsAwarded = 0;
       if (pointsAwarded) {
         try {
-          const coinReward = activeQuestion.point_value * 25;
+          const coinReward = 2500;
           await economyDb.getOrCreateUser(userId, username);
           await economyDb.addToWallet(userId, coinReward);
           coinsAwarded = coinReward;

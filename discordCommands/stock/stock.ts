@@ -159,13 +159,17 @@ async function handleBuy(interaction: ChatInputCommandInteraction): Promise<void
     // Get or create user
     const userData = await economyDb.getOrCreateUser(userId, username);
 
-    // Check wallet balance
-    if (userData.wallet < amount) {
+    // Calculate commission upfront for wallet check
+    const estimatedCommission = Math.floor(amount * STOCK_CONFIG.COMMISSION_RATE);
+    const totalWithCommission = amount + estimatedCommission;
+
+    // Check wallet balance (including commission)
+    if (userData.wallet < totalWithCommission) {
       const embed = new EmbedBuilder()
         .setColor(0xe74c3c)
         .setTitle('Stock Purchase Failed')
         .setDescription(
-          `${STOCK_MESSAGES.INSUFFICIENT_FUNDS}\n\nYour wallet: ${formatCurrency(userData.wallet)}\nTrade amount: ${formatCurrency(amount)}`
+          `${STOCK_MESSAGES.INSUFFICIENT_FUNDS}\n\nYour wallet: ${formatCurrency(userData.wallet)}\nTrade amount: ${formatCurrency(amount)}\nCommission (2%): ${formatCurrency(estimatedCommission)}\nTotal needed: ${formatCurrency(totalWithCommission)}`
         )
         .setFooter({ text: 'Tip: Use /withdraw to get coins from your bank' })
         .setTimestamp();
@@ -216,7 +220,9 @@ async function handleBuy(interaction: ChatInputCommandInteraction): Promise<void
       .addFields(
         { name: 'Shares Purchased', value: formatShares(shares), inline: true },
         { name: 'Price per Share', value: `$${formatPrice(quote.currentPrice)}`, inline: true },
-        { name: 'Total Cost', value: formatCurrency(amount), inline: true },
+        { name: 'Share Cost', value: formatCurrency(amount), inline: true },
+        { name: 'Commission (2%)', value: formatCurrency(buyResult.commission), inline: true },
+        { name: 'Total Paid', value: formatCurrency(buyResult.totalWithCommission), inline: true },
         { name: 'New Wallet Balance', value: formatCurrency(buyResult.user.wallet), inline: true },
         {
           name: 'Your Position',
@@ -365,7 +371,9 @@ async function handleSell(interaction: ChatInputCommandInteraction): Promise<voi
       .addFields(
         { name: 'Shares Sold', value: formatShares(sharesToSell), inline: true },
         { name: 'Price per Share', value: `$${formatPrice(quote.currentPrice)}`, inline: true },
-        { name: 'Proceeds', value: formatCurrency(sellResult.proceeds), inline: true },
+        { name: 'Gross Proceeds', value: formatCurrency(sellResult.proceeds), inline: true },
+        { name: 'Commission (2%)', value: `-${formatCurrency(sellResult.commission)}`, inline: true },
+        { name: 'Net Received', value: formatCurrency(sellResult.netProceeds), inline: true },
         {
           name: 'Profit/Loss',
           value: `${profitEmoji}${formatCurrency(Math.floor(sellResult.profit))}`,

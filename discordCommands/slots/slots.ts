@@ -94,11 +94,15 @@ function calculatePayout(reels: SlotSymbol[]): PayoutResult {
     return { multiplier: SLOTS_PAYOUTS.tripleCommon, resultText: 'Triple Match!' };
   }
 
-  // Check for two of a kind with special symbols
+  // Check for two jackpot symbols (near-miss bonus)
   const jackpotCount: number = emojis.filter((e) => e === '🎰').length;
-  const trophyCount: number = emojis.filter((e) => e === '🏆').length;
+  if (jackpotCount === 2) {
+    return { multiplier: SLOTS_PAYOUTS.twoJackpot, resultText: 'Near Jackpot!' };
+  }
 
-  if (jackpotCount === 2 || trophyCount === 2) {
+  // Check for two of a kind with special symbols
+  const trophyCount: number = emojis.filter((e) => e === '🏆').length;
+  if (trophyCount === 2) {
     return { multiplier: SLOTS_PAYOUTS.twoSpecial, resultText: 'Two Special!' };
   }
 

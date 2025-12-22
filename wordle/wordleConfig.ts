@@ -57,10 +57,10 @@ export const CONFIG: GameConfig = {
  */
 export const REWARDS: RewardsConfig = {
   // Base reward for solving the wordle
-  BASE_WIN: 300,
+  BASE_WIN: 2500,
 
-  // Additional bonus for being the first to solve
-  FIRST_SOLVER_BONUS: 200,
+  // Additional bonus for being the first to solve (0 = same as base)
+  FIRST_SOLVER_BONUS: 0,
 
   // Item awarded to first solver
   FIRST_SOLVER_ITEM: 'wordle_lucky_letter',

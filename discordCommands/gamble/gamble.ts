@@ -76,8 +76,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    // Flip the coin
-    const isWin: boolean = Math.random() < 0.5;
+    // Flip the coin (45% win rate = 10% house edge)
+    const isWin: boolean = Math.random() < 0.45;
     const coinResult: string = isWin ? 'Heads' : 'Tails';
     const allInText: string = isAllIn ? ' 🎲 ALL IN!' : '';
 
