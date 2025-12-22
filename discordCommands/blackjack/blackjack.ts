@@ -23,6 +23,7 @@ import {
   shouldDealerHit,
   shouldDealerPeek,
   dealerShowsAce,
+  calculateInsuranceBet,
   TABLES,
   DEFAULT_TABLE,
 } from './blackjackUtils.js';
@@ -51,6 +52,9 @@ interface GameState {
   canSurrender: boolean;
   surrendered?: boolean;
   table: TableConfig;
+  // Insurance (Phase 3)
+  insuranceBet: number;
+  evenMoneyTaken: boolean;
 }
 
 interface GameOutcomeResult {
@@ -62,6 +66,8 @@ interface GameOutcomeResult {
   isBust: boolean;
   isBlackjack: boolean;
   isBigWin?: boolean;
+  insurancePayout?: number;
+  isEvenMoney?: boolean;
 }
 
 // In-memory state tracking (resets on bot restart)
@@ -165,6 +171,161 @@ function createPlayAgainRow(originalBet: number): ActionRowBuilder<ButtonBuilder
   return new ActionRowBuilder<ButtonBuilder>().addComponents(playAgainButton);
 }
 
+// ============================================================
+// Insurance/Even Money UI Functions
+// ============================================================
+
+function createInsuranceEmbed(game: GameState, insuranceAmount: number): EmbedBuilder {
+  const playerValueText: string = formatHandValue(game.playerHand);
+  const dealerValue: number = getVisibleDealerValue(game.dealerHand, true);
+
+  return new EmbedBuilder()
+    .setColor(0x9b59b6) // Purple for insurance prompt
+    .setTitle(`🃏 Blackjack (${game.table.displayName}) - Insurance?`)
+    .setDescription(
+      `**Dealer's Hand:**\n${formatHand(game.dealerHand, true)} *(showing: ${dealerValue})*\n\n` +
+        `**Your Hand:**\n${formatHand(game.playerHand)} *(${playerValueText})*`
+    )
+    .addFields(
+      { name: 'Bet', value: formatCurrency(game.bet), inline: true },
+      { name: 'Insurance Cost', value: formatCurrency(insuranceAmount), inline: true }
+    )
+    .setFooter({ text: 'Dealer shows Ace - Insurance pays 2:1 if dealer has blackjack' })
+    .setTimestamp();
+}
+
+function createInsuranceButtons(): ActionRowBuilder<ButtonBuilder> {
+  const yesButton = new ButtonBuilder()
+    .setCustomId('blackjack_insurance_yes')
+    .setLabel('Take Insurance')
+    .setStyle(ButtonStyle.Primary);
+
+  const noButton = new ButtonBuilder()
+    .setCustomId('blackjack_insurance_no')
+    .setLabel('No Insurance')
+    .setStyle(ButtonStyle.Secondary);
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(yesButton, noButton);
+}
+
+function createEvenMoneyEmbed(game: GameState): EmbedBuilder {
+  const dealerValue: number = getVisibleDealerValue(game.dealerHand, true);
+
+  return new EmbedBuilder()
+    .setColor(0xf39c12) // Orange for even money prompt
+    .setTitle(`🃏 Blackjack (${game.table.displayName}) - Even Money?`)
+    .setDescription(
+      `**Dealer's Hand:**\n${formatHand(game.dealerHand, true)} *(showing: ${dealerValue})*\n\n` +
+        `**Your Hand:**\n${formatHand(game.playerHand)} *(BLACKJACK!)*`
+    )
+    .addFields(
+      { name: 'Bet', value: formatCurrency(game.bet), inline: true },
+      { name: 'Even Money', value: formatCurrency(game.bet), inline: true },
+      { name: 'Risk for 3:2', value: formatCurrency(Math.floor(game.bet * 1.5)), inline: true }
+    )
+    .setFooter({ text: 'Take guaranteed 1:1 payout, or risk for 3:2 (push if dealer also has BJ)' })
+    .setTimestamp();
+}
+
+function createEvenMoneyButtons(): ActionRowBuilder<ButtonBuilder> {
+  const evenMoneyButton = new ButtonBuilder()
+    .setCustomId('blackjack_even_money_yes')
+    .setLabel('Even Money (1:1)')
+    .setStyle(ButtonStyle.Success);
+
+  const riskButton = new ButtonBuilder()
+    .setCustomId('blackjack_even_money_no')
+    .setLabel('Risk for 3:2')
+    .setStyle(ButtonStyle.Danger);
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(evenMoneyButton, riskButton);
+}
+
+/**
+ * Handle insurance prompt when dealer shows Ace and player doesn't have BJ
+ * @returns Promise that resolves when user makes a decision
+ */
+async function handleInsurancePrompt(
+  interaction: ChatInputCommandInteraction,
+  game: GameState,
+  userId: string,
+  insuranceAmount: number
+): Promise<void> {
+  const embed = createInsuranceEmbed(game, insuranceAmount);
+  const row = createInsuranceButtons();
+
+  const response = await interaction.editReply({
+    embeds: [embed],
+    components: [row],
+  });
+
+  return new Promise<void>((resolve) => {
+    const collector = response.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 15000, // 15 seconds to decide on insurance
+      filter: (i: ButtonInteraction) =>
+        i.user.id === userId &&
+        (i.customId === 'blackjack_insurance_yes' || i.customId === 'blackjack_insurance_no'),
+      max: 1,
+    });
+
+    collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
+      if (buttonInteraction.customId === 'blackjack_insurance_yes') {
+        game.insuranceBet = insuranceAmount;
+      }
+      await buttonInteraction.deferUpdate();
+      collector.stop();
+    });
+
+    collector.on('end', () => {
+      // Default: no insurance (timeout or explicit no)
+      resolve();
+    });
+  });
+}
+
+/**
+ * Handle even money prompt when player has BJ and dealer shows Ace
+ * @returns Promise that resolves when user makes a decision
+ */
+async function handleEvenMoneyPrompt(
+  interaction: ChatInputCommandInteraction,
+  game: GameState,
+  userId: string
+): Promise<void> {
+  const embed = createEvenMoneyEmbed(game);
+  const row = createEvenMoneyButtons();
+
+  const response = await interaction.editReply({
+    embeds: [embed],
+    components: [row],
+  });
+
+  return new Promise<void>((resolve) => {
+    const collector = response.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 15000, // 15 seconds to decide on even money
+      filter: (i: ButtonInteraction) =>
+        i.user.id === userId &&
+        (i.customId === 'blackjack_even_money_yes' || i.customId === 'blackjack_even_money_no'),
+      max: 1,
+    });
+
+    collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
+      if (buttonInteraction.customId === 'blackjack_even_money_yes') {
+        game.evenMoneyTaken = true;
+      }
+      await buttonInteraction.deferUpdate();
+      collector.stop();
+    });
+
+    collector.on('end', () => {
+      // Default: risk for 3:2 (timeout or explicit no)
+      resolve();
+    });
+  });
+}
+
 function playDealerTurn(game: GameState): void {
   // Dealer hits based on table rules (S17 vs H17)
   while (shouldDealerHit(game.dealerHand, game.table)) {
@@ -181,7 +342,21 @@ function determineOutcome(game: GameState): GameOutcomeResult {
   const playerBJ: boolean = isBlackjack(game.playerHand);
   const dealerBJ: boolean = isBlackjack(game.dealerHand);
 
-  // Both have blackjack - push
+  // Even money taken - player gets 1:1 payout regardless of dealer's hand
+  if (game.evenMoneyTaken && playerBJ) {
+    return {
+      outcome: 'Even Money! You win 1:1!',
+      payout: game.bet * 2,
+      color: 0x2ecc71,
+      isWin: true,
+      isPush: false,
+      isBust: false,
+      isBlackjack: true,
+      isEvenMoney: true,
+    };
+  }
+
+  // Both have blackjack - push (no even money taken)
   if (playerBJ && dealerBJ) {
     return {
       outcome: 'Push! Both have Blackjack',
@@ -208,16 +383,22 @@ function determineOutcome(game: GameState): GameOutcomeResult {
     };
   }
 
-  // Dealer has blackjack - player loses
+  // Dealer has blackjack - player loses main bet, insurance pays 2:1 if taken
   if (dealerBJ) {
+    const insurancePayout: number = game.insuranceBet > 0 ? game.insuranceBet * 3 : 0;
+    const outcome: string =
+      insurancePayout > 0
+        ? 'Dealer has Blackjack! Insurance pays 2:1.'
+        : 'Dealer has Blackjack! You lose.';
     return {
-      outcome: 'Dealer has Blackjack! You lose.',
-      payout: 0,
-      color: 0xe74c3c,
+      outcome,
+      payout: 0, // Main bet lost
+      color: insurancePayout > 0 ? 0x3498db : 0xe74c3c, // Blue if insurance won, red otherwise
       isWin: false,
       isPush: false,
       isBust: false,
       isBlackjack: false,
+      insurancePayout,
     };
   }
 
@@ -286,13 +467,25 @@ async function resolveGame(
   game: GameState,
   userId: string
 ): Promise<void> {
-  const { outcome, payout, color, isBigWin, isWin, isPush, isBust, isBlackjack }: GameOutcomeResult =
-    determineOutcome(game);
+  const {
+    outcome,
+    payout,
+    color,
+    isBigWin,
+    isWin,
+    isPush,
+    isBust,
+    isBlackjack,
+    insurancePayout = 0,
+  }: GameOutcomeResult = determineOutcome(game);
+
+  // Calculate total payout (main bet payout + insurance payout)
+  const totalPayout: number = payout + insurancePayout;
 
   // Award payout if any
   let updatedUser: EconomyUser | null;
-  if (payout > 0) {
-    updatedUser = await economyDb.gambleWin(userId, payout);
+  if (totalPayout > 0) {
+    updatedUser = await economyDb.gambleWin(userId, totalPayout);
   } else {
     updatedUser = await economyDb.getUser(userId);
   }
@@ -306,13 +499,13 @@ async function resolveGame(
       username: interaction.user.username,
       outcome: statsOutcome,
       bet: game.bet,
-      payout,
+      payout: totalPayout,
       wasBlackjack: isBlackjack,
       wasBust: isBust,
       wasDouble: game.doubledDown || false,
       wasSplit: false, // Will be updated when splitting is implemented
-      wasInsurance: false, // Will be updated when insurance is implemented
-      wasSurrender: false,
+      wasInsurance: game.insuranceBet > 0,
+      wasSurrender: game.surrendered || false,
     });
   } catch (statsError) {
     console.error('Failed to record blackjack stats:', statsError);
@@ -345,15 +538,31 @@ async function resolveGame(
 
   // Update fields with payout info
   embed.spliceFields(0, 1); // Remove old bet field
-  embed.addFields(
+
+  // Build fields based on what bets were placed
+  const fields: { name: string; value: string; inline: boolean }[] = [
     { name: 'Bet', value: formatCurrency(game.bet), inline: true },
-    {
-      name: payout > 0 ? 'Payout' : 'Lost',
-      value: payout > 0 ? formatCurrency(payout) : formatCurrency(game.bet),
-      inline: true,
-    },
-    { name: 'Balance', value: formatCurrency(updatedUser?.wallet ?? 0), inline: true }
-  );
+  ];
+
+  // Show insurance bet if taken
+  if (game.insuranceBet > 0) {
+    fields.push({ name: 'Insurance', value: formatCurrency(game.insuranceBet), inline: true });
+  }
+
+  // Show payout/lost info
+  if (insurancePayout > 0 && payout === 0) {
+    // Lost main bet but won insurance
+    fields.push({ name: 'Lost Bet', value: formatCurrency(game.bet), inline: true });
+    fields.push({ name: 'Insurance Pays', value: formatCurrency(insurancePayout), inline: true });
+  } else if (totalPayout > 0) {
+    fields.push({ name: 'Payout', value: formatCurrency(totalPayout), inline: true });
+  } else {
+    const lostAmount: number = game.bet + game.insuranceBet;
+    fields.push({ name: 'Lost', value: formatCurrency(lostAmount), inline: true });
+  }
+
+  fields.push({ name: 'Balance', value: formatCurrency(updatedUser?.wallet ?? 0), inline: true });
+  embed.addFields(fields);
 
   // Add NFLmon Training field if XP was earned
   if (xpResult && xpResult.results.length > 0) {
@@ -552,6 +761,8 @@ async function executeNewGame(
     hasHit: false,
     canSurrender: true,
     table,
+    insuranceBet: 0,
+    evenMoneyTaken: false,
   };
 
   activeGames.set(userId, game);
@@ -562,24 +773,53 @@ async function executeNewGame(
   // Dealer peek: When showing 10 or Ace, check hole card for blackjack
   // This prevents player from losing double/split bets to hidden dealer BJ
   if (shouldDealerPeek(game.dealerHand)) {
-    const dealerBJ: boolean = isBlackjack(game.dealerHand);
-
     if (dealerShowsAce(game.dealerHand)) {
-      // Dealer shows Ace
-      // Phase 3: Insurance/Even Money prompt will go here BEFORE checking dealer BJ
-      // For now, just check for dealer blackjack
-      if (dealerBJ) {
-        // Dealer has blackjack - resolve immediately
-        await resolveGame(interaction, game, userId);
-        return;
-      }
-      // Dealer peeked, no blackjack - if player has BJ, they win 3:2
+      // Dealer shows Ace - offer insurance/even money BEFORE peeking
       if (playerBJ) {
+        // Player has blackjack - offer Even Money
+        await handleEvenMoneyPrompt(interaction, game, userId);
+
+        if (game.evenMoneyTaken) {
+          // Even money taken - resolve immediately with 1:1 payout
+          await resolveGame(interaction, game, userId);
+          return;
+        }
+        // Player declined even money - check for dealer BJ
+        const dealerBJ: boolean = isBlackjack(game.dealerHand);
+        if (dealerBJ) {
+          // Both have blackjack - push
+          await resolveGame(interaction, game, userId);
+          return;
+        }
+        // Dealer doesn't have BJ - player wins 3:2
         await resolveGame(interaction, game, userId);
         return;
+      } else {
+        // Player doesn't have BJ - offer Insurance if affordable
+        const insuranceAmount: number = calculateInsuranceBet(game.originalBet);
+        const canAffordInsurance: boolean = betResult.wallet >= insuranceAmount;
+
+        if (canAffordInsurance) {
+          await handleInsurancePrompt(interaction, game, userId, insuranceAmount);
+
+          // If insurance was taken, deduct from wallet
+          if (game.insuranceBet > 0) {
+            await economyDb.deductFromWallet(userId, game.insuranceBet);
+          }
+        }
+
+        // Now peek for dealer blackjack
+        const dealerBJ: boolean = isBlackjack(game.dealerHand);
+        if (dealerBJ) {
+          // Dealer has blackjack - resolve (insurance pays if taken)
+          await resolveGame(interaction, game, userId);
+          return;
+        }
+        // Dealer doesn't have BJ - insurance lost, continue normal play
       }
     } else {
       // Dealer shows 10-value - silent peek
+      const dealerBJ: boolean = isBlackjack(game.dealerHand);
       if (dealerBJ) {
         // Dealer has blackjack - reveal and resolve
         await resolveGame(interaction, game, userId);
