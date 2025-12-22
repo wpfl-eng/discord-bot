@@ -7,6 +7,12 @@ import * as categoryLoader from './categoryLoader.js';
 import * as nflmonService from '../nflmon/nflmonService.js';
 import { DROP_CONFIG } from '../nflmon/nflmonConfig.js';
 
+// Category weights for random selection
+const CATEGORY_WEIGHTS: Record<string, number> = {
+  nfl: 0.7,
+  videogames: 0.3,
+};
+
 // ============ Type Definitions ============
 
 /**
@@ -63,6 +69,39 @@ interface AnswerResult {
   message: string;      // Response text for user
   isCorrect: boolean;   // Did they get it right?
   isExhausted: boolean; // Out of guesses (for roast announcement)?
+}
+
+// ============ Helper Functions ============
+
+/**
+ * Select a category using weighted random selection
+ * Only considers categories that have available questions
+ */
+function selectWeightedCategory(availableCategories: string[]): string {
+  // Filter to categories with defined weights
+  const weighted = availableCategories.filter(c => c in CATEGORY_WEIGHTS);
+
+  // If no weighted categories available, pick random from all
+  if (weighted.length === 0) {
+    return availableCategories[Math.floor(Math.random() * availableCategories.length)];
+  }
+
+  // If only one category, use it
+  if (weighted.length === 1) {
+    return weighted[0];
+  }
+
+  // Calculate total weight for available categories
+  const totalWeight = weighted.reduce((sum, c) => sum + CATEGORY_WEIGHTS[c], 0);
+
+  // Weighted random selection
+  let random = Math.random() * totalWeight;
+  for (const category of weighted) {
+    random -= CATEGORY_WEIGHTS[category];
+    if (random <= 0) return category;
+  }
+
+  return weighted[0]; // fallback
 }
 
 // ============ Service Class ============
@@ -181,8 +220,8 @@ export class TriviaService {
       return;
     }
 
-    // Pick random category with available questions
-    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+    // Pick weighted random category
+    const randomCategory = selectWeightedCategory(availableCategories);
     await this.sendQuestion(randomCategory);
   }
 
