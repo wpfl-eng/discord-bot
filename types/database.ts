@@ -46,6 +46,18 @@ export interface EconomyLeaderboardEntry {
   readonly total_lost: number;
 }
 
+/**
+ * Total wealth leaderboard entry including stocks and inventory
+ */
+export interface TotalWealthEntry {
+  readonly user_id: string;
+  readonly username: string;
+  readonly cash_wealth: number;
+  readonly stock_wealth: number;
+  readonly inventory_wealth: number;
+  readonly total_wealth: number;
+}
+
 // ============ Inventory System ============
 
 /**
