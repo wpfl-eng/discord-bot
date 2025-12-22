@@ -9,7 +9,7 @@ import {
   ButtonInteraction,
   TextChannel,
 } from 'discord.js';
-import type { Card, Hand, Deck } from '../blackjack/blackjackUtils.js';
+import type { Hand, Deck } from '../blackjack/blackjackUtils.js';
 import { drawCard } from '../blackjack/blackjackUtils.js';
 import * as economyDb from '../../economy/economyDb.js';
 import type { EconomyUser } from '../../types/database.js';
@@ -21,7 +21,7 @@ import {
   formatVideoPokerHandSimple,
   getHandEmoji,
 } from './videoPokerUtils.js';
-import { HandRank, HAND_NAMES, JACKS_OR_BETTER_PAYOUTS } from './videoPokerConfig.js';
+import { HandRank, JACKS_OR_BETTER_PAYOUTS } from './videoPokerConfig.js';
 import * as videoPokerDb from '../../videopoker/videoPokerDb.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';

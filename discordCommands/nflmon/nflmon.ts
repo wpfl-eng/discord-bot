@@ -17,8 +17,7 @@ import * as nflmonDb from '../../nflmon/nflmonDb.js';
 import type { Nflmon, NflmonTrade } from '../../nflmon/nflmonDb.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
 import { TRADE_ERRORS } from '../../nflmon/nflmonService.js';
-import type { DisplayData, PendingTrade } from '../../nflmon/nflmonService.js';
-import { formatRarity } from '../../nflmon/nflmonConfig.js';
+import type { PendingTrade } from '../../nflmon/nflmonService.js';
 
 // =============================================================================
 // CONSTANTS

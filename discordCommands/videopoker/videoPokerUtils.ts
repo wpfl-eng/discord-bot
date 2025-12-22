@@ -1,7 +1,7 @@
 // Video Poker Utility Functions
 // Pure functions for hand evaluation and display
 
-import type { Card, Hand, Rank, Suit } from '../blackjack/blackjackUtils.js';
+import type { Hand, Rank, Suit } from '../blackjack/blackjackUtils.js';
 import { formatCard } from '../blackjack/blackjackUtils.js';
 import { HandRank } from './videoPokerConfig.js';
 

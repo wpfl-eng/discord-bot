@@ -2,7 +2,6 @@ import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, User } 
 import * as videoPokerDb from '../../videopoker/videoPokerDb.js';
 import type { VideoPokerStats } from '../../videopoker/videoPokerDb.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
-import { HAND_NAMES, HandRank } from '../videopoker/videoPokerConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('videopokerstats')
