@@ -64,8 +64,15 @@ export const data = new SlashCommandBuilder()
         option
           .setName('shares')
           .setDescription('Number of shares to sell')
-          .setRequired(true)
+          .setRequired(false)
           .setMinValue(0.000001)
+      )
+      .addNumberOption((option) =>
+        option
+          .setName('dollars')
+          .setDescription('Dollar amount worth of shares to sell')
+          .setRequired(false)
+          .setMinValue(1)
       )
   )
   .addSubcommand((subcommand) =>
@@ -249,7 +256,22 @@ async function handleSell(interaction: ChatInputCommandInteraction): Promise<voi
     const userId = interaction.user.id;
     const username = interaction.user.username;
     const ticker = interaction.options.getString('ticker', true);
-    const sharesToSell = interaction.options.getNumber('shares', true);
+    const sharesInput = interaction.options.getNumber('shares');
+    const dollarsInput = interaction.options.getNumber('dollars');
+
+    // Validate exactly one of shares/dollars is provided
+    if (sharesInput !== null && dollarsInput !== null) {
+      await interaction.editReply({
+        content: '❌ Please specify either shares OR dollars to sell, not both.',
+      });
+      return;
+    }
+    if (sharesInput === null && dollarsInput === null) {
+      await interaction.editReply({
+        content: '❌ Please specify the amount to sell (shares or dollars).',
+      });
+      return;
+    }
 
     // Check cooldown
     const cooldown = checkCooldown(userId);
@@ -280,15 +302,7 @@ async function handleSell(interaction: ChatInputCommandInteraction): Promise<voi
       return;
     }
 
-    const currentShares = parseFloat(holding.shares);
-    if (currentShares < sharesToSell) {
-      await interaction.editReply({
-        content: `${STOCK_MESSAGES.INSUFFICIENT_SHARES}\n\nYou own: ${formatShares(currentShares)} shares\nTrying to sell: ${formatShares(sharesToSell)} shares`,
-      });
-      return;
-    }
-
-    // Fetch stock quote
+    // Fetch stock quote (needed before calculating shares from dollars)
     const quoteResult = await stockApi.getQuote(ticker);
     if (!quoteResult.success) {
       await interaction.editReply({ content: quoteResult.error });
@@ -296,6 +310,22 @@ async function handleSell(interaction: ChatInputCommandInteraction): Promise<voi
     }
 
     const { data: quote } = quoteResult;
+
+    // Calculate sharesToSell based on input type
+    const sharesToSell =
+      dollarsInput !== null ? dollarsInput / quote.currentPrice : sharesInput!;
+
+    const currentShares = parseFloat(holding.shares);
+    if (currentShares < sharesToSell) {
+      const errorDetail =
+        dollarsInput !== null
+          ? `You own ${formatShares(currentShares)} shares (~${formatCurrency(Math.floor(currentShares * quote.currentPrice))}).\nRequested: ${formatCurrency(dollarsInput)}`
+          : `You own: ${formatShares(currentShares)} shares\nTrying to sell: ${formatShares(sharesToSell)} shares`;
+      await interaction.editReply({
+        content: `${STOCK_MESSAGES.INSUFFICIENT_SHARES}\n\n${errorDetail}`,
+      });
+      return;
+    }
 
     // Set cooldown before executing trade
     tradeCooldowns.set(userId, Date.now());
