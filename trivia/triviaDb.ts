@@ -315,6 +315,50 @@ export async function getLeaderboard(limit: number = 10): Promise<TriviaScore[]>
 }
 
 /**
+ * Get leaderboard for the last 30 days
+ * @param limit - Number of users to return
+ * @returns Leaderboard entries from last 30 days
+ */
+export async function getRolling30DayLeaderboard(limit: number = 10): Promise<{ user_id: string; username: string; points: number }[]> {
+  const result = await sql<{ user_id: string; username: string; points: number }>`
+    SELECT
+      ta.user_id,
+      ta.username,
+      SUM(taq.point_value) as points
+    FROM trivia_answers ta
+    JOIN trivia_active taq ON ta.question_id = taq.id
+    WHERE ta.is_correct = TRUE
+      AND taq.sent_at >= NOW() - INTERVAL '30 days'
+    GROUP BY ta.user_id, ta.username
+    ORDER BY points DESC
+    LIMIT ${limit}
+  `;
+  return result.rows;
+}
+
+/**
+ * Get leaderboard for the current month
+ * @param limit - Number of users to return
+ * @returns Leaderboard entries from current month
+ */
+export async function getCurrentMonthLeaderboard(limit: number = 10): Promise<{ user_id: string; username: string; points: number }[]> {
+  const result = await sql<{ user_id: string; username: string; points: number }>`
+    SELECT
+      ta.user_id,
+      ta.username,
+      SUM(taq.point_value) as points
+    FROM trivia_answers ta
+    JOIN trivia_active taq ON ta.question_id = taq.id
+    WHERE ta.is_correct = TRUE
+      AND taq.sent_at >= DATE_TRUNC('month', NOW())
+    GROUP BY ta.user_id, ta.username
+    ORDER BY points DESC
+    LIMIT ${limit}
+  `;
+  return result.rows;
+}
+
+/**
  * Get stats for a specific user
  * @param userId - Discord user ID
  * @returns User stats or null
