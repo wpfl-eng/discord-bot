@@ -118,7 +118,17 @@ export class TriviaService {
       }
     });
 
+    // End-of-month season processing - runs at midnight on the 1st
+    cron.schedule(
+      '0 0 1 * *',
+      async () => {
+        await this.handleSeasonEnd();
+      },
+      { timezone: 'America/New_York' }
+    );
+
     console.log('[TRIVIA] Scheduler initialized (9am-9pm EST, every 2 hours)');
+    console.log('[TRIVIA] Season end scheduler initialized (midnight on 1st of month)');
   }
 
   /**
@@ -153,6 +163,106 @@ export class TriviaService {
     }
 
     console.log(`[TRIVIA] Closed question #${activeQuestion.id} (${activeQuestion.category})`);
+  }
+
+  /**
+   * Handle end of month - snapshot winners, pay rewards, announce
+   * Should be called at midnight on the 1st of each month
+   */
+  async handleSeasonEnd(): Promise<void> {
+    // Get last month's year-month string (e.g., "2025-01")
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const yearMonth = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    console.log(`[TRIVIA] Processing season end for ${yearMonth}`);
+
+    // Check if already processed
+    const existing = await triviaDb.getSeasonResults(yearMonth);
+    if (existing?.rewards_paid) {
+      console.log(`[TRIVIA] Season ${yearMonth} already processed`);
+      return;
+    }
+
+    // Get the leaderboard for last month
+    const startOfMonth = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+    const endOfMonth = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0, 23, 59, 59);
+    const leaderboard = await triviaDb.getLeaderboardForDateRange(startOfMonth, endOfMonth, 10);
+
+    if (leaderboard.length === 0) {
+      console.log(`[TRIVIA] No participants in ${yearMonth}`);
+      return;
+    }
+
+    // Save season results
+    const winners = leaderboard.slice(0, 3).map(entry => ({
+      userId: entry.user_id,
+      username: entry.username,
+      points: entry.points,
+    }));
+
+    await triviaDb.saveSeasonResults(yearMonth, winners);
+
+    // Pay rewards
+    const rewards = [250000, 100000, 50000];
+    for (let i = 0; i < Math.min(winners.length, 3); i++) {
+      if (winners[i].userId) {
+        try {
+          await economyDb.getOrCreateUser(winners[i].userId, winners[i].username);
+          await economyDb.addToWallet(winners[i].userId, rewards[i]);
+          console.log(`[TRIVIA] Paid ${rewards[i]} to ${winners[i].username} (${['1st', '2nd', '3rd'][i]} place)`);
+        } catch (error) {
+          console.error(`[TRIVIA] Failed to pay ${winners[i].username}:`, error);
+        }
+      }
+    }
+
+    // Mark as paid
+    await triviaDb.markSeasonRewardsPaid(yearMonth);
+
+    // Announce in channel
+    await this.announceSeasonResults(yearMonth, winners, rewards);
+
+    console.log(`[TRIVIA] Season ${yearMonth} completed`);
+  }
+
+  /**
+   * Announce season results in trivia channel
+   */
+  private async announceSeasonResults(
+    yearMonth: string,
+    winners: { userId: string; username: string; points: number }[],
+    rewards: number[]
+  ): Promise<void> {
+    const channelId = process.env.TRIVIA_CHANNEL_ID;
+    if (!channelId) return;
+
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (!channel?.isTextBased()) return;
+
+      const medals = ['🥇', '🥈', '🥉'];
+      const [year, monthNum] = yearMonth.split('-');
+      const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('en-US', { month: 'long' });
+
+      let description = `**${monthName} ${year} Trivia Season has ended!**\n\n`;
+
+      winners.forEach((winner, i) => {
+        description += `${medals[i]} **${winner.username}** - ${winner.points} pts → 🪙 ${rewards[i].toLocaleString()}\n`;
+      });
+
+      description += '\nA new season has begun! Good luck!';
+
+      const embed = new EmbedBuilder()
+        .setColor(0xffd700)
+        .setTitle('🏆 Trivia Season Results')
+        .setDescription(description)
+        .setTimestamp();
+
+      await (channel as TextChannel).send({ embeds: [embed] });
+    } catch (error) {
+      console.error('[TRIVIA] Error announcing season results:', error);
+    }
   }
 
   /**
