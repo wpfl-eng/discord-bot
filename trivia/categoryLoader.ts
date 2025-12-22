@@ -37,6 +37,7 @@ const questionCache = new Map<string, TriviaQuestion[]>();
 const categoryColors: Record<string, number> = {
   nfl: 0x013369,      // NFL navy blue
   wpfl: 0x00ff88,     // WPFL bright green
+  videogames: 0x9146ff, // Twitch purple (gaming)
   default: 0x5865f2,  // Discord blurple
 };
 
