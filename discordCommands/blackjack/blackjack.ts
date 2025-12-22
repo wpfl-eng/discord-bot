@@ -21,6 +21,8 @@ import {
   drawCard,
   getVisibleDealerValue,
   shouldDealerHit,
+  shouldDealerPeek,
+  dealerShowsAce,
   TABLES,
   DEFAULT_TABLE,
 } from './blackjackUtils.js';
@@ -554,13 +556,48 @@ async function executeNewGame(
 
   activeGames.set(userId, game);
 
-  // Check for immediate naturals
-  const playerBJ = isBlackjack(game.playerHand);
-  const dealerBJ = isBlackjack(game.dealerHand);
+  // Check if player has blackjack
+  const playerBJ: boolean = isBlackjack(game.playerHand);
 
-  if (playerBJ || dealerBJ) {
-    await resolveGame(interaction, game, userId);
-    return;
+  // Dealer peek: When showing 10 or Ace, check hole card for blackjack
+  // This prevents player from losing double/split bets to hidden dealer BJ
+  if (shouldDealerPeek(game.dealerHand)) {
+    const dealerBJ: boolean = isBlackjack(game.dealerHand);
+
+    if (dealerShowsAce(game.dealerHand)) {
+      // Dealer shows Ace
+      // Phase 3: Insurance/Even Money prompt will go here BEFORE checking dealer BJ
+      // For now, just check for dealer blackjack
+      if (dealerBJ) {
+        // Dealer has blackjack - resolve immediately
+        await resolveGame(interaction, game, userId);
+        return;
+      }
+      // Dealer peeked, no blackjack - if player has BJ, they win 3:2
+      if (playerBJ) {
+        await resolveGame(interaction, game, userId);
+        return;
+      }
+    } else {
+      // Dealer shows 10-value - silent peek
+      if (dealerBJ) {
+        // Dealer has blackjack - reveal and resolve
+        await resolveGame(interaction, game, userId);
+        return;
+      }
+      // Dealer peeked, no blackjack - if player has BJ, they win 3:2
+      if (playerBJ) {
+        await resolveGame(interaction, game, userId);
+        return;
+      }
+    }
+  } else {
+    // Dealer shows 2-9 (can't have blackjack)
+    // If player has blackjack, they win 3:2
+    if (playerBJ) {
+      await resolveGame(interaction, game, userId);
+      return;
+    }
   }
 
   // Check if player can afford to double down
