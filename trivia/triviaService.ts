@@ -45,6 +45,7 @@ export interface ActiveQuestion {
   readonly question: string;
   readonly answer: string;
   readonly acceptable_answers: readonly string[] | null;
+  readonly choices: readonly string[] | null;
   readonly point_value: number;
   readonly channel_id: string | null;
   readonly window_closes_at: string | Date;
@@ -530,6 +531,67 @@ export class TriviaService {
 
     // Send the ephemeral reply
     await interaction.editReply(result.message);
+
+    // Handle announcements
+    if (result.isCorrect) {
+      await this.announceCorrectAnswer(activeQuestion, interaction.user.username);
+    } else if (result.isExhausted) {
+      await this.announceExhaustedGuesses(activeQuestion, interaction.user.username);
+    }
+  }
+
+  /**
+   * Handle a button click for multiple choice answer
+   * @param interaction - Discord button interaction
+   */
+  async handleButtonAnswer(interaction: ButtonInteraction): Promise<void> {
+    // Parse custom_id: trivia_{questionId}_{choiceIndex}
+    const parts = interaction.customId.split('_');
+    if (parts.length !== 3 || parts[0] !== 'trivia') {
+      return;
+    }
+
+    const questionId = parseInt(parts[1], 10);
+    const choiceIndex = parseInt(parts[2], 10);
+
+    if (isNaN(questionId) || isNaN(choiceIndex)) {
+      await interaction.reply({ content: 'Invalid button data.', ephemeral: true });
+      return;
+    }
+
+    // Get the active question
+    const activeQuestion = await triviaDb.getAnyActiveQuestion() as ActiveQuestion | null;
+
+    if (!activeQuestion || activeQuestion.id !== questionId) {
+      await interaction.reply({ content: 'This question is no longer active!', ephemeral: true });
+      return;
+    }
+
+    // Check if window is still open
+    if (activeQuestion.is_closed || new Date() > new Date(activeQuestion.window_closes_at)) {
+      await interaction.reply({ content: 'The answer window has closed for this question!', ephemeral: true });
+      return;
+    }
+
+    // Get the selected answer from choices
+    const choices = activeQuestion.choices;
+    if (!choices || choiceIndex >= choices.length) {
+      await interaction.reply({ content: 'Invalid choice.', ephemeral: true });
+      return;
+    }
+
+    const selectedAnswer = choices[choiceIndex];
+
+    // Process using shared logic
+    const result = await this.processAnswerSubmission(
+      interaction.user.id,
+      interaction.user.username,
+      selectedAnswer,
+      activeQuestion
+    );
+
+    // Send ephemeral reply
+    await interaction.reply({ content: result.message, ephemeral: true });
 
     // Handle announcements
     if (result.isCorrect) {

@@ -199,6 +199,15 @@ async function handleNflmonTradeButton(interaction: ButtonInteraction): Promise<
 }
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  // Handle button interactions for trivia
+  if (interaction.isButton() && interaction.customId.startsWith('trivia_')) {
+    const triviaService = client.triviaService;
+    if (triviaService) {
+      await triviaService.handleButtonAnswer(interaction);
+    }
+    return;
+  }
+
   // Handle NFLmon trade button interactions (especially from DMs)
   if (interaction.isButton() && interaction.customId.startsWith('nflmon_trade_')) {
     await handleNflmonTradeButton(interaction);
