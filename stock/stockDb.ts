@@ -317,3 +317,22 @@ export async function getPortfolioStats(userId: string): Promise<PortfolioStats>
     totalCostBasis: parseFloat(result.rows[0]?.total_cost_basis ?? '0'),
   };
 }
+
+// ============ Price Cache ============
+
+/**
+ * Cache a stock price for leaderboard calculations
+ * Called fire-and-forget from stockApi.getQuote()
+ * @param ticker - Stock ticker symbol
+ * @param price - Current price
+ */
+export async function cachePrice(ticker: string, price: number): Promise<void> {
+  const normalizedTicker = ticker.toUpperCase().trim();
+  await sql`
+    INSERT INTO stock_prices (ticker, price, updated_at)
+    VALUES (${normalizedTicker}, ${price}, NOW())
+    ON CONFLICT (ticker) DO UPDATE SET
+      price = ${price},
+      updated_at = NOW()
+  `;
+}
