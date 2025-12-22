@@ -123,6 +123,14 @@ export async function getItem(
 
 /**
  * Get items filtered by category
+ *
+ * Design note: Fetches all items and filters in-memory because category
+ * is defined in config (inventoryConfig.ts), not stored in the database.
+ * This is acceptable because:
+ * - User inventories are typically small (tens of items)
+ * - Avoids schema changes to add category column
+ * - Categories can be modified in code without DB migration
+ *
  * @param userId - Discord user ID
  * @param category - Category to filter by
  * @returns Array of inventory items in category
@@ -131,7 +139,6 @@ export async function getItemsByCategory(
   userId: string,
   category: string
 ): Promise<InventoryItem[]> {
-  // Get all items and filter by category (category is in config, not DB)
   const allItems = await getInventory(userId);
   return allItems.filter((item) => {
     const def = getItemDefinition(item.item_type);
@@ -282,6 +289,7 @@ export async function setItemQuantity(
 
 /**
  * Sell item from inventory (atomic: remove from inventory + add to wallet)
+ * Uses a proper database transaction to ensure both operations succeed or both fail
  * @param userId - Discord user ID
  * @param itemType - Item type key
  * @param quantity - Quantity to sell (default: 1)
@@ -296,12 +304,12 @@ export async function sellItem(
     return { success: false, error: 'INVALID_QUANTITY' };
   }
 
-  // Check if item is sellable
+  // Check if item is sellable (config check - no DB needed)
   if (!isItemSellable(itemType)) {
     return { success: false, error: 'NOT_SELLABLE' };
   }
 
-  // Get current item to check quantity and value
+  // Get current item to check quantity and value (before transaction)
   const currentItem = await getItem(userId, itemType);
   if (!currentItem || currentItem.quantity < quantity) {
     return { success: false, error: 'INSUFFICIENT_QUANTITY' };
@@ -311,34 +319,70 @@ export async function sellItem(
   const valuePerItem = currentItem.item_value ?? getItemBaseValue(itemType);
   const totalEarnings = valuePerItem * quantity;
 
-  // Remove items from inventory (atomic)
-  const removedItem = await removeItem(userId, itemType, quantity);
-  if (!removedItem) {
-    return { success: false, error: 'REMOVE_FAILED' };
-  }
+  // Use a transaction for the inventory removal + wallet update
+  const client = await sql.connect();
+  try {
+    await client.query('BEGIN');
 
-  // Add earnings to wallet
-  const updatedUser = await economyDb.addToWallet(userId, totalEarnings);
-  if (!updatedUser) {
-    // Rollback: re-add the items that were removed
-    await addItem(userId, itemType, quantity, valuePerItem);
-    console.error(
-      `Rolled back sale: Failed to add ${totalEarnings} to wallet for user ${userId} after selling ${quantity}x ${itemType}`
+    // Remove items from inventory (atomic check within transaction)
+    const removeResult = await client.query<InventoryItem>(
+      `UPDATE user_inventory
+       SET quantity = quantity - $1
+       WHERE user_id = $2 AND item_type = $3 AND quantity >= $1
+       RETURNING *`,
+      [quantity, userId, itemType]
     );
-    return { success: false, error: 'WALLET_UPDATE_FAILED' };
-  }
 
-  return {
-    success: true,
-    item: removedItem,
-    earnings: totalEarnings,
-    newBalance: updatedUser.wallet,
-    quantitySold: quantity,
-  };
+    if (!removeResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return { success: false, error: 'REMOVE_FAILED' };
+    }
+
+    const removedItem = removeResult.rows[0];
+
+    // Clean up if quantity is now 0
+    if (removedItem.quantity === 0) {
+      await client.query(
+        `DELETE FROM user_inventory WHERE user_id = $1 AND item_type = $2 AND quantity = 0`,
+        [userId, itemType]
+      );
+    }
+
+    // Add earnings to wallet
+    const walletResult = await client.query<{ wallet: number }>(
+      `UPDATE economy_users
+       SET wallet = wallet + $1, total_earned = total_earned + $1
+       WHERE user_id = $2
+       RETURNING wallet`,
+      [totalEarnings, userId]
+    );
+
+    if (!walletResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return { success: false, error: 'WALLET_UPDATE_FAILED' };
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      success: true,
+      item: removedItem,
+      earnings: totalEarnings,
+      newBalance: walletResult.rows[0].wallet,
+      quantitySold: quantity,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Transaction failed for sellItem: ${error}`);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /**
  * Transfer items between users
+ * Uses a proper database transaction to ensure both operations succeed or both fail
  * @param fromUserId - Source user ID
  * @param toUserId - Destination user ID
  * @param itemType - Item type key
@@ -355,30 +399,73 @@ export async function transferItem(
     return { success: false, error: 'INVALID_QUANTITY' };
   }
 
-  // Remove from source user
-  const removed = await removeItem(fromUserId, itemType, quantity);
-  if (!removed) {
+  // Get source item to verify quantity and preserve value (before transaction)
+  const sourceItem = await getItem(fromUserId, itemType);
+  if (!sourceItem || sourceItem.quantity < quantity) {
     return { success: false, error: 'INSUFFICIENT_QUANTITY' };
   }
 
-  // Get value from removed item to preserve it
-  const itemValue = removed.item_value;
+  const itemValue = sourceItem.item_value;
 
-  // Add to destination user
-  const added = await addItem(toUserId, itemType, quantity, itemValue);
-  if (!added) {
-    // Rollback - add items back to source
-    await addItem(fromUserId, itemType, quantity, itemValue);
-    return { success: false, error: 'ADD_FAILED' };
+  // Use a transaction for the transfer
+  const client = await sql.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Remove from source user
+    const removeResult = await client.query<InventoryItem>(
+      `UPDATE user_inventory
+       SET quantity = quantity - $1
+       WHERE user_id = $2 AND item_type = $3 AND quantity >= $1
+       RETURNING *`,
+      [quantity, fromUserId, itemType]
+    );
+
+    if (!removeResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return { success: false, error: 'INSUFFICIENT_QUANTITY' };
+    }
+
+    // Clean up if quantity is now 0
+    if (removeResult.rows[0].quantity === 0) {
+      await client.query(
+        `DELETE FROM user_inventory WHERE user_id = $1 AND item_type = $2 AND quantity = 0`,
+        [fromUserId, itemType]
+      );
+    }
+
+    // Add to destination user (upsert)
+    const addResult = await client.query<InventoryItem>(
+      `INSERT INTO user_inventory (user_id, item_type, quantity, item_value, acquired_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (user_id, item_type) DO UPDATE SET
+         quantity = user_inventory.quantity + $3,
+         item_value = COALESCE($4, user_inventory.item_value)
+       RETURNING *`,
+      [toUserId, itemType, quantity, itemValue]
+    );
+
+    if (!addResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return { success: false, error: 'ADD_FAILED' };
+    }
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Transaction failed for transferItem: ${error}`);
+    throw error;
+  } finally {
+    client.release();
   }
-
-  return { success: true };
 }
 
 // ============ Bulk Operations ============
 
 /**
  * Add multiple items at once
+ * Uses batch INSERT with UNNEST arrays for single-query efficiency
  * @param userId - Discord user ID
  * @param items - Array of item data to add
  * @returns Array of added items
@@ -387,14 +474,40 @@ export async function addItems(
   userId: string,
   items: AddItemData[]
 ): Promise<InventoryItem[]> {
-  const results: InventoryItem[] = [];
+  if (items.length === 0) return [];
+
+  // Prepare arrays for UNNEST
+  const itemTypes: string[] = [];
+  const quantities: number[] = [];
+  const itemValues: (number | null)[] = [];
+
   for (const item of items) {
-    const result = await addItem(userId, item.itemType, item.quantity ?? 1, item.itemValue ?? null);
-    if (result) {
-      results.push(result);
-    }
+    if ((item.quantity ?? 1) <= 0) continue; // Skip invalid quantities
+    itemTypes.push(item.itemType);
+    quantities.push(item.quantity ?? 1);
+    // Use provided value or get base value from config
+    const value = item.itemValue !== undefined ? item.itemValue : getItemBaseValue(item.itemType);
+    itemValues.push(value);
   }
-  return results;
+
+  if (itemTypes.length === 0) return [];
+
+  const client = await sql.connect();
+  try {
+    // Use UNNEST to batch insert all items in a single query
+    const result = await client.query<InventoryItem>(
+      `INSERT INTO user_inventory (user_id, item_type, quantity, item_value, acquired_at)
+       SELECT $1, unnest($2::text[]), unnest($3::int[]), unnest($4::int[]), NOW()
+       ON CONFLICT (user_id, item_type) DO UPDATE SET
+         quantity = user_inventory.quantity + EXCLUDED.quantity,
+         item_value = COALESCE(EXCLUDED.item_value, user_inventory.item_value)
+       RETURNING *`,
+      [userId, itemTypes, quantities, itemValues]
+    );
+    return result.rows;
+  } finally {
+    client.release();
+  }
 }
 
 /**

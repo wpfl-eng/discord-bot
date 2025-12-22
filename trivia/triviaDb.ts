@@ -175,14 +175,26 @@ export async function isQuestionAsked(hash: string): Promise<boolean> {
 
 /**
  * Get all asked question hashes for a category
+ * Note: Loads hashes into memory for efficient O(1) lookup when checking many questions.
+ * Limited to 10,000 rows to prevent unbounded memory growth.
  * @param category - 'nfl' or 'wpfl'
  * @returns Set of question hashes that have been asked
  */
 export async function getAskedHashes(category: TriviaCategory): Promise<Set<string>> {
+  const MAX_HASHES = 10000;
   const result = await sql<{ question_hash: string }>`
     SELECT question_hash FROM trivia_history
     WHERE category = ${category}
+    ORDER BY asked_at DESC
+    LIMIT ${MAX_HASHES}
   `;
+
+  if (result.rows.length >= MAX_HASHES) {
+    console.warn(
+      `[TRIVIA] getAskedHashes hit limit of ${MAX_HASHES} for category ${category}. Consider cleanup.`
+    );
+  }
+
   return new Set(result.rows.map(row => row.question_hash));
 }
 

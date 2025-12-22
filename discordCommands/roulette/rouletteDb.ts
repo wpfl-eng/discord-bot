@@ -79,28 +79,40 @@ export async function logRound(data: LogRoundData): Promise<number> {
 
 /**
  * Log bets for a completed round
+ * Uses batch INSERT to reduce N round-trips to 1
  */
 export async function logBets(roundId: number, bets: LogBetData[]): Promise<void> {
-  for (const bet of bets) {
-    await sql`
-      INSERT INTO roulette_bets (
-        round_id,
-        user_id,
-        username,
-        bet_type,
-        amount,
-        won,
-        returned
-      ) VALUES (
-        ${roundId},
-        ${bet.userId},
-        ${bet.username},
-        ${bet.betType},
-        ${bet.amount},
-        ${bet.won},
-        ${bet.returned}
-      )
-    `;
+  if (bets.length === 0) return;
+
+  // Build parameterized multi-row insert
+  const values: unknown[] = [];
+  const placeholders: string[] = [];
+
+  bets.forEach((bet, i) => {
+    const offset = i * 7;
+    placeholders.push(
+      `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`
+    );
+    values.push(
+      roundId,
+      bet.userId,
+      bet.username,
+      bet.betType,
+      bet.amount,
+      bet.won,
+      bet.returned
+    );
+  });
+
+  const client = await sql.connect();
+  try {
+    await client.query(
+      `INSERT INTO roulette_bets (round_id, user_id, username, bet_type, amount, won, returned)
+       VALUES ${placeholders.join(', ')}`,
+      values
+    );
+  } finally {
+    client.release();
   }
 }
 

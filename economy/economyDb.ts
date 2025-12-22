@@ -95,6 +95,7 @@ export async function deductFromWallet(
 /**
  * Transfer coins between two users atomically (for rob)
  * Deducts from victim's wallet and adds to attacker's wallet
+ * Uses a proper database transaction to ensure both operations succeed or both fail
  * @param fromUserId - Victim's Discord user ID
  * @param toUserId - Attacker's Discord user ID
  * @param amount - Amount to transfer
@@ -107,32 +108,41 @@ export async function transferBetweenUsers(
 ): Promise<TransferResult> {
   if (amount <= 0) return { from: null, to: null };
 
-  // Deduct from victim (atomic - will fail if insufficient)
-  const fromResult = await sql<EconomyUser>`
-    UPDATE economy_users
-    SET
-      wallet = wallet - ${amount},
-      total_lost = total_lost + ${amount}
-    WHERE user_id = ${fromUserId}
-      AND wallet >= ${amount}
-    RETURNING *
-  `;
+  const client = await sql.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (!fromResult.rows[0]) {
-    return { from: null, to: null };
+    // Deduct from victim (atomic - will fail if insufficient)
+    const fromResult = await client.query<EconomyUser>(
+      `UPDATE economy_users
+       SET wallet = wallet - $1, total_lost = total_lost + $1
+       WHERE user_id = $2 AND wallet >= $1
+       RETURNING *`,
+      [amount, fromUserId]
+    );
+
+    if (!fromResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return { from: null, to: null };
+    }
+
+    // Add to attacker
+    const toResult = await client.query<EconomyUser>(
+      `UPDATE economy_users
+       SET wallet = wallet + $1, total_earned = total_earned + $1
+       WHERE user_id = $2
+       RETURNING *`,
+      [amount, toUserId]
+    );
+
+    await client.query('COMMIT');
+    return { from: fromResult.rows[0], to: toResult.rows[0] ?? null };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
-
-  // Add to attacker
-  const toResult = await sql<EconomyUser>`
-    UPDATE economy_users
-    SET
-      wallet = wallet + ${amount},
-      total_earned = total_earned + ${amount}
-    WHERE user_id = ${toUserId}
-    RETURNING *
-  `;
-
-  return { from: fromResult.rows[0], to: toResult.rows[0] ?? null };
 }
 
 /**

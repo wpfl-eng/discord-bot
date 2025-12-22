@@ -199,7 +199,7 @@ export async function buyShares(
 
 /**
  * Sell shares of a stock
- * Atomic operation: removes/reduces holding and adds to wallet
+ * Uses a proper database transaction to ensure both operations succeed or both fail
  * @param userId - Discord user ID
  * @param ticker - Stock ticker symbol
  * @param sharesToSell - Number of shares to sell
@@ -214,7 +214,7 @@ export async function sellShares(
 ): Promise<SellResult> {
   const normalizedTicker = ticker.toUpperCase().trim();
 
-  // Get existing holding
+  // Get existing holding (before transaction for validation)
   const existingHolding = await getHolding(userId, normalizedTicker);
 
   if (!existingHolding) {
@@ -236,57 +236,64 @@ export async function sellShares(
 
   const remainingShares = currentShares - sharesToSell;
 
-  // Update or delete the holding
-  let holdingResult: StockHolding | null;
-  if (remainingShares <= 0.000001) {
-    // Delete if effectively zero shares remain
-    await sql`
-      DELETE FROM stock_holdings
-      WHERE user_id = ${userId}
-        AND ticker = ${normalizedTicker}
-    `;
-    holdingResult = null;
-  } else {
-    // Update with remaining shares (average cost stays the same)
-    const result = await sql<StockHolding>`
-      UPDATE stock_holdings
-      SET shares = ${remainingShares},
-          last_updated_at = NOW()
-      WHERE user_id = ${userId}
-        AND ticker = ${normalizedTicker}
-      RETURNING *
-    `;
-    holdingResult = result.rows[0];
-  }
+  // Use a transaction for the holding update + wallet update
+  const client = await sql.connect();
+  try {
+    await client.query('BEGIN');
 
-  // Add net proceeds to wallet (after commission)
-  const updatedUser = await economyDb.addToWallet(userId, netProceeds);
+    // Update or delete the holding
+    let holdingResult: StockHolding | null;
+    if (remainingShares <= 0.000001) {
+      // Delete if effectively zero shares remain
+      await client.query(
+        `DELETE FROM stock_holdings WHERE user_id = $1 AND ticker = $2`,
+        [userId, normalizedTicker]
+      );
+      holdingResult = null;
+    } else {
+      // Update with remaining shares (average cost stays the same)
+      const result = await client.query<StockHolding>(
+        `UPDATE stock_holdings
+         SET shares = $1, last_updated_at = NOW()
+         WHERE user_id = $2 AND ticker = $3
+         RETURNING *`,
+        [remainingShares, userId, normalizedTicker]
+      );
+      holdingResult = result.rows[0];
+    }
 
-  if (!updatedUser) {
-    // This shouldn't happen, but handle it gracefully
-    console.error(
-      `Failed to add ${netProceeds} to wallet for user ${userId} after selling ${sharesToSell} shares of ${normalizedTicker}`
+    // Add net proceeds to wallet (after commission)
+    const walletResult = await client.query<EconomyUser>(
+      `UPDATE economy_users
+       SET wallet = wallet + $1, total_earned = total_earned + $1
+       WHERE user_id = $2
+       RETURNING *`,
+      [netProceeds, userId]
     );
-    // Attempt to restore the shares
-    await sql`
-      INSERT INTO stock_holdings (user_id, ticker, shares, average_cost, last_updated_at)
-      VALUES (${userId}, ${normalizedTicker}, ${sharesToSell}, ${existingHolding.average_cost}, NOW())
-      ON CONFLICT (user_id, ticker) DO UPDATE SET
-        shares = stock_holdings.shares + ${sharesToSell},
-        last_updated_at = NOW()
-    `;
-    return { success: false, error: 'WALLET_UPDATE_FAILED' };
-  }
 
-  return {
-    success: true,
-    proceeds: grossProceeds,
-    commission,
-    netProceeds,
-    profit,
-    holding: holdingResult,
-    user: updatedUser,
-  };
+    if (!walletResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return { success: false, error: 'WALLET_UPDATE_FAILED' };
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      success: true,
+      proceeds: grossProceeds,
+      commission,
+      netProceeds,
+      profit,
+      holding: holdingResult,
+      user: walletResult.rows[0],
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(`Transaction failed for sellShares: ${error}`);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // ============ Portfolio Stats ============
