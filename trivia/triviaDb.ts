@@ -108,6 +108,21 @@ export async function getActiveQuestion(
 }
 
 /**
+ * Get any active question regardless of category
+ * Returns the most recently posted active question if multiple exist
+ * @returns Active question or null
+ */
+export async function getAnyActiveQuestion(): Promise<TriviaActiveQuestion | null> {
+  const result = await sql<TriviaActiveQuestion>`
+    SELECT * FROM trivia_active
+    WHERE is_closed = FALSE
+    ORDER BY sent_at DESC
+    LIMIT 1
+  `;
+  return result.rows[0] ?? null;
+}
+
+/**
  * Save a new active question
  * @param data - Question data
  * @returns Created question
