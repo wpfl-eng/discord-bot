@@ -1,40 +1,23 @@
 import cron from 'node-cron';
-import crypto from 'crypto';
 import { Client, EmbedBuilder, Message, TextChannel, ChatInputCommandInteraction } from 'discord.js';
 import * as triviaDb from './triviaDb.js';
 import { checkAnswer } from './answerMatcher.js';
 import * as economyDb from '../economy/economyDb.js';
-import nflQuestions from './nflQuestions.json' with { type: 'json' };
-import wpflQuestions from './wpflQuestions.json' with { type: 'json' };
+import * as categoryLoader from './categoryLoader.js';
 import * as nflmonService from '../nflmon/nflmonService.js';
 import { DROP_CONFIG } from '../nflmon/nflmonConfig.js';
 
 // ============ Type Definitions ============
 
 /**
- * Trivia category type
+ * Trivia category type - now dynamic (any string)
  */
-export type TriviaCategory = 'nfl' | 'wpfl';
+export type TriviaCategory = string;
 
 /**
- * Trivia question from JSON files
+ * Re-export TriviaQuestion from categoryLoader
  */
-export interface TriviaQuestion {
-  readonly id: string | number;
-  readonly question: string;
-  readonly answer: string;
-  readonly acceptable_answers?: readonly string[];
-  readonly point_value?: number;
-  readonly source_data?: unknown;
-}
-
-/**
- * Question with computed hash
- */
-interface QuestionWithHash {
-  readonly question: TriviaQuestion;
-  readonly hash: string;
-}
+export type { TriviaQuestion } from './categoryLoader.js';
 
 /**
  * Trivia winner record
@@ -102,24 +85,22 @@ export class TriviaService {
     const hours = [9, 11, 13, 15, 17, 19, 21];
 
     hours.forEach((hour) => {
-      // Post questions at each slot
+      // Post random category question at each slot
       cron.schedule(
         `0 ${hour} * * *`,
         async () => {
-          await this.sendQuestion('nfl');
-          // await this.sendQuestion("wpfl");
+          await this.sendRandomQuestion();
         },
         { timezone: 'America/New_York' }
       );
 
-      // Close windows 2 hours later (handle 23:00 edge case)
+      // Timeout close (in case no new question replaces it)
       const closeHour = hour + 2;
       if (closeHour <= 23) {
         cron.schedule(
           `0 ${closeHour} * * *`,
           async () => {
-            await this.closeWindow('nfl');
-            // await this.closeWindow("wpfl");
+            await this.closeCurrentQuestion();
           },
           { timezone: 'America/New_York' }
         );
@@ -130,11 +111,98 @@ export class TriviaService {
   }
 
   /**
+   * Close the currently active question (if any) and post results
+   * Idempotent - safe to call even if no active question
+   */
+  async closeCurrentQuestion(): Promise<void> {
+    const activeQuestion = await triviaDb.getAnyActiveQuestion();
+
+    if (!activeQuestion || activeQuestion.is_closed) {
+      return; // Nothing to close
+    }
+
+    // Get winners for results embed
+    const winners = await triviaDb.getCorrectAnswers(activeQuestion.id);
+
+    // Close in database
+    await triviaDb.closeQuestion(activeQuestion.id);
+
+    // Post results to channel
+    const channelId = activeQuestion.channel_id || process.env.TRIVIA_CHANNEL_ID;
+    if (channelId) {
+      try {
+        const channel = await this.client.channels.fetch(channelId);
+        if (channel?.isTextBased()) {
+          const embed = this.buildResultsEmbed(activeQuestion, winners, activeQuestion.category);
+          await (channel as TextChannel).send({ embeds: [embed] });
+        }
+      } catch (error) {
+        console.error('[TRIVIA] Error posting results:', error);
+      }
+    }
+
+    console.log(`[TRIVIA] Closed question #${activeQuestion.id} (${activeQuestion.category})`);
+  }
+
+  /**
+   * Send a question from a randomly selected category
+   * Picks only from categories that have unasked questions
+   */
+  async sendRandomQuestion(): Promise<void> {
+    const categories = await categoryLoader.getAllCategoryNames();
+
+    if (categories.length === 0) {
+      console.warn('[TRIVIA] No categories available');
+      return;
+    }
+
+    // Filter to categories with available questions
+    const availableCategories: string[] = [];
+
+    for (const category of categories) {
+      const questions = await categoryLoader.getQuestionsForCategory(category);
+      const askedHashes = await triviaDb.getAskedHashes(category);
+      const unaskedCount = questions.filter(q => !askedHashes.has(String(q.id))).length;
+
+      if (unaskedCount > 0) {
+        availableCategories.push(category);
+      }
+    }
+
+    if (availableCategories.length === 0) {
+      // All categories exhausted - reset all and retry
+      console.log('[TRIVIA] All categories exhausted, resetting pools...');
+      for (const category of categories) {
+        await triviaDb.clearCategoryHistory(category);
+      }
+      // Pick random from all categories after reset
+      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+      await this.sendQuestion(randomCategory);
+      return;
+    }
+
+    // Pick random category with available questions
+    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+    await this.sendQuestion(randomCategory);
+  }
+
+  /**
    * Send a trivia question to the channel
-   * @param category - 'nfl' or 'wpfl'
+   * Uses advisory lock to prevent race conditions with concurrent requests
+   * @param category - Category name (e.g., 'nfl', 'wpfl')
    */
   async sendQuestion(category: TriviaCategory): Promise<void> {
+    // Try to acquire lock - if another request is in progress, skip
+    const lockAcquired = await triviaDb.tryAcquireQuestionLock();
+    if (!lockAcquired) {
+      console.log('[TRIVIA] Another question post in progress, skipping');
+      return;
+    }
+
     try {
+      // CLOSE-AND-REPLACE: Always close current question first
+      await this.closeCurrentQuestion();
+
       const channelId = process.env.TRIVIA_CHANNEL_ID;
       if (!channelId) {
         console.error('[TRIVIA] TRIVIA_CHANNEL_ID not set');
@@ -147,52 +215,31 @@ export class TriviaService {
         return;
       }
 
-      // Get questions for category
-      const questions: TriviaQuestion[] =
-        category === 'nfl' ? (nflQuestions as TriviaQuestion[]) : (wpflQuestions as TriviaQuestion[]);
+      // Get questions from category loader (dynamic)
+      const questions = await categoryLoader.getQuestionsForCategory(category);
 
-      // Fetch all asked hashes in one query (performance optimization)
-      const askedHashes = await triviaDb.getAskedHashes(category);
-
-      // Build list of unasked questions with their hashes (in-memory filtering)
-      const unaskedQuestions: QuestionWithHash[] = [];
-
-      for (const q of questions) {
-        // Calculate hash based on category
-        // NFL: use question.id (converted to string)
-        // WPFL: hash source_data if exists, otherwise fall back to question.id
-        let hash: string;
-        if (category === 'nfl') {
-          hash = String(q.id);
-        } else {
-          hash = q.source_data
-            ? crypto.createHash('md5').update(JSON.stringify(q.source_data)).digest('hex')
-            : String(q.id); // Fallback to id if no source_data
-        }
-
-        if (!askedHashes.has(hash)) {
-          unaskedQuestions.push({ question: q, hash });
-        }
-      }
-
-      // Pick a random unasked question
-      let unaskedQuestion: TriviaQuestion | null = null;
-      let questionHash: string | null = null;
-
-      if (unaskedQuestions.length > 0) {
-        const randomIndex = Math.floor(Math.random() * unaskedQuestions.length);
-        const selected = unaskedQuestions[randomIndex];
-        unaskedQuestion = selected.question;
-        questionHash = selected.hash;
-      }
-
-      if (!unaskedQuestion || questionHash === null) {
-        console.warn(`[TRIVIA] No unasked ${category.toUpperCase()} questions remaining!`);
-        await (channel as TextChannel).send({
-          content: `No more ${category.toUpperCase()} trivia questions available!`,
-        });
+      if (questions.length === 0) {
+        console.warn(`[TRIVIA] No questions available for category: ${category}`);
         return;
       }
+
+      // Fetch all asked hashes for this category
+      const askedHashes = await triviaDb.getAskedHashes(category);
+
+      // Filter to unasked questions (simplified: always use String(q.id) as hash)
+      let unaskedQuestions = questions.filter(q => !askedHashes.has(String(q.id)));
+
+      // Auto-reset if pool exhausted
+      if (unaskedQuestions.length === 0) {
+        console.log(`[TRIVIA] Pool exhausted for ${category}, resetting...`);
+        await triviaDb.clearCategoryHistory(category);
+        unaskedQuestions = questions; // All questions now available
+      }
+
+      // Pick random question
+      const randomIndex = Math.floor(Math.random() * unaskedQuestions.length);
+      const selectedQuestion = unaskedQuestions[randomIndex];
+      const questionHash = String(selectedQuestion.id);
 
       // Record that we're asking this question
       await triviaDb.recordQuestionHash(questionHash, category);
@@ -202,30 +249,33 @@ export class TriviaService {
 
       // Save to active questions
       // Format array as PostgreSQL array literal: {"value1","value2"}
-      const acceptableAnswers = unaskedQuestion.acceptable_answers?.length
-        ? `{${unaskedQuestion.acceptable_answers.map(a => `"${a.replace(/"/g, '\\"')}"`).join(',')}}`
+      const acceptableAnswers = selectedQuestion.acceptable_answers?.length
+        ? `{${selectedQuestion.acceptable_answers.map(a => `"${a.replace(/"/g, '\\"')}"`).join(',')}}`
         : null;
       const activeQuestion = await triviaDb.saveActiveQuestion({
         category,
-        questionId: unaskedQuestion.id != null ? String(unaskedQuestion.id) : null,
-        question: unaskedQuestion.question,
-        answer: unaskedQuestion.answer,
+        questionId: selectedQuestion.id != null ? String(selectedQuestion.id) : null,
+        question: selectedQuestion.question,
+        answer: selectedQuestion.answer,
         acceptableAnswers,
-        pointValue: unaskedQuestion.point_value || 1,
-        sourceData: unaskedQuestion.source_data
-          ? JSON.stringify(unaskedQuestion.source_data)
+        pointValue: selectedQuestion.point_value || 1,
+        sourceData: selectedQuestion.metadata
+          ? JSON.stringify(selectedQuestion.metadata)
           : null,
         channelId,
         windowClosesAt,
       });
 
       // Build and send embed
-      const embed = this.buildQuestionEmbed(unaskedQuestion, category, windowClosesAt);
+      const embed = this.buildQuestionEmbed(selectedQuestion, category, windowClosesAt);
       await (channel as TextChannel).send({ embeds: [embed] });
 
       console.log(`[TRIVIA] Posted ${category.toUpperCase()} question #${activeQuestion.id}`);
     } catch (error) {
       console.error(`[TRIVIA] Error sending ${category} question:`, error);
+    } finally {
+      // Always release the lock
+      await triviaDb.releaseQuestionLock();
     }
   }
 
@@ -382,29 +432,24 @@ export class TriviaService {
 
   /**
    * Handle a DM message (trivia answer attempt)
+   * Now accepts answers directly - category prefix optional for backward compat
    * @param message - Discord message
    */
   async handleDM(message: Message): Promise<void> {
-    const content = message.content.trim();
+    let userAnswer = message.content.trim();
 
-    // Parse for category prefix
-    const nflMatch = content.match(/^nfl:\s*(.+)$/i);
-    const wpflMatch = content.match(/^wpfl:\s*(.+)$/i);
-
-    if (!nflMatch && !wpflMatch) {
-      await message.reply('Please use the format: `nfl: your answer` or `wpfl: your answer`');
-      return;
+    // Strip category prefix if present (backward compatibility)
+    // Matches: "nfl: answer", "wpfl: answer", or any "category: answer" format
+    const prefixMatch = userAnswer.match(/^(\w+):\s*(.+)$/i);
+    if (prefixMatch) {
+      userAnswer = prefixMatch[2].trim();
     }
 
-    const category: TriviaCategory = nflMatch ? 'nfl' : 'wpfl';
-    const matchResult = nflMatch || wpflMatch;
-    const userAnswer = matchResult![1].trim();
-
-    // Get active question
-    const activeQuestion = (await triviaDb.getActiveQuestion(category)) as ActiveQuestion | null;
+    // Get the ONE active question (any category)
+    const activeQuestion = await triviaDb.getAnyActiveQuestion() as ActiveQuestion | null;
 
     if (!activeQuestion) {
-      await message.reply(`No active ${category.toUpperCase()} trivia right now!`);
+      await message.reply('No active trivia question right now! Check back later.');
       return;
     }
 
@@ -476,45 +521,6 @@ export class TriviaService {
   }
 
   /**
-   * Close the answer window and reveal the answer
-   * @param category - 'nfl' or 'wpfl'
-   */
-  async closeWindow(category: TriviaCategory): Promise<void> {
-    try {
-      const activeQuestion = (await triviaDb.getActiveQuestion(category)) as ActiveQuestion | null;
-
-      if (!activeQuestion || activeQuestion.is_closed) {
-        return;
-      }
-
-      // Get all correct answers (points already awarded in handleDM)
-      const winners = (await triviaDb.getCorrectAnswers(activeQuestion.id)) as TriviaWinner[];
-
-      // Close the question
-      await triviaDb.closeQuestion(activeQuestion.id);
-
-      // Post results to channel
-      const channelId = activeQuestion.channel_id || process.env.TRIVIA_CHANNEL_ID;
-      if (!channelId) {
-        return;
-      }
-
-      const channel = await this.client.channels.fetch(channelId);
-
-      if (channel && channel.isTextBased()) {
-        const embed = this.buildResultsEmbed(activeQuestion, winners, category);
-        await (channel as TextChannel).send({ embeds: [embed] });
-      }
-
-      console.log(
-        `[TRIVIA] Closed ${category.toUpperCase()} question #${activeQuestion.id}, ${winners.length} winner(s)`
-      );
-    } catch (error) {
-      console.error(`[TRIVIA] Error closing ${category} window:`, error);
-    }
-  }
-
-  /**
    * Announce in channel when a user gets the correct answer
    * @param activeQuestion - The active question
    * @param username - The user who got it correct
@@ -567,13 +573,13 @@ export class TriviaService {
   /**
    * Build question embed
    * @param question - Question data
-   * @param category - 'nfl' or 'wpfl'
+   * @param category - Category name
    * @param windowClosesAt - When the window closes
    * @returns Notification embed
    */
-  buildQuestionEmbed(question: TriviaQuestion, category: TriviaCategory, windowClosesAt: Date): EmbedBuilder {
-    const color = category === 'nfl' ? 0x013369 : 0x00ff88;
-    const title = category === 'nfl' ? 'NFL Trivia' : 'WPFL Trivia';
+  buildQuestionEmbed(question: categoryLoader.TriviaQuestion, category: TriviaCategory, windowClosesAt: Date): EmbedBuilder {
+    const color = categoryLoader.getCategoryColor(category);
+    const title = `${category.toUpperCase()} Trivia`;
 
     return new EmbedBuilder()
       .setColor(color)
@@ -581,7 +587,7 @@ export class TriviaService {
       .setDescription(question.question)
       .addFields({
         name: 'How to Answer',
-        value: `DM me with \`${category}: your answer\``,
+        value: 'Use `/trivia answer:your answer` or DM me directly',
         inline: false,
       })
       .addFields({
@@ -601,12 +607,12 @@ export class TriviaService {
    * Build results embed
    * @param question - Question data
    * @param winners - Array of winners
-   * @param category - 'nfl' or 'wpfl'
+   * @param category - Category name
    * @returns Results embed
    */
   buildResultsEmbed(question: ActiveQuestion, winners: TriviaWinner[], category: TriviaCategory): EmbedBuilder {
-    const color = category === 'nfl' ? 0x013369 : 0x00ff88;
-    const title = category === 'nfl' ? 'NFL Trivia Results' : 'WPFL Trivia Results';
+    const color = categoryLoader.getCategoryColor(category);
+    const title = `${category.toUpperCase()} Trivia Results`;
 
     const winnerList =
       winners.length > 0 ? winners.map((w) => w.username).join(', ') : 'No one got it!';

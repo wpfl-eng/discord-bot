@@ -6,9 +6,9 @@ import { sql } from '@vercel/postgres';
 // ============ Type Definitions ============
 
 /**
- * Trivia category types
+ * Trivia category type - now dynamic (any string)
  */
-export type TriviaCategory = 'nfl' | 'wpfl';
+export type TriviaCategory = string;
 
 /**
  * Active question record from trivia_active table
@@ -326,4 +326,73 @@ export async function getUserStats(userId: string): Promise<TriviaScore | null> 
     LIMIT 1
   `;
   return result.rows[0] ?? null;
+}
+
+// ============ Pool Management ============
+
+/**
+ * Clear question history for a category (enables pool reset)
+ * @param category - Category to clear
+ * @returns Number of hashes cleared
+ */
+export async function clearCategoryHistory(category: TriviaCategory): Promise<number> {
+  const result = await sql`
+    DELETE FROM trivia_history
+    WHERE category = ${category}
+  `;
+  console.log(`[TRIVIA_DB] Cleared ${result.rowCount ?? 0} hashes for category: ${category}`);
+  return result.rowCount ?? 0;
+}
+
+/**
+ * Close all active questions at once
+ * Used for ensuring single active question invariant
+ * @returns Array of closed question IDs
+ */
+export async function closeAllActiveQuestions(): Promise<number[]> {
+  const result = await sql<{ id: number }>`
+    UPDATE trivia_active
+    SET is_closed = TRUE
+    WHERE is_closed = FALSE
+    RETURNING id
+  `;
+  return result.rows.map(r => r.id);
+}
+
+/**
+ * Get count of asked questions for a category
+ * @param category - Category to check
+ * @returns Number of questions asked
+ */
+export async function getAskedCount(category: TriviaCategory): Promise<number> {
+  const result = await sql<{ count: string }>`
+    SELECT COUNT(*) as count FROM trivia_history
+    WHERE category = ${category}
+  `;
+  return parseInt(result.rows[0]?.count ?? '0', 10);
+}
+
+// ============ Concurrency Control ============
+
+// Lock ID for trivia question posting (arbitrary unique number)
+const TRIVIA_QUESTION_LOCK_ID = 789012;
+
+/**
+ * Acquire an advisory lock for posting trivia questions
+ * Uses PostgreSQL pg_try_advisory_lock for non-blocking lock attempt
+ * @returns true if lock acquired, false if another process holds it
+ */
+export async function tryAcquireQuestionLock(): Promise<boolean> {
+  const result = await sql<{ acquired: boolean }>`
+    SELECT pg_try_advisory_lock(${TRIVIA_QUESTION_LOCK_ID}) as acquired
+  `;
+  return result.rows[0]?.acquired ?? false;
+}
+
+/**
+ * Release the advisory lock for posting trivia questions
+ * Should be called in a finally block after acquiring
+ */
+export async function releaseQuestionLock(): Promise<void> {
+  await sql`SELECT pg_advisory_unlock(${TRIVIA_QUESTION_LOCK_ID})`;
 }

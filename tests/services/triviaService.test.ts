@@ -7,6 +7,7 @@ jest.unstable_mockModule('../../trivia/triviaDb.js', () => ({
   recordQuestionHash: jest.fn(),
   saveActiveQuestion: jest.fn(),
   getActiveQuestion: jest.fn(),
+  getAnyActiveQuestion: jest.fn(),
   getUserAnswer: jest.fn(),
   recordAnswer: jest.fn(),
   addPoints: jest.fn(),
@@ -31,6 +32,8 @@ const triviaDb = await import('../../trivia/triviaDb.js');
 // Cast mocks for easier use
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetActiveQuestion = triviaDb.getActiveQuestion as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGetAnyActiveQuestion = triviaDb.getAnyActiveQuestion as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetCorrectAnswers = triviaDb.getCorrectAnswers as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,9 +151,9 @@ describe('TriviaService', () => {
     });
   });
 
-  describe('closeWindow', () => {
+  describe('closeCurrentQuestion', () => {
     test('posts results embed to channel', async () => {
-      mockGetActiveQuestion.mockResolvedValue({
+      mockGetAnyActiveQuestion.mockResolvedValue({
         id: 1,
         category: 'nfl',
         question_id: '1',
@@ -167,7 +170,7 @@ describe('TriviaService', () => {
       mockGetCorrectAnswers.mockResolvedValue([{ user_id: '123', username: 'winner' }]);
       mockCloseQuestion.mockResolvedValue(undefined);
 
-      await service.closeWindow('nfl');
+      await service.closeCurrentQuestion();
 
       expect(mockChannel.send).toHaveBeenCalledWith({
         embeds: [expect.any(EmbedBuilder)],
@@ -176,15 +179,15 @@ describe('TriviaService', () => {
     });
 
     test('does nothing if no active question', async () => {
-      mockGetActiveQuestion.mockResolvedValue(null);
+      mockGetAnyActiveQuestion.mockResolvedValue(null);
 
-      await service.closeWindow('nfl');
+      await service.closeCurrentQuestion();
 
       expect(mockChannel.send).not.toHaveBeenCalled();
     });
 
     test('does nothing if question already closed', async () => {
-      mockGetActiveQuestion.mockResolvedValue({
+      mockGetAnyActiveQuestion.mockResolvedValue({
         id: 1,
         category: 'nfl',
         question_id: '1',
@@ -199,7 +202,7 @@ describe('TriviaService', () => {
         sent_at: new Date(),
       });
 
-      await service.closeWindow('nfl');
+      await service.closeCurrentQuestion();
 
       expect(triviaDb.getCorrectAnswers).not.toHaveBeenCalled();
     });
