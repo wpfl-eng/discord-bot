@@ -20,8 +20,11 @@ import {
   formatHand,
   drawCard,
   getVisibleDealerValue,
+  shouldDealerHit,
+  TABLES,
+  DEFAULT_TABLE,
 } from './blackjackUtils.js';
-import type { Hand, Deck, Card } from './blackjackUtils.js';
+import type { Hand, Deck, Card, TableConfig } from './blackjackUtils.js';
 import * as blackjackDb from '../../blackjack/blackjackDb.js';
 import type { BlackjackStats } from '../../blackjack/blackjackDb.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
@@ -45,6 +48,7 @@ interface GameState {
   hasHit: boolean;
   canSurrender: boolean;
   surrendered?: boolean;
+  table: TableConfig;
 }
 
 interface GameOutcomeResult {
@@ -73,6 +77,16 @@ export const data = new SlashCommandBuilder()
   .setDescription('Play a game of blackjack!')
   .addStringOption((option) =>
     option.setName('amount').setDescription("Amount to bet (number or 'all')").setRequired(true)
+  )
+  .addStringOption((option) =>
+    option
+      .setName('table')
+      .setDescription('Table rules (default: classic)')
+      .setRequired(false)
+      .addChoices(
+        { name: 'Classic (1 deck, S17) - Best odds', value: 'classic' },
+        { name: 'Vegas Strip (6 deck, H17)', value: 'vegas' }
+      )
   );
 
 function createGameEmbed(
@@ -90,7 +104,7 @@ function createGameEmbed(
 
   const embed = new EmbedBuilder()
     .setColor(color)
-    .setTitle('🃏 Blackjack')
+    .setTitle(`🃏 Blackjack (${game.table.displayName})`)
     .setDescription(
       `**Dealer's Hand:**\n${formatHand(game.dealerHand, hideDealer)} *(${dealerValueText})*\n\n` +
         `**Your Hand:**\n${formatHand(game.playerHand)} *(${playerValueText})*`
@@ -150,8 +164,8 @@ function createPlayAgainRow(originalBet: number): ActionRowBuilder<ButtonBuilder
 }
 
 function playDealerTurn(game: GameState): void {
-  // Dealer hits on 16 or less, stands on 17+
-  while (calculateHandValue(game.dealerHand) < 17) {
+  // Dealer hits based on table rules (S17 vs H17)
+  while (shouldDealerHit(game.dealerHand, game.table)) {
     const card: Card | undefined = drawCard(game.deck);
     if (card) {
       game.dealerHand.push(card);
@@ -435,7 +449,7 @@ async function resolveGame(
         components: [createButtons(game, false, true, false)],
       });
 
-      // Start a new game by calling the command again with the same bet
+      // Start a new game by calling the command again with the same bet and table
       // We'll create a fake options object
       const fakeInteraction = {
         ...interaction,
@@ -448,8 +462,8 @@ async function resolveGame(
         user: buttonInteraction.user,
       };
 
-      // Execute a new game
-      await executeNewGame(fakeInteraction as unknown as ChatInputCommandInteraction, game.originalBet);
+      // Execute a new game with the same table
+      await executeNewGame(fakeInteraction as unknown as ChatInputCommandInteraction, game.originalBet, game.table);
     });
 
     replayCollector.on('end', async (_collected, reason: string) => {
@@ -493,7 +507,8 @@ async function resolveGame(
 
 async function executeNewGame(
   interaction: ChatInputCommandInteraction,
-  amount: number
+  amount: number,
+  table: TableConfig = DEFAULT_TABLE
 ): Promise<void> {
   const userId: string = interaction.user.id;
 
@@ -509,8 +524,8 @@ async function executeNewGame(
   // Set cooldown
   blackjackCooldowns.set(userId, Date.now());
 
-  // Initialize game state
-  const deck: Deck = createDeck();
+  // Initialize game state with table-specific deck
+  const deck: Deck = createDeck(table.deckCount);
   const playerCard1: Card | undefined = drawCard(deck);
   const playerCard2: Card | undefined = drawCard(deck);
   const dealerCard1: Card | undefined = drawCard(deck);
@@ -534,6 +549,7 @@ async function executeNewGame(
     doubledDown: false,
     hasHit: false,
     canSurrender: true,
+    table,
   };
 
   activeGames.set(userId, game);
@@ -715,7 +731,7 @@ async function executeNewGame(
 
       const finalEmbed = new EmbedBuilder()
         .setColor(0x9b59b6)
-        .setTitle('🃏 Blackjack - Surrendered')
+        .setTitle(`🃏 Blackjack (${currentGame.table.displayName}) - Surrendered`)
         .setDescription(
           `**Dealer's Hand:**\n${formatHand(currentGame.dealerHand, false)} *(${calculateHandValue(currentGame.dealerHand)})*\n\n` +
             `**Your Hand:**\n${formatHand(currentGame.playerHand)} *(${formatHandValue(currentGame.playerHand)})*`
@@ -786,7 +802,7 @@ async function executeNewGame(
           await replayInteraction.update({
             components: [createButtons(currentGame, false, true, false)],
           });
-          await executeNewGame(interaction, currentGame.originalBet);
+          await executeNewGame(interaction, currentGame.originalBet, currentGame.table);
         });
 
         replayCollector.on('end', async (_collected, reason: string) => {
@@ -835,6 +851,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const userId: string = interaction.user.id;
     const username: string = interaction.user.username;
     const amountStr: string = interaction.options.getString('amount')!.toLowerCase();
+    const tableChoice: string = interaction.options.getString('table') ?? 'classic';
+    const table: TableConfig = TABLES[tableChoice] ?? DEFAULT_TABLE;
 
     // Check cooldown
     const lastGame: number | undefined = blackjackCooldowns.get(userId);
@@ -908,7 +926,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     // Start the game
-    await executeNewGame(interaction, amount);
+    await executeNewGame(interaction, amount, table);
   } catch (error: unknown) {
     console.error('blackjack command error:', error);
     activeGames.delete(interaction.user.id);
