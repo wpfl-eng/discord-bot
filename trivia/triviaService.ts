@@ -17,6 +17,48 @@ import * as categoryLoader from './categoryLoader.js';
 import * as nflmonService from '../nflmon/nflmonService.js';
 import { DROP_CONFIG } from '../nflmon/nflmonConfig.js';
 
+// ============ Category Weighting ============
+
+/**
+ * Weight distribution for category selection
+ * NFL stays dominant (70%) since this is a fantasy football bot
+ * Video games provides variety (30%)
+ */
+const CATEGORY_WEIGHTS: Record<string, number> = {
+  nfl: 0.7,
+  videogames: 0.3,
+};
+
+/**
+ * Select a category using weighted random selection
+ * @param availableCategories - Categories with unasked questions
+ * @returns Selected category name
+ */
+function selectWeightedCategory(availableCategories: string[]): string {
+  // Filter to categories with defined weights
+  const weighted = availableCategories.filter((c) => c in CATEGORY_WEIGHTS);
+
+  // If no weighted categories available, fall back to random
+  if (weighted.length === 0) {
+    return availableCategories[Math.floor(Math.random() * availableCategories.length)];
+  }
+
+  // If only one weighted category available, use it
+  if (weighted.length === 1) return weighted[0];
+
+  // Calculate total weight for available categories
+  const totalWeight = weighted.reduce((sum, c) => sum + CATEGORY_WEIGHTS[c], 0);
+
+  // Weighted random selection
+  let random = Math.random() * totalWeight;
+  for (const category of weighted) {
+    random -= CATEGORY_WEIGHTS[category];
+    if (random <= 0) return category;
+  }
+
+  return weighted[0]; // Fallback
+}
+
 // ============ Type Definitions ============
 
 /**
@@ -302,8 +344,8 @@ export class TriviaService {
       return;
     }
 
-    // Pick random category with available questions
-    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+    // Pick category using weighted selection (70% NFL, 30% video games)
+    const randomCategory = selectWeightedCategory(availableCategories);
     await this.sendQuestion(randomCategory);
   }
 
