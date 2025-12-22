@@ -6,7 +6,6 @@ import {
   ButtonStyle,
   ComponentType,
   ChatInputCommandInteraction,
-  ButtonInteraction,
 } from 'discord.js';
 import * as nflmonDb from '../../nflmon/nflmonDb.js';
 import type { Nflmon } from '../../nflmon/nflmonDb.js';
@@ -112,14 +111,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     components: [buttons],
   });
 
-  // Create button collector
-  const collector = response.createMessageComponentCollector({
-    componentType: ComponentType.Button,
-    time: 60000, // 1 minute to choose
-    filter: (i: ButtonInteraction) => i.user.id === userId,
-  });
+  // Wait for button selection using awaitMessageComponent
+  try {
+    const buttonInteraction = await response.awaitMessageComponent({
+      componentType: ComponentType.Button,
+      filter: (i) => i.user.id === userId,
+      time: 60_000, // 1 minute to choose
+    });
 
-  collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
     // Parse selection index
     const index = parseInt(buttonInteraction.customId.split('_')[2]);
     const selectedPlayer = players[index];
@@ -130,7 +129,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         embeds: [],
         components: [],
       });
-      collector.stop();
       return;
     }
 
@@ -142,7 +140,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         embeds: [],
         components: [],
       });
-      collector.stop();
       return;
     }
 
@@ -162,7 +159,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         embeds: [],
         components: [],
       });
-      collector.stop();
       return;
     }
 
@@ -180,20 +176,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       embeds: [successEmbed],
       components: [],
     });
-
-    collector.stop();
-  });
-
-  collector.on('end', async (collected, reason) => {
-    if (reason === 'time' && collected.size === 0) {
-      // Timed out without selection
-      await interaction
-        .editReply({
-          content: "Selection timed out. Run `/starter` again when you're ready to choose.",
-          embeds: [],
-          components: [],
-        })
-        .catch(() => {});
-    }
-  });
+  } catch {
+    // Timed out without selection
+    await interaction
+      .editReply({
+        content: "Selection timed out. Run `/starter` again when you're ready to choose.",
+        embeds: [],
+        components: [],
+      })
+      .catch(() => {});
+  }
 }
