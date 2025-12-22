@@ -1,5 +1,15 @@
 import cron from 'node-cron';
-import { Client, EmbedBuilder, Message, TextChannel, ChatInputCommandInteraction } from 'discord.js';
+import {
+  Client,
+  EmbedBuilder,
+  Message,
+  TextChannel,
+  ChatInputCommandInteraction,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ButtonInteraction
+} from 'discord.js';
 import * as triviaDb from './triviaDb.js';
 import { checkAnswer } from './answerMatcher.js';
 import * as economyDb from '../economy/economyDb.js';
@@ -7,11 +17,60 @@ import * as categoryLoader from './categoryLoader.js';
 import * as nflmonService from '../nflmon/nflmonService.js';
 import { DROP_CONFIG } from '../nflmon/nflmonConfig.js';
 
-// Category weights for random selection
+// ============ Category Weighting ============
+
+/**
+ * Weight distribution for category selection
+ * NFL stays dominant (70%) since this is a fantasy football bot
+ * Video games provides variety (30%)
+ */
 const CATEGORY_WEIGHTS: Record<string, number> = {
   nfl: 0.7,
   videogames: 0.3,
 };
+
+/**
+ * Select a category using weighted random selection
+ * @param availableCategories - Categories with unasked questions
+ * @returns Selected category name
+ */
+/**
+ * Fisher-Yates shuffle algorithm
+ * Returns a new shuffled array (does not mutate original)
+ */
+function shuffleArray<T>(array: readonly T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function selectWeightedCategory(availableCategories: string[]): string {
+  // Filter to categories with defined weights
+  const weighted = availableCategories.filter((c) => c in CATEGORY_WEIGHTS);
+
+  // If no weighted categories available, fall back to random
+  if (weighted.length === 0) {
+    return availableCategories[Math.floor(Math.random() * availableCategories.length)];
+  }
+
+  // If only one weighted category available, use it
+  if (weighted.length === 1) return weighted[0];
+
+  // Calculate total weight for available categories
+  const totalWeight = weighted.reduce((sum, c) => sum + CATEGORY_WEIGHTS[c], 0);
+
+  // Weighted random selection
+  let random = Math.random() * totalWeight;
+  for (const category of weighted) {
+    random -= CATEGORY_WEIGHTS[category];
+    if (random <= 0) return category;
+  }
+
+  return weighted[0]; // Fallback
+}
 
 // ============ Type Definitions ============
 
@@ -41,6 +100,7 @@ export interface ActiveQuestion {
   readonly question: string;
   readonly answer: string;
   readonly acceptable_answers: readonly string[] | null;
+  readonly choices: readonly string[] | null;
   readonly point_value: number;
   readonly channel_id: string | null;
   readonly window_closes_at: string | Date;
@@ -69,39 +129,6 @@ interface AnswerResult {
   message: string;      // Response text for user
   isCorrect: boolean;   // Did they get it right?
   isExhausted: boolean; // Out of guesses (for roast announcement)?
-}
-
-// ============ Helper Functions ============
-
-/**
- * Select a category using weighted random selection
- * Only considers categories that have available questions
- */
-function selectWeightedCategory(availableCategories: string[]): string {
-  // Filter to categories with defined weights
-  const weighted = availableCategories.filter(c => c in CATEGORY_WEIGHTS);
-
-  // If no weighted categories available, pick random from all
-  if (weighted.length === 0) {
-    return availableCategories[Math.floor(Math.random() * availableCategories.length)];
-  }
-
-  // If only one category, use it
-  if (weighted.length === 1) {
-    return weighted[0];
-  }
-
-  // Calculate total weight for available categories
-  const totalWeight = weighted.reduce((sum, c) => sum + CATEGORY_WEIGHTS[c], 0);
-
-  // Weighted random selection
-  let random = Math.random() * totalWeight;
-  for (const category of weighted) {
-    random -= CATEGORY_WEIGHTS[category];
-    if (random <= 0) return category;
-  }
-
-  return weighted[0]; // fallback
 }
 
 // ============ Service Class ============
@@ -146,7 +173,17 @@ export class TriviaService {
       }
     });
 
+    // End-of-month season processing - runs at midnight on the 1st
+    cron.schedule(
+      '0 0 1 * *',
+      async () => {
+        await this.handleSeasonEnd();
+      },
+      { timezone: 'America/New_York' }
+    );
+
     console.log('[TRIVIA] Scheduler initialized (9am-9pm EST, every 2 hours)');
+    console.log('[TRIVIA] Season end scheduler initialized (midnight on 1st of month)');
   }
 
   /**
@@ -181,6 +218,106 @@ export class TriviaService {
     }
 
     console.log(`[TRIVIA] Closed question #${activeQuestion.id} (${activeQuestion.category})`);
+  }
+
+  /**
+   * Handle end of month - snapshot winners, pay rewards, announce
+   * Should be called at midnight on the 1st of each month
+   */
+  async handleSeasonEnd(): Promise<void> {
+    // Get last month's year-month string (e.g., "2025-01")
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const yearMonth = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    console.log(`[TRIVIA] Processing season end for ${yearMonth}`);
+
+    // Check if already processed
+    const existing = await triviaDb.getSeasonResults(yearMonth);
+    if (existing?.rewards_paid) {
+      console.log(`[TRIVIA] Season ${yearMonth} already processed`);
+      return;
+    }
+
+    // Get the leaderboard for last month
+    const startOfMonth = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+    const endOfMonth = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0, 23, 59, 59);
+    const leaderboard = await triviaDb.getLeaderboardForDateRange(startOfMonth, endOfMonth, 10);
+
+    if (leaderboard.length === 0) {
+      console.log(`[TRIVIA] No participants in ${yearMonth}`);
+      return;
+    }
+
+    // Save season results
+    const winners = leaderboard.slice(0, 3).map(entry => ({
+      userId: entry.user_id,
+      username: entry.username,
+      points: entry.points,
+    }));
+
+    await triviaDb.saveSeasonResults(yearMonth, winners);
+
+    // Pay rewards
+    const rewards = [250000, 100000, 50000];
+    for (let i = 0; i < Math.min(winners.length, 3); i++) {
+      if (winners[i].userId) {
+        try {
+          await economyDb.getOrCreateUser(winners[i].userId, winners[i].username);
+          await economyDb.addToWallet(winners[i].userId, rewards[i]);
+          console.log(`[TRIVIA] Paid ${rewards[i]} to ${winners[i].username} (${['1st', '2nd', '3rd'][i]} place)`);
+        } catch (error) {
+          console.error(`[TRIVIA] Failed to pay ${winners[i].username}:`, error);
+        }
+      }
+    }
+
+    // Mark as paid
+    await triviaDb.markSeasonRewardsPaid(yearMonth);
+
+    // Announce in channel
+    await this.announceSeasonResults(yearMonth, winners, rewards);
+
+    console.log(`[TRIVIA] Season ${yearMonth} completed`);
+  }
+
+  /**
+   * Announce season results in trivia channel
+   */
+  private async announceSeasonResults(
+    yearMonth: string,
+    winners: { userId: string; username: string; points: number }[],
+    rewards: number[]
+  ): Promise<void> {
+    const channelId = process.env.TRIVIA_CHANNEL_ID;
+    if (!channelId) return;
+
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (!channel?.isTextBased()) return;
+
+      const medals = ['🥇', '🥈', '🥉'];
+      const [year, monthNum] = yearMonth.split('-');
+      const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('en-US', { month: 'long' });
+
+      let description = `**${monthName} ${year} Trivia Season has ended!**\n\n`;
+
+      winners.forEach((winner, i) => {
+        description += `${medals[i]} **${winner.username}** - ${winner.points} pts → 🪙 ${rewards[i].toLocaleString()}\n`;
+      });
+
+      description += '\nA new season has begun! Good luck!';
+
+      const embed = new EmbedBuilder()
+        .setColor(0xffd700)
+        .setTitle('🏆 Trivia Season Results')
+        .setDescription(description)
+        .setTimestamp();
+
+      await (channel as TextChannel).send({ embeds: [embed] });
+    } catch (error) {
+      console.error('[TRIVIA] Error announcing season results:', error);
+    }
   }
 
   /**
@@ -220,7 +357,7 @@ export class TriviaService {
       return;
     }
 
-    // Pick weighted random category
+    // Pick category using weighted selection (70% NFL, 30% video games)
     const randomCategory = selectWeightedCategory(availableCategories);
     await this.sendQuestion(randomCategory);
   }
@@ -288,15 +425,26 @@ export class TriviaService {
 
       // Save to active questions
       // Format array as PostgreSQL array literal: {"value1","value2"}
+      // Escape backslashes first, then quotes (order matters for PostgreSQL)
+      const escapeForPgArray = (s: string): string =>
+        s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const acceptableAnswers = selectedQuestion.acceptable_answers?.length
-        ? `{${selectedQuestion.acceptable_answers.map(a => `"${a.replace(/"/g, '\\"')}"`).join(',')}}`
+        ? `{${selectedQuestion.acceptable_answers.map(a => `"${escapeForPgArray(a)}"`).join(',')}}`
         : null;
+
+      // Shuffle choices for multiple choice questions to randomize answer position
+      const shuffledChoices = selectedQuestion.choices
+        ? shuffleArray(selectedQuestion.choices)
+        : null;
+
       const activeQuestion = await triviaDb.saveActiveQuestion({
         category,
         questionId: selectedQuestion.id != null ? String(selectedQuestion.id) : null,
         question: selectedQuestion.question,
         answer: selectedQuestion.answer,
         acceptableAnswers,
+        choices: shuffledChoices,
+        type: selectedQuestion.type,
         pointValue: selectedQuestion.point_value || 1,
         sourceData: selectedQuestion.metadata
           ? JSON.stringify(selectedQuestion.metadata)
@@ -305,9 +453,19 @@ export class TriviaService {
         windowClosesAt,
       });
 
-      // Build and send embed
-      const embed = this.buildQuestionEmbed(selectedQuestion, category, windowClosesAt);
-      await (channel as TextChannel).send({ embeds: [embed] });
+      // Build and send embed - use shuffled choices for display
+      const questionForEmbed = shuffledChoices
+        ? { ...selectedQuestion, choices: shuffledChoices }
+        : selectedQuestion;
+      const embed = this.buildQuestionEmbed(questionForEmbed, category, windowClosesAt);
+
+      // Add buttons for multiple choice questions - use shuffled choices
+      if (selectedQuestion.type === 'multiple_choice' && shuffledChoices) {
+        const row = this.buildChoiceButtons(activeQuestion.id, shuffledChoices);
+        await (channel as TextChannel).send({ embeds: [embed], components: [row] });
+      } else {
+        await (channel as TextChannel).send({ embeds: [embed] });
+      }
 
       console.log(`[TRIVIA] Posted ${category.toUpperCase()} question #${activeQuestion.id}`);
     } catch (error) {
@@ -358,13 +516,23 @@ export class TriviaService {
       };
     }
 
+    // For multiple choice questions, convert A/B/C/D to actual choice text
+    let normalizedAnswer = userAnswer;
+    if (activeQuestion.choices && activeQuestion.choices.length > 0) {
+      const letterMap: Record<string, number> = { a: 0, b: 1, c: 2, d: 3 };
+      const letterIndex = letterMap[userAnswer.toLowerCase().trim()];
+      if (letterIndex !== undefined && letterIndex < activeQuestion.choices.length) {
+        normalizedAnswer = activeQuestion.choices[letterIndex];
+      }
+    }
+
     // Check the answer - spread to convert readonly to mutable for checkAnswer
     const questionData = {
       answer: activeQuestion.answer,
       acceptable_answers: activeQuestion.acceptable_answers ? [...activeQuestion.acceptable_answers] : [],
     };
 
-    const isCorrect = checkAnswer(userAnswer, questionData);
+    const isCorrect = checkAnswer(normalizedAnswer, questionData);
 
     // Record the answer (this increments attempt_count)
     const recorded = (await triviaDb.recordAnswer({
@@ -560,6 +728,67 @@ export class TriviaService {
   }
 
   /**
+   * Handle a button click for multiple choice answer
+   * @param interaction - Discord button interaction
+   */
+  async handleButtonAnswer(interaction: ButtonInteraction): Promise<void> {
+    // Parse custom_id: trivia_{questionId}_{choiceIndex}
+    const parts = interaction.customId.split('_');
+    if (parts.length !== 3 || parts[0] !== 'trivia') {
+      return;
+    }
+
+    const questionId = parseInt(parts[1], 10);
+    const choiceIndex = parseInt(parts[2], 10);
+
+    if (isNaN(questionId) || isNaN(choiceIndex)) {
+      await interaction.reply({ content: 'Invalid button data.', ephemeral: true });
+      return;
+    }
+
+    // Get the active question
+    const activeQuestion = await triviaDb.getAnyActiveQuestion() as ActiveQuestion | null;
+
+    if (!activeQuestion || activeQuestion.id !== questionId) {
+      await interaction.reply({ content: 'This question is no longer active!', ephemeral: true });
+      return;
+    }
+
+    // Check if window is still open
+    if (activeQuestion.is_closed || new Date() > new Date(activeQuestion.window_closes_at)) {
+      await interaction.reply({ content: 'The answer window has closed for this question!', ephemeral: true });
+      return;
+    }
+
+    // Get the selected answer from choices
+    const choices = activeQuestion.choices;
+    if (!choices || choiceIndex >= choices.length) {
+      await interaction.reply({ content: 'Invalid choice.', ephemeral: true });
+      return;
+    }
+
+    const selectedAnswer = choices[choiceIndex];
+
+    // Process using shared logic
+    const result = await this.processAnswerSubmission(
+      interaction.user.id,
+      interaction.user.username,
+      selectedAnswer,
+      activeQuestion
+    );
+
+    // Send ephemeral reply
+    await interaction.reply({ content: result.message, ephemeral: true });
+
+    // Handle announcements
+    if (result.isCorrect) {
+      await this.announceCorrectAnswer(activeQuestion, interaction.user.username);
+    } else if (result.isExhausted) {
+      await this.announceExhaustedGuesses(activeQuestion, interaction.user.username);
+    }
+  }
+
+  /**
    * Announce in channel when a user gets the correct answer
    * @param activeQuestion - The active question
    * @param username - The user who got it correct
@@ -620,26 +849,46 @@ export class TriviaService {
     const color = categoryLoader.getCategoryColor(category);
     const title = `${category.toUpperCase()} Trivia`;
 
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
       .setColor(color)
       .setTitle(title)
-      .setDescription(question.question)
-      .addFields({
+      .setTimestamp();
+
+    // Build description based on question type
+    if (question.type === 'multiple_choice' && question.choices) {
+      const choiceLabels = ['A', 'B', 'C', 'D'];
+      const choicesText = question.choices
+        .slice(0, 4)
+        .map((choice, i) => `**${choiceLabels[i]})** ${choice}`)
+        .join('\n');
+
+      embed.setDescription(`${question.question}\n\n${choicesText}`);
+      embed.addFields({
+        name: 'How to Answer',
+        value: 'Click a button below or use `/trivia answer:A`',
+        inline: false,
+      });
+    } else {
+      embed.setDescription(question.question);
+      embed.addFields({
         name: 'How to Answer',
         value: 'Use `/trivia answer:your answer` or DM me directly',
         inline: false,
-      })
-      .addFields({
-        name: 'Points',
-        value: `${question.point_value || 1}`,
-        inline: true,
-      })
-      .addFields({
-        name: 'Window Closes',
-        value: `<t:${Math.floor(windowClosesAt.getTime() / 1000)}:R>`,
-        inline: true,
-      })
-      .setTimestamp();
+      });
+    }
+
+    embed.addFields({
+      name: 'Points',
+      value: `${question.point_value || 1}`,
+      inline: true,
+    });
+    embed.addFields({
+      name: 'Window Closes',
+      value: `<t:${Math.floor(windowClosesAt.getTime() / 1000)}:R>`,
+      inline: true,
+    });
+
+    return embed;
   }
 
   /**
@@ -675,5 +924,24 @@ export class TriviaService {
         inline: false,
       })
       .setTimestamp();
+  }
+
+  /**
+   * Build button row for multiple choice questions
+   * @param questionId - Active question ID (for button custom_id)
+   * @param choices - Array of choice strings [A, B, C, D]
+   * @returns ActionRow with buttons
+   */
+  buildChoiceButtons(questionId: number, choices: readonly string[]): ActionRowBuilder<ButtonBuilder> {
+    const labels = ['A', 'B', 'C', 'D'];
+
+    const buttons = choices.slice(0, 4).map((_, index) =>
+      new ButtonBuilder()
+        .setCustomId(`trivia_${questionId}_${index}`)
+        .setLabel(labels[index])
+        .setStyle(ButtonStyle.Primary)
+    );
+
+    return new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
   }
 }

@@ -71,6 +71,7 @@ describe('TriviaService', () => {
       id: '1',
       question: 'Who won Super Bowl LI?',
       answer: 'Patriots',
+      type: 'free_form' as const,
       point_value: 2,
     };
     const windowClosesAt = new Date('2024-01-01T14:00:00Z');
@@ -115,6 +116,7 @@ describe('TriviaService', () => {
       question: 'Who won Super Bowl LI?',
       answer: 'Patriots',
       acceptable_answers: null,
+      choices: null,
       point_value: 2,
       channel_id: '123',
       window_closes_at: new Date(),
@@ -160,6 +162,8 @@ describe('TriviaService', () => {
         question: 'Test question?',
         answer: 'Test answer',
         acceptable_answers: null,
+        choices: null,
+        type: 'free_form',
         point_value: 1,
         source_data: null,
         channel_id: '123456789',
@@ -194,6 +198,8 @@ describe('TriviaService', () => {
         question: 'Test?',
         answer: 'Answer',
         acceptable_answers: null,
+        choices: null,
+        type: 'free_form',
         point_value: 1,
         source_data: null,
         channel_id: '123',

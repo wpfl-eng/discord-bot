@@ -1,0 +1,2702 @@
+[
+  {
+    "id": "vg_medium_0",
+    "question": "The creator of the Touhou Project series is:",
+    "answer": "ZUN",
+    "choices": [
+      "PUN",
+      "SUN",
+      "RUN",
+      "ZUN"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_1",
+    "question": "In \"Call Of Duty: Zombies\", which map features the \"Fly Trap\" easter egg?",
+    "answer": "Der Riese",
+    "choices": [
+      "Der Riese",
+      "Shi No Numa",
+      "Tranzit",
+      "Call Of The Dead"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_2",
+    "question": "In the Halo series, what fleet was Thel 'Vadam supreme commander of before being branded an Arbiter?",
+    "answer": "Fleet of Particular Justice",
+    "choices": [
+      "Fleet of Furious Redemption",
+      "Fleet of Particular Justice",
+      "Fleet of Sacred Consecration",
+      "Fleet of Righteous Vigilance"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_3",
+    "question": "In \"Halo 2\", what is the name of the monitor of Installation 05?",
+    "answer": "2401 Penitent Tangent",
+    "choices": [
+      "343 Guilty Spark",
+      "2401 Penitent Tangent",
+      "031 Exuberant Witness",
+      "252 Biodis Expolsion"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_4",
+    "question": "Why were only only 300,000 copies of Uniracers were produced?",
+    "answer": "DMA Designs was sued by Pixar, preventing more copies from being produced",
+    "choices": [
+      "It didn't sell well due to poor review scores",
+      "No public information is available",
+      "There was a disagreement between DMA Designs and Nintendo",
+      "DMA Designs was sued by Pixar, preventing more copies from being produced"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_5",
+    "question": "In which Mario game did the Mega Mushroom make its debut?",
+    "answer": "Mario Party 4",
+    "choices": [
+      "Mario Party 4",
+      "New Super Mario Bros.",
+      "Super Mario 3D World",
+      "Mario Kart Wii"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_6",
+    "question": "In \"World of Warcraft,\" what dragon appears in the human guise of Lord Victor Nefarius?",
+    "answer": "Nefarian",
+    "choices": [
+      "Neltharion",
+      "Nefaran",
+      "Nefarius",
+      "Nefarian"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_7",
+    "question": "In \"Call of Duty: Black Ops III\" Zombies, what does completing all the main easter eggs reward you with?",
+    "answer": "1,000,000 XP",
+    "choices": [
+      "50 Liquid Diviniums",
+      "All three options.",
+      "1,000,000 XP",
+      "Juggernog at the start of each game"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_8",
+    "question": "In the game \"Dead By Daylight,\" which character starts with the perk \"Bond\".",
+    "answer": "Dwight Fairfield",
+    "choices": [
+      "Meg Thomas",
+      "Claudette Morell",
+      "Jake Park",
+      "Dwight Fairfield"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_9",
+    "question": "From the Meme Culture, which Mario game immerged \"Weegee\"?",
+    "answer": "Mario is Missing! MS-DOS Version ",
+    "choices": [
+      "Mario is Missing! MS-DOS Version ",
+      "Mario is Missing! SNES Version",
+      "Mario is Missing! MSX Version",
+      "Mario is Missing! NES Version"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_10",
+    "question": "Which one of these is NOT a character in the video game Overwatch",
+    "answer": "Garen",
+    "choices": [
+      "Hana Song",
+      "Reaper",
+      "Garen",
+      "Tracer"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_11",
+    "question": "The cake depicted in Valve's \"Portal\" franchise most closely resembles which real-world type of cake?",
+    "answer": "Black Forest",
+    "choices": [
+      "Molten Chocolate",
+      "Devil's Food",
+      "German Chocolate",
+      "Black Forest"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_12",
+    "question": "What is a Tetris piece called?",
+    "answer": "Tetromino",
+    "choices": [
+      "Tetromino",
+      "Tetratile",
+      "Tetripiece",
+      "Tetris"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_13",
+    "question": "Which of these games was NOT a Nintendo Switch launch title in the United States? ",
+    "answer": "Voez",
+    "choices": [
+      "Just Dance 2017",
+      "Fast RMX",
+      "Snipperclips",
+      "Voez"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_14",
+    "question": "In Touhou 12: Undefined Fantastic Object, which of these was not a playable character?",
+    "answer": "Izayoi Sakuya",
+    "choices": [
+      "Izayoi Sakuya",
+      "Kirisame Marisa",
+      "Hakurei Reimu",
+      "Kochiya Sanae"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_15",
+    "question": "What year was the video game streaming platform TwitchTV founded?",
+    "answer": "2011",
+    "choices": [
+      "2014",
+      "2012",
+      "2010",
+      "2011"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_16",
+    "question": "What video game genre were the original Warcraft games?",
+    "answer": "RTS (Real Time Strategy)",
+    "choices": [
+      "TBS (Turn Based Strategy)",
+      "RPG (Role Playing Game)",
+      "MMO (Massively Multiplayer Online)",
+      "RTS (Real Time Strategy)"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_17",
+    "question": "In \"Call of Duty: Zombies\", what group does Doctor Maxis work for?",
+    "answer": "Group 935",
+    "choices": [
+      "Division 9",
+      "Group 935",
+      "Group Rezurrection",
+      "Group Reanimate"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_18",
+    "question": "What type of genre is the controversial 2015 game \"Hatred\"?",
+    "answer": "Shoot 'Em Up",
+    "choices": [
+      "Point & Click",
+      "Shoot 'Em Up",
+      "Simulation",
+      "MMORPG"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_19",
+    "question": "Who was the first jedi that Starkiller had to kill in Star Wars: The Force Unleashed?",
+    "answer": "Rahm Kota",
+    "choices": [
+      "Kazdan Paratus",
+      "Ahsoka Tano",
+      "Rahm Kota",
+      "Kento Marek"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_20",
+    "question": "Which Game Development company made No Man's Sky?",
+    "answer": "Hello Games",
+    "choices": [
+      "Blizzard Entertainment",
+      "Hello Games",
+      "Valve",
+      "Dovetail Games"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_21",
+    "question": "Of the following space shooter games, which came out first?",
+    "answer": "Space Invaders",
+    "choices": [
+      "Sinistar",
+      "Space Invaders",
+      "Galaga",
+      "Galaxian"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_22",
+    "question": "Which of the following games was not a launch title for the Nintendo Gamecube?",
+    "answer": "Super Mario Sunshine",
+    "choices": [
+      "Super Mario Sunshine",
+      "Luigi’s Mansion",
+      "Star Wars Rogue Squadron II",
+      "Disney’s Tarzan Untamed"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_23",
+    "question": "Who is the creator of the free, open-source rhythm game 'osu!'?",
+    "answer": "Dean 'Peppy' Herbert",
+    "choices": [
+      "Toby 'FwugRadiation' Fox",
+      "Daisuke 'Pixel' Amaya",
+      "Dean 'Peppy' Herbert",
+      "Eric 'ConcernedApe' Barone"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_24",
+    "question": "What is the name of the first level in \"Call of Duty: World at War\"?",
+    "answer": "Semper Fi",
+    "choices": [
+      "Eviction",
+      "Ring of Steel",
+      "Vendetta",
+      "Semper Fi"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_25",
+    "question": "In \"The Binding of Isaac\", what is the name of the final boss that you fight in The Void?",
+    "answer": "Delirium",
+    "choices": [
+      "Delirium",
+      "Hush",
+      "The Lamb",
+      "Mega Satan"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_26",
+    "question": "What was the character Kirby originally going to be named?",
+    "answer": "Popopo",
+    "choices": [
+      "Waddle Dee",
+      "Prince Puff",
+      "Dedede",
+      "Popopo"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_27",
+    "question": "In the co-op shooter Payday 2, which contact helps you break out Hoxton?",
+    "answer": "The Dentist",
+    "choices": [
+      "The Dentist",
+      "The Butcher",
+      "The Elephant",
+      "Vlad"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_28",
+    "question": "In the MMO RPG \"Realm of the Mad God\", what class is known for having the highest possible defense?",
+    "answer": "The Knight",
+    "choices": [
+      "The Archer",
+      "The Knight",
+      "The Wizard",
+      "The Warrior"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_29",
+    "question": "Which Overwatch character says the line \"Heroes never die!\"?",
+    "answer": "Mercy",
+    "choices": [
+      "Reaper",
+      "Ana",
+      "Sonic",
+      "Mercy"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_30",
+    "question": "In the beginning of the game \"Sonic Adventure\", what color Chaos Emerald does Tails own?",
+    "answer": "Purple",
+    "choices": [
+      "Blue",
+      "Red",
+      "Green",
+      "Purple"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_31",
+    "question": "What is the name of the common, gun-toting enemies of the \"Oddworld\" video game series?",
+    "answer": "Sligs",
+    "choices": [
+      "Scrabs",
+      "Glukkons",
+      "Slogs",
+      "Sligs"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_32",
+    "question": "What element does the Zinogre use in Monster Hunter?",
+    "answer": "Thunder",
+    "choices": [
+      "Thunder",
+      "Water",
+      "Fire",
+      "Ice"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_33",
+    "question": "From where does the Nintendo video game character Mario derive his name?",
+    "answer": "The landlord of the American headquarters",
+    "choices": [
+      "The landlord of the American headquarters",
+      "Satoru Iwata's plumber",
+      "Shigeru Miyamoto's father in law",
+      "The date (Mar 10) that Donkey Kong was released."
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_34",
+    "question": "Who is the main protagonist of \"Ace Combat Zero: The Belkan War\"?",
+    "answer": "Cipher",
+    "choices": [
+      "Cipher",
+      "Mobius 1",
+      "Blaze",
+      "Pixy"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_35",
+    "question": "In the game Overwatch, which hero out of the following 4 is from Brazil?",
+    "answer": "Lúcio",
+    "choices": [
+      "Sombra",
+      "Symmetra",
+      "Lúcio",
+      "McCree"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_36",
+    "question": "In Left 4 Dead, what is the name of the virus, as designated by CEDA, that causes most humans to turn into the Infected?",
+    "answer": "Green Flu",
+    "choices": [
+      "Raspberry Sniffles",
+      "T-Virus",
+      "Yellow Fever",
+      "Green Flu"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_37",
+    "question": "What song is played during the ending credits of Guitar Hero: World Tour?",
+    "answer": "Dream Theater - Pull Me Under",
+    "choices": [
+      "Dream Theater - Pull Me Under",
+      "King Crimson - 21st Century Schizoid Man",
+      "Lynyrd Skynyrd - Free Bird",
+      "Dragonforce - Through The Fire & The Flames"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_38",
+    "question": "Which of the following colors does the Zombie eyes glow in the \"Nuketown\" map in \"Call of Duty: Black Ops II\" Zombies mode?",
+    "answer": "Yellow and Blue",
+    "choices": [
+      "Yellow and Blue",
+      "Yellow and Red",
+      "Blue and White",
+      "Red and Blue"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_39",
+    "question": "Which of the following Call of Duty games was a PS3 launch title?",
+    "answer": "Call of Duty 3",
+    "choices": [
+      "Call of Duty 4: Modern Warfare",
+      "Call of Duty: World at War",
+      "Call of Duty: Roads to Victory",
+      "Call of Duty 3"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_40",
+    "question": "Phil Fish was the designer of which game?",
+    "answer": "Fez",
+    "choices": [
+      "FTL",
+      "Hotline Miami",
+      "Fez",
+      "Super Meat Boy"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_41",
+    "question": "Along with Gabe Newell, who co-founded Valve?",
+    "answer": "Mike Harrington",
+    "choices": [
+      "Marc Laidlaw",
+      "Stephen Bahl",
+      "Mike Harrington",
+      "Robin Walker"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_42",
+    "question": "Who is Sora's Nobody in Kingdom Hearts?",
+    "answer": "Roxas",
+    "choices": [
+      "Mickey",
+      "Kairi",
+      "Roxas",
+      "Riku"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_43",
+    "question": "Which character does the player play as in the video game \"Bastion\"?",
+    "answer": "The Kid",
+    "choices": [
+      "The Kid",
+      "Zia",
+      "Zulf",
+      "Rucks"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_44",
+    "question": "Which of these operators from \"Tom Clancy's Rainbow Six Siege\" has the ability to damage reinforced walls?",
+    "answer": "Jordan \"Thermite\" Trace",
+    "choices": [
+      "Seamus \"Sledge\" Cowden",
+      "Eliza \"Ash\" Cohen",
+      "Dominic \"Bandit\" Brunsmeier",
+      "Jordan \"Thermite\" Trace"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_45",
+    "question": "In World of Warcraft lore, who was first to have the title \"The Ashbringer\"?",
+    "answer": "Alexandros Mograine",
+    "choices": [
+      "Tirion Fordring",
+      "Arthas Menethil",
+      "Uther the Lightbringer",
+      "Alexandros Mograine"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_46",
+    "question": "Ellen McLain, the voice of GLaDOS in the Portal game series, is married to the voice actor for which Team Fortress 2 character?",
+    "answer": "Sniper",
+    "choices": [
+      "Soldier",
+      "Heavy",
+      "Scout",
+      "Sniper"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_47",
+    "question": "Who is the character you play as in Yume Nikki?",
+    "answer": "Madotsuki",
+    "choices": [
+      "Uboa",
+      "Madotsuki",
+      "Masada",
+      "Poniko"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_48",
+    "question": "In the game \"Brawlhalla\", what species is the character Bödvar is?",
+    "answer": "Half Human / Half Bear",
+    "choices": [
+      "Half Tiger /  Half Human",
+      "A Human",
+      "Half Human / Half Bear",
+      "Half Wolf / Half Bear"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_49",
+    "question": "In Undertale, how much do Spider Donuts cost in Hotland?",
+    "answer": "9999G",
+    "choices": [
+      "40G",
+      "12G",
+      "7G",
+      "9999G"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_50",
+    "question": "What was the name of the Secret Organization in the Hotline Miami series? ",
+    "answer": "50 Blessings",
+    "choices": [
+      "American Blessings",
+      "USSR's Blessings",
+      "50 Blessings",
+      "50 Saints"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_51",
+    "question": "What was the original name of  \"Minecraft\"?",
+    "answer": "Cave Game",
+    "choices": [
+      "Dig And Build",
+      "Minecraft: Order of the Stone",
+      "Infiniminer",
+      "Cave Game"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_52",
+    "question": "What former MOBA, created by Waystone Games and published by EA, was shut down in 2014?",
+    "answer": "Dawngate",
+    "choices": [
+      "League of Legends",
+      "Dawngate",
+      "Strife",
+      "Heroes of Newerth"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_53",
+    "question": "Which of the following Terran units from the RTS game Starcraft was first introduced in the expansion Brood War?",
+    "answer": "Medic",
+    "choices": [
+      "Science Vessel",
+      "Wraith",
+      "SCV",
+      "Medic"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_54",
+    "question": "What snowy mob was added in Minecraft 1.10?",
+    "answer": "Polar bears",
+    "choices": [
+      "Polar bears",
+      "Eskimos",
+      "Penguins",
+      "Walking TNT"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_55",
+    "question": "How many different notes is the tune, \"Song of Healing\", comprised of in \"The Legend of Zelda: Majora's Mask\"?",
+    "answer": "3",
+    "choices": [
+      "6",
+      "1",
+      "3",
+      "4"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_56",
+    "question": "How many classes are there in Team Fortress 2?",
+    "answer": "9",
+    "choices": [
+      "9",
+      "8",
+      "10",
+      "7"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_57",
+    "question": "Which ones of these Mario Kart games was made for the Gameboy Advance?",
+    "answer": "Mario Kart: Super Circuit",
+    "choices": [
+      "Super Mario Kart",
+      "Mario Kart 64",
+      "Mario Kart: Double Dash",
+      "Mario Kart: Super Circuit"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_58",
+    "question": "Which town was Seamus \"Sledge\" Cowden from \"Tom Clancy's Rainbow Six Siege\" born in?",
+    "answer": "John O'Groats",
+    "choices": [
+      "John O'Groats",
+      "Kearvaig",
+      "Talmine",
+      "Brawl"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_59",
+    "question": "In which location does Dark Sun Gwyndolin reside in \"Dark Souls\"?",
+    "answer": "Anor Londo",
+    "choices": [
+      "Firelink Shrine",
+      "Kiln of the first flame",
+      "Blighttown",
+      "Anor Londo"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_60",
+    "question": "Who was Tetris created by?",
+    "answer": "Alexey Pajitnov",
+    "choices": [
+      "Alexey Pajitnov",
+      "Toru Iwatani",
+      "Allan Alcorn",
+      "William Higinbotham"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_61",
+    "question": "By how many minutes are you late to work in \"Half-Life\"?",
+    "answer": "30",
+    "choices": [
+      "60",
+      "5",
+      "15",
+      "30"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_62",
+    "question": "Which character is from \"Splatoon\"?",
+    "answer": "Marie",
+    "choices": [
+      "Cyrus",
+      "Shulk",
+      "Marie",
+      "Palutena"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_63",
+    "question": " Which of these champions from the MOBA 'League of Legends' is NOT a Yordle?",
+    "answer": "Annie",
+    "choices": [
+      "Annie",
+      "Lulu",
+      "Veigar",
+      "Tristana"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_64",
+    "question": "Who was the mascot of SEGA before \"Sonic the Hedgehog\"?",
+    "answer": "Alex Kidd",
+    "choices": [
+      "Ristar",
+      "Opa Opa",
+      "NiGHTS",
+      "Alex Kidd"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_65",
+    "question": "What engine did the original \"Half-Life\" run on?",
+    "answer": "GoldSrc",
+    "choices": [
+      "Quake",
+      "Unreal",
+      "Source",
+      "GoldSrc"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_66",
+    "question": "What is the main character of Metal Gear Solid 2?",
+    "answer": "Raiden",
+    "choices": [
+      "Raiden",
+      "Solidus Snake",
+      "Venom Snake",
+      "Big Boss"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_67",
+    "question": "During the game's development, what was the first ever created Pokémon?",
+    "answer": "Rhyhorn",
+    "choices": [
+      "Arceus",
+      "Mew",
+      "Rhyhorn",
+      "Bulbasaur"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_68",
+    "question": "What was the name of the device used by Scarecrow in Batman: Arkham Knight to cover Gotham in fear gas?",
+    "answer": "The Cloudburst",
+    "choices": [
+      "Cloud Dispersal System",
+      "The Fear Bomb",
+      "The Fearburst",
+      "The Cloudburst"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_69",
+    "question": "Which of the following characters were considered for inclusion in Super Smash Bros. Melee?",
+    "answer": "Lucas",
+    "choices": [
+      "Meta Knight",
+      "Lucas",
+      "Diddy Kong",
+      "Mega Man"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_70",
+    "question": "In the world strategy game 'Sid Meier's Civilization', a programming bug caused the AI depiction of Gandhi to do which of the following?",
+    "answer": "Become aggressive and launch nuclear strikes",
+    "choices": [
+      "Launch attacks on his own cities and assets",
+      "Become friendly and trade his entire wealth",
+      "Begin speaking in German ",
+      "Become aggressive and launch nuclear strikes"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_71",
+    "question": "\"Rollercoaster Tycoon\" was programmed mostly entirely in...",
+    "answer": "x86 Assembly",
+    "choices": [
+      "x86 Assembly",
+      "C++",
+      "C",
+      "ALGOL"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_72",
+    "question": "Which is the protagonist of Bioshock Infinite?",
+    "answer": "Booker DeWitt",
+    "choices": [
+      "Zachary Comstock",
+      "Booker DeWitt",
+      "Herbie Hancock",
+      "Arthas Menethil"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_73",
+    "question": "In what year were screenshots added to Steam?",
+    "answer": "2011",
+    "choices": [
+      "2008",
+      "2010",
+      "2011",
+      "2009"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_74",
+    "question": "How many Chaos Emeralds can you collect in the first Sonic The Hedgehog?",
+    "answer": "Six",
+    "choices": [
+      "Five",
+      "Eight",
+      "Seven",
+      "Six"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_75",
+    "question": "When was \"Garry's Mod\" released?",
+    "answer": "December 24, 2004",
+    "choices": [
+      "December 24, 2004",
+      "November 13, 2004",
+      "November 12, 2004",
+      "December 13, 2004"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_76",
+    "question": "The '64' in the Nintendo-64 console refers to what?",
+    "answer": "The bits in the CPU architecture",
+    "choices": [
+      "The number of megabytes of RAM",
+      "The bits in the CPU architecture",
+      "Clock speed of the CPU in Hertz",
+      "Capacity of the ROM Cartridges in megabytes"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_77",
+    "question": "Who created the pump \"F.L.U.D.D.\" Mario uses in Super Mario Sunshine?",
+    "answer": "Elvin Gadd",
+    "choices": [
+      "Elvin Gadd",
+      "Robert Fludd",
+      "Crygor",
+      "Nirona"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_78",
+    "question": "What is the name of the 8th installment in the Fire Emblem series?",
+    "answer": "The Sacred Stones",
+    "choices": [
+      "Awakening",
+      "Blazing Sword",
+      "The Sacred Stones",
+      "Path of Radiance"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_79",
+    "question": "Danganronpa Another Episode: Ultra Despair Girls is set after which Danganronpa game?",
+    "answer": "Danganronpa: Trigger Happy Havoc",
+    "choices": [
+      "Danganronpa V3: Killing Harmony",
+      "Danganronpa: Trigger Happy Havoc",
+      "Danganronpa 2: Goodbye Despair",
+      "Danganronpa 3: The End of Hope's Peak High School"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_80",
+    "question": "Which franchise had a special event hosted in the popular MMORPG Final Fantasy XIV: A Realm Reborn?",
+    "answer": "Yo-kai Watch",
+    "choices": [
+      "Buddyfight",
+      "Yu-gi-oh",
+      "Pokémon",
+      "Yo-kai Watch"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_81",
+    "question": "Who voices Max Payne in the 2001 game \"Max Payne\"?",
+    "answer": "James McCaffrey",
+    "choices": [
+      "Troy Baker",
+      "Sam Lake",
+      "Hideo Kojima",
+      "James McCaffrey"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_82",
+    "question": "Who are the two protagonists of the game Yakuza 0?",
+    "answer": "Kazuma Kiryu and Goro Majima",
+    "choices": [
+      "Kazuma Kiryu and Goro Majima",
+      "Akira Nishikiyama and Tetsu Tachibana",
+      "Shintaro Kazama and Kazuma Kiryu",
+      "Keiji Shibusawa and Daisaku Kuze"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_83",
+    "question": "What is the name the location-based augmented reality game developed by Niantic before Pokémon GO?",
+    "answer": "Ingress",
+    "choices": [
+      "Ingress",
+      "Digress",
+      "Aggress",
+      "Regress"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_84",
+    "question": "Which of these is NOT a faction included in the game Counter-Strike: Global Offensive?",
+    "answer": "BOPE",
+    "choices": [
+      "Elite Crew",
+      "GSG-9",
+      "Phoenix Connexion",
+      "BOPE"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_85",
+    "question": "What was the code name for the \"Nintendo Gamecube\"?",
+    "answer": "Dolphin",
+    "choices": [
+      "Dolphin",
+      "Atlantis",
+      "Nitro",
+      "Revolution"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_86",
+    "question": "What is Solid Snake's real name?",
+    "answer": "David",
+    "choices": [
+      "David",
+      "John",
+      "Huey",
+      "Solid Snake"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_87",
+    "question": "In Need For Speed Most Wanted (2005), what do you drive at the beginning of the career mode?",
+    "answer": "BMW M3 GTR",
+    "choices": [
+      "Nissan 240SX",
+      "BMW M3 GTR",
+      "Ford Mustang",
+      "Porsche 911 Turbo"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_88",
+    "question": "The default playermodel of Garry's Mod is this Half Life 2 character.",
+    "answer": "Isaac Kleiner",
+    "choices": [
+      "Gordon Freeman",
+      "G-Man",
+      "Isaac Kleiner",
+      "Alyx Vance"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_89",
+    "question": "When Halo 3: ODST was unveiled in 2008, it had a different title. What was the game formally called?",
+    "answer": "Halo 3: Recon",
+    "choices": [
+      "Halo 3: Recon",
+      "Halo 3: Helljumpers",
+      "Halo 3: Phantom",
+      "Halo 3: Guerilla"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_90",
+    "question": "When was the game \"Roblox\" released?",
+    "answer": "2006",
+    "choices": [
+      "2006",
+      "2003",
+      "2002",
+      "2007"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_91",
+    "question": "Which of these blocks in \"Minecraft\" has the lowest blast resistance?",
+    "answer": "Sand",
+    "choices": [
+      "Sand",
+      "Wood Planks",
+      "Water",
+      "End Stone"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_92",
+    "question": "In \"Overwatch\", what is the name of Mercy's \"ultimate ability\"?",
+    "answer": "Valkyrie",
+    "choices": [
+      "Molten Core",
+      "Earthshatter",
+      "Valkyrie",
+      "Rocket Barrage"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_93",
+    "question": "In the game \"Persona 4\", what is the canonical name of the protagonist?",
+    "answer": "Yu Narukami",
+    "choices": [
+      "Masaki Narinaka",
+      "Chino Mashido",
+      "Yu Narukami",
+      "Tunki Sunada"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_94",
+    "question": "Which one of these characters was first introduced in Sonic Boom: Rise of Lyric?",
+    "answer": "Sticks the Badger",
+    "choices": [
+      "Espio the Chameleon",
+      "Mighty the Armadillo",
+      "Rouge the Bat",
+      "Sticks the Badger"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_95",
+    "question": "When was Club Penguin launched?",
+    "answer": "October 24, 2005",
+    "choices": [
+      "November 22, 2004",
+      "March 29, 2006",
+      "October 24, 2005",
+      "October 21, 2005"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_96",
+    "question": "What was the name of the protagonist of Metal Gear Solid V: The Phantom Pain?",
+    "answer": "Punished \"Venom\" Snake",
+    "choices": [
+      "Ocelot",
+      "Punished \"Venom\" Snake",
+      "Solid Snake",
+      "Miller"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_97",
+    "question": "What is the name of the island introduced in the ARMA III: APEX expansion pack?",
+    "answer": "Tanoa",
+    "choices": [
+      "Malden",
+      "Tanoa",
+      "Altis",
+      "Stratis"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_98",
+    "question": "How old is Chloe Price in Life is Strange: Before the Storm?",
+    "answer": "16",
+    "choices": [
+      "24",
+      "19",
+      "16",
+      "15"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_99",
+    "question": "What is the world's first video game console?",
+    "answer": "Magnavox Odyssey",
+    "choices": [
+      "Nintendo Color TV Game",
+      "Atari 2600",
+      "Coleco Telstar",
+      "Magnavox Odyssey"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_100",
+    "question": "In the ARPG \"Path of Exile,\" what is the highest amount of sockets that an item can have?",
+    "answer": "6",
+    "choices": [
+      "4",
+      "5",
+      "6",
+      "8"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_101",
+    "question": "In Star Wars: Republic Commando (2005), what is the name of the squad that you play as?",
+    "answer": "Delta Squad",
+    "choices": [
+      "Echo Squad",
+      "Delta Squad",
+      "Alpha Squad",
+      "Omega Squad"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_102",
+    "question": "In Hitman: Blood Money, what is the name of the target in the mission \"Death of a Showman\"?",
+    "answer": "Joseph Clarence",
+    "choices": [
+      "Maynard John",
+      "Manuel Delgado",
+      "The Swing King",
+      "Joseph Clarence"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_103",
+    "question": "In the \"Portal\" series, who was Cave Johnson's personal assistant?",
+    "answer": "Caroline",
+    "choices": [
+      "Melissa",
+      "Heather",
+      "Jane",
+      "Caroline"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_104",
+    "question": "Just Cause 2 was mainly set in what fictional Southeast Asian island country?",
+    "answer": "Panau",
+    "choices": [
+      "Macau",
+      "Davao",
+      "Palau",
+      "Panau"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_105",
+    "question": "In the game \"Undertale\", who was Mettaton's creator?",
+    "answer": "Alphys",
+    "choices": [
+      "Asgore",
+      "Alphys",
+      "Sans",
+      "Undyne"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_106",
+    "question": "In what year was \"Super Mario Sunshine\" released?",
+    "answer": "2002",
+    "choices": [
+      "2003",
+      "2004",
+      "2002",
+      "2000"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_107",
+    "question": "Which Dota 1 hero changed gender when ported to Dota 2?",
+    "answer": "Legion Commander",
+    "choices": [
+      "Keeper of the Light",
+      "Axe",
+      "Templar Assassin",
+      "Legion Commander"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_108",
+    "question": "In \"Paper Mario: The Thousand Year Door\", what is Hooktail's weakness?",
+    "answer": "The Sound of Crickets",
+    "choices": [
+      "The Hammer",
+      "Attacks from Koopas",
+      "The \"Ice Storm\" Item",
+      "The Sound of Crickets"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_109",
+    "question": "Capcom's survival horror title Dead Rising, canonically starts on what day of September 2006?",
+    "answer": "September 19th",
+    "choices": [
+      "September 19th",
+      "September 30th",
+      "September 21st",
+      "September 14th"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_110",
+    "question": "Which of these is not a playable character in \"Enter The Gungeon?\"",
+    "answer": "The Heavy",
+    "choices": [
+      "The Heavy",
+      "The Bullet",
+      "The Cultist",
+      "The Robot"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_111",
+    "question": "Where was the Sniper character in Team Fortress 2 born?",
+    "answer": "New Zealand",
+    "choices": [
+      "South Africa",
+      "Antarctica",
+      "New Zealand",
+      "Australia"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_112",
+    "question": "How many games are there in the \"Colony Wars\" series for the PlayStation?",
+    "answer": "3",
+    "choices": [
+      "3",
+      "5",
+      "4",
+      "2"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_113",
+    "question": "In \"PAYDAY 2\", what weapon has the highest base weapon damage on a per-shot basis?",
+    "answer": "HRL-7",
+    "choices": [
+      "Thanatos .50 cal",
+      "HRL-7",
+      "Heavy Crossbow",
+      "Broomstick Pistol"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_114",
+    "question": "Which is not a playable character in the 2005 video game Killer7?",
+    "answer": "Frank Smith",
+    "choices": [
+      "Coyote Smith",
+      "Frank Smith",
+      "Dan Smith",
+      "Mask de Smith"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_115",
+    "question": "In the game Pokémon Conquest, how many kingdoms make up the region of Ransei?",
+    "answer": "17",
+    "choices": [
+      "16",
+      "15",
+      "18",
+      "17"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_116",
+    "question": "In \"Call Of Duty: Zombies\", which map introduced the perk \"PhD Flopper\"?",
+    "answer": "Ascension",
+    "choices": [
+      "Ascension",
+      "Moon",
+      "Call Of The Dead",
+      "Die Rise"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_117",
+    "question": "In \"PUBATTLEGROUNDS\" what is the name of the Military Base island?",
+    "answer": "Sosnovka",
+    "choices": [
+      "Mylta",
+      "Novorepnoye",
+      "Sosnovka",
+      "Yasnaya"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_118",
+    "question": "In the 2002 video game \"Kingdom Hearts\", how many playable worlds were there?",
+    "answer": "14",
+    "choices": [
+      "13",
+      "11",
+      "14",
+      "16"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_119",
+    "question": "Which of these is not a Fallout protagonist?",
+    "answer": "Tunnel Snake",
+    "choices": [
+      "Lone Wanderer",
+      "Vault Dweller",
+      "Courier",
+      "Tunnel Snake"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_120",
+    "question": "What was the first \"Team Fortress 2\" update to include a war?",
+    "answer": "Sniper vs. Spy Update",
+    "choices": [
+      "Spy Vs. Engineer Update",
+      "Sniper vs. Spy Update",
+      "Meet Your Match Update",
+      "WAR! Update"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_121",
+    "question": "Who developed the 2016 farming RPG \"Stardew Valley\"?",
+    "answer": "Eric Barone",
+    "choices": [
+      "Jasper Byrne",
+      "Eric Barone",
+      "Daisuke Amaya",
+      "Lucas Pope"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_122",
+    "question": "In the Half-Life 2 universe, how long did it take for the Combine to take complete control of the earth?",
+    "answer": "7 hours",
+    "choices": [
+      "24 hours",
+      "3 months",
+      "1 week",
+      "7 hours"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_123",
+    "question": "What mainly favored rifle is used by the Terrorists in Counter Strike: Global Offensive?",
+    "answer": "AK-47",
+    "choices": [
+      "AK-47",
+      "M4A4",
+      "AK-74",
+      "CZ-75 AUTO"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_124",
+    "question": "The protagonist in the game \"Cave Story\" is named",
+    "answer": "Quote",
+    "choices": [
+      "Curly",
+      "Quote",
+      "Arthur",
+      "Kazuma"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_125",
+    "question": "Which company developed the MMO Spiral Knights (2011)?",
+    "answer": "Three Rings Design",
+    "choices": [
+      "Three Rings Design",
+      "Double Fine",
+      "Electronic Arts",
+      "Sega"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_126",
+    "question": "Who is the main antagonist of Silent Hill 4?",
+    "answer": "Walter Sullivan",
+    "choices": [
+      "Walter Sullivan",
+      "Alessa Gillespie",
+      "Claudia Wolf",
+      "Pyramid Head"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_127",
+    "question": "The walls of the Goldenrod City Gym in \"Pokémon Gold and Silver\" are arranged in the shape of which Pokémon?",
+    "answer": "Clefairy",
+    "choices": [
+      "Bulbasaur",
+      "Pikachu",
+      "Clefairy",
+      "Pidgey"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_128",
+    "question": "In the PAYDAY series, who is the iconic leader of the PAYDAY gang?",
+    "answer": "Dallas",
+    "choices": [
+      "Chains",
+      "Dallas",
+      "Hoxton",
+      "Wolf"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_129",
+    "question": "Which video game earned music composer Mike Morasky the most awards for his work?",
+    "answer": "Portal 2",
+    "choices": [
+      "Portal 2",
+      "Left 4 Dead 2",
+      "Team Fortress 2",
+      "Counter-Strike: Global Offensive"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_130",
+    "question": "Which one of these nations was added to Civilization V with the \"Gods & Kings\" expansion?",
+    "answer": "The Netherlands",
+    "choices": [
+      "The Zulu",
+      "The Kongo",
+      "The Ottomans",
+      "The Netherlands"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_131",
+    "question": "How many zombies need to be killed to get the \"Zombie Genocider\" achievement in Dead Rising (2006)?",
+    "answer": "53,594",
+    "choices": [
+      "53,596",
+      "53,594",
+      "53,595",
+      "53,593"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_132",
+    "question": "In the Pokémon series, which type is Sudowoodo, the Imitation Pokémon?",
+    "answer": "Rock",
+    "choices": [
+      "Bug",
+      "Ground",
+      "Rock",
+      "Grass"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_133",
+    "question": "In Team Fortress 2, which class wields a shotgun?",
+    "answer": "Everyone Listed",
+    "choices": [
+      "Soldier",
+      "Everyone Listed",
+      "Heavy",
+      "Engineer"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_134",
+    "question": "Which \"Perk-A-Cola\" in \"Call Of Duty: Zombies\" was \"reworked\" in \"Call of Duty: Black Ops II\"?",
+    "answer": "Double Tap Root Beer",
+    "choices": [
+      "Who's Who",
+      "Mule Kick",
+      "Juggernog",
+      "Double Tap Root Beer"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_135",
+    "question": "Which team won the first Overwatch League championship?",
+    "answer": "London Spitfire",
+    "choices": [
+      "London Spitfire",
+      "Philadelphia Fusion",
+      "New York Excelsior",
+      "Seoul Dynasty"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_136",
+    "question": "Which of these is NOT a game under the Worms series?",
+    "answer": "Major Malfunction",
+    "choices": [
+      "Major Malfunction",
+      "Crazy Golf",
+      "Clan Wars",
+      "Ultimate Mayhem"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_137",
+    "question": "What is not a playable race in \"Final Fantasy XIV: A Realm Reborn\"?",
+    "answer": "Hume",
+    "choices": [
+      "Lalafell",
+      "Hume",
+      "Roegadyn",
+      "Miqo'te"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_138",
+    "question": "In Sid Meier's Civilization V, which World Wonder can only be built in cities on or next to a desert?",
+    "answer": "Petra",
+    "choices": [
+      "Mausoleum of Maussollos",
+      "Petra",
+      "Alhambra",
+      "The Pyramids"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_139",
+    "question": "Who is the main character of \"Metal Gear Solid 3\"?",
+    "answer": "Naked Snake",
+    "choices": [
+      "Naked Snake",
+      "Solid Snake",
+      "Venom Snake",
+      "Liquid Snake"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_140",
+    "question": "In Terraria, which of these items is NOT crafted at a Mythril Anvil?",
+    "answer": "Ankh Charm",
+    "choices": [
+      "Venom Staff",
+      "Sky Fracture",
+      "Ankh Charm",
+      "Orichalcum Tools"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_141",
+    "question": "Which of these is NOT the name of a team leader in Pokémon GO?",
+    "answer": "Leif",
+    "choices": [
+      "Candela",
+      "Leif",
+      "Blanche",
+      "Spark"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_142",
+    "question": "Sean Bean voices the character of \"Martin Septim\" in which Elder Scrolls game?",
+    "answer": "The Elder Scrolls IV: Oblivion",
+    "choices": [
+      "The Elder Scrolls IV: Oblivion",
+      "The Elder Scrolls Online",
+      "The Elder Scrolls V: Skyrim",
+      "The Elder Scrolls III: Morrowind "
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_143",
+    "question": "Who was the first female protagonist in a video game?",
+    "answer": "Samus Aran",
+    "choices": [
+      "Lara Croft",
+      "Samus Aran",
+      "Alis Landale",
+      "Chell"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_144",
+    "question": "What Sims console game featured the Black Eyed Peas in the game?",
+    "answer": "The Urbz: Sims In The City",
+    "choices": [
+      "The Sims",
+      "The Urbz: Sims In The City",
+      "The Sims 2",
+      "The Sims: Bustin Out"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_145",
+    "question": "Which of the following Copy Abilities was only featured in \"Kirby & The Amazing Mirror\"?",
+    "answer": "Mini",
+    "choices": [
+      "Missile",
+      "Smash",
+      "Magic",
+      "Mini"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_146",
+    "question": "What CS:GO case contains the Butterfly Knife?",
+    "answer": "Breakout Case",
+    "choices": [
+      "Esports 2014 Case",
+      "Shadow Case",
+      "Breakout Case",
+      "Vanguard Case"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_147",
+    "question": "In Minecraft, how many items can a single piece of coal smelt when used in a furnace?",
+    "answer": "8",
+    "choices": [
+      "12",
+      "10",
+      "8",
+      "6"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_148",
+    "question": "In the \"Pikmin\" series, what is the only pikmin type to possess visible ears?",
+    "answer": "Yellow",
+    "choices": [
+      "Yellow",
+      "Red",
+      "White",
+      "Winged"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  },
+  {
+    "id": "vg_medium_149",
+    "question": "In Dota 2, what is Earthshaker's real name?",
+    "answer": "Raigor Stonehoof",
+    "choices": [
+      "Barathrum",
+      "Carl",
+      "Raigor Stonehoof",
+      "Banehallow Ambry"
+    ],
+    "type": "multiple_choice",
+    "point_value": 2,
+    "category": "videogames",
+    "metadata": {
+      "difficulty": "medium",
+      "source": "opentdb"
+    }
+  }
+]

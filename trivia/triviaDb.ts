@@ -20,6 +20,8 @@ export interface TriviaActiveQuestion {
   readonly question: string;
   readonly answer: string;
   readonly acceptable_answers: string[] | null;  // PostgreSQL TEXT[] returns as JS array
+  readonly choices: string[] | null;
+  readonly type: 'multiple_choice' | 'free_form';
   readonly point_value: number;
   readonly source_data: string | null;
   readonly channel_id: string;
@@ -64,6 +66,8 @@ export interface SaveActiveQuestionData {
   readonly question: string;
   readonly answer: string;
   readonly acceptableAnswers: string | null;
+  readonly choices: string[] | null;
+  readonly type: 'multiple_choice' | 'free_form';
   readonly pointValue: number;
   readonly sourceData: string | null;
   readonly channelId: string;
@@ -130,16 +134,23 @@ export async function getAnyActiveQuestion(): Promise<TriviaActiveQuestion | nul
 export async function saveActiveQuestion(
   data: SaveActiveQuestionData
 ): Promise<TriviaActiveQuestion> {
-  // Convert Date to ISO string for SQL
   const windowClosesAt = data.windowClosesAt instanceof Date
     ? data.windowClosesAt.toISOString()
     : data.windowClosesAt;
 
+  // Format choices as PostgreSQL array literal if present
+  // Escape backslashes first, then quotes (order matters)
+  const escapeForPgArray = (s: string): string =>
+    s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const choicesArray = data.choices?.length
+    ? `{${data.choices.map(c => `"${escapeForPgArray(c)}"`).join(',')}}`
+    : null;
+
   const result = await sql<TriviaActiveQuestion>`
     INSERT INTO trivia_active
-      (category, question_id, question, answer, acceptable_answers, point_value, source_data, channel_id, window_closes_at)
+      (category, question_id, question, answer, acceptable_answers, choices, type, point_value, source_data, channel_id, window_closes_at)
     VALUES
-      (${data.category}, ${data.questionId}, ${data.question}, ${data.answer}, ${data.acceptableAnswers}, ${data.pointValue}, ${data.sourceData}, ${data.channelId}, ${windowClosesAt})
+      (${data.category}, ${data.questionId}, ${data.question}, ${data.answer}, ${data.acceptableAnswers}, ${choicesArray}, ${data.type}, ${data.pointValue}, ${data.sourceData}, ${data.channelId}, ${windowClosesAt})
     RETURNING *
   `;
   return result.rows[0];
@@ -356,6 +367,109 @@ export async function getCurrentMonthLeaderboard(limit: number = 10): Promise<{ 
     LIMIT ${limit}
   `;
   return result.rows;
+}
+
+/**
+ * Get leaderboard for a specific date range
+ */
+export async function getLeaderboardForDateRange(
+  startDate: Date,
+  endDate: Date,
+  limit: number = 10
+): Promise<{ user_id: string; username: string; points: number }[]> {
+  const result = await sql<{ user_id: string; username: string; points: number }>`
+    SELECT
+      ta.user_id,
+      ta.username,
+      SUM(taq.point_value) as points
+    FROM trivia_answers ta
+    JOIN trivia_active taq ON ta.question_id = taq.id
+    WHERE ta.is_correct = TRUE
+      AND taq.sent_at >= ${startDate.toISOString()}
+      AND taq.sent_at <= ${endDate.toISOString()}
+    GROUP BY ta.user_id, ta.username
+    ORDER BY points DESC
+    LIMIT ${limit}
+  `;
+  return result.rows;
+}
+
+/**
+ * Save monthly season results
+ */
+export async function saveSeasonResults(
+  yearMonth: string,
+  winners: { userId: string; username: string; points: number }[]
+): Promise<void> {
+  const [first, second, third] = winners;
+
+  await sql`
+    INSERT INTO trivia_seasons (
+      year_month,
+      first_place_user_id, first_place_username, first_place_points,
+      second_place_user_id, second_place_username, second_place_points,
+      third_place_user_id, third_place_username, third_place_points
+    ) VALUES (
+      ${yearMonth},
+      ${first?.userId ?? null}, ${first?.username ?? null}, ${first?.points ?? 0},
+      ${second?.userId ?? null}, ${second?.username ?? null}, ${second?.points ?? 0},
+      ${third?.userId ?? null}, ${third?.username ?? null}, ${third?.points ?? 0}
+    )
+    ON CONFLICT (year_month) DO UPDATE SET
+      first_place_user_id = EXCLUDED.first_place_user_id,
+      first_place_username = EXCLUDED.first_place_username,
+      first_place_points = EXCLUDED.first_place_points,
+      second_place_user_id = EXCLUDED.second_place_user_id,
+      second_place_username = EXCLUDED.second_place_username,
+      second_place_points = EXCLUDED.second_place_points,
+      third_place_user_id = EXCLUDED.third_place_user_id,
+      third_place_username = EXCLUDED.third_place_username,
+      third_place_points = EXCLUDED.third_place_points,
+      ended_at = NOW()
+  `;
+}
+
+/**
+ * Mark season rewards as paid
+ */
+export async function markSeasonRewardsPaid(yearMonth: string): Promise<void> {
+  await sql`
+    UPDATE trivia_seasons
+    SET rewards_paid = TRUE
+    WHERE year_month = ${yearMonth}
+  `;
+}
+
+/**
+ * Get season results
+ */
+export async function getSeasonResults(yearMonth: string): Promise<{
+  first_place_user_id: string | null;
+  first_place_username: string | null;
+  first_place_points: number;
+  second_place_user_id: string | null;
+  second_place_username: string | null;
+  second_place_points: number;
+  third_place_user_id: string | null;
+  third_place_username: string | null;
+  third_place_points: number;
+  rewards_paid: boolean;
+} | null> {
+  const result = await sql<{
+    first_place_user_id: string | null;
+    first_place_username: string | null;
+    first_place_points: number;
+    second_place_user_id: string | null;
+    second_place_username: string | null;
+    second_place_points: number;
+    third_place_user_id: string | null;
+    third_place_username: string | null;
+    third_place_points: number;
+    rewards_paid: boolean;
+  }>`
+    SELECT * FROM trivia_seasons WHERE year_month = ${yearMonth}
+  `;
+  return result.rows[0] ?? null;
 }
 
 /**

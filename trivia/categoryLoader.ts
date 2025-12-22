@@ -16,6 +16,8 @@ export interface TriviaQuestion {
   readonly question: string;
   readonly answer: string;
   readonly acceptable_answers?: readonly string[];
+  readonly choices?: readonly string[];  // For multiple choice (A/B/C/D options)
+  readonly type: 'multiple_choice' | 'free_form';
   readonly point_value?: number;
   readonly metadata?: Record<string, unknown>;
 }
@@ -35,6 +37,7 @@ const questionCache = new Map<string, TriviaQuestion[]>();
 const categoryColors: Record<string, number> = {
   nfl: 0x013369,      // NFL navy blue
   wpfl: 0x00ff88,     // WPFL bright green
+  videogames: 0x9146ff, // Twitch purple (gaming)
   default: 0x5865f2,  // Discord blurple
 };
 
