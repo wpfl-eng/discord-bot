@@ -14,13 +14,11 @@ import {
   TextChannel,
 } from 'discord.js';
 import * as nflmonDb from '../../nflmon/nflmonDb.js';
-import type { Nflmon, NflmonTrade, LeaderboardCategory } from '../../nflmon/nflmonDb.js';
+import type { Nflmon, NflmonTrade } from '../../nflmon/nflmonDb.js';
 import * as nflmonService from '../../nflmon/nflmonService.js';
 import { TRADE_ERRORS } from '../../nflmon/nflmonService.js';
-import type { DisplayData, PendingTrade, LeaderboardEntry } from '../../nflmon/nflmonService.js';
-import { getSellValue, formatRarity } from '../../nflmon/nflmonConfig.js';
-import type { EvolutionStage } from '../../nflmon/nflmonConfig.js';
-import { formatCurrency } from '../../economy/economyConfig.js';
+import type { DisplayData, PendingTrade } from '../../nflmon/nflmonService.js';
+import { formatRarity } from '../../nflmon/nflmonConfig.js';
 
 // =============================================================================
 // CONSTANTS
@@ -30,7 +28,6 @@ const ITEMS_PER_PAGE = 10;
 
 const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "NFLmon not found or doesn't belong to you.",
-  IN_TRAINING: 'You must untrain this NFLmon before selling.',
   INVALID_SLOT: 'Invalid training slot. Check your available slots with `/nflmon stats`.',
   SLOT_OCCUPIED: 'That training slot is already in use.',
   NOT_IN_TRAINING: 'This NFLmon is not currently in training.',
@@ -77,41 +74,6 @@ function buildPaginationButtons(
   );
 
   return [row];
-}
-
-/**
- * Build sell confirmation buttons
- */
-function buildSellConfirmButtons(nflmonId: number): ActionRowBuilder<ButtonBuilder>[] {
-  return [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`nflmon_sell_confirm_${nflmonId}`)
-        .setLabel('Confirm Sell')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(`nflmon_sell_cancel`)
-        .setLabel('Cancel')
-        .setStyle(ButtonStyle.Secondary)
-    ),
-  ];
-}
-
-/**
- * Build evolution success embed
- */
-function buildEvolutionEmbed(displayData: DisplayData, newStage: EvolutionStage): EmbedBuilder {
-  const { player } = displayData;
-
-  return new EmbedBuilder()
-    .setColor(displayData.rarityColor)
-    .setTitle(`${newStage.emoji} Evolution Complete!`)
-    .setThumbnail(player.imageUrl)
-    .setDescription(
-      `**${displayData.displayName}** evolved to **${newStage.name}**!\n\n` +
-        `**Team:** ${player.team} | **Position:** ${player.position}\n` +
-        `**Level:** ${displayData.level} | **Rarity:** ${displayData.rarityName}`
-    );
 }
 
 /**
@@ -259,59 +221,8 @@ export const data = new SlashCommandBuilder()
       )
   )
 
-  // nickname <id> [name]
-  .addSubcommand((sub) =>
-    sub
-      .setName('nickname')
-      .setDescription('Set or clear NFLmon nickname')
-      .addIntegerOption((opt) =>
-        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
-      )
-      .addStringOption((opt) =>
-        opt.setName('name').setDescription('New nickname (leave empty to clear)').setMaxLength(50)
-      )
-  )
-
-  // evolve <id>
-  .addSubcommand((sub) =>
-    sub
-      .setName('evolve')
-      .setDescription('Evolve your NFLmon to the next stage')
-      .addIntegerOption((opt) =>
-        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
-      )
-  )
-
-  // sell <id>
-  .addSubcommand((sub) =>
-    sub
-      .setName('sell')
-      .setDescription('Sell an NFLmon for coins')
-      .addIntegerOption((opt) =>
-        opt.setName('id').setDescription('NFLmon ID').setRequired(true).setAutocomplete(true)
-      )
-  )
-
   // stats
   .addSubcommand((sub) => sub.setName('stats').setDescription('View your NFLmon statistics'))
-
-  // leaderboard [category]
-  .addSubcommand((sub) =>
-    sub
-      .setName('leaderboard')
-      .setDescription('View NFLmon rankings')
-      .addStringOption((opt) =>
-        opt
-          .setName('category')
-          .setDescription('Leaderboard category')
-          .addChoices(
-            { name: 'Total Caught', value: 'total_caught' },
-            { name: 'Legendaries', value: 'legendary_count' },
-            { name: 'Highest Level', value: 'highest_level_reached' },
-            { name: 'Total Evolved', value: 'total_evolved' }
-          )
-      )
-  )
 
   // dex [search] [rarity] [page]
   .addSubcommand((sub) =>
@@ -419,20 +330,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     case 'untrain':
       await handleUntrain(interaction);
       break;
-    case 'nickname':
-      await handleNickname(interaction);
-      break;
-    case 'evolve':
-      await handleEvolve(interaction);
-      break;
-    case 'sell':
-      await handleSell(interaction);
-      break;
     case 'stats':
       await handleStats(interaction);
-      break;
-    case 'leaderboard':
-      await handleLeaderboard(interaction);
       break;
     case 'dex':
       await handleDex(interaction);
@@ -701,226 +600,6 @@ async function handleUntrain(interaction: ChatInputCommandInteraction): Promise<
 }
 
 /**
- * Handle /nflmon nickname
- */
-async function handleNickname(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
-
-  try {
-    const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger('id', true);
-    const newName = interaction.options.getString('name') || null;
-
-    // Update nickname
-    const result = await nflmonDb.setNickname(userId, nflmonId, newName);
-    if (!result) {
-      await interaction.editReply({ content: ERROR_MESSAGES.NOT_FOUND });
-      return;
-    }
-
-    const player = nflmonService.getPlayer(result.player_id);
-    const originalName = player?.name || 'Unknown';
-
-    const embed = new EmbedBuilder().setColor(0x3498db);
-
-    if (newName) {
-      embed
-        .setTitle('Nickname Set!')
-        .setDescription(`**${originalName}** is now nicknamed **${newName}**.`);
-    } else {
-      embed
-        .setTitle('Nickname Cleared')
-        .setDescription(`Nickname removed. Now using original name: **${originalName}**.`);
-    }
-
-    await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
-    console.error('[NFLMON] nickname error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await interaction.editReply({
-      content: `An error occurred: ${errorMessage}`,
-    });
-  }
-}
-
-/**
- * Handle /nflmon evolve
- */
-async function handleEvolve(interaction: ChatInputCommandInteraction): Promise<void> {
-  // Evolve is PUBLIC (achievement moment)
-  await interaction.deferReply({ ephemeral: false });
-
-  try {
-    const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger('id', true);
-
-    // Get NFLmon
-    const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
-    if (!nflmon) {
-      await interaction.editReply({ content: ERROR_MESSAGES.NOT_FOUND });
-      return;
-    }
-
-    // Get display data to check evolution status
-    const displayData = nflmonService.getDisplayData(nflmon);
-    if (!displayData) {
-      await interaction.editReply({ content: 'Error loading NFLmon data.' });
-      return;
-    }
-
-    // Check if can evolve
-    if (!displayData.canEvolve) {
-      await interaction.editReply({
-        content: displayData.evolutionReason || 'This NFLmon cannot evolve right now.',
-      });
-      return;
-    }
-
-    // Perform evolution
-    const evolved = await nflmonDb.evolveNflmon(userId, nflmonId, displayData.nextStage!.id);
-
-    if (!evolved) {
-      await interaction.editReply({ content: 'Evolution failed.' });
-      return;
-    }
-
-    // Build and send evolution embed
-    const embed = buildEvolutionEmbed(displayData, displayData.nextStage!);
-    await interaction.editReply({ embeds: [embed] });
-
-    console.log(
-      `[NFLMON] ${interaction.user.username}'s ${displayData.displayName} evolved to ${displayData.nextStage!.name}`
-    );
-  } catch (error) {
-    console.error('[NFLMON] evolve error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await interaction.editReply({
-      content: `An error occurred: ${errorMessage}`,
-    });
-  }
-}
-
-/**
- * Handle /nflmon sell
- */
-async function handleSell(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
-
-  try {
-    const userId = interaction.user.id;
-    const nflmonId = interaction.options.getInteger('id', true);
-
-    // Get NFLmon for display
-    const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
-    if (!nflmon) {
-      await interaction.editReply({ content: ERROR_MESSAGES.NOT_FOUND });
-      return;
-    }
-
-    // Check if in training
-    if (nflmon.training_slot !== null) {
-      await interaction.editReply({ content: ERROR_MESSAGES.IN_TRAINING });
-      return;
-    }
-
-    const player = nflmonService.getPlayer(nflmon.player_id);
-    const name = nflmon.nickname || player?.name || 'Unknown';
-    const sellValue = getSellValue(nflmon.rarity);
-    const rarityName = formatRarity(nflmon.rarity);
-
-    // Show confirmation
-    const embed = new EmbedBuilder()
-      .setColor(0xff0000)
-      .setTitle('Confirm Sale')
-      .setDescription(
-        `Are you sure you want to sell **${name}**?\n\n` +
-          `**Rarity:** ${rarityName}\n` +
-          `**Level:** ${nflmon.level}\n` +
-          `**Sell Value:** ${formatCurrency(sellValue)}\n\n` +
-          `This action cannot be undone!`
-      );
-
-    const components = buildSellConfirmButtons(nflmonId);
-
-    const response = await interaction.editReply({
-      embeds: [embed],
-      components,
-    });
-
-    // Handle confirmation
-    const collector = response.createMessageComponentCollector({
-      componentType: ComponentType.Button,
-      time: 30000,
-      filter: (i: ButtonInteraction) => i.user.id === userId,
-    });
-
-    collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
-      if (buttonInteraction.customId === 'nflmon_sell_cancel') {
-        await buttonInteraction.update({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0x808080)
-              .setTitle('Sale Cancelled')
-              .setDescription('You decided not to sell.'),
-          ],
-          components: [],
-        });
-        collector.stop();
-        return;
-      }
-
-      // Confirm sell
-      const result = await nflmonDb.sellNflmon(userId, nflmonId);
-
-      if (!result.success) {
-        const errorMsg = ERROR_MESSAGES[result.error] || 'Sale failed.';
-        await buttonInteraction.update({
-          embeds: [
-            new EmbedBuilder().setColor(0xff0000).setTitle('Sale Failed').setDescription(errorMsg),
-          ],
-          components: [],
-        });
-        collector.stop();
-        return;
-      }
-
-      await buttonInteraction.update({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x00ff00)
-            .setTitle('Sale Complete!')
-            .setDescription(`You sold **${name}** for ${formatCurrency(result.value)}!`),
-        ],
-        components: [],
-      });
-      collector.stop();
-    });
-
-    collector.on('end', async (_, reason) => {
-      if (reason === 'time') {
-        await interaction
-          .editReply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0x808080)
-                .setTitle('Sale Expired')
-                .setDescription('Confirmation timed out.'),
-            ],
-            components: [],
-          })
-          .catch(() => {});
-      }
-    });
-  } catch (error) {
-    console.error('[NFLMON] sell error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await interaction.editReply({
-      content: `An error occurred: ${errorMessage}`,
-    });
-  }
-}
-
-/**
  * Handle /nflmon stats
  */
 async function handleStats(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -939,35 +618,6 @@ async function handleStats(interaction: ChatInputCommandInteraction): Promise<vo
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
     console.error('[NFLMON] stats error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await interaction.editReply({
-      content: `An error occurred: ${errorMessage}`,
-    });
-  }
-}
-
-/**
- * Handle /nflmon leaderboard
- */
-async function handleLeaderboard(interaction: ChatInputCommandInteraction): Promise<void> {
-  // Leaderboard is PUBLIC
-  await interaction.deferReply({ ephemeral: false });
-
-  try {
-    const category = (interaction.options.getString('category') || 'total_caught') as LeaderboardCategory;
-
-    // Get leaderboard entries
-    const dbEntries = await nflmonDb.getLeaderboard(category, 10);
-    // Convert to service layer LeaderboardEntry type (filter out null usernames)
-    const entries: LeaderboardEntry[] = dbEntries
-      .filter((e) => e.username !== null)
-      .map((e) => ({ username: e.username!, value: e.value }));
-
-    // Build and send leaderboard embed
-    const embed = nflmonService.buildLeaderboardEmbed(entries, category);
-    await interaction.editReply({ embeds: [embed] });
-  } catch (error) {
-    console.error('[NFLMON] leaderboard error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await interaction.editReply({
       content: `An error occurred: ${errorMessage}`,
