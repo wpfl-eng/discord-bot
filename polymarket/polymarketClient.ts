@@ -165,6 +165,14 @@ function isValidMarket(market: PolymarketMarket): boolean {
 }
 
 /**
+ * Check if market is competitive (not lopsided)
+ * Returns false if any outcome exceeds MAX_COMPETITIVE_PRICE threshold
+ */
+function isCompetitiveMarket(market: MarketDisplay): boolean {
+  return market.outcomes.every((o) => o.price <= CONFIG.MAX_COMPETITIVE_PRICE);
+}
+
+/**
  * Transform API market to display format
  */
 function transformMarket(market: PolymarketMarket): MarketDisplay {
@@ -203,8 +211,8 @@ export async function getMarketsByTag(
   limit: number = API_CONFIG.DEFAULT_MARKET_LIMIT
 ): Promise<MarketDisplay[]> {
   try {
-    // Fetch extra markets to account for volume filtering
-    const fetchLimit = limit * 3;
+    // Fetch extra markets to account for volume and competitive filtering
+    const fetchLimit = limit * 5;
     const url = `${API_CONFIG.BASE_URL}/markets?tag_id=${tagId}&closed=false&limit=${fetchLimit}&order=volume&ascending=false`;
     console.log(`[Polymarket] Fetching markets for tag_id=${tagId}`);
     const response = await throttledFetch(url);
@@ -216,8 +224,10 @@ export async function getMarketsByTag(
 
     const markets = (await response.json()) as PolymarketMarket[];
     const transformed = markets.filter(isValidMarket).map(transformMarket);
-    const filtered = transformed.filter(m => m.volume >= CONFIG.MIN_MARKET_VOLUME);
-    console.log(`[Polymarket] Found ${markets.length} markets for tag_id=${tagId}, ${filtered.length} above volume threshold`);
+    const filtered = transformed
+      .filter((m) => m.volume >= CONFIG.MIN_MARKET_VOLUME)
+      .filter(isCompetitiveMarket);
+    console.log(`[Polymarket] Found ${markets.length} markets for tag_id=${tagId}, ${filtered.length} competitive with volume`);
     return filtered.slice(0, limit);
   } catch (error) {
     console.error('[Polymarket] Error fetching markets by tag:', error);
@@ -227,12 +237,15 @@ export async function getMarketsByTag(
 
 /**
  * Get popular/trending markets by volume (no tag filter)
+ * Filters to only show competitive markets (not lopsided)
  */
 export async function getPopularMarkets(
   limit: number = API_CONFIG.DEFAULT_MARKET_LIMIT
 ): Promise<MarketDisplay[]> {
   try {
-    const url = `${API_CONFIG.BASE_URL}/markets?closed=false&limit=${limit}&order=volume&ascending=false`;
+    // Fetch extra markets to account for competitive filtering
+    const fetchLimit = limit * 5;
+    const url = `${API_CONFIG.BASE_URL}/markets?closed=false&limit=${fetchLimit}&order=volume&ascending=false`;
     const response = await throttledFetch(url);
 
     if (!response.ok) {
@@ -241,7 +254,11 @@ export async function getPopularMarkets(
     }
 
     const markets = (await response.json()) as PolymarketMarket[];
-    return markets.filter(isValidMarket).map(transformMarket);
+    return markets
+      .filter(isValidMarket)
+      .map(transformMarket)
+      .filter(isCompetitiveMarket)
+      .slice(0, limit);
   } catch (error) {
     console.error('Error fetching popular markets:', error);
     return [];
