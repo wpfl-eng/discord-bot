@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
-import { formatCurrency, CURRENCY_EMOJI } from '../../economy/economyConfig.js';
-import type { EconomyLeaderboardEntry, EconomyUser } from '../../types/database.js';
+import { formatLargeNumber, CURRENCY_EMOJI } from '../../economy/economyConfig.js';
+import type { TotalWealthEntry } from '../../types/database.js';
 
 export const data = new SlashCommandBuilder()
   .setName('eleaderboard')
@@ -17,8 +17,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     // Ensure current user exists in the database
     await economyDb.getOrCreateUser(userId, username);
 
-    // Get leaderboard
-    const leaderboard: EconomyLeaderboardEntry[] = await economyDb.getLeaderboard(10);
+    // Get total wealth leaderboard
+    const leaderboard: TotalWealthEntry[] = await economyDb.getTotalWealthLeaderboard(10);
 
     if (leaderboard.length === 0) {
       await interaction.editReply({
@@ -28,17 +28,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     // Get current user's rank
-    const userRank: number | null = await economyDb.getUserRank(userId);
+    const userRank: number | null = await economyDb.getTotalWealthUserRank(userId);
     const totalUsers: number = await economyDb.getTotalUsers();
 
     // Build leaderboard text
     const medals: string[] = ['🥇', '🥈', '🥉'];
     const leaderboardText: string = leaderboard
-      .map((entry: EconomyLeaderboardEntry, index: number) => {
+      .map((entry: TotalWealthEntry, index: number) => {
         const medal: string = medals[index] || `${index + 1}.`;
         const isCurrentUser: boolean = entry.user_id === userId;
         const highlight: string = isCurrentUser ? '**' : '';
-        return `${medal} ${highlight}${entry.username}${highlight} - ${formatCurrency(entry.total_wealth)}`;
+        return `${medal} ${highlight}${entry.username}${highlight} - ${formatLargeNumber(entry.total_wealth)}`;
       })
       .join('\n');
 
@@ -49,15 +49,15 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       .setTimestamp()
       .setFooter({ text: `Your rank: #${userRank} of ${totalUsers}` });
 
-    // If user is not in top 10, show their position
-    const userInTop10: boolean = leaderboard.some((entry: EconomyLeaderboardEntry) => entry.user_id === userId);
+    // If user is not in top 10, show their position with breakdown
+    const userInTop10: boolean = leaderboard.some((entry: TotalWealthEntry) => entry.user_id === userId);
     if (!userInTop10 && userRank) {
-      const currentUser: EconomyUser | null = await economyDb.getUser(userId);
-      if (currentUser) {
-        const totalWealth: number = currentUser.wallet + currentUser.bank;
+      const userWealth: TotalWealthEntry | null = await economyDb.getUserTotalWealth(userId);
+      if (userWealth) {
+        const breakdown = `💵 ${Math.floor(userWealth.cash_wealth).toLocaleString()} | 📈 ${Math.floor(userWealth.stock_wealth).toLocaleString()} | 📦 ${Math.floor(userWealth.inventory_wealth).toLocaleString()}`;
         embed.addFields({
-          name: 'Your Position',
-          value: `#${userRank} - ${formatCurrency(totalWealth)}`,
+          name: `Your Position: #${userRank}`,
+          value: `${formatLargeNumber(userWealth.total_wealth)}\n${breakdown}`,
           inline: false,
         });
       }
@@ -65,10 +65,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error: unknown) {
-    console.error('eleaderboard command error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[ELEADERBOARD] Error:', error);
     await interaction.editReply({
-      content: `An error occurred: ${message}`,
+      content: 'An error occurred while fetching the leaderboard. Please try again.',
     });
   }
 }
