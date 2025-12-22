@@ -139,8 +139,11 @@ export async function saveActiveQuestion(
     : data.windowClosesAt;
 
   // Format choices as PostgreSQL array literal if present
+  // Escape backslashes first, then quotes (order matters)
+  const escapeForPgArray = (s: string): string =>
+    s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const choicesArray = data.choices?.length
-    ? `{${data.choices.map(c => `"${c.replace(/"/g, '\\"')}"`).join(',')}}`
+    ? `{${data.choices.map(c => `"${escapeForPgArray(c)}"`).join(',')}}`
     : null;
 
   const result = await sql<TriviaActiveQuestion>`

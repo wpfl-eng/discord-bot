@@ -34,6 +34,19 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
  * @param availableCategories - Categories with unasked questions
  * @returns Selected category name
  */
+/**
+ * Fisher-Yates shuffle algorithm
+ * Returns a new shuffled array (does not mutate original)
+ */
+function shuffleArray<T>(array: readonly T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 function selectWeightedCategory(availableCategories: string[]): string {
   // Filter to categories with defined weights
   const weighted = availableCategories.filter((c) => c in CATEGORY_WEIGHTS);
@@ -412,16 +425,25 @@ export class TriviaService {
 
       // Save to active questions
       // Format array as PostgreSQL array literal: {"value1","value2"}
+      // Escape backslashes first, then quotes (order matters for PostgreSQL)
+      const escapeForPgArray = (s: string): string =>
+        s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const acceptableAnswers = selectedQuestion.acceptable_answers?.length
-        ? `{${selectedQuestion.acceptable_answers.map(a => `"${a.replace(/"/g, '\\"')}"`).join(',')}}`
+        ? `{${selectedQuestion.acceptable_answers.map(a => `"${escapeForPgArray(a)}"`).join(',')}}`
         : null;
+
+      // Shuffle choices for multiple choice questions to randomize answer position
+      const shuffledChoices = selectedQuestion.choices
+        ? shuffleArray(selectedQuestion.choices)
+        : null;
+
       const activeQuestion = await triviaDb.saveActiveQuestion({
         category,
         questionId: selectedQuestion.id != null ? String(selectedQuestion.id) : null,
         question: selectedQuestion.question,
         answer: selectedQuestion.answer,
         acceptableAnswers,
-        choices: selectedQuestion.choices ? [...selectedQuestion.choices] : null,
+        choices: shuffledChoices,
         type: selectedQuestion.type,
         pointValue: selectedQuestion.point_value || 1,
         sourceData: selectedQuestion.metadata
@@ -431,12 +453,15 @@ export class TriviaService {
         windowClosesAt,
       });
 
-      // Build and send embed
-      const embed = this.buildQuestionEmbed(selectedQuestion, category, windowClosesAt);
+      // Build and send embed - use shuffled choices for display
+      const questionForEmbed = shuffledChoices
+        ? { ...selectedQuestion, choices: shuffledChoices }
+        : selectedQuestion;
+      const embed = this.buildQuestionEmbed(questionForEmbed, category, windowClosesAt);
 
-      // Add buttons for multiple choice questions
-      if (selectedQuestion.type === 'multiple_choice' && selectedQuestion.choices) {
-        const row = this.buildChoiceButtons(activeQuestion.id, selectedQuestion.choices);
+      // Add buttons for multiple choice questions - use shuffled choices
+      if (selectedQuestion.type === 'multiple_choice' && shuffledChoices) {
+        const row = this.buildChoiceButtons(activeQuestion.id, shuffledChoices);
         await (channel as TextChannel).send({ embeds: [embed], components: [row] });
       } else {
         await (channel as TextChannel).send({ embeds: [embed] });
@@ -491,13 +516,23 @@ export class TriviaService {
       };
     }
 
+    // For multiple choice questions, convert A/B/C/D to actual choice text
+    let normalizedAnswer = userAnswer;
+    if (activeQuestion.choices && activeQuestion.choices.length > 0) {
+      const letterMap: Record<string, number> = { a: 0, b: 1, c: 2, d: 3 };
+      const letterIndex = letterMap[userAnswer.toLowerCase().trim()];
+      if (letterIndex !== undefined && letterIndex < activeQuestion.choices.length) {
+        normalizedAnswer = activeQuestion.choices[letterIndex];
+      }
+    }
+
     // Check the answer - spread to convert readonly to mutable for checkAnswer
     const questionData = {
       answer: activeQuestion.answer,
       acceptable_answers: activeQuestion.acceptable_answers ? [...activeQuestion.acceptable_answers] : [],
     };
 
-    const isCorrect = checkAnswer(userAnswer, questionData);
+    const isCorrect = checkAnswer(normalizedAnswer, questionData);
 
     // Record the answer (this increments attempt_count)
     const recorded = (await triviaDb.recordAnswer({

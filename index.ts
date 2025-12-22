@@ -203,7 +203,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton() && interaction.customId.startsWith('trivia_')) {
     const triviaService = client.triviaService;
     if (triviaService) {
-      await triviaService.handleButtonAnswer(interaction);
+      try {
+        await triviaService.handleButtonAnswer(interaction);
+      } catch (error) {
+        console.error('[TRIVIA] Button handler error:', error);
+        try {
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: 'An error occurred processing your answer. Please try again.',
+              ephemeral: true,
+            });
+          }
+        } catch (replyError) {
+          // Interaction may have expired
+          console.error('[TRIVIA] Could not send error reply:', replyError);
+        }
+      }
     }
     return;
   }
