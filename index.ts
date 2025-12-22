@@ -52,53 +52,84 @@ try {
   // Read the content of the discordCommands folder
   const commandEntries = fs.readdirSync(foldersPath);
 
-  // Separate files and directories
-  const commandFiles = commandEntries.filter((entry) =>
-    fs.statSync(path.join(foldersPath, entry)).isFile()
-  );
-  const commandFolders = commandEntries.filter((entry) =>
-    fs.statSync(path.join(foldersPath, entry)).isDirectory()
-  );
+  // Optimization 1: Single-pass stat - one stat call per entry instead of two
+  const commandFiles: string[] = [];
+  const commandFolders: string[] = [];
+
+  for (const entry of commandEntries) {
+    const stat = fs.statSync(path.join(foldersPath, entry));
+    if (stat.isFile()) {
+      commandFiles.push(entry);
+    } else if (stat.isDirectory()) {
+      commandFolders.push(entry);
+    }
+  }
 
   console.log('Command Files:', commandFiles);
   console.log('Command Folders:', commandFolders);
 
-  // Process command files in the root of discordCommands
+  // Collect all command file paths for parallel import
+  const commandFilePaths: string[] = [];
+
+  // Add root command files (files directly in discordCommands/)
   for (const file of commandFiles) {
     if (file.endsWith('.js') || file.endsWith('.ts')) {
-      const filePath = path.join(foldersPath, file);
-      const fileUrl = pathToFileURL(filePath).href;
-      const commandModule = await import(fileUrl);
-      // Validate before type assertion
-      if (isValidCommandModule(commandModule)) {
-        client.commands.set(commandModule.data.name, commandModule);
-      } else {
-        console.log(
-          `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-        );
+      commandFilePaths.push(path.join(foldersPath, file));
+    }
+  }
+
+  // Optimization 2: Smart command file detection - only import main command file per folder
+  for (const folder of commandFolders) {
+    const folderPath = path.join(foldersPath, folder);
+    const folderFiles = fs
+      .readdirSync(folderPath)
+      .filter((file) => file.endsWith('.js') || file.endsWith('.ts'));
+
+    // Find main command file: match folder name (case-insensitive)
+    const mainCommandFile = folderFiles.find((file) => {
+      const baseName = path.basename(file, path.extname(file)).toLowerCase();
+      return baseName === folder.toLowerCase();
+    });
+
+    if (mainCommandFile) {
+      // Only add the main command file, skip utility files
+      commandFilePaths.push(path.join(folderPath, mainCommandFile));
+    } else {
+      // Fallback: if no match, add all files (maintains compatibility)
+      console.log(`[INFO] No main command file found for folder: ${folder}, scanning all files`);
+      for (const file of folderFiles) {
+        commandFilePaths.push(path.join(folderPath, file));
       }
     }
   }
 
-  // Process command files in subdirectories
-  for (const folder of commandFolders) {
-    const commandsPath = path.join(foldersPath, folder);
-    const folderCommandFiles = fs
-      .readdirSync(commandsPath)
-      .filter((file) => file.endsWith('.js') || file.endsWith('.ts'));
+  console.log(`Loading ${commandFilePaths.length} command files...`);
 
-    for (const file of folderCommandFiles) {
-      const filePath = path.join(commandsPath, file);
+  // Optimization 3: Parallel imports - import all files concurrently
+  const importResults = await Promise.all(
+    commandFilePaths.map(async (filePath) => {
       const fileUrl = pathToFileURL(filePath).href;
-      const commandModule = await import(fileUrl);
-      // Validate before type assertion
-      if (isValidCommandModule(commandModule)) {
-        client.commands.set(commandModule.data.name, commandModule);
-      } else {
-        console.log(
-          `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-        );
+      try {
+        const module = await import(fileUrl);
+        return { filePath, module, error: null };
+      } catch (error) {
+        return { filePath, module: null, error };
       }
+    })
+  );
+
+  // Process import results and register commands
+  for (const { filePath, module, error } of importResults) {
+    if (error) {
+      console.error(`[ERROR] Failed to import ${filePath}:`, error);
+      continue;
+    }
+    if (isValidCommandModule(module)) {
+      client.commands.set(module.data.name, module);
+    } else {
+      console.log(
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+      );
     }
   }
 } catch (err) {
