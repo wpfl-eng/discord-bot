@@ -310,6 +310,24 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
+ * Formats large numbers with abbreviations for leaderboard display
+ * @param amount - The numeric amount to format
+ * @returns Formatted string (e.g., "1.5M", "2.3B")
+ */
+export function formatLargeNumber(amount: number): string {
+  if (Number.isNaN(amount)) return `${CURRENCY_EMOJI} 0`;
+
+  if (amount >= 1_000_000_000) {
+    return `${CURRENCY_EMOJI} ${(amount / 1_000_000_000).toFixed(1)}B`;
+  }
+  if (amount >= 1_000_000) {
+    return `${CURRENCY_EMOJI} ${(amount / 1_000_000).toFixed(1)}M`;
+  }
+
+  return `${CURRENCY_EMOJI} ${Math.floor(amount).toLocaleString()}`;
+}
+
+/**
  * Checks if a cooldown period has passed
  * @param lastAction - The timestamp of the last action (Date, string, null, or undefined)
  * @param cooldownMs - The cooldown duration in milliseconds
