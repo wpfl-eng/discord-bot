@@ -23,7 +23,7 @@ export const CONFIG = {
   WINNING_PRICE_THRESHOLD: 0.95,
 
   /** Minimum volume (USD) for a market to be displayed */
-  MIN_MARKET_VOLUME: 100_000,
+  MIN_MARKET_VOLUME: 0,
 
   /** Maximum outcome price for competitive markets (filter lopsided) */
   MAX_COMPETITIVE_PRICE: 0.75,
