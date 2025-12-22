@@ -1,12 +1,14 @@
-import type { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
+import type { SlashCommandBuilder, ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 
 /**
  * Interface for Discord slash command modules.
  * All command files must export both `data` and `execute`.
+ * Commands with autocomplete options can optionally export `autocomplete`.
  */
 export interface CommandModule {
   data: SlashCommandBuilder;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+  autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>;
 }
 
 /**
