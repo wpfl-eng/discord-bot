@@ -218,6 +218,24 @@ export function canSplit(hand: Hand): boolean {
   return getSplitValue(hand[0]) === getSplitValue(hand[1]);
 }
 
+/**
+ * Check if a hand can be split with EXACT rank match only
+ * Only allows identical ranks (8-8, K-K, not K-Q)
+ * Used for simplified split rules
+ */
+export function canSplitExactMatch(hand: Hand): boolean {
+  if (hand.length !== 2) return false;
+  return hand[0].rank === hand[1].rank;
+}
+
+/**
+ * Check if a hand is a pair of Aces (for split aces special rules)
+ */
+export function isPairOfAces(hand: Hand): boolean {
+  if (hand.length !== 2) return false;
+  return hand[0].rank === 'A' && hand[1].rank === 'A';
+}
+
 // ============ DEALER DETECTION ============
 
 /**
