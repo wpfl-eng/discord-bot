@@ -2,10 +2,10 @@
 // User wallet, bank, transactions, and leaderboards
 
 import { sql } from '@vercel/postgres';
-import type { EconomyUser, TransferResult, EconomyLeaderboardEntry } from '../types/database.js';
+import type { EconomyUser, TransferResult, EconomyLeaderboardEntry, TotalWealthEntry } from '../types/database.js';
 
 // Re-export shared types for consumers
-export type { EconomyUser, TransferResult, EconomyLeaderboardEntry };
+export type { EconomyUser, TransferResult, EconomyLeaderboardEntry, TotalWealthEntry };
 
 // ============ User Management ============
 
@@ -483,4 +483,129 @@ export async function getTotalUsers(): Promise<number> {
     SELECT COUNT(*) as count FROM economy_users
   `;
   return parseInt(result.rows[0]?.count ?? '0', 10);
+}
+
+// ============ Total Wealth Leaderboard ============
+
+// Sellable item types - keep in sync with inventoryConfig.ts ITEM_DEFINITIONS
+// These are items with sellable: true that contribute to total wealth
+// Hardcoded in SQL queries below for type safety with @vercel/postgres
+
+/**
+ * Get the total wealth leaderboard (cash + stocks + inventory)
+ * @param limit - Number of users to return
+ * @returns Top users sorted by total wealth
+ */
+export async function getTotalWealthLeaderboard(
+  limit: number = 10
+): Promise<TotalWealthEntry[]> {
+  const safeLimit = Math.min(Math.max(1, limit), 25);
+
+  const result = await sql<TotalWealthEntry>`
+    SELECT
+      e.user_id,
+      e.username,
+      (e.wallet + e.bank) AS cash_wealth,
+      COALESCE(s.stock_wealth, 0)::numeric AS stock_wealth,
+      COALESCE(i.inventory_wealth, 0)::numeric AS inventory_wealth,
+      (e.wallet + e.bank + COALESCE(s.stock_wealth, 0) + COALESCE(i.inventory_wealth, 0))::numeric AS total_wealth
+    FROM economy_users e
+    LEFT JOIN (
+      SELECT h.user_id, SUM(h.shares * COALESCE(p.price, h.average_cost)) AS stock_wealth
+      FROM stock_holdings h
+      LEFT JOIN stock_prices p ON h.ticker = p.ticker
+      GROUP BY h.user_id
+    ) s ON e.user_id = s.user_id
+    LEFT JOIN (
+      SELECT user_id, SUM(quantity * COALESCE(item_value, 0)) AS inventory_wealth
+      FROM user_inventory
+      WHERE item_type IN ('rookie_te', 'rookie_rb', 'rookie_wr', 'rookie_qb', 'wordle_lucky_letter')
+      GROUP BY user_id
+    ) i ON e.user_id = i.user_id
+    ORDER BY total_wealth DESC
+    LIMIT ${safeLimit}
+  `;
+
+  return result.rows.map(row => ({
+    user_id: row.user_id,
+    username: row.username,
+    cash_wealth: Number(row.cash_wealth),
+    stock_wealth: Number(row.stock_wealth),
+    inventory_wealth: Number(row.inventory_wealth),
+    total_wealth: Number(row.total_wealth),
+  }));
+}
+
+/**
+ * Get a user's rank on the total wealth leaderboard
+ * @param userId - Discord user ID
+ * @returns User's rank (1-based) or null if not found
+ */
+export async function getTotalWealthUserRank(userId: string): Promise<number | null> {
+  const userWealth = await getUserTotalWealth(userId);
+  if (!userWealth) return null;
+
+  const result = await sql<{ rank: string }>`
+    SELECT COUNT(*) + 1 as rank
+    FROM economy_users e
+    LEFT JOIN (
+      SELECT h.user_id, SUM(h.shares * COALESCE(p.price, h.average_cost)) AS stock_wealth
+      FROM stock_holdings h
+      LEFT JOIN stock_prices p ON h.ticker = p.ticker
+      GROUP BY h.user_id
+    ) s ON e.user_id = s.user_id
+    LEFT JOIN (
+      SELECT user_id, SUM(quantity * COALESCE(item_value, 0)) AS inventory_wealth
+      FROM user_inventory
+      WHERE item_type IN ('rookie_te', 'rookie_rb', 'rookie_wr', 'rookie_qb', 'wordle_lucky_letter')
+      GROUP BY user_id
+    ) i ON e.user_id = i.user_id
+    WHERE (e.wallet + e.bank + COALESCE(s.stock_wealth, 0) + COALESCE(i.inventory_wealth, 0)) > ${userWealth.total_wealth}
+  `;
+
+  return parseInt(result.rows[0]?.rank ?? '1', 10);
+}
+
+/**
+ * Get a single user's total wealth breakdown
+ * @param userId - Discord user ID
+ * @returns User's wealth breakdown or null if not found
+ */
+export async function getUserTotalWealth(userId: string): Promise<TotalWealthEntry | null> {
+  const result = await sql<TotalWealthEntry>`
+    SELECT
+      e.user_id,
+      e.username,
+      (e.wallet + e.bank) AS cash_wealth,
+      COALESCE(s.stock_wealth, 0)::numeric AS stock_wealth,
+      COALESCE(i.inventory_wealth, 0)::numeric AS inventory_wealth,
+      (e.wallet + e.bank + COALESCE(s.stock_wealth, 0) + COALESCE(i.inventory_wealth, 0))::numeric AS total_wealth
+    FROM economy_users e
+    LEFT JOIN (
+      SELECT h.user_id, SUM(h.shares * COALESCE(p.price, h.average_cost)) AS stock_wealth
+      FROM stock_holdings h
+      LEFT JOIN stock_prices p ON h.ticker = p.ticker
+      GROUP BY h.user_id
+    ) s ON e.user_id = s.user_id
+    LEFT JOIN (
+      SELECT user_id, SUM(quantity * COALESCE(item_value, 0)) AS inventory_wealth
+      FROM user_inventory
+      WHERE item_type IN ('rookie_te', 'rookie_rb', 'rookie_wr', 'rookie_qb', 'wordle_lucky_letter')
+      GROUP BY user_id
+    ) i ON e.user_id = i.user_id
+    WHERE e.user_id = ${userId}
+    LIMIT 1
+  `;
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    user_id: row.user_id,
+    username: row.username,
+    cash_wealth: Number(row.cash_wealth),
+    stock_wealth: Number(row.stock_wealth),
+    inventory_wealth: Number(row.inventory_wealth),
+    total_wealth: Number(row.total_wealth),
+  };
 }
