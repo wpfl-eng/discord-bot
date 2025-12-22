@@ -67,7 +67,10 @@ function createMarketsEmbed(
     .setFooter({ text: 'Powered by Polymarket' });
 
   if (markets.length === 0) {
-    embed.setDescription('No active markets found in this category.');
+    embed.setDescription(
+      'No high-volume markets in this category right now.\n\n' +
+      '*Markets must have $100K+ volume to appear here.*'
+    );
     return embed;
   }
 
