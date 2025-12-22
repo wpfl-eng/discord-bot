@@ -77,17 +77,7 @@ function createMarketsEmbed(
     return embed;
   }
 
-  const description = markets
-    .map((market, idx) => {
-      const topOutcomes = market.outcomes
-        .slice(0, 3)
-        .map((o) => `${o.name}: ${formatOdds(o.price)}`)
-        .join(' | ');
-      return `**${idx + 1}.** ${truncate(market.question, 60)}\n${topOutcomes}`;
-    })
-    .join('\n\n');
-
-  embed.setDescription(description);
+  embed.setDescription('Use the dropdown below to select a market and place bets.');
   return embed;
 }
 
@@ -272,6 +262,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     embeds: [embed],
     components: [createCategoryButtons()],
     fetchReply: true,
+    ephemeral: true,
   });
 
   // Create collector for button and select menu interactions
@@ -419,7 +410,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
           await modalInteraction.reply({
             embeds: [createBetConfirmEmbed(market, outcome, amount, potentialPayout)],
-            ephemeral: false,
+            ephemeral: true,
           });
           return;
         }
