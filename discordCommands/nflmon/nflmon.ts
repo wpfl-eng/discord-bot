@@ -10,7 +10,6 @@ import {
   ComponentType,
   ChatInputCommandInteraction,
   ButtonInteraction,
-  AutocompleteInteraction,
   TextChannel,
   ModalBuilder,
   TextInputBuilder,
@@ -1362,49 +1361,3 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   });
 }
 
-// =============================================================================
-// AUTOCOMPLETE HANDLER
-// =============================================================================
-
-/**
- * Handle autocomplete for NFLmon ID
- */
-export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
-  try {
-    const focusedOption = interaction.options.getFocused(true);
-
-    // Handle both "id" and "my_nflmon" options (both are NFLmon IDs for the current user)
-    if (focusedOption.name === 'id' || focusedOption.name === 'my_nflmon') {
-      const userId = interaction.user.id;
-      const searchValue = focusedOption.value.toString().toLowerCase();
-
-      // Get user's bench (limit 100 for autocomplete)
-      const bench = await nflmonDb.getBench(userId, { limit: 100 });
-
-      // Filter and format choices
-      const choices = bench
-        .filter((record) => {
-          const player = nflmonService.getPlayer(record.player_id);
-          const name = record.nickname || player?.name || '';
-          const idMatch = record.id.toString().includes(searchValue);
-          const nameMatch = name.toLowerCase().includes(searchValue);
-          return idMatch || nameMatch || searchValue === '';
-        })
-        .slice(0, 25)
-        .map((record) => {
-          const player = nflmonService.getPlayer(record.player_id);
-          const name = record.nickname || player?.name || 'Unknown';
-          const trainingIndicator = record.training_slot ? ' [T]' : '';
-          return {
-            name: `#${record.id} - ${name} (Lv.${record.level})${trainingIndicator}`,
-            value: record.id,
-          };
-        });
-
-      await interaction.respond(choices);
-    }
-  } catch (error) {
-    console.error('[NFLMON] autocomplete error:', error);
-    await interaction.respond([]);
-  }
-}
