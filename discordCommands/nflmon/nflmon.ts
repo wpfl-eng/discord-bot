@@ -572,7 +572,7 @@ export const data = new SlashCommandBuilder()
 // =============================================================================
 
 /**
- * Placeholder for menu interaction handler (will be implemented in Task 7)
+ * Handle menu interaction router - routes based on customId prefix
  */
 async function handleMenuInteraction(
   interaction: MessageComponentInteraction,
@@ -580,8 +580,174 @@ async function handleMenuInteraction(
   username: string,
   originalInteraction: ChatInputCommandInteraction
 ): Promise<void> {
-  // TODO: Implement in Task 7
-  console.log('[NFLMON] Menu interaction:', interaction.customId);
+  const customId = interaction.customId;
+
+  // === MAIN MENU BUTTONS ===
+  if (customId === 'nflmon_menu_bench') {
+    // Show rarity filter buttons
+    await interaction.deferUpdate();
+    const embed = new EmbedBuilder()
+      .setColor(0x3498db)
+      .setTitle('Select Rarity Filter')
+      .setDescription('Choose a rarity to filter your bench, or "All" to see everything.');
+    await interaction.editReply({
+      embeds: [embed],
+      components: buildRarityFilterButtons(),
+    });
+    return;
+  }
+
+  if (customId === 'nflmon_menu_view') {
+    await interaction.showModal(createViewModal());
+    // Modal handling in Task 8
+    return;
+  }
+
+  if (customId === 'nflmon_menu_train') {
+    await interaction.showModal(createTrainModal());
+    return;
+  }
+
+  if (customId === 'nflmon_menu_untrain') {
+    await interaction.showModal(createUntrainModal());
+    return;
+  }
+
+  if (customId === 'nflmon_menu_stats') {
+    await interaction.deferUpdate();
+    // Execute stats directly - Task 9 will have internal execute function
+    const stats = await nflmonDb.getOrCreateStats(userId, username);
+    const trainingNflmon = await nflmonDb.getTrainingNflmon(userId);
+    const embed = nflmonService.buildStatsEmbed(stats, trainingNflmon);
+
+    // Add back button
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_main')
+        .setLabel('Back to Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+    await interaction.editReply({ embeds: [embed], components: [backRow] });
+    return;
+  }
+
+  if (customId === 'nflmon_menu_dex') {
+    await interaction.showModal(createDexModal());
+    return;
+  }
+
+  if (customId === 'nflmon_menu_trade') {
+    await interaction.deferUpdate();
+    const embed = new EmbedBuilder()
+      .setColor(0xf39c12)
+      .setTitle('NFLmon Trading')
+      .setDescription('Trade NFLmon with other users!');
+    await interaction.editReply({
+      embeds: [embed],
+      components: buildTradeSubmenuButtons(),
+    });
+    return;
+  }
+
+  // === TRADE SUBMENU ===
+  if (customId === 'nflmon_trade_menu_offer') {
+    await interaction.showModal(createTradeOfferModal());
+    return;
+  }
+
+  if (customId === 'nflmon_trade_menu_pending') {
+    await interaction.deferUpdate();
+    // Show pending trades - simplified for now
+    const trades = await nflmonDb.getPendingTrades(userId);
+    if (trades.length === 0) {
+      await interaction.editReply({
+        content: 'You have no pending trades.',
+        embeds: [],
+        components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId('nflmon_back_trade')
+            .setLabel('Back')
+            .setEmoji('⬅️')
+            .setStyle(ButtonStyle.Secondary)
+        )],
+      });
+      return;
+    }
+    const embed = nflmonService.buildPendingTradesEmbed(trades, userId, 1, 1);
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_trade')
+        .setLabel('Back')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+    await interaction.editReply({ embeds: [embed], components: [backRow] });
+    return;
+  }
+
+  if (customId === 'nflmon_trade_menu_cancel') {
+    await interaction.showModal(createTradeCancelModal());
+    return;
+  }
+
+  // === RARITY FILTERS ===
+  if (customId.startsWith('nflmon_rarity_bench_')) {
+    await interaction.deferUpdate();
+    const rarity = customId.replace('nflmon_rarity_bench_', '');
+    const filterRarity = rarity === 'all' ? null : rarity;
+
+    // Fetch bench data
+    const benchRecords = await nflmonDb.getBench(userId, {
+      rarity: filterRarity ?? undefined,
+      page: 1,
+      limit: 10,
+    });
+    const totalCount = await nflmonDb.getBenchCount(userId, filterRarity ?? undefined);
+    const totalPages = Math.ceil(totalCount / 10) || 1;
+
+    const embed = nflmonService.buildBenchEmbed(benchRecords, 1, totalPages, totalCount);
+
+    // Build back button row
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_main')
+        .setLabel('Back to Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.editReply({ embeds: [embed], components: [backRow] });
+    return;
+  }
+
+  // === BACK BUTTONS ===
+  if (customId === 'nflmon_back_main') {
+    await interaction.deferUpdate();
+    const embed = await buildMainMenuEmbed(userId, username);
+    await interaction.editReply({
+      content: '',
+      embeds: [embed],
+      components: buildMainMenuButtons(),
+    });
+    return;
+  }
+
+  if (customId === 'nflmon_back_trade') {
+    await interaction.deferUpdate();
+    const embed = new EmbedBuilder()
+      .setColor(0xf39c12)
+      .setTitle('NFLmon Trading')
+      .setDescription('Trade NFLmon with other users!');
+    await interaction.editReply({
+      embeds: [embed],
+      components: buildTradeSubmenuButtons(),
+    });
+    return;
+  }
+
+  // === UNHANDLED ===
+  console.log('[NFLMON] Unhandled menu interaction:', customId);
   await interaction.deferUpdate();
 }
 
