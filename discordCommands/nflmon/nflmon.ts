@@ -12,6 +12,11 @@ import {
   ButtonInteraction,
   AutocompleteInteraction,
   TextChannel,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ModalSubmitInteraction,
+  MessageComponentInteraction,
 } from 'discord.js';
 import * as nflmonDb from '../../nflmon/nflmonDb.js';
 import type { Nflmon, NflmonTrade } from '../../nflmon/nflmonDb.js';
@@ -32,6 +37,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   NOT_IN_TRAINING: 'This NFLmon is not currently in training.',
   ALREADY_IN_TRAINING: 'This NFLmon is already in a training slot.',
 };
+
+const COLLECTOR_TIMEOUT_MS = 300000; // 5 minutes
+const RARITY_OPTIONS = ['all', 'common', 'uncommon', 'rare', 'epic', 'legendary'];
+const VALID_RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
 // =============================================================================
 // LOCAL TYPES
