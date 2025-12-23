@@ -479,6 +479,87 @@ function createTradeCancelModal(): ModalBuilder {
 }
 
 // =============================================================================
+// VALIDATION FUNCTIONS
+// =============================================================================
+
+/**
+ * Validate NFLmon ID input from modal
+ * @param str - Raw string input from user
+ * @returns Validated positive integer or null if invalid
+ */
+function validateNflmonId(str: string): number | null {
+  const parsed = parseInt(str, 10);
+  if (isNaN(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+/**
+ * Validate training slot input from modal
+ * @param str - Raw string input from user
+ * @returns Validated slot number (1-5), null for auto-assign, or null if invalid
+ */
+function validateTrainingSlot(str: string): number | null {
+  const trimmed = str.trim();
+  if (trimmed === '') {
+    return null; // Auto-assign
+  }
+  const parsed = parseInt(trimmed, 10);
+  if (isNaN(parsed) || parsed < 1 || parsed > 5) {
+    return null;
+  }
+  return parsed;
+}
+
+/**
+ * Validate rarity input from modal
+ * @param str - Raw string input from user
+ * @returns Validated rarity string or null if invalid/empty
+ */
+function validateRarity(str: string): string | null {
+  const trimmed = str.trim().toLowerCase();
+  if (trimmed === '') {
+    return null; // No filter
+  }
+  if (!VALID_RARITIES.includes(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+/**
+ * Validate Discord user ID input from modal
+ * @param str - Raw string input from user
+ * @returns Validated Discord snowflake ID or null if invalid
+ */
+function validateDiscordUserId(str: string): string | null {
+  const trimmed = str.trim();
+  const discordIdPattern = /^\d{17,20}$/;
+  if (!discordIdPattern.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+/**
+ * Validate coins input from modal
+ * @param str - Raw string input from user
+ * @returns Validated non-negative integer or null if invalid
+ */
+function validateCoins(str: string): number | null {
+  const trimmed = str.trim();
+  if (trimmed === '') {
+    return 0; // No coins
+  }
+  const parsed = parseInt(trimmed, 10);
+  if (isNaN(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+}
+
+// =============================================================================
 // SLASH COMMAND BUILDER
 // =============================================================================
 
