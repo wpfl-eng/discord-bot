@@ -323,6 +323,162 @@ function buildRarityFilterButtons(): ActionRowBuilder<ButtonBuilder>[] {
 }
 
 // =============================================================================
+// MODAL BUILDERS
+// =============================================================================
+
+/**
+ * Create modal for viewing an NFLmon by ID
+ */
+function createViewModal(): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId('nflmon_modal_view')
+    .setTitle('View NFLmon');
+
+  const nflmonIdInput = new TextInputBuilder()
+    .setCustomId('nflmon_id')
+    .setLabel('NFLmon ID')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Enter the ID from your bench')
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(nflmonIdInput));
+  return modal;
+}
+
+/**
+ * Create modal for training an NFLmon
+ */
+function createTrainModal(): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId('nflmon_modal_train')
+    .setTitle('Train NFLmon');
+
+  const nflmonIdInput = new TextInputBuilder()
+    .setCustomId('nflmon_id')
+    .setLabel('NFLmon ID')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const slotInput = new TextInputBuilder()
+    .setCustomId('slot')
+    .setLabel('Training Slot (1-5, leave blank for auto)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(nflmonIdInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(slotInput)
+  );
+  return modal;
+}
+
+/**
+ * Create modal for untraining an NFLmon
+ */
+function createUntrainModal(): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId('nflmon_modal_untrain')
+    .setTitle('Remove from Training');
+
+  const nflmonIdInput = new TextInputBuilder()
+    .setCustomId('nflmon_id')
+    .setLabel('NFLmon ID')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(nflmonIdInput));
+  return modal;
+}
+
+/**
+ * Create modal for browsing the NFLmon dex
+ */
+function createDexModal(): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId('nflmon_modal_dex')
+    .setTitle('Browse NFLmon Dex');
+
+  const searchInput = new TextInputBuilder()
+    .setCustomId('search')
+    .setLabel('Search (name, position:WR, or team:KC)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+
+  const rarityInput = new TextInputBuilder()
+    .setCustomId('rarity')
+    .setLabel('Rarity filter (common/uncommon/rare/epic/legendary)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(searchInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(rarityInput)
+  );
+  return modal;
+}
+
+/**
+ * Create modal for offering a trade
+ */
+function createTradeOfferModal(): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId('nflmon_modal_trade_offer')
+    .setTitle('Create Trade Offer');
+
+  const targetUserInput = new TextInputBuilder()
+    .setCustomId('target_user')
+    .setLabel('Target User ID (right-click user > Copy User ID)')
+    .setStyle(TextInputStyle.Short)
+    .setMinLength(17)
+    .setMaxLength(20)
+    .setRequired(true);
+
+  const myNflmonInput = new TextInputBuilder()
+    .setCustomId('my_nflmon')
+    .setLabel('Your NFLmon ID to offer')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const theirNflmonInput = new TextInputBuilder()
+    .setCustomId('their_nflmon')
+    .setLabel('Their NFLmon ID you want (optional)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+
+  const coinsInput = new TextInputBuilder()
+    .setCustomId('coins')
+    .setLabel('Coins to include (optional)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(targetUserInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(myNflmonInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(theirNflmonInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(coinsInput)
+  );
+  return modal;
+}
+
+/**
+ * Create modal for cancelling a trade
+ */
+function createTradeCancelModal(): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId('nflmon_modal_trade_cancel')
+    .setTitle('Cancel Trade');
+
+  const tradeIdInput = new TextInputBuilder()
+    .setCustomId('trade_id')
+    .setLabel('Trade ID to cancel')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(tradeIdInput));
+  return modal;
+}
+
+// =============================================================================
 // SLASH COMMAND BUILDER
 // =============================================================================
 
