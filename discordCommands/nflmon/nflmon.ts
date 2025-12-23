@@ -572,59 +572,76 @@ export const data = new SlashCommandBuilder()
 // =============================================================================
 
 /**
- * Execute the nflmon command
+ * Placeholder for menu interaction handler (will be implemented in Task 7)
+ */
+async function handleMenuInteraction(
+  interaction: MessageComponentInteraction,
+  userId: string,
+  username: string,
+  originalInteraction: ChatInputCommandInteraction
+): Promise<void> {
+  // TODO: Implement in Task 7
+  console.log('[NFLMON] Menu interaction:', interaction.customId);
+  await interaction.deferUpdate();
+}
+
+/**
+ * Execute the nflmon command - menu-driven interface
  */
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  const subcommandGroup = interaction.options.getSubcommandGroup();
-  const subcommand = interaction.options.getSubcommand();
+  const userId = interaction.user.id;
+  const username = interaction.user.username;
 
-  // Handle trade subcommand group
-  if (subcommandGroup === 'trade') {
-    switch (subcommand) {
-      case 'offer':
-        await handleTradeOffer(interaction);
-        return;
-      case 'pending':
-        await handleTradePending(interaction);
-        return;
-      case 'cancel':
-        await handleTradeCancel(interaction);
-        return;
-      default:
-        await interaction.reply({
-          content: 'Unknown trade subcommand.',
-          ephemeral: true,
-        });
-        return;
+  // Build and show splash page with main menu
+  const embed = await buildMainMenuEmbed(userId, username);
+  const components = buildMainMenuButtons();
+
+  const response = await interaction.reply({
+    embeds: [embed],
+    components,
+    ephemeral: true,
+    fetchReply: true,
+  });
+
+  // Create unified collector for all interactions
+  const collector = response.createMessageComponentCollector({
+    time: COLLECTOR_TIMEOUT_MS,
+    filter: (i: MessageComponentInteraction) => i.user.id === userId,
+  });
+
+  collector.on('collect', async (buttonInteraction: MessageComponentInteraction) => {
+    try {
+      await handleMenuInteraction(buttonInteraction, userId, username, interaction);
+    } catch (error) {
+      console.error('[NFLMON] Menu interaction error:', error);
+      try {
+        if (!buttonInteraction.replied && !buttonInteraction.deferred) {
+          await buttonInteraction.reply({
+            content: 'An error occurred. Please try again.',
+            ephemeral: true,
+          });
+        }
+      } catch {
+        // Ignore follow-up errors
+      }
     }
-  }
+  });
 
-  // Handle regular subcommands
-  switch (subcommand) {
-    case 'bench':
-      await handleBench(interaction);
-      break;
-    case 'view':
-      await handleView(interaction);
-      break;
-    case 'train':
-      await handleTrain(interaction);
-      break;
-    case 'untrain':
-      await handleUntrain(interaction);
-      break;
-    case 'stats':
-      await handleStats(interaction);
-      break;
-    case 'dex':
-      await handleDex(interaction);
-      break;
-    default:
-      await interaction.reply({
-        content: 'Unknown subcommand.',
-        ephemeral: true,
+  collector.on('end', async () => {
+    try {
+      // Disable all buttons on timeout
+      const disabledComponents = buildMainMenuButtons().map((row) => {
+        const newRow = new ActionRowBuilder<ButtonBuilder>();
+        row.components.forEach((button) => {
+          newRow.addComponents(ButtonBuilder.from(button).setDisabled(true));
+        });
+        return newRow;
       });
-  }
+      await interaction.editReply({ components: disabledComponents });
+    } catch {
+      // Message may have been deleted
+    }
+  });
 }
 
 // =============================================================================
