@@ -3,7 +3,6 @@
 
 import { sql } from '@vercel/postgres';
 import * as economyDb from '../economy/economyDb.js';
-import { STOCK_CONFIG } from './stockConfig.js';
 import type { EconomyUser } from '../types/database.js';
 
 // ============ Type Definitions ============
@@ -37,8 +36,6 @@ export interface BuySuccess {
   readonly success: true;
   readonly holding: StockHolding;
   readonly user: EconomyUser;
-  readonly commission: number;
-  readonly totalWithCommission: number;
 }
 
 /**
@@ -60,8 +57,6 @@ export type BuyResult = BuySuccess | BuyFailure;
 export interface SellSuccess {
   readonly success: true;
   readonly proceeds: number;
-  readonly commission: number;
-  readonly netProceeds: number;
   readonly profit: number;
   readonly holding: StockHolding | null;
   readonly user: EconomyUser;
@@ -145,12 +140,8 @@ export async function buyShares(
 ): Promise<BuyResult> {
   const normalizedTicker = ticker.toUpperCase().trim();
 
-  // Calculate commission (2% fee)
-  const commission = Math.floor(totalCost * STOCK_CONFIG.COMMISSION_RATE);
-  const totalWithCommission = Math.floor(totalCost) + commission;
-
-  // First, deduct from wallet (atomic - fails if insufficient funds)
-  const updatedUser = await economyDb.deductFromWallet(userId, totalWithCommission);
+  // Deduct from wallet (atomic - fails if insufficient funds)
+  const updatedUser = await economyDb.deductFromWallet(userId, Math.floor(totalCost));
 
   if (!updatedUser) {
     return { success: false, error: 'INSUFFICIENT_FUNDS' };
@@ -190,8 +181,6 @@ export async function buyShares(
     success: true,
     holding: result.rows[0],
     user: updatedUser,
-    commission,
-    totalWithCommission,
   };
 }
 
@@ -227,12 +216,10 @@ export async function sellShares(
     return { success: false, error: 'INSUFFICIENT_SHARES' };
   }
 
-  // Calculate proceeds and commission (2% fee)
-  const grossProceeds = Math.floor(sharesToSell * pricePerShare);
-  const commission = Math.floor(grossProceeds * STOCK_CONFIG.COMMISSION_RATE);
-  const netProceeds = grossProceeds - commission;
+  // Calculate proceeds
+  const proceeds = Math.floor(sharesToSell * pricePerShare);
   const costBasis = sharesToSell * parseFloat(existingHolding.average_cost);
-  const profit = netProceeds - costBasis;
+  const profit = proceeds - costBasis;
 
   const remainingShares = currentShares - sharesToSell;
 
@@ -262,13 +249,13 @@ export async function sellShares(
       holdingResult = result.rows[0];
     }
 
-    // Add net proceeds to wallet (after commission)
+    // Add proceeds to wallet
     const walletResult = await client.query<EconomyUser>(
       `UPDATE economy_users
        SET wallet = wallet + $1, total_earned = total_earned + $1
        WHERE user_id = $2
        RETURNING *`,
-      [netProceeds, userId]
+      [proceeds, userId]
     );
 
     if (!walletResult.rows[0]) {
@@ -280,9 +267,7 @@ export async function sellShares(
 
     return {
       success: true,
-      proceeds: grossProceeds,
-      commission,
-      netProceeds,
+      proceeds,
       profit,
       holding: holdingResult,
       user: walletResult.rows[0],

@@ -7,7 +7,6 @@ export interface StockConfigType {
   readonly TRADE_MIN: number;
   readonly TRADE_MAX: number;
   readonly TRADE_COOLDOWN_SECONDS: number;
-  readonly COMMISSION_RATE: number;
   readonly API_BASE_URL: string;
   readonly API_TIMEOUT_MS: number;
   readonly DECIMAL_PLACES_SHARES: number;
@@ -33,9 +32,6 @@ export const STOCK_CONFIG: StockConfigType = {
 
   // Cooldown between trades (seconds)
   TRADE_COOLDOWN_SECONDS: 30,
-
-  // Commission rate (2% = 0.02)
-  COMMISSION_RATE: 0.02,
 
   // API configuration
   API_BASE_URL: 'https://finnhub.io/api/v1',
