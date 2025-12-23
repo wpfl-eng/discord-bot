@@ -946,7 +946,7 @@ export async function processTradeAccept(
 ): Promise<TradeProcessResult> {
   const result = await nflmonDb.acceptTrade(userId, tradeId);
 
-  if (!result.success) {
+  if (result.success === false) {
     const errorMsg = TRADE_ERRORS[result.error as TradeErrorKey] || 'Trade failed.';
     const responseEmbed = new EmbedBuilder()
       .setColor(0xff0000)

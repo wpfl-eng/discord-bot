@@ -743,7 +743,7 @@ async function handleMenuInteraction(
     // Assign to training slot
     const result = await nflmonDb.setTrainingSlot(userId, nflmonId, finalSlot);
 
-    if (!result.success) {
+    if (result.success === false) {
       const errorMsg = ERROR_MESSAGES[result.error] || 'Failed to assign training slot.';
       await modalInteraction.followUp({ content: errorMsg, ephemeral: true });
       return;
@@ -1538,7 +1538,7 @@ async function handleTrain(interaction: ChatInputCommandInteraction): Promise<vo
     // Assign to training slot
     const result = await nflmonDb.setTrainingSlot(userId, nflmonId, slot);
 
-    if (!result.success) {
+    if (result.success === false) {
       const errorMsg = ERROR_MESSAGES[result.error] || 'Failed to assign training slot.';
       await interaction.editReply({ content: errorMsg });
       return;
