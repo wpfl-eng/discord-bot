@@ -7,10 +7,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ComponentType,
   ChatInputCommandInteraction,
-  ButtonInteraction,
-  TextChannel,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -31,24 +28,14 @@ const ITEMS_PER_PAGE = 10;
 
 const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "NFLmon not found or doesn't belong to you.",
-  INVALID_SLOT: 'Invalid training slot. Check your available slots with `/nflmon stats`.',
+  INVALID_SLOT: 'Invalid training slot. Check your available slots in the Stats menu.',
   SLOT_OCCUPIED: 'That training slot is already in use.',
   NOT_IN_TRAINING: 'This NFLmon is not currently in training.',
   ALREADY_IN_TRAINING: 'This NFLmon is already in a training slot.',
 };
 
 const COLLECTOR_TIMEOUT_MS = 300000; // 5 minutes
-const RARITY_OPTIONS = ['all', 'common', 'uncommon', 'rare', 'epic', 'legendary'];
 const VALID_RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-
-// =============================================================================
-// LOCAL TYPES
-// =============================================================================
-
-interface DexFilters {
-  r: string | null;
-  s: string | null;
-}
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -1157,31 +1144,60 @@ async function handleMenuInteraction(
 
   if (customId === 'nflmon_trade_menu_pending') {
     await interaction.deferUpdate();
-    // Show pending trades - simplified for now
     const trades = await nflmonDb.getPendingTrades(userId);
     if (trades.length === 0) {
       await interaction.editReply({
         content: 'You have no pending trades.',
         embeds: [],
-        components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setCustomId('nflmon_back_trade')
-            .setLabel('Back')
-            .setEmoji('⬅️')
-            .setStyle(ButtonStyle.Secondary)
-        )],
+        components: [
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setCustomId('nflmon_back_trade')
+              .setLabel('Back')
+              .setEmoji('⬅️')
+              .setStyle(ButtonStyle.Secondary)
+          ),
+        ],
       });
       return;
     }
-    const embed = nflmonService.buildPendingTradesEmbed(trades, userId, 1, 1);
-    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId('nflmon_back_trade')
-        .setLabel('Back')
-        .setEmoji('⬅️')
-        .setStyle(ButtonStyle.Secondary)
+
+    // Show first trade with action buttons
+    const trade = trades[0];
+    const embed = nflmonService.buildPendingTradesEmbed(trades, userId, 1, trades.length);
+    const actionButtons = buildPendingTradeButtons(trade, userId);
+
+    // Add navigation if multiple trades
+    const components: ActionRowBuilder<ButtonBuilder>[] = [...actionButtons];
+    if (trades.length > 1) {
+      components.push(
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId('nflmon_pending_prev_0')
+            .setLabel('Previous')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true),
+          new ButtonBuilder()
+            .setCustomId('nflmon_pending_next_0')
+            .setLabel('Next')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(trades.length <= 1)
+        )
+      );
+    }
+
+    // Add back button
+    components.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('nflmon_back_trade')
+          .setLabel('Back')
+          .setEmoji('⬅️')
+          .setStyle(ButtonStyle.Secondary)
+      )
     );
-    await interaction.editReply({ embeds: [embed], components: [backRow] });
+
+    await interaction.editReply({ embeds: [embed], components });
     return;
   }
 
@@ -1373,6 +1389,56 @@ async function handleMenuInteraction(
       embeds: [embed],
       components: [...paginationComponents, backRow],
     });
+    return;
+  }
+
+  // === PENDING TRADES PAGINATION ===
+  if (customId.startsWith('nflmon_pending_prev_') || customId.startsWith('nflmon_pending_next_')) {
+    await interaction.deferUpdate();
+
+    const parts = customId.split('_');
+    const action = parts[2]; // prev or next
+    const currentIndex = parseInt(parts[3], 10);
+    const newIndex = action === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
+    const trades = await nflmonDb.getPendingTrades(userId);
+    if (trades.length === 0 || newIndex < 0 || newIndex >= trades.length) {
+      return;
+    }
+
+    const trade = trades[newIndex];
+    const embed = nflmonService.buildPendingTradesEmbed(trades, userId, newIndex + 1, trades.length);
+    const actionButtons = buildPendingTradeButtons(trade, userId);
+
+    const components: ActionRowBuilder<ButtonBuilder>[] = [...actionButtons];
+    if (trades.length > 1) {
+      components.push(
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`nflmon_pending_prev_${newIndex}`)
+            .setLabel('Previous')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(newIndex <= 0),
+          new ButtonBuilder()
+            .setCustomId(`nflmon_pending_next_${newIndex}`)
+            .setLabel('Next')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(newIndex >= trades.length - 1)
+        )
+      );
+    }
+
+    components.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('nflmon_back_trade')
+          .setLabel('Back')
+          .setEmoji('⬅️')
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+
+    await interaction.editReply({ embeds: [embed], components });
     return;
   }
 

@@ -177,6 +177,13 @@ async function handleNflmonTradeButton(interaction: ButtonInteraction): Promise<
         embeds: [result.responseEmbed],
         components: [],
       });
+    } else if (action === 'cancel') {
+      const result = await nflmonService.processTradeCancel(userId, tradeId);
+
+      await interaction.update({
+        embeds: [result.responseEmbed],
+        components: [],
+      });
     }
   } catch (error) {
     console.error('[NFLMON] Trade button error:', error);
@@ -224,7 +231,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   // Handle NFLmon trade button interactions (especially from DMs)
-  if (interaction.isButton() && interaction.customId.startsWith('nflmon_trade_')) {
+  // Skip menu buttons - those are handled by the nflmon command's collector
+  if (
+    interaction.isButton() &&
+    interaction.customId.startsWith('nflmon_trade_') &&
+    !interaction.customId.startsWith('nflmon_trade_menu_')
+  ) {
     await handleNflmonTradeButton(interaction);
     return;
   }
