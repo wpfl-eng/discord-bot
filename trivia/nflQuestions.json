@@ -5707,5 +5707,943 @@
       "category": "super_bowl"
     },
     "type": "free_form"
+  },
+  {
+    "id": "nfl_music_city_miracle_lateral",
+    "question": "Which Titans tight end threw the controversial cross-field lateral to Kevin Dyson on the Music City Miracle?",
+    "answer": "Frank Wycheck",
+    "acceptable_answers": [
+      "Frank Wycheck",
+      "Wycheck"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2000,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_music_city_miracle_handoff",
+    "question": "On the Music City Miracle, which Titans fullback fielded the kickoff and handed the ball to Frank Wycheck?",
+    "answer": "Lorenzo Neal",
+    "acceptable_answers": [
+      "Lorenzo Neal",
+      "Neal"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2000,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_music_city_miracle_play_name",
+    "question": "What was the official play name the Titans called for the Music City Miracle?",
+    "answer": "Home Run Throwback",
+    "acceptable_answers": [
+      "Home Run Throwback",
+      "Homerun Throwback"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2000,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_one_yard_short_tackle",
+    "question": "Which Rams linebacker made 'The Tackle' to stop Kevin Dyson one yard short in Super Bowl XXXIV?",
+    "answer": "Mike Jones",
+    "acceptable_answers": [
+      "Mike Jones",
+      "Jones"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2000,
+      "category": "super_bowl"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_sb_xxxiv_73_yard_td",
+    "question": "Which Rams receiver caught the 73-yard touchdown from Kurt Warner that proved to be the game-winner in Super Bowl XXXIV?",
+    "answer": "Isaac Bruce",
+    "acceptable_answers": [
+      "Isaac Bruce",
+      "Bruce"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2000,
+      "category": "super_bowl"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_tuck_rule_referee",
+    "question": "Which referee overturned the fumble call to an incomplete pass using the Tuck Rule in the 2001 AFC Divisional playoff?",
+    "answer": "Walt Coleman",
+    "acceptable_answers": [
+      "Walt Coleman",
+      "Coleman"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2002,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_tuck_rule_defender",
+    "question": "Which Raiders cornerback sacked Tom Brady and caused the fumble on the famous Tuck Rule play?",
+    "answer": "Charles Woodson",
+    "acceptable_answers": [
+      "Charles Woodson",
+      "Woodson"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2002,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_tuck_rule_abolished",
+    "question": "Which team was the only one to vote against abolishing the Tuck Rule in 2013?",
+    "answer": "Pittsburgh Steelers",
+    "acceptable_answers": [
+      "Pittsburgh Steelers",
+      "Steelers",
+      "Pittsburgh"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2013,
+      "category": "historic"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_sb_xxxvi_first_walk_off",
+    "question": "Which Patriots kicker made the first last-second, game-winning field goal in Super Bowl history in Super Bowl XXXVI?",
+    "answer": "Adam Vinatieri",
+    "acceptable_answers": [
+      "Adam Vinatieri",
+      "Vinatieri"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2002,
+      "category": "super_bowl"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_4th_and_26_receiver",
+    "question": "Which Eagles receiver caught the 28-yard pass on the famous '4th and 26' play against the Packers in the 2003 playoffs?",
+    "answer": "Freddie Mitchell",
+    "acceptable_answers": [
+      "Freddie Mitchell",
+      "Mitchell"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2004,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_4th_and_26_interception",
+    "question": "Which Eagles safety intercepted Brett Favre on the first play of overtime after the '4th and 26' conversion?",
+    "answer": "Brian Dawkins",
+    "acceptable_answers": [
+      "Brian Dawkins",
+      "Dawkins"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2004,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_vick_46_yard_ot_run",
+    "question": "Against which team did Michael Vick have his famous 46-yard game-winning overtime run in the 2002 playoffs?",
+    "answer": "Minnesota Vikings",
+    "acceptable_answers": [
+      "Minnesota Vikings",
+      "Vikings",
+      "Minnesota"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2003,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_gleason_punt_block",
+    "question": "Which Saints special teamer blocked the punt in the first game back at the Superdome after Hurricane Katrina, a moment now immortalized with a statue?",
+    "answer": "Steve Gleason",
+    "acceptable_answers": [
+      "Steve Gleason",
+      "Gleason"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2006,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_gleason_block_recovery",
+    "question": "Which Saints cornerback recovered Steve Gleason's blocked punt in the end zone for the touchdown against the Falcons in 2006?",
+    "answer": "Curtis Deloatch",
+    "acceptable_answers": [
+      "Curtis Deloatch",
+      "Deloatch"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2006,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_gleason_block_punter",
+    "question": "Which Falcons punter had his punt blocked by Steve Gleason in the Saints' emotional 2006 Superdome return?",
+    "answer": "Michael Koenen",
+    "acceptable_answers": [
+      "Michael Koenen",
+      "Koenen"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2006,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_panthers_rams_double_ot",
+    "question": "Which Panthers receiver caught the 69-yard game-winning touchdown from Jake Delhomme in double overtime of the 2003 NFC Divisional playoff against the Rams?",
+    "answer": "Steve Smith",
+    "acceptable_answers": [
+      "Steve Smith",
+      "Smith",
+      "Steve Smith Sr."
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2004,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_greatest_show_nickname",
+    "question": "Which ESPN broadcaster coined the term 'Greatest Show on Turf' by saying 'Forget Ringling Brothers' during a 2000 Rams broadcast?",
+    "answer": "Chris Berman",
+    "acceptable_answers": [
+      "Chris Berman",
+      "Berman"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2000,
+      "category": "historic"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_faulk_consecutive_opoy",
+    "question": "Which Rams running back won the NFL Offensive Player of the Year award three consecutive years (1999-2001)?",
+    "answer": "Marshall Faulk",
+    "acceptable_answers": [
+      "Marshall Faulk",
+      "Faulk"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2001,
+      "category": "record"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_greatest_show_oc",
+    "question": "Which offensive coordinator designed the 'Greatest Show on Turf' offense for the Rams?",
+    "answer": "Mike Martz",
+    "acceptable_answers": [
+      "Mike Martz",
+      "Martz"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1999,
+      "category": "coaching"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_spygate_whistleblower",
+    "question": "Which former Patriots assistant coach, then head coach of the Jets, tipped off the league about the Patriots' illegal videotaping in 2007?",
+    "answer": "Eric Mangini",
+    "acceptable_answers": [
+      "Eric Mangini",
+      "Mangini"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2007,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_spygate_videographer",
+    "question": "Which Patriots video assistant was caught filming Jets coaching signals on the sideline during the 2007 Spygate incident?",
+    "answer": "Matt Estrella",
+    "acceptable_answers": [
+      "Matt Estrella",
+      "Estrella"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2007,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_spygate_draft_pick",
+    "question": "What round draft pick did the Patriots lose as punishment for the Spygate scandal?",
+    "answer": "First round",
+    "acceptable_answers": [
+      "First round",
+      "First",
+      "1st round",
+      "1st"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2008,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_bountygate_dc",
+    "question": "Which Saints defensive coordinator was suspended indefinitely for running the bounty program?",
+    "answer": "Gregg Williams",
+    "acceptable_answers": [
+      "Gregg Williams",
+      "Williams"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_bountygate_player_suspension",
+    "question": "Which Saints linebacker received a full-season suspension (later overturned) for his leadership role in Bountygate?",
+    "answer": "Jonathan Vilma",
+    "acceptable_answers": [
+      "Jonathan Vilma",
+      "Vilma"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_payton_first_hc_suspended",
+    "question": "Sean Payton became the first head coach in NFL history to be suspended by the league for what scandal?",
+    "answer": "Bountygate",
+    "acceptable_answers": [
+      "Bountygate",
+      "Bounty scandal",
+      "The bounty scandal"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_deflategate_investigator",
+    "question": "Which attorney led the investigation that produced the 243-page report on Deflategate?",
+    "answer": "Ted Wells",
+    "acceptable_answers": [
+      "Ted Wells",
+      "Wells"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2015,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_deflategate_opponent",
+    "question": "Against which team were the Patriots playing when the underinflated footballs were discovered in the 2014 AFC Championship?",
+    "answer": "Indianapolis Colts",
+    "acceptable_answers": [
+      "Indianapolis Colts",
+      "Colts",
+      "Indianapolis"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2015,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_deflategate_judge",
+    "question": "Which federal judge initially overturned Tom Brady's Deflategate suspension in 2015?",
+    "answer": "Richard Berman",
+    "acceptable_answers": [
+      "Richard Berman",
+      "Berman"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2015,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_fail_mary_receiver",
+    "question": "Which Seahawks receiver was controversially awarded the game-winning touchdown on the 'Fail Mary' play against the Packers in 2012?",
+    "answer": "Golden Tate",
+    "acceptable_answers": [
+      "Golden Tate",
+      "Tate"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_fail_mary_defender",
+    "question": "Which Packers safety appeared to intercept the 'Fail Mary' pass before Golden Tate wrestled the ball away?",
+    "answer": "M.D. Jennings",
+    "acceptable_answers": [
+      "M.D. Jennings",
+      "MD Jennings",
+      "Jennings"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_fail_mary_replacement_ref",
+    "question": "Which replacement referee called the 'Fail Mary' a touchdown and later said the controversy ruined his life?",
+    "answer": "Lance Easley",
+    "acceptable_answers": [
+      "Lance Easley",
+      "Easley"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_vikings_love_boat",
+    "question": "Which Vikings cornerback was the organizer of the infamous 2005 'Love Boat' party on Lake Minnetonka?",
+    "answer": "Fred Smoot",
+    "acceptable_answers": [
+      "Fred Smoot",
+      "Smoot"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2005,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_love_boat_location",
+    "question": "On which Minnesota lake did the infamous 2005 Vikings 'Love Boat' scandal take place?",
+    "answer": "Lake Minnetonka",
+    "acceptable_answers": [
+      "Lake Minnetonka",
+      "Minnetonka"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2005,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_janet_jackson_term",
+    "question": "What term was added to the Merriam-Webster dictionary after Janet Jackson's Super Bowl XXXVIII halftime incident?",
+    "answer": "Wardrobe malfunction",
+    "acceptable_answers": [
+      "Wardrobe malfunction"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2004,
+      "category": "pop_culture"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_janet_jackson_partner",
+    "question": "Which pop star accidentally exposed Janet Jackson during the Super Bowl XXXVIII halftime show?",
+    "answer": "Justin Timberlake",
+    "acceptable_answers": [
+      "Justin Timberlake",
+      "Timberlake"
+    ],
+    "point_value": 1,
+    "metadata": {
+      "year": 2004,
+      "category": "pop_culture"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_youtube_inspiration",
+    "question": "Which Super Bowl halftime controversy did YouTube co-founder Jawed Karim credit with inspiring the creation of the video sharing website?",
+    "answer": "Janet Jackson wardrobe malfunction",
+    "acceptable_answers": [
+      "Janet Jackson wardrobe malfunction",
+      "Janet Jackson",
+      "Super Bowl XXXVIII halftime",
+      "Wardrobe malfunction"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2004,
+      "category": "pop_culture"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_plaxico_nightclub",
+    "question": "In what Manhattan nightclub did Plaxico Burress accidentally shoot himself in the leg in 2008?",
+    "answer": "Latin Quarter",
+    "acceptable_answers": [
+      "Latin Quarter",
+      "The Latin Quarter"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2008,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_plaxico_sb_hero",
+    "question": "Which Giants receiver caught the game-winning Super Bowl XLII touchdown and later served prison time for shooting himself?",
+    "answer": "Plaxico Burress",
+    "acceptable_answers": [
+      "Plaxico Burress",
+      "Burress",
+      "Plaxico"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2008,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_vick_comeback_award",
+    "question": "Michael Vick won which AP award in 2010 after returning from prison to lead the Eagles to a division title?",
+    "answer": "Comeback Player of the Year",
+    "acceptable_answers": [
+      "Comeback Player of the Year",
+      "AP Comeback Player of the Year",
+      "Comeback Player"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2010,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_vick_prison_sentence",
+    "question": "For how many months was Michael Vick sentenced to federal prison for his role in the dogfighting operation?",
+    "answer": "23 months",
+    "acceptable_answers": [
+      "23 months",
+      "23"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2007,
+      "category": "scandal"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_vick_replaced_kolb",
+    "question": "Which Eagles quarterback suffered a concussion in 2010, opening the door for Michael Vick's comeback as a starter?",
+    "answer": "Kevin Kolb",
+    "acceptable_answers": [
+      "Kevin Kolb",
+      "Kolb"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2010,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_butt_fumble_lineman",
+    "question": "Which Jets offensive lineman's backside did Mark Sanchez run into on the infamous 'Butt Fumble' play?",
+    "answer": "Brandon Moore",
+    "acceptable_answers": [
+      "Brandon Moore",
+      "Moore"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2012,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_butt_fumble_recovery",
+    "question": "Which Patriots safety recovered the 'Butt Fumble' and returned it for a touchdown on Thanksgiving 2012?",
+    "answer": "Steve Gregory",
+    "acceptable_answers": [
+      "Steve Gregory",
+      "Gregory"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_butt_fumble_dt",
+    "question": "Which Patriots defensive tackle pushed Brandon Moore into Mark Sanchez, triggering the 'Butt Fumble'?",
+    "answer": "Vince Wilfork",
+    "acceptable_answers": [
+      "Vince Wilfork",
+      "Wilfork"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2012,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_to_broken_leg_sb",
+    "question": "Which Eagles receiver played in Super Bowl XXXIX just seven weeks after breaking his leg, catching 9 passes for 122 yards?",
+    "answer": "Terrell Owens",
+    "acceptable_answers": [
+      "Terrell Owens",
+      "TO",
+      "Owens"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2005,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_to_injury_tackler",
+    "question": "Terrell Owens' leg injury before Super Bowl XXXIX was caused by which type of tackle that is now banned in the NFL?",
+    "answer": "Horse-collar tackle",
+    "acceptable_answers": [
+      "Horse-collar tackle",
+      "Horse collar tackle",
+      "Horse collar"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2005,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_deion_two_sports",
+    "question": "Who is the only athlete in history to play in both a Super Bowl and a World Series?",
+    "answer": "Deion Sanders",
+    "acceptable_answers": [
+      "Deion Sanders",
+      "Sanders",
+      "Prime Time",
+      "Neon Deion"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1995,
+      "category": "historic"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_deion_same_week",
+    "question": "In 1989, Deion Sanders became the only player to hit a home run and score an NFL touchdown in the same week. Which team did he play for in the NFL?",
+    "answer": "Atlanta Falcons",
+    "acceptable_answers": [
+      "Atlanta Falcons",
+      "Falcons",
+      "Atlanta"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1989,
+      "category": "historic"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_ryan_leaf_team",
+    "question": "Which team drafted Ryan Leaf with the second overall pick in 1998, one spot after Peyton Manning?",
+    "answer": "San Diego Chargers",
+    "acceptable_answers": [
+      "San Diego Chargers",
+      "Chargers",
+      "San Diego"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1998,
+      "category": "draft"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_leaf_first_start_stats",
+    "question": "In Ryan Leaf's disastrous first NFL start, he went 1-for-15 with two interceptions against which team?",
+    "answer": "Kansas City Chiefs",
+    "acceptable_answers": [
+      "Kansas City Chiefs",
+      "Chiefs",
+      "Kansas City"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 1998,
+      "category": "draft"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_jamarcus_warning",
+    "question": "Which former Raiders great warned Al Davis 'Do not draft this guy' before the Raiders selected JaMarcus Russell?",
+    "answer": "Matt Millen",
+    "acceptable_answers": [
+      "Matt Millen",
+      "Millen"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2007,
+      "category": "draft"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_jamarcus_preferred_pick",
+    "question": "Which future Hall of Fame wide receiver did Raiders coach Lane Kiffin reportedly want to draft instead of JaMarcus Russell in 2007?",
+    "answer": "Calvin Johnson",
+    "acceptable_answers": [
+      "Calvin Johnson",
+      "Johnson",
+      "Megatron"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2007,
+      "category": "draft"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_brady_compensatory_reason",
+    "question": "The Patriots' 199th pick used to draft Tom Brady was a compensatory selection awarded partly due to losing which punter in free agency?",
+    "answer": "Tom Tupa",
+    "acceptable_answers": [
+      "Tom Tupa",
+      "Tupa"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2000,
+      "category": "draft"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_moss_21_fall",
+    "question": "Randy Moss fell to pick #21 in the 1998 draft due to character concerns. Which team took a chance on him?",
+    "answer": "Minnesota Vikings",
+    "acceptable_answers": [
+      "Minnesota Vikings",
+      "Vikings",
+      "Minnesota"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 1998,
+      "category": "draft"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_moss_23_tds_broken",
+    "question": "Whose single-season touchdown reception record did Randy Moss break when he caught 23 TDs in 2007?",
+    "answer": "Jerry Rice",
+    "acceptable_answers": [
+      "Jerry Rice",
+      "Rice"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2007,
+      "category": "record"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_jayden_daniels_upset",
+    "question": "Jayden Daniels led the Commanders to upset which top-seeded team in the 2024 playoffs to reach the NFC Championship?",
+    "answer": "Detroit Lions",
+    "acceptable_answers": [
+      "Detroit Lions",
+      "Lions",
+      "Detroit"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2025,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_pearsall_shooting",
+    "question": "Which 49ers first-round receiver was shot during an attempted robbery in San Francisco in 2024 but returned to play later in the season?",
+    "answer": "Ricky Pearsall",
+    "acceptable_answers": [
+      "Ricky Pearsall",
+      "Pearsall"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2024,
+      "category": "memorable_moment"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_colts_2006_comeback",
+    "question": "In the 2006 AFC Championship, the Colts overcame an 18-point deficit against which rival to reach the Super Bowl?",
+    "answer": "New England Patriots",
+    "acceptable_answers": [
+      "New England Patriots",
+      "Patriots",
+      "New England"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2007,
+      "category": "playoff_comeback"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_sb_xxxv_only_score",
+    "question": "In the Ravens' dominant Super Bowl XXXV victory, the Giants' only points came from what type of play?",
+    "answer": "Kickoff return touchdown",
+    "acceptable_answers": [
+      "Kickoff return touchdown",
+      "Kickoff return",
+      "Kick return touchdown"
+    ],
+    "point_value": 3,
+    "metadata": {
+      "year": 2001,
+      "category": "super_bowl"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_warner_sb_xxxiv_yards",
+    "question": "Kurt Warner set a Super Bowl record for passing yards in Super Bowl XXXIV. How many yards did he throw for?",
+    "answer": "414",
+    "acceptable_answers": [
+      "414",
+      "414 yards"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2000,
+      "category": "super_bowl"
+    },
+    "type": "free_form"
+  },
+  {
+    "id": "nfl_sb_xxxviii_kicker",
+    "question": "Which Patriots kicker made a 41-yard field goal with four seconds left to beat the Panthers 32-29 in Super Bowl XXXVIII?",
+    "answer": "Adam Vinatieri",
+    "acceptable_answers": [
+      "Adam Vinatieri",
+      "Vinatieri"
+    ],
+    "point_value": 2,
+    "metadata": {
+      "year": 2004,
+      "category": "super_bowl"
+    },
+    "type": "free_form"
   }
 ]
