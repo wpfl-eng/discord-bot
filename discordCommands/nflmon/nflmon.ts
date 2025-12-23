@@ -599,17 +599,256 @@ async function handleMenuInteraction(
 
   if (customId === 'nflmon_menu_view') {
     await interaction.showModal(createViewModal());
-    // Modal handling in Task 8
+
+    // Wait for modal submission
+    let modalInteraction: ModalSubmitInteraction;
+    try {
+      modalInteraction = await interaction.awaitModalSubmit({
+        time: 60000,
+        filter: (mi) => mi.customId === 'nflmon_modal_view' && mi.user.id === userId,
+      });
+    } catch {
+      // Modal dismissed or timed out - just return
+      return;
+    }
+
+    await modalInteraction.deferUpdate();
+
+    // Validate input
+    const idStr = modalInteraction.fields.getTextInputValue('nflmon_id');
+    const nflmonId = validateNflmonId(idStr);
+
+    if (nflmonId === null) {
+      await modalInteraction.followUp({
+        content: 'Invalid NFLmon ID. Please enter a positive number.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Execute the view action - get NFLmon and display
+    const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
+    if (!nflmon) {
+      await modalInteraction.followUp({
+        content: ERROR_MESSAGES.NOT_FOUND,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const displayData = nflmonService.getDisplayData(nflmon);
+    if (!displayData) {
+      await modalInteraction.followUp({ content: 'Error loading NFLmon data.', ephemeral: true });
+      return;
+    }
+
+    const embed = nflmonService.buildNflmonCard(displayData);
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_main')
+        .setLabel('Back to Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await modalInteraction.editReply({ embeds: [embed], components: [backRow] });
     return;
   }
 
   if (customId === 'nflmon_menu_train') {
     await interaction.showModal(createTrainModal());
+
+    // Wait for modal submission
+    let modalInteraction: ModalSubmitInteraction;
+    try {
+      modalInteraction = await interaction.awaitModalSubmit({
+        time: 60000,
+        filter: (mi) => mi.customId === 'nflmon_modal_train' && mi.user.id === userId,
+      });
+    } catch {
+      // Modal dismissed or timed out - just return
+      return;
+    }
+
+    await modalInteraction.deferUpdate();
+
+    // Validate inputs
+    const idStr = modalInteraction.fields.getTextInputValue('nflmon_id');
+    const nflmonId = validateNflmonId(idStr);
+
+    if (nflmonId === null) {
+      await modalInteraction.followUp({
+        content: 'Invalid NFLmon ID. Please enter a positive number.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const slotStr = modalInteraction.fields.getTextInputValue('slot');
+    const slot = validateTrainingSlot(slotStr);
+
+    // Get user stats to check max training slots
+    const stats = await nflmonDb.getOrCreateStats(userId, username);
+
+    // Check if NFLmon exists and belongs to user
+    const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
+    if (!nflmon) {
+      await modalInteraction.followUp({
+        content: ERROR_MESSAGES.NOT_FOUND,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Check if already in training
+    if (nflmon.training_slot !== null) {
+      await modalInteraction.followUp({
+        content: ERROR_MESSAGES.ALREADY_IN_TRAINING,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Determine final slot (auto-assign if null)
+    let finalSlot = slot;
+    if (finalSlot === null) {
+      const trainingNflmon = await nflmonDb.getTrainingNflmon(userId);
+      const usedSlots = trainingNflmon.map((n) => n.training_slot);
+
+      for (let i = 1; i <= stats.max_training_slots; i++) {
+        if (!usedSlots.includes(i)) {
+          finalSlot = i;
+          break;
+        }
+      }
+
+      if (finalSlot === null) {
+        await modalInteraction.followUp({
+          content: `All ${stats.max_training_slots} training slots are full. Use the Untrain button to remove one first.`,
+          ephemeral: true,
+        });
+        return;
+      }
+    }
+
+    // Validate slot is within user's max
+    if (finalSlot > stats.max_training_slots) {
+      await modalInteraction.followUp({
+        content: ERROR_MESSAGES.INVALID_SLOT,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Assign to training slot
+    const result = await nflmonDb.setTrainingSlot(userId, nflmonId, finalSlot);
+
+    if (!result.success) {
+      const errorMsg = ERROR_MESSAGES[result.error] || 'Failed to assign training slot.';
+      await modalInteraction.followUp({ content: errorMsg, ephemeral: true });
+      return;
+    }
+
+    // Get player info for response
+    const player = nflmonService.getPlayer(nflmon.player_id);
+    const name = nflmon.nickname || player?.name || 'Unknown';
+
+    const embed = new EmbedBuilder()
+      .setColor(0x00ff00)
+      .setTitle('Training Started!')
+      .setDescription(
+        `**${name}** is now training in slot **${finalSlot}**!\n\n` +
+          `They will earn XP when you play Wordle, Trivia, and other games.`
+      );
+
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_main')
+        .setLabel('Back to Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await modalInteraction.editReply({ embeds: [embed], components: [backRow] });
     return;
   }
 
   if (customId === 'nflmon_menu_untrain') {
     await interaction.showModal(createUntrainModal());
+
+    // Wait for modal submission
+    let modalInteraction: ModalSubmitInteraction;
+    try {
+      modalInteraction = await interaction.awaitModalSubmit({
+        time: 60000,
+        filter: (mi) => mi.customId === 'nflmon_modal_untrain' && mi.user.id === userId,
+      });
+    } catch {
+      // Modal dismissed or timed out - just return
+      return;
+    }
+
+    await modalInteraction.deferUpdate();
+
+    // Validate input
+    const idStr = modalInteraction.fields.getTextInputValue('nflmon_id');
+    const nflmonId = validateNflmonId(idStr);
+
+    if (nflmonId === null) {
+      await modalInteraction.followUp({
+        content: 'Invalid NFLmon ID. Please enter a positive number.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Get NFLmon to check if it's in training
+    const nflmon = await nflmonDb.getNflmonByUser(userId, nflmonId);
+    if (!nflmon) {
+      await modalInteraction.followUp({
+        content: ERROR_MESSAGES.NOT_FOUND,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (nflmon.training_slot === null) {
+      await modalInteraction.followUp({
+        content: ERROR_MESSAGES.NOT_IN_TRAINING,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const oldSlot = nflmon.training_slot;
+
+    // Remove from training
+    const result = await nflmonDb.removeFromTraining(userId, nflmonId);
+    if (!result) {
+      await modalInteraction.followUp({
+        content: 'Failed to remove from training.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const player = nflmonService.getPlayer(nflmon.player_id);
+    const name = nflmon.nickname || player?.name || 'Unknown';
+
+    const embed = new EmbedBuilder()
+      .setColor(0xffaa00)
+      .setTitle('Training Stopped')
+      .setDescription(`**${name}** has been removed from training slot **${oldSlot}**.`);
+
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_main')
+        .setLabel('Back to Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await modalInteraction.editReply({ embeds: [embed], components: [backRow] });
     return;
   }
 
@@ -634,6 +873,79 @@ async function handleMenuInteraction(
 
   if (customId === 'nflmon_menu_dex') {
     await interaction.showModal(createDexModal());
+
+    // Wait for modal submission
+    let modalInteraction: ModalSubmitInteraction;
+    try {
+      modalInteraction = await interaction.awaitModalSubmit({
+        time: 60000,
+        filter: (mi) => mi.customId === 'nflmon_modal_dex' && mi.user.id === userId,
+      });
+    } catch {
+      // Modal dismissed or timed out - just return
+      return;
+    }
+
+    await modalInteraction.deferUpdate();
+
+    // Get and validate inputs
+    const search = modalInteraction.fields.getTextInputValue('search').trim().toLowerCase() || null;
+    const rarityStr = modalInteraction.fields.getTextInputValue('rarity').trim();
+    const rarity = validateRarity(rarityStr);
+
+    // Validate rarity if provided
+    if (rarityStr !== '' && rarity === null) {
+      await modalInteraction.followUp({
+        content: 'Invalid rarity. Valid options: common, uncommon, rare, epic, legendary',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Get all players from JSON (single source of truth)
+    let players = nflmonService.getAllPlayers();
+
+    // Apply filters
+    if (rarity) {
+      players = players.filter((p) => p.rarityPool === rarity);
+    }
+    if (search) {
+      if (search.startsWith('position:')) {
+        const pos = search.replace('position:', '').toUpperCase();
+        players = players.filter((p) => p.position === pos);
+      } else if (search.startsWith('team:')) {
+        const team = search.replace('team:', '').toUpperCase();
+        players = players.filter((p) => p.team.toUpperCase() === team);
+      } else {
+        players = players.filter((p) => p.name.toLowerCase().includes(search));
+      }
+    }
+
+    // Sort and paginate
+    players.sort((a, b) => a.name.localeCompare(b.name));
+    const totalCount = players.length;
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
+    const page = 1;
+    const paginated = players.slice(0, ITEMS_PER_PAGE);
+
+    const embed = nflmonService.buildDexEmbed(paginated, page, totalPages, totalCount, {
+      search: search ?? undefined,
+      rarity: rarity ?? undefined,
+    });
+    const paginationComponents = buildDexPaginationButtons(page, totalPages, search, rarity);
+
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_main')
+        .setLabel('Back to Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await modalInteraction.editReply({
+      embeds: [embed],
+      components: [...paginationComponents, backRow],
+    });
     return;
   }
 
@@ -653,6 +965,194 @@ async function handleMenuInteraction(
   // === TRADE SUBMENU ===
   if (customId === 'nflmon_trade_menu_offer') {
     await interaction.showModal(createTradeOfferModal());
+
+    // Wait for modal submission
+    let modalInteraction: ModalSubmitInteraction;
+    try {
+      modalInteraction = await interaction.awaitModalSubmit({
+        time: 60000,
+        filter: (mi) => mi.customId === 'nflmon_modal_trade_offer' && mi.user.id === userId,
+      });
+    } catch {
+      // Modal dismissed or timed out - just return
+      return;
+    }
+
+    await modalInteraction.deferUpdate();
+
+    // Get and validate inputs
+    const targetUserStr = modalInteraction.fields.getTextInputValue('target_user');
+    const targetUserId = validateDiscordUserId(targetUserStr);
+
+    if (targetUserId === null) {
+      await modalInteraction.followUp({
+        content: 'Invalid User ID. Please enter a valid Discord user ID (17-20 digits).',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const myNflmonStr = modalInteraction.fields.getTextInputValue('my_nflmon');
+    const myNflmonId = validateNflmonId(myNflmonStr);
+
+    if (myNflmonId === null) {
+      await modalInteraction.followUp({
+        content: 'Invalid NFLmon ID for your offer. Please enter a positive number.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const theirNflmonStr = modalInteraction.fields.getTextInputValue('their_nflmon').trim();
+    let theirNflmonId: number | null = null;
+    if (theirNflmonStr !== '') {
+      theirNflmonId = validateNflmonId(theirNflmonStr);
+      if (theirNflmonId === null) {
+        await modalInteraction.followUp({
+          content: 'Invalid NFLmon ID for their NFLmon. Please enter a positive number or leave blank.',
+          ephemeral: true,
+        });
+        return;
+      }
+    }
+
+    const coinsStr = modalInteraction.fields.getTextInputValue('coins').trim();
+    const coinsOffered = validateCoins(coinsStr);
+
+    if (coinsOffered === null) {
+      await modalInteraction.followUp({
+        content: 'Invalid coins value. Please enter a non-negative number or leave blank.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Prevent self-trade
+    if (targetUserId === userId) {
+      await modalInteraction.followUp({
+        content: TRADE_ERRORS.SELF_TRADE,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Validate my NFLmon exists and not in training
+    const myNflmon = await nflmonDb.getNflmonByUser(userId, myNflmonId);
+    if (!myNflmon) {
+      await modalInteraction.followUp({
+        content: ERROR_MESSAGES.NOT_FOUND,
+        ephemeral: true,
+      });
+      return;
+    }
+    if (myNflmon.training_slot !== null) {
+      await modalInteraction.followUp({
+        content: 'Your NFLmon is in training. Untrain it first.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Validate their NFLmon if specified
+    let theirNflmon: Nflmon | null = null;
+    if (theirNflmonId) {
+      theirNflmon = await nflmonDb.getNflmonByUser(targetUserId, theirNflmonId);
+      if (!theirNflmon) {
+        await modalInteraction.followUp({
+          content: "The requested NFLmon doesn't exist or doesn't belong to that user.",
+          ephemeral: true,
+        });
+        return;
+      }
+      if (theirNflmon.training_slot !== null) {
+        await modalInteraction.followUp({
+          content: 'That NFLmon is currently in training. The owner must untrain it first.',
+          ephemeral: true,
+        });
+        return;
+      }
+    }
+
+    // Fetch target user from Discord
+    let targetUser;
+    try {
+      targetUser = await originalInteraction.client.users.fetch(targetUserId);
+    } catch {
+      await modalInteraction.followUp({
+        content: 'Could not find that user. Please check the User ID.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Create the trade
+    const dbTrade = await nflmonDb.createTrade({
+      fromUserId: userId,
+      toUserId: targetUserId,
+      fromNflmonId: myNflmonId,
+      toNflmonId: theirNflmonId,
+      coinsOffered,
+    });
+
+    if (!dbTrade) {
+      await modalInteraction.followUp({
+        content: 'Failed to create trade offer.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Convert to PendingTrade format for embed functions
+    const trade: PendingTrade = {
+      id: dbTrade.id,
+      from_user_id: dbTrade.from_user_id,
+      to_user_id: dbTrade.to_user_id,
+      expires_at: dbTrade.expires_at,
+      from_username: username,
+      to_username: targetUser.username,
+      coins_offered: dbTrade.coins_offered,
+    };
+
+    // Get player info for embeds
+    const myPlayer = nflmonService.getPlayer(myNflmon.player_id);
+    const theirPlayer = theirNflmon ? nflmonService.getPlayer(theirNflmon.player_id) : null;
+
+    // Build confirmation embed for sender
+    const senderEmbed = nflmonService.buildTradeOfferEmbed(
+      trade,
+      myNflmon,
+      theirNflmon,
+      myPlayer,
+      theirPlayer
+    );
+
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_trade')
+        .setLabel('Back to Trade Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await modalInteraction.editReply({ embeds: [senderEmbed], components: [backRow] });
+
+    // Send DM to recipient
+    try {
+      const recipientEmbed = nflmonService.buildTradeReceivedEmbed(
+        trade,
+        myNflmon,
+        theirNflmon,
+        myPlayer,
+        theirPlayer,
+        username
+      );
+      const dmButtons = buildTradeResponseButtons(trade.id);
+      await targetUser.send({ embeds: [recipientEmbed], components: dmButtons });
+    } catch {
+      console.log('[NFLMON] Could not DM trade recipient - they may have DMs disabled');
+    }
+
+    console.log(`[NFLMON] Trade #${trade.id} created: ${username} -> ${targetUser.username}`);
     return;
   }
 
@@ -688,6 +1188,58 @@ async function handleMenuInteraction(
 
   if (customId === 'nflmon_trade_menu_cancel') {
     await interaction.showModal(createTradeCancelModal());
+
+    // Wait for modal submission
+    let modalInteraction: ModalSubmitInteraction;
+    try {
+      modalInteraction = await interaction.awaitModalSubmit({
+        time: 60000,
+        filter: (mi) => mi.customId === 'nflmon_modal_trade_cancel' && mi.user.id === userId,
+      });
+    } catch {
+      // Modal dismissed or timed out - just return
+      return;
+    }
+
+    await modalInteraction.deferUpdate();
+
+    // Validate input
+    const tradeIdStr = modalInteraction.fields.getTextInputValue('trade_id');
+    const tradeId = validateNflmonId(tradeIdStr); // Reuse validation for positive integers
+
+    if (tradeId === null) {
+      await modalInteraction.followUp({
+        content: 'Invalid Trade ID. Please enter a positive number.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Cancel the trade
+    const cancelledTrade = await nflmonDb.cancelTrade(userId, tradeId);
+
+    if (!cancelledTrade) {
+      await modalInteraction.followUp({
+        content: TRADE_ERRORS.NOT_SENDER || 'Failed to cancel trade. Make sure the Trade ID is correct and you are the sender.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x808080)
+      .setTitle('Trade Cancelled')
+      .setDescription(`Trade #${tradeId} has been cancelled.`);
+
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_trade')
+        .setLabel('Back to Trade Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await modalInteraction.editReply({ embeds: [embed], components: [backRow] });
     return;
   }
 
