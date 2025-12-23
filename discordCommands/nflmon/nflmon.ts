@@ -1259,7 +1259,8 @@ async function handleMenuInteraction(
 
     const embed = nflmonService.buildBenchEmbed(benchRecords, 1, totalPages, totalCount);
 
-    // Build back button row
+    // Build pagination buttons if needed
+    const paginationButtons = buildPaginationButtons(1, totalPages, filterRarity);
     const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId('nflmon_back_main')
@@ -1268,7 +1269,110 @@ async function handleMenuInteraction(
         .setStyle(ButtonStyle.Secondary)
     );
 
-    await interaction.editReply({ embeds: [embed], components: [backRow] });
+    await interaction.editReply({ embeds: [embed], components: [...paginationButtons, backRow] });
+    return;
+  }
+
+  // === BENCH PAGINATION ===
+  if (customId.startsWith('nflmon_bench_prev_') || customId.startsWith('nflmon_bench_next_')) {
+    await interaction.deferUpdate();
+
+    const parts = customId.split('_');
+    const action = parts[2]; // prev or next
+    const currentPage = parseInt(parts[3], 10);
+    const filterRarity = parts[4] || null;
+
+    const newPage = action === 'prev' ? currentPage - 1 : currentPage + 1;
+
+    const benchRecords = await nflmonDb.getBench(userId, {
+      rarity: filterRarity ?? undefined,
+      page: newPage,
+      limit: 10,
+    });
+    const totalCount = await nflmonDb.getBenchCount(userId, filterRarity ?? undefined);
+    const totalPages = Math.ceil(totalCount / 10) || 1;
+
+    const embed = nflmonService.buildBenchEmbed(benchRecords, newPage, totalPages, totalCount);
+
+    const paginationButtons = buildPaginationButtons(newPage, totalPages, filterRarity);
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_main')
+        .setLabel('Back to Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [...paginationButtons, backRow],
+    });
+    return;
+  }
+
+  // === DEX PAGINATION ===
+  if (customId.startsWith('nflmon_dex_prev_') || customId.startsWith('nflmon_dex_next_')) {
+    await interaction.deferUpdate();
+
+    const parts = customId.split('_');
+    const action = parts[2]; // prev or next
+    const currentPage = parseInt(parts[3], 10);
+
+    // Decode filters
+    let filterRarity: string | null = null;
+    let filterSearch: string | null = null;
+    try {
+      const encodedFilters = parts[4];
+      if (encodedFilters) {
+        const filterData = JSON.parse(Buffer.from(encodedFilters, 'base64').toString('utf8'));
+        filterRarity = filterData.r || null;
+        filterSearch = filterData.s || null;
+      }
+    } catch {
+      // Ignore decode errors
+    }
+
+    const newPage = action === 'prev' ? currentPage - 1 : currentPage + 1;
+
+    // Re-filter players
+    let players = nflmonService.getAllPlayers();
+    if (filterRarity) {
+      players = players.filter((p) => p.rarityPool === filterRarity);
+    }
+    if (filterSearch) {
+      if (filterSearch.startsWith('position:')) {
+        const pos = filterSearch.replace('position:', '').toUpperCase();
+        players = players.filter((p) => p.position === pos);
+      } else if (filterSearch.startsWith('team:')) {
+        const team = filterSearch.replace('team:', '').toUpperCase();
+        players = players.filter((p) => p.team.toUpperCase() === team);
+      } else {
+        players = players.filter((p) => p.name.toLowerCase().includes(filterSearch!));
+      }
+    }
+    players.sort((a, b) => a.name.localeCompare(b.name));
+
+    const totalPages = Math.ceil(players.length / 10) || 1;
+    const paginated = players.slice((newPage - 1) * 10, newPage * 10);
+
+    const embed = nflmonService.buildDexEmbed(paginated, newPage, totalPages, players.length, {
+      search: filterSearch ?? undefined,
+      rarity: filterRarity ?? undefined,
+    });
+
+    const paginationComponents = buildDexPaginationButtons(newPage, totalPages, filterSearch, filterRarity);
+    const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('nflmon_back_main')
+        .setLabel('Back to Menu')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [...paginationComponents, backRow],
+    });
     return;
   }
 
