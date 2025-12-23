@@ -167,6 +167,161 @@ function buildPendingTradeButtons(
   }
 }
 
+/**
+ * Build main menu embed - splash page with user stats
+ */
+async function buildMainMenuEmbed(userId: string, username: string): Promise<EmbedBuilder> {
+  const stats = await nflmonDb.getOrCreateStats(userId, username);
+  const trainingNflmon = await nflmonDb.getTrainingNflmon(userId);
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle('NFLmon Collection Manager')
+    .setDescription(
+      'Welcome to NFLmon! Catch, train, and trade NFL player cards.\n\n' +
+        'Use the buttons below to manage your collection.'
+    )
+    .addFields(
+      { name: 'Total Caught', value: stats.total_caught.toString(), inline: true },
+      {
+        name: 'In Training',
+        value: `${trainingNflmon.length}/${stats.max_training_slots}`,
+        inline: true,
+      },
+      { name: 'Legendaries', value: stats.legendary_count.toString(), inline: true },
+      { name: 'Highest Level', value: stats.highest_level_reached.toString(), inline: true }
+    )
+    .setFooter({ text: 'Session expires in 5 minutes' });
+
+  return embed;
+}
+
+/**
+ * Build main menu buttons
+ */
+function buildMainMenuButtons(): ActionRowBuilder<ButtonBuilder>[] {
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('nflmon_menu_bench')
+      .setLabel('Bench')
+      .setEmoji('📦')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_menu_view')
+      .setLabel('View')
+      .setEmoji('👁️')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_menu_train')
+      .setLabel('Train')
+      .setEmoji('💪')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_menu_untrain')
+      .setLabel('Untrain')
+      .setEmoji('🔓')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_menu_stats')
+      .setLabel('Stats')
+      .setEmoji('📊')
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('nflmon_menu_dex')
+      .setLabel('Dex')
+      .setEmoji('📖')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_menu_trade')
+      .setLabel('Trade')
+      .setEmoji('🤝')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return [row1, row2];
+}
+
+/**
+ * Build trade submenu buttons
+ */
+function buildTradeSubmenuButtons(): ActionRowBuilder<ButtonBuilder>[] {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('nflmon_trade_menu_offer')
+      .setLabel('Offer')
+      .setEmoji('📤')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('nflmon_trade_menu_pending')
+      .setLabel('Pending')
+      .setEmoji('📥')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_trade_menu_cancel')
+      .setLabel('Cancel')
+      .setEmoji('❌')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('nflmon_back_trade')
+      .setLabel('Back')
+      .setEmoji('⬅️')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return [row];
+}
+
+/**
+ * Build rarity filter buttons for bench view
+ */
+function buildRarityFilterButtons(): ActionRowBuilder<ButtonBuilder>[] {
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('nflmon_rarity_bench_all')
+      .setLabel('All')
+      .setEmoji('📋')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_rarity_bench_common')
+      .setLabel('Common')
+      .setEmoji('⚪')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_rarity_bench_uncommon')
+      .setLabel('Uncommon')
+      .setEmoji('🟢')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_rarity_bench_rare')
+      .setLabel('Rare')
+      .setEmoji('💎')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('nflmon_rarity_bench_epic')
+      .setLabel('Epic')
+      .setEmoji('💜')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_rarity_bench_legendary')
+      .setLabel('Legendary')
+      .setEmoji('🌟')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('nflmon_back_main')
+      .setLabel('Back')
+      .setEmoji('⬅️')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return [row1, row2];
+}
+
 // =============================================================================
 // SLASH COMMAND BUILDER
 // =============================================================================
