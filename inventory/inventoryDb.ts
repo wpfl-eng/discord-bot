@@ -108,10 +108,7 @@ export async function getInventory(userId: string): Promise<InventoryItem[]> {
  * @param itemType - Item type key
  * @returns Inventory item or null if not found
  */
-export async function getItem(
-  userId: string,
-  itemType: string
-): Promise<InventoryItem | null> {
+export async function getItem(userId: string, itemType: string): Promise<InventoryItem | null> {
   const result = await sql<InventoryItem>`
     SELECT * FROM user_inventory
     WHERE user_id = ${userId}
@@ -174,10 +171,7 @@ export async function hasItem(
  * @param itemType - Item type key
  * @returns Quantity owned (0 if not owned)
  */
-export async function getItemQuantity(
-  userId: string,
-  itemType: string
-): Promise<number> {
+export async function getItemQuantity(userId: string, itemType: string): Promise<number> {
   const item = await getItem(userId, itemType);
   return item ? item.quantity : 0;
 }
@@ -470,10 +464,7 @@ export async function transferItem(
  * @param items - Array of item data to add
  * @returns Array of added items
  */
-export async function addItems(
-  userId: string,
-  items: AddItemData[]
-): Promise<InventoryItem[]> {
+export async function addItems(userId: string, items: AddItemData[]): Promise<InventoryItem[]> {
   if (items.length === 0) return [];
 
   // Prepare arrays for UNNEST

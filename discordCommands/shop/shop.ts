@@ -7,9 +7,7 @@ import {
   ComponentType,
   ChatInputCommandInteraction,
 } from 'discord.js';
-import { sql } from '@vercel/postgres';
 import * as economyDb from '../../economy/economyDb.js';
-import * as inventoryDb from '../../inventory/inventoryDb.js';
 import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
 import type { EconomyUser } from '../../types/database.js';
 
@@ -17,7 +15,7 @@ import type { EconomyUser } from '../../types/database.js';
 // Type Definitions
 // ============================================================
 
-type ShopItemType = 'economy' | 'inventory';
+type ShopItemType = 'economy';
 
 interface ShopItem {
   readonly id: string;
@@ -26,7 +24,6 @@ interface ShopItem {
   readonly price: number;
   readonly description: string;
   readonly type: ShopItemType;
-  readonly inventoryQuantity?: number;
 }
 
 interface ShopCategory {
@@ -35,15 +32,8 @@ interface ShopCategory {
   readonly items: ShopItem[];
 }
 
-interface BuyInventoryResult {
-  readonly success: boolean;
-  readonly user?: EconomyUser;
-  readonly error?: string;
-}
-
 interface PurchaseDetails {
   bankCapacity?: number;
-  quantity?: number;
 }
 
 // ============================================================
@@ -171,44 +161,6 @@ function buildDisabledButtons(): ActionRowBuilder<ButtonBuilder>[] {
   return rows;
 }
 
-/**
- * Purchase an inventory item (atomic wallet deduction + inventory add with rollback)
- */
-async function buyInventoryItem(
-  userId: string,
-  itemId: string,
-  price: number,
-  quantity: number
-): Promise<BuyInventoryResult> {
-  // Atomic wallet deduction
-  const result = await sql`
-    UPDATE economy_users
-    SET wallet = wallet - ${price}
-    WHERE user_id = ${userId}
-      AND wallet >= ${price}
-    RETURNING *
-  `;
-
-  if (!result.rows[0]) {
-    return { success: false, error: 'INSUFFICIENT_FUNDS' };
-  }
-
-  // Add to inventory with rollback on failure
-  try {
-    await inventoryDb.addItem(userId, itemId, quantity);
-  } catch (error) {
-    // Rollback: refund the wallet
-    await sql`UPDATE economy_users SET wallet = wallet + ${price} WHERE user_id = ${userId}`;
-    console.error(
-      `Rolled back shop purchase: Failed to add ${itemId} to inventory for ${userId}:`,
-      error
-    );
-    return { success: false, error: 'INVENTORY_ADD_FAILED' };
-  }
-
-  return { success: true, user: result.rows[0] as EconomyUser };
-}
-
 // ============================================================
 // Command Definition
 // ============================================================
@@ -293,14 +245,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           );
           purchaseDetails.bankCapacity = updatedUser?.bank_capacity;
         }
-      } else if (item.type === 'inventory') {
-        // Inventory items: add to user inventory
-        const inventoryQty = item.inventoryQuantity ?? 1;
-        const result = await buyInventoryItem(userId, item.id, item.price, inventoryQty);
-        if (result.success) {
-          updatedUser = result.user;
-          purchaseDetails.quantity = inventoryQty;
-        }
       }
 
       // If purchase failed
@@ -332,15 +276,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           value: formatCurrency(purchaseDetails.bankCapacity),
           inline: true,
         });
-      }
-
-      if (purchaseDetails.quantity) {
-        purchaseEmbed.addFields({
-          name: 'Added to Inventory',
-          value: `${purchaseDetails.quantity}x ${item.name}`,
-          inline: true,
-        });
-        purchaseEmbed.setFooter({ text: 'View your items with /inventory view' });
       }
 
       await buttonInteraction.reply({ embeds: [purchaseEmbed], ephemeral: true });

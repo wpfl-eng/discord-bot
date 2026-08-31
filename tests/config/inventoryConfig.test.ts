@@ -16,25 +16,6 @@ describe('inventoryConfig', () => {
   // ============ ITEM_DEFINITIONS TESTS ============
 
   describe('ITEM_DEFINITIONS', () => {
-    test('has all contract items', () => {
-      expect(ITEM_DEFINITIONS.contract_te).toBeDefined();
-      expect(ITEM_DEFINITIONS.contract_rb).toBeDefined();
-      expect(ITEM_DEFINITIONS.contract_wr).toBeDefined();
-      expect(ITEM_DEFINITIONS.contract_qb).toBeDefined();
-    });
-
-    test('has all tool items', () => {
-      expect(ITEM_DEFINITIONS.tool_setup_kit).toBeDefined();
-      expect(ITEM_DEFINITIONS.tool_water_cooler).toBeDefined();
-    });
-
-    test('has all player items', () => {
-      expect(ITEM_DEFINITIONS.rookie_te).toBeDefined();
-      expect(ITEM_DEFINITIONS.rookie_rb).toBeDefined();
-      expect(ITEM_DEFINITIONS.rookie_wr).toBeDefined();
-      expect(ITEM_DEFINITIONS.rookie_qb).toBeDefined();
-    });
-
     test('has wordle collectibles', () => {
       expect(ITEM_DEFINITIONS.wordle_lucky_letter).toBeDefined();
     });
@@ -47,6 +28,8 @@ describe('inventoryConfig', () => {
         expect(typeof item.description).toBe('string');
         expect(typeof item.stackable).toBe('boolean');
         expect(typeof item.sellable).toBe('boolean');
+        expect(item.displayName.length).toBeGreaterThan(0);
+        expect(item.description.length).toBeGreaterThan(0);
       });
     });
 
@@ -59,49 +42,41 @@ describe('inventoryConfig', () => {
       });
     });
 
-    test('contracts are not sellable', () => {
-      expect(ITEM_DEFINITIONS.contract_te.sellable).toBe(false);
-      expect(ITEM_DEFINITIONS.contract_rb.sellable).toBe(false);
-      expect(ITEM_DEFINITIONS.contract_wr.sellable).toBe(false);
-      expect(ITEM_DEFINITIONS.contract_qb.sellable).toBe(false);
+    test('every item belongs to a defined category', () => {
+      Object.values(ITEM_DEFINITIONS).forEach((item) => {
+        expect(ITEM_CATEGORIES[item.category]).toBeDefined();
+      });
     });
 
-    test('tools are not sellable', () => {
-      expect(ITEM_DEFINITIONS.tool_setup_kit.sellable).toBe(false);
-      expect(ITEM_DEFINITIONS.tool_water_cooler.sellable).toBe(false);
-    });
-
-    test('rookies are sellable', () => {
-      expect(ITEM_DEFINITIONS.rookie_te.sellable).toBe(true);
-      expect(ITEM_DEFINITIONS.rookie_rb.sellable).toBe(true);
-      expect(ITEM_DEFINITIONS.rookie_wr.sellable).toBe(true);
-      expect(ITEM_DEFINITIONS.rookie_qb.sellable).toBe(true);
+    test('lucky letter is a sellable, stackable wordle collectible', () => {
+      const luckyLetter = ITEM_DEFINITIONS.wordle_lucky_letter;
+      expect(luckyLetter.category).toBe('wordle');
+      expect(luckyLetter.displayName).toBe('Lucky Letter');
+      expect(luckyLetter.stackable).toBe(true);
+      expect(luckyLetter.sellable).toBe(true);
+      expect(luckyLetter.baseValue).toBe(500);
     });
   });
 
   // ============ ITEM_CATEGORIES TESTS ============
 
   describe('ITEM_CATEGORIES', () => {
-    test('has all 4 categories', () => {
-      expect(ITEM_CATEGORIES.contract).toBeDefined();
-      expect(ITEM_CATEGORIES.tool).toBeDefined();
-      expect(ITEM_CATEGORIES.player).toBeDefined();
+    test('has the wordle category', () => {
       expect(ITEM_CATEGORIES.wordle).toBeDefined();
     });
 
     test('each category has displayName, emoji, and order', () => {
-      Object.values(ITEM_CATEGORIES).forEach((cat) => {
-        expect(typeof cat.displayName).toBe('string');
-        expect(typeof cat.emoji).toBe('string');
-        expect(typeof cat.order).toBe('number');
+      Object.values(ITEM_CATEGORIES).forEach((category) => {
+        expect(typeof category.displayName).toBe('string');
+        expect(typeof category.emoji).toBe('string');
+        expect(typeof category.order).toBe('number');
+        expect(category.displayName.length).toBeGreaterThan(0);
       });
     });
 
-    test('categories are ordered correctly', () => {
-      expect(ITEM_CATEGORIES.contract.order).toBe(1);
-      expect(ITEM_CATEGORIES.tool.order).toBe(2);
-      expect(ITEM_CATEGORIES.player.order).toBe(3);
-      expect(ITEM_CATEGORIES.wordle.order).toBe(4);
+    test('category orders are unique', () => {
+      const orders = Object.values(ITEM_CATEGORIES).map((c) => c.order);
+      expect(new Set(orders).size).toBe(orders.length);
     });
   });
 
@@ -109,52 +84,46 @@ describe('inventoryConfig', () => {
 
   describe('getItemDefinition', () => {
     test('returns definition for valid item type', () => {
-      const def = getItemDefinition('contract_te');
+      const def = getItemDefinition('wordle_lucky_letter');
       expect(def).not.toBeNull();
-      expect(def?.displayName).toBe('TE Contract');
+      expect(def?.displayName).toBe('Lucky Letter');
     });
 
     test('returns null for unknown item type', () => {
-      expect(getItemDefinition('invalid_item')).toBeNull();
+      expect(getItemDefinition('not_a_real_item')).toBeNull();
+    });
+
+    test('returns null for retired training-ground items', () => {
+      expect(getItemDefinition('contract_te')).toBeNull();
+      expect(getItemDefinition('tool_setup_kit')).toBeNull();
+      expect(getItemDefinition('rookie_qb')).toBeNull();
     });
 
     test('handles null/undefined gracefully', () => {
-      expect(getItemDefinition(null as unknown as string)).toBeNull();
-      expect(getItemDefinition(undefined as unknown as string)).toBeNull();
+      expect(getItemDefinition(null)).toBeNull();
+      expect(getItemDefinition(undefined)).toBeNull();
     });
   });
 
   describe('getItemsInCategory', () => {
-    test('returns all items in contract category', () => {
-      const items = getItemsInCategory('contract');
-      expect(items.length).toBe(4);
-      expect(items.map((i) => i.itemType)).toContain('contract_te');
-      expect(items.map((i) => i.itemType)).toContain('contract_qb');
-    });
-
-    test('returns all items in player category', () => {
-      const items = getItemsInCategory('player');
-      expect(items.length).toBe(4);
-    });
-
-    test('returns all items in tool category', () => {
-      const items = getItemsInCategory('tool');
-      expect(items.length).toBe(2);
-    });
-
     test('returns wordle items', () => {
       const items = getItemsInCategory('wordle');
       expect(items.length).toBe(1);
-      expect(items[0].itemType).toBe('wordle_lucky_letter');
+      expect(items.map((i) => i.itemType)).toContain('wordle_lucky_letter');
     });
 
     test('returns empty array for unknown category', () => {
-      const items = getItemsInCategory('invalid');
-      expect(items).toEqual([]);
+      expect(getItemsInCategory('nonexistent')).toEqual([]);
+    });
+
+    test('returns empty array for retired categories', () => {
+      expect(getItemsInCategory('contract')).toEqual([]);
+      expect(getItemsInCategory('tool')).toEqual([]);
+      expect(getItemsInCategory('player')).toEqual([]);
     });
 
     test('each returned item has itemType property', () => {
-      const items = getItemsInCategory('contract');
+      const items = getItemsInCategory('wordle');
       items.forEach((item) => {
         expect(typeof item.itemType).toBe('string');
       });
@@ -169,9 +138,10 @@ describe('inventoryConfig', () => {
       });
     });
 
-    test('returns all 5 sellable items', () => {
+    test('returns the single sellable item', () => {
       const items = getSellableItems();
-      expect(items.length).toBe(5); // 4 rookies + 1 wordle item
+      expect(items.length).toBe(1);
+      expect(items[0].itemType).toBe('wordle_lucky_letter');
     });
 
     test('each returned item has itemType property', () => {
@@ -184,84 +154,67 @@ describe('inventoryConfig', () => {
 
   describe('isValidItemType', () => {
     test('returns true for valid item types', () => {
-      expect(isValidItemType('contract_te')).toBe(true);
-      expect(isValidItemType('tool_setup_kit')).toBe(true);
-      expect(isValidItemType('rookie_qb')).toBe(true);
+      expect(isValidItemType('wordle_lucky_letter')).toBe(true);
     });
 
     test('returns false for invalid item types', () => {
-      expect(isValidItemType('invalid_item')).toBe(false);
-      expect(isValidItemType('contract')).toBe(false);
+      expect(isValidItemType('not_a_real_item')).toBe(false);
+      expect(isValidItemType('rookie_qb')).toBe(false);
     });
 
     test('returns false for null/undefined', () => {
-      expect(isValidItemType(null as unknown as string)).toBe(false);
-      expect(isValidItemType(undefined as unknown as string)).toBe(false);
+      expect(isValidItemType(null)).toBe(false);
+      expect(isValidItemType(undefined)).toBe(false);
     });
   });
 
   describe('isItemSellable', () => {
     test('returns true for sellable items', () => {
-      expect(isItemSellable('rookie_te')).toBe(true);
       expect(isItemSellable('wordle_lucky_letter')).toBe(true);
     });
 
-    test('returns false for non-sellable items', () => {
-      expect(isItemSellable('contract_te')).toBe(false);
-      expect(isItemSellable('tool_setup_kit')).toBe(false);
-    });
-
     test('returns false for invalid item types', () => {
-      expect(isItemSellable('invalid_item')).toBe(false);
+      expect(isItemSellable('not_a_real_item')).toBe(false);
     });
 
     test('returns false for null/undefined', () => {
-      expect(isItemSellable(null as unknown as string)).toBe(false);
-      expect(isItemSellable(undefined as unknown as string)).toBe(false);
+      expect(isItemSellable(null)).toBe(false);
+      expect(isItemSellable(undefined)).toBe(false);
     });
   });
 
   describe('getItemDisplayName', () => {
     test('returns display name for valid items', () => {
-      expect(getItemDisplayName('contract_te')).toBe('TE Contract');
-      expect(getItemDisplayName('rookie_qb')).toBe('Quarterback Rookie');
+      expect(getItemDisplayName('wordle_lucky_letter')).toBe('Lucky Letter');
     });
 
     test('returns item type as fallback for unknown items', () => {
-      expect(getItemDisplayName('unknown_item')).toBe('unknown_item');
+      expect(getItemDisplayName('mystery_item')).toBe('mystery_item');
     });
   });
 
   describe('getItemEmoji', () => {
     test('returns emoji for valid items', () => {
-      expect(getItemEmoji('contract_te')).toBe('📜🤲');
-      expect(getItemEmoji('tool_setup_kit')).toBe('🔧');
+      expect(getItemEmoji('wordle_lucky_letter')).toBe('🔤');
     });
 
     test('returns empty string for unknown items', () => {
-      expect(getItemEmoji('unknown_item')).toBe('');
+      expect(getItemEmoji('mystery_item')).toBe('');
     });
   });
 
   describe('getItemBaseValue', () => {
     test('returns base value for sellable items', () => {
-      expect(getItemBaseValue('rookie_te')).toBe(75);
-      expect(getItemBaseValue('rookie_qb')).toBe(375);
       expect(getItemBaseValue('wordle_lucky_letter')).toBe(500);
     });
 
-    test('returns 0 for non-sellable items', () => {
-      expect(getItemBaseValue('contract_te')).toBe(0);
-      expect(getItemBaseValue('tool_setup_kit')).toBe(0);
-    });
-
     test('returns 0 for unknown items', () => {
-      expect(getItemBaseValue('unknown_item')).toBe(0);
+      expect(getItemBaseValue('mystery_item')).toBe(0);
     });
 
     test('returns 0 for null/undefined', () => {
-      expect(getItemBaseValue(null as unknown as string)).toBe(0);
-      expect(getItemBaseValue(undefined as unknown as string)).toBe(0);
+      expect(getItemBaseValue(null)).toBe(0);
+      expect(getItemBaseValue(undefined)).toBe(0);
     });
   });
 });

@@ -1,22 +1,11 @@
 // Inventory System Configuration
-// Item definitions and categories for the training ground system
+// Item definitions and categories for player-held items
 
 // ============ TYPE DEFINITIONS ============
 
-export type ItemCategory = 'contract' | 'tool' | 'player' | 'wordle';
+export type ItemCategory = 'wordle';
 
-export type ItemType =
-  | 'contract_te'
-  | 'contract_rb'
-  | 'contract_wr'
-  | 'contract_qb'
-  | 'tool_setup_kit'
-  | 'tool_water_cooler'
-  | 'rookie_te'
-  | 'rookie_rb'
-  | 'rookie_wr'
-  | 'rookie_qb'
-  | 'wordle_lucky_letter';
+export type ItemType = 'wordle_lucky_letter';
 
 export interface ItemDefinition {
   readonly category: ItemCategory;
@@ -45,96 +34,6 @@ export interface CategoryInfo {
  * Each item has: category, displayName, emoji, description, stackable, sellable, baseValue (optional)
  */
 export const ITEM_DEFINITIONS: Record<ItemType, ItemDefinition> = {
-  // ============ Contracts (consumable - used to draft rookies) ============
-  contract_te: {
-    category: 'contract',
-    displayName: 'TE Contract',
-    emoji: '📜🤲',
-    description: 'Draft a Tight End rookie',
-    stackable: true,
-    sellable: false,
-  },
-  contract_rb: {
-    category: 'contract',
-    displayName: 'RB Contract',
-    emoji: '📜🏃',
-    description: 'Draft a Running Back rookie',
-    stackable: true,
-    sellable: false,
-  },
-  contract_wr: {
-    category: 'contract',
-    displayName: 'WR Contract',
-    emoji: '📜🎯',
-    description: 'Draft a Wide Receiver rookie',
-    stackable: true,
-    sellable: false,
-  },
-  contract_qb: {
-    category: 'contract',
-    displayName: 'QB Contract',
-    emoji: '📜🏈',
-    description: 'Draft a Quarterback rookie',
-    stackable: true,
-    sellable: false,
-  },
-
-  // ============ Tools (consumable - have limited uses) ============
-  tool_setup_kit: {
-    category: 'tool',
-    displayName: 'Setup Kit',
-    emoji: '🔧',
-    description: 'Prepares training slots with equipment',
-    stackable: true,
-    sellable: false,
-  },
-  tool_water_cooler: {
-    category: 'tool',
-    displayName: 'Water Cooler',
-    emoji: '💧',
-    description: 'Hydrates prepared slots for drafting',
-    stackable: true,
-    sellable: false,
-  },
-
-  // ============ Graduated Players (sellable) ============
-  rookie_te: {
-    category: 'player',
-    displayName: 'Tight End Rookie',
-    emoji: '🤲⭐',
-    description: 'Graduated Tight End',
-    stackable: true,
-    sellable: true,
-    baseValue: 75, // 75-100 range on graduation
-  },
-  rookie_rb: {
-    category: 'player',
-    displayName: 'Running Back Rookie',
-    emoji: '🏃⭐',
-    description: 'Graduated Running Back',
-    stackable: true,
-    sellable: true,
-    baseValue: 150, // 150-200 range on graduation
-  },
-  rookie_wr: {
-    category: 'player',
-    displayName: 'Wide Receiver Rookie',
-    emoji: '🎯⭐',
-    description: 'Graduated Wide Receiver',
-    stackable: true,
-    sellable: true,
-    baseValue: 225, // 225-300 range on graduation
-  },
-  rookie_qb: {
-    category: 'player',
-    displayName: 'Quarterback Rookie',
-    emoji: '🏈⭐',
-    description: 'Graduated Quarterback',
-    stackable: true,
-    sellable: true,
-    baseValue: 375, // 375-500 range on graduation
-  },
-
   // ============ Wordle Collectibles ============
   wordle_lucky_letter: {
     category: 'wordle',
@@ -151,10 +50,7 @@ export const ITEM_DEFINITIONS: Record<ItemType, ItemDefinition> = {
  * Item categories with display info
  */
 export const ITEM_CATEGORIES: Record<ItemCategory, CategoryInfo> = {
-  contract: { displayName: 'Contracts', emoji: '📜', order: 1 },
-  tool: { displayName: 'Training Tools', emoji: '🔧', order: 2 },
-  player: { displayName: 'Graduated Players', emoji: '⭐', order: 3 },
-  wordle: { displayName: 'Wordle Collectibles', emoji: '🔤', order: 4 },
+  wordle: { displayName: 'Wordle Collectibles', emoji: '🔤', order: 1 },
 } as const;
 
 // ============ HELPER FUNCTIONS ============
