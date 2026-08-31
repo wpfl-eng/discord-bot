@@ -1,19 +1,13 @@
 // Check Predictions Command
 // Settle resolved prediction bets and award payouts
 
-import {
-  SlashCommandBuilder,
-  EmbedBuilder,
-  ChatInputCommandInteraction,
-  Client,
-} from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import * as polymarketClient from '../../polymarket/polymarketClient.js';
 import * as polymarketDb from '../../polymarket/polymarketDb.js';
 import { formatCoins, truncate } from '../../polymarket/polymarketConfig.js';
 import type { PredictionBet, MarketResolution } from '../../polymarket/polymarketTypes.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
-import * as nflmonService from '../../nflmon/nflmonService.js';
 
 // ============ Command Definition ============
 
@@ -72,10 +66,6 @@ async function settleSingleBet(
       client,
       amount: result.payout,
     }).catch((err) => console.error('[CheckPredictions] Achievement check failed:', err));
-
-    // Award NFLMon XP (non-blocking)
-    nflmonService.addXpToTraining(bet.user_id, 'prediction_win')
-      .catch((err) => console.error('[CheckPredictions] XP award failed:', err));
   } else {
     // Lost - check for loss-related achievements
     checkForAchievements({
@@ -112,7 +102,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         .setTitle('🔍 Check Predictions')
         .setDescription(
           'You have no open predictions to check.\n\n' +
-          'Use `/predictions` to browse markets and place bets!'
+            'Use `/predictions` to browse markets and place bets!'
         )
         .setColor(0x5865f2);
 
@@ -162,7 +152,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (won.length > 0) {
       const wonText = won
         .slice(0, 5)
-        .map((r) => `✅ **${truncate(r.bet.market_question, 40)}**\n   └ ${r.bet.outcome_name}: +${formatCoins(r.payout)}`)
+        .map(
+          (r) =>
+            `✅ **${truncate(r.bet.market_question, 40)}**\n   └ ${r.bet.outcome_name}: +${formatCoins(r.payout)}`
+        )
         .join('\n');
       parts.push(`**Won (${won.length}):**\n${wonText}`);
       if (won.length > 5) parts.push(`*...and ${won.length - 5} more wins*`);
@@ -171,7 +164,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (lost.length > 0) {
       const lostText = lost
         .slice(0, 5)
-        .map((r) => `❌ **${truncate(r.bet.market_question, 40)}**\n   └ ${r.bet.outcome_name}: -${formatCoins(r.bet.coins_wagered)}`)
+        .map(
+          (r) =>
+            `❌ **${truncate(r.bet.market_question, 40)}**\n   └ ${r.bet.outcome_name}: -${formatCoins(r.bet.coins_wagered)}`
+        )
         .join('\n');
       parts.push(`**Lost (${lost.length}):**\n${lostText}`);
       if (lost.length > 5) parts.push(`*...and ${lost.length - 5} more losses*`);
@@ -180,7 +176,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (voided.length > 0) {
       const voidedText = voided
         .slice(0, 3)
-        .map((r) => `🔄 **${truncate(r.bet.market_question, 40)}**\n   └ Refunded: ${formatCoins(r.payout)}`)
+        .map(
+          (r) =>
+            `🔄 **${truncate(r.bet.market_question, 40)}**\n   └ Refunded: ${formatCoins(r.payout)}`
+        )
         .join('\n');
       parts.push(`**Voided (${voided.length}):**\n${voidedText}`);
     }
@@ -196,7 +195,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       embed.addFields(
         { name: 'Won', value: formatCoins(totalWon), inline: true },
         { name: 'Lost', value: formatCoins(totalLost), inline: true },
-        { name: 'Net', value: `${netChange >= 0 ? '+' : ''}${formatCoins(netChange)}`, inline: true }
+        {
+          name: 'Net',
+          value: `${netChange >= 0 ? '+' : ''}${formatCoins(netChange)}`,
+          inline: true,
+        }
       );
 
       if (totalRefunded > 0) {

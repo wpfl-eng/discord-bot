@@ -5,7 +5,7 @@
 
 /**
  * Economy user record from economy_users table
- * Used by: economyDb, stockDb, inventoryDb, nflmonDb
+ * Used by: economyDb, stockDb, inventoryDb
  */
 export interface EconomyUser {
   readonly user_id: string;

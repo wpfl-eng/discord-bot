@@ -2,20 +2,9 @@ import 'dotenv/config';
 import express, { type Request, type Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import {
-  Client,
-  Collection,
-  GatewayIntentBits,
-  Events,
-  ActivityType,
-  Partials,
-  EmbedBuilder,
-  type ButtonInteraction,
-  type TextChannel,
-} from 'discord.js';
+import { Client, Collection, GatewayIntentBits, Events, ActivityType, Partials } from 'discord.js';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { TriviaService } from './trivia/triviaService.js';
-import * as nflmonService from './nflmon/nflmonService.js';
 import { isValidCommandModule } from './types/commands.js';
 
 // Create a new client instance
@@ -138,73 +127,6 @@ try {
 // Login to Discord with your client's token
 client.login(process.env.DISCORD_TOKEN);
 
-/**
- * Handle NFLmon trade button interactions (accept/reject from DMs)
- */
-async function handleNflmonTradeButton(interaction: ButtonInteraction): Promise<void> {
-  try {
-    const [, , action, tradeIdStr] = interaction.customId.split('_');
-    const tradeId = parseInt(tradeIdStr);
-    const userId = interaction.user.id;
-
-    if (action === 'accept') {
-      const result = await nflmonService.processTradeAccept(userId, tradeId);
-
-      await interaction.update({
-        embeds: [result.responseEmbed],
-        components: [],
-      });
-
-      // Announce trade completion publicly
-      if (result.success && result.announceEmbed) {
-        try {
-          const channelId = process.env.GENERAL_CHANNEL_ID;
-          if (channelId) {
-            const channel = await interaction.client.channels.fetch(channelId);
-            if (channel && 'send' in channel) {
-              await (channel as TextChannel).send({ embeds: [result.announceEmbed] });
-            }
-          }
-        } catch (announceError) {
-          const errorMessage = announceError instanceof Error ? announceError.message : 'Unknown error';
-          console.log('[NFLMON] Could not announce trade:', errorMessage);
-        }
-      }
-    } else if (action === 'reject') {
-      const result = await nflmonService.processTradeReject(userId, tradeId);
-
-      await interaction.update({
-        embeds: [result.responseEmbed],
-        components: [],
-      });
-    } else if (action === 'cancel') {
-      const result = await nflmonService.processTradeCancel(userId, tradeId);
-
-      await interaction.update({
-        embeds: [result.responseEmbed],
-        components: [],
-      });
-    }
-  } catch (error) {
-    console.error('[NFLMON] Trade button error:', error);
-    try {
-      await interaction.update({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0xff0000)
-            .setTitle('Error')
-            .setDescription('An error occurred processing this trade.'),
-        ],
-        components: [],
-      });
-    } catch (updateError) {
-      // Button may have already been handled
-      const errorMessage = updateError instanceof Error ? updateError.message : 'Unknown error';
-      console.log('[NFLMON] Could not update trade button:', errorMessage);
-    }
-  }
-}
-
 client.on(Events.InteractionCreate, async (interaction) => {
   // Handle button interactions for trivia
   if (interaction.isButton() && interaction.customId.startsWith('trivia_')) {
@@ -227,17 +149,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
       }
     }
-    return;
-  }
-
-  // Handle NFLmon trade button interactions (especially from DMs)
-  // Skip menu buttons - those are handled by the nflmon command's collector
-  if (
-    interaction.isButton() &&
-    interaction.customId.startsWith('nflmon_trade_') &&
-    !interaction.customId.startsWith('nflmon_trade_menu_')
-  ) {
-    await handleNflmonTradeButton(interaction);
     return;
   }
 

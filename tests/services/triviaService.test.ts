@@ -20,11 +20,6 @@ jest.unstable_mockModule('../../economy/economyDb.js', () => ({
   addToWallet: jest.fn(),
 }));
 
-jest.unstable_mockModule('../../nflmon/nflmonService.js', () => ({
-  rollForNflmon: jest.fn(),
-  addXpToTraining: jest.fn(),
-}));
-
 // Import after mocking
 const { TriviaService } = await import('../../trivia/triviaService.js');
 const triviaDb = await import('../../trivia/triviaDb.js');

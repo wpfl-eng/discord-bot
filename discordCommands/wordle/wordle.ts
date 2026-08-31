@@ -29,10 +29,7 @@ import * as inventoryDb from '../../inventory/inventoryDb.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
-import * as nflmonService from '../../nflmon/nflmonService.js';
-import { DROP_CONFIG } from '../../nflmon/nflmonConfig.js';
 import type { WordleWord, WordleUserGame } from '../../wordle/wordleDb.js';
-import type { RollResult, XpResult } from '../../nflmon/nflmonService.js';
 
 export const data = new SlashCommandBuilder()
   .setName('wordle')
@@ -251,24 +248,6 @@ async function processGuess(
       await inventoryDb.addItem(userId, REWARDS.FIRST_SOLVER_ITEM, 1);
     }
 
-    // === NFLmon Integration ===
-    let nflmonDropped: RollResult | null = null;
-    let xpResult: XpResult | null = null;
-
-    // Determine drop chance (100% for first solver, 20% for regular wins)
-    const dropChance = isFirstSolver
-      ? DROP_CONFIG.WORDLE_FIRST_CHANCE
-      : DROP_CONFIG.WORDLE_WIN_CHANCE;
-
-    // Roll for NFLmon drop
-    if (Math.random() < dropChance) {
-      nflmonDropped = await nflmonService.rollForNflmon(userId, username, 'wordle');
-    }
-
-    // Award XP to training NFLmon
-    const xpSource = isFirstSolver ? 'wordle_first' : 'wordle_win';
-    xpResult = await nflmonService.addXpToTraining(userId, xpSource);
-
     // Record game result and complete game
     await wordleDb.recordGameResult({
       userId,
@@ -297,28 +276,6 @@ async function processGuess(
     }
 
     const embed = createWinEmbed(updatedGame, currentWord, reward, isFirstSolver);
-
-    // Add NFLmon info to embed
-    if (nflmonDropped) {
-      const rarityName = nflmonDropped.rarity?.name ?? 'Unknown';
-      embed.addFields({
-        name: 'NFLmon Caught!',
-        value: `You caught **${nflmonDropped.player.name}** (${rarityName})!\nUse \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`,
-      });
-    }
-
-    if (xpResult && xpResult.results.length > 0) {
-      const xpLines = xpResult.results.map((r) => {
-        let line = `${r.player?.name || 'Unknown'} +${xpResult.xpAmount} XP`;
-        if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
-        if (r.evolved) line += ` EVOLVED!`;
-        return line;
-      });
-      embed.addFields({
-        name: 'Training XP',
-        value: xpLines.join('\n'),
-      });
-    }
 
     return { updatedGame, isOver: true, won: true, embed };
   }
@@ -416,7 +373,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         const freshGame = await wordleDb.getUserGame(userId, answer);
         if (!freshGame || freshGame.completed) {
           await buttonInteraction.reply({
-            content: 'This game has already ended. Use `/wordle` to see your results or start a new game.',
+            content:
+              'This game has already ended. Use `/wordle` to see your results or start a new game.',
             ephemeral: true,
           });
           collector.stop('completed');
@@ -445,7 +403,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         try {
           await modalInteraction.deferUpdate();
 
-          const guess = modalInteraction.fields.getTextInputValue('wordle_guess_input').toLowerCase();
+          const guess = modalInteraction.fields
+            .getTextInputValue('wordle_guess_input')
+            .toLowerCase();
 
           // Validate guess is a valid word
           if (!isValidWord(guess)) {

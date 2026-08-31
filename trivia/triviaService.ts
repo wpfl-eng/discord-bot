@@ -8,14 +8,12 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ButtonInteraction
+  ButtonInteraction,
 } from 'discord.js';
 import * as triviaDb from './triviaDb.js';
 import { checkAnswer } from './answerMatcher.js';
 import * as economyDb from '../economy/economyDb.js';
 import * as categoryLoader from './categoryLoader.js';
-import * as nflmonService from '../nflmon/nflmonService.js';
-import { DROP_CONFIG } from '../nflmon/nflmonConfig.js';
 
 // ============ Category Weighting ============
 
@@ -126,8 +124,8 @@ interface RecordedAnswer {
  * Result from processing an answer submission
  */
 interface AnswerResult {
-  message: string;      // Response text for user
-  isCorrect: boolean;   // Did they get it right?
+  message: string; // Response text for user
+  isCorrect: boolean; // Did they get it right?
   isExhausted: boolean; // Out of guesses (for roast announcement)?
 }
 
@@ -250,7 +248,7 @@ export class TriviaService {
     }
 
     // Save season results
-    const winners = leaderboard.slice(0, 3).map(entry => ({
+    const winners = leaderboard.slice(0, 3).map((entry) => ({
       userId: entry.user_id,
       username: entry.username,
       points: entry.points,
@@ -265,7 +263,9 @@ export class TriviaService {
         try {
           await economyDb.getOrCreateUser(winners[i].userId, winners[i].username);
           await economyDb.addToWallet(winners[i].userId, rewards[i]);
-          console.log(`[TRIVIA] Paid ${rewards[i]} to ${winners[i].username} (${['1st', '2nd', '3rd'][i]} place)`);
+          console.log(
+            `[TRIVIA] Paid ${rewards[i]} to ${winners[i].username} (${['1st', '2nd', '3rd'][i]} place)`
+          );
         } catch (error) {
           console.error(`[TRIVIA] Failed to pay ${winners[i].username}:`, error);
         }
@@ -298,7 +298,9 @@ export class TriviaService {
 
       const medals = ['🥇', '🥈', '🥉'];
       const [year, monthNum] = yearMonth.split('-');
-      const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('en-US', { month: 'long' });
+      const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('en-US', {
+        month: 'long',
+      });
 
       let description = `**${monthName} ${year} Trivia Season has ended!**\n\n`;
 
@@ -338,7 +340,7 @@ export class TriviaService {
     for (const category of categories) {
       const questions = await categoryLoader.getQuestionsForCategory(category);
       const askedHashes = await triviaDb.getAskedHashes(category);
-      const unaskedCount = questions.filter(q => !askedHashes.has(String(q.id))).length;
+      const unaskedCount = questions.filter((q) => !askedHashes.has(String(q.id))).length;
 
       if (unaskedCount > 0) {
         availableCategories.push(category);
@@ -403,7 +405,7 @@ export class TriviaService {
       const askedHashes = await triviaDb.getAskedHashes(category);
 
       // Filter to unasked questions (simplified: always use String(q.id) as hash)
-      let unaskedQuestions = questions.filter(q => !askedHashes.has(String(q.id)));
+      let unaskedQuestions = questions.filter((q) => !askedHashes.has(String(q.id)));
 
       // Auto-reset if pool exhausted
       if (unaskedQuestions.length === 0) {
@@ -426,10 +428,9 @@ export class TriviaService {
       // Save to active questions
       // Format array as PostgreSQL array literal: {"value1","value2"}
       // Escape backslashes first, then quotes (order matters for PostgreSQL)
-      const escapeForPgArray = (s: string): string =>
-        s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const escapeForPgArray = (s: string): string => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const acceptableAnswers = selectedQuestion.acceptable_answers?.length
-        ? `{${selectedQuestion.acceptable_answers.map(a => `"${escapeForPgArray(a)}"`).join(',')}}`
+        ? `{${selectedQuestion.acceptable_answers.map((a) => `"${escapeForPgArray(a)}"`).join(',')}}`
         : null;
 
       // Shuffle choices for multiple choice questions to randomize answer position
@@ -446,9 +447,7 @@ export class TriviaService {
         choices: shuffledChoices,
         type: selectedQuestion.type,
         pointValue: selectedQuestion.point_value || 1,
-        sourceData: selectedQuestion.metadata
-          ? JSON.stringify(selectedQuestion.metadata)
-          : null,
+        sourceData: selectedQuestion.metadata ? JSON.stringify(selectedQuestion.metadata) : null,
         channelId,
         windowClosesAt,
       });
@@ -529,7 +528,9 @@ export class TriviaService {
     // Check the answer - spread to convert readonly to mutable for checkAnswer
     const questionData = {
       answer: activeQuestion.answer,
-      acceptable_answers: activeQuestion.acceptable_answers ? [...activeQuestion.acceptable_answers] : [],
+      acceptable_answers: activeQuestion.acceptable_answers
+        ? [...activeQuestion.acceptable_answers]
+        : [],
     };
 
     const isCorrect = checkAnswer(normalizedAnswer, questionData);
@@ -570,22 +571,6 @@ export class TriviaService {
         }
       }
 
-      // === NFLmon Integration ===
-      let nflmonDropped: nflmonService.RollResult | null = null;
-      let xpResult: nflmonService.XpResult | null = null;
-
-      // Roll for NFLmon drop (15% chance)
-      if (Math.random() < DROP_CONFIG.TRIVIA_CORRECT_CHANCE) {
-        nflmonDropped = await nflmonService.rollForNflmon(
-          userId,
-          username,
-          'trivia'
-        );
-      }
-
-      // Award XP to training NFLmon
-      xpResult = await nflmonService.addXpToTraining(userId, 'trivia_correct');
-
       // Build combined reply message
       const replyParts: string[] = [];
 
@@ -594,24 +579,6 @@ export class TriviaService {
         replyParts.push(`Correct! +${activeQuestion.point_value} point(s)${coinText} added!`);
       } else {
         replyParts.push(`Correct! There was an issue adding points - please contact an admin.`);
-      }
-
-      // Add NFLmon drop info to same message
-      if (nflmonDropped) {
-        replyParts.push(
-          `🎮 You caught **${nflmonDropped.player.name}** (${nflmonDropped.rarity?.name ?? 'Unknown'})! Use \`/nflmon view ${nflmonDropped.nflmon.id}\` to see stats.`
-        );
-      }
-
-      // Add training XP info to same message
-      if (xpResult && xpResult.results.length > 0) {
-        const xpLines = xpResult.results.map((r) => {
-          let line = `${r.player?.name || 'Unknown'} +${xpResult.xpAmount} XP`;
-          if (r.levelsGained > 0) line += ` (Lv.${r.nflmon.level}!)`;
-          if (r.evolved) line += ` EVOLVED!`;
-          return line;
-        });
-        replyParts.push(`**Training XP:** ${xpLines.join(', ')}`);
       }
 
       return {
@@ -653,7 +620,7 @@ export class TriviaService {
     }
 
     // Get the ONE active question (any category)
-    const activeQuestion = await triviaDb.getAnyActiveQuestion() as ActiveQuestion | null;
+    const activeQuestion = (await triviaDb.getAnyActiveQuestion()) as ActiveQuestion | null;
 
     if (!activeQuestion) {
       await message.reply('No active trivia question right now! Check back later.');
@@ -690,10 +657,7 @@ export class TriviaService {
    * @param interaction - Discord slash command interaction (already deferred as ephemeral)
    * @param answer - The user's answer
    */
-  async handleSlashAnswer(
-    interaction: ChatInputCommandInteraction,
-    answer: string
-  ): Promise<void> {
+  async handleSlashAnswer(interaction: ChatInputCommandInteraction, answer: string): Promise<void> {
     // Get any active question (auto-detect category)
     const activeQuestion = (await triviaDb.getAnyActiveQuestion()) as ActiveQuestion | null;
 
@@ -747,7 +711,7 @@ export class TriviaService {
     }
 
     // Get the active question
-    const activeQuestion = await triviaDb.getAnyActiveQuestion() as ActiveQuestion | null;
+    const activeQuestion = (await triviaDb.getAnyActiveQuestion()) as ActiveQuestion | null;
 
     if (!activeQuestion || activeQuestion.id !== questionId) {
       await interaction.reply({ content: 'This question is no longer active!', ephemeral: true });
@@ -756,7 +720,10 @@ export class TriviaService {
 
     // Check if window is still open
     if (activeQuestion.is_closed || new Date() > new Date(activeQuestion.window_closes_at)) {
-      await interaction.reply({ content: 'The answer window has closed for this question!', ephemeral: true });
+      await interaction.reply({
+        content: 'The answer window has closed for this question!',
+        ephemeral: true,
+      });
       return;
     }
 
@@ -845,14 +812,15 @@ export class TriviaService {
    * @param windowClosesAt - When the window closes
    * @returns Notification embed
    */
-  buildQuestionEmbed(question: categoryLoader.TriviaQuestion, category: TriviaCategory, windowClosesAt: Date): EmbedBuilder {
+  buildQuestionEmbed(
+    question: categoryLoader.TriviaQuestion,
+    category: TriviaCategory,
+    windowClosesAt: Date
+  ): EmbedBuilder {
     const color = categoryLoader.getCategoryColor(category);
     const title = `${category.toUpperCase()} Trivia`;
 
-    const embed = new EmbedBuilder()
-      .setColor(color)
-      .setTitle(title)
-      .setTimestamp();
+    const embed = new EmbedBuilder().setColor(color).setTitle(title).setTimestamp();
 
     // Build description based on question type
     if (question.type === 'multiple_choice' && question.choices) {
@@ -898,7 +866,11 @@ export class TriviaService {
    * @param category - Category name
    * @returns Results embed
    */
-  buildResultsEmbed(question: ActiveQuestion, winners: TriviaWinner[], category: TriviaCategory): EmbedBuilder {
+  buildResultsEmbed(
+    question: ActiveQuestion,
+    winners: TriviaWinner[],
+    category: TriviaCategory
+  ): EmbedBuilder {
     const color = categoryLoader.getCategoryColor(category);
     const title = `${category.toUpperCase()} Trivia Results`;
 
@@ -932,15 +904,20 @@ export class TriviaService {
    * @param choices - Array of choice strings [A, B, C, D]
    * @returns ActionRow with buttons
    */
-  buildChoiceButtons(questionId: number, choices: readonly string[]): ActionRowBuilder<ButtonBuilder> {
+  buildChoiceButtons(
+    questionId: number,
+    choices: readonly string[]
+  ): ActionRowBuilder<ButtonBuilder> {
     const labels = ['A', 'B', 'C', 'D'];
 
-    const buttons = choices.slice(0, 4).map((_, index) =>
-      new ButtonBuilder()
-        .setCustomId(`trivia_${questionId}_${index}`)
-        .setLabel(labels[index])
-        .setStyle(ButtonStyle.Primary)
-    );
+    const buttons = choices
+      .slice(0, 4)
+      .map((_, index) =>
+        new ButtonBuilder()
+          .setCustomId(`trivia_${questionId}_${index}`)
+          .setLabel(labels[index])
+          .setStyle(ButtonStyle.Primary)
+      );
 
     return new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
   }

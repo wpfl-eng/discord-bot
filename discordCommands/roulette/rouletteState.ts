@@ -3,7 +3,6 @@
 
 import { Client, TextChannel, Message, EmbedBuilder } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
-import * as nflmonService from '../../nflmon/nflmonService.js';
 import * as rouletteDb from './rouletteDb.js';
 import {
   WHEEL_POSITIONS,
@@ -158,7 +157,6 @@ async function processPayouts(
   resultColor: RouletteColor
 ): Promise<PayoutResult[]> {
   const results: PayoutResult[] = [];
-  const winners = new Set<string>();
 
   for (const bet of bets) {
     const betDef = BET_TYPES[bet.betType];
@@ -184,7 +182,6 @@ async function processPayouts(
 
       try {
         await economyDb.addToWallet(bet.userId, totalReturn);
-        winners.add(bet.userId);
         results.push({
           userId: bet.userId,
           username: bet.username,
@@ -216,15 +213,6 @@ async function processPayouts(
         profit: 0,
         totalReturn: 0,
       });
-    }
-  }
-
-  // Award XP to winners (once per user, silent)
-  for (const userId of winners) {
-    try {
-      await nflmonService.addXpToTraining(userId, 'roulette_win');
-    } catch (err) {
-      console.error(`[ROULETTE] XP award failed for ${userId}:`, err);
     }
   }
 
@@ -326,10 +314,7 @@ export function getUserBets(userId: string): RouletteBet[] {
 /**
  * Start a new round (called when first bet is placed)
  */
-export async function startRound(
-  client: Client,
-  channel: TextChannel
-): Promise<Message> {
+export async function startRound(client: Client, channel: TextChannel): Promise<Message> {
   const now = new Date();
 
   // Create initial embed

@@ -34,9 +34,6 @@ import * as blackjackDb from '../../blackjack/blackjackDb.js';
 import type { BlackjackStats } from '../../blackjack/blackjackDb.js';
 import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
-import * as nflmonService from '../../nflmon/nflmonService.js';
-import type { XpResult } from '../../nflmon/nflmonService.js';
-import { getEvolutionEmoji } from '../../nflmon/nflmonConfig.js';
 
 // ============================================================
 // Type Definitions
@@ -546,16 +543,6 @@ async function resolveSplitGame(
   const netProfit: number = totalPayout - totalBet;
   const hasAnyWin: boolean = hand1Result.outcome === 'win' || hand2Result.outcome === 'win';
 
-  // Award NFLmon XP for any win (once per game based on net outcome)
-  let xpResult: XpResult | null = null;
-  if (hasAnyWin) {
-    try {
-      xpResult = await nflmonService.addXpToTraining(userId, 'blackjack_win');
-    } catch (err) {
-      console.error('[BLACKJACK] XP award failed:', err);
-    }
-  }
-
   // Check for achievements (non-blocking)
   if (hasAnyWin) {
     checkForAchievements({
@@ -638,43 +625,37 @@ async function resolveSplitGame(
   const hand2Net: number = hand2Result.payout - game.splitHandBet;
   fields.push({
     name: 'Hand 1',
-    value: hand1Net > 0 ? `+${formatCurrency(hand1Net)}` : hand1Net < 0 ? `-${formatCurrency(Math.abs(hand1Net))}` : 'Push',
+    value:
+      hand1Net > 0
+        ? `+${formatCurrency(hand1Net)}`
+        : hand1Net < 0
+          ? `-${formatCurrency(Math.abs(hand1Net))}`
+          : 'Push',
     inline: true,
   });
   fields.push({
     name: 'Hand 2',
-    value: hand2Net > 0 ? `+${formatCurrency(hand2Net)}` : hand2Net < 0 ? `-${formatCurrency(Math.abs(hand2Net))}` : 'Push',
+    value:
+      hand2Net > 0
+        ? `+${formatCurrency(hand2Net)}`
+        : hand2Net < 0
+          ? `-${formatCurrency(Math.abs(hand2Net))}`
+          : 'Push',
     inline: true,
   });
   fields.push({
     name: 'Net',
-    value: netProfit > 0 ? `+${formatCurrency(netProfit)}` : netProfit < 0 ? `-${formatCurrency(Math.abs(netProfit))}` : 'Even',
+    value:
+      netProfit > 0
+        ? `+${formatCurrency(netProfit)}`
+        : netProfit < 0
+          ? `-${formatCurrency(Math.abs(netProfit))}`
+          : 'Even',
     inline: true,
   });
 
   fields.push({ name: 'Balance', value: formatCurrency(updatedUser?.wallet ?? 0), inline: true });
   embed.addFields(fields);
-
-  // Add NFLmon Training field if XP was earned
-  if (xpResult && xpResult.results.length > 0) {
-    const xpLines: string[] = xpResult.results.map((result) => {
-      const name: string = result.player?.name || 'Unknown';
-      const emoji: string = getEvolutionEmoji(result.nflmon.evolution_stage);
-      let line = `${emoji} ${name} Lv.${result.nflmon.level}`;
-      if (result.levelsGained > 0) {
-        line += ` (+${result.levelsGained} level${result.levelsGained > 1 ? 's' : ''}!)`;
-      }
-      if (result.evolved && result.newStage) {
-        line += ` Evolved to ${result.newStage.name}!`;
-      }
-      return line;
-    });
-    embed.addFields({
-      name: `NFLmon Training: +${xpResult.xpAmount} XP`,
-      value: xpLines.join('\n'),
-      inline: false,
-    });
-  }
 
   // Build footer
   let footerText: string = outcomeMessage;
@@ -707,7 +688,8 @@ async function resolveSplitGame(
     const replayCollector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 30000,
-      filter: (i: ButtonInteraction) => i.user.id === userId && i.customId.startsWith('blackjack_replay_'),
+      filter: (i: ButtonInteraction) =>
+        i.user.id === userId && i.customId.startsWith('blackjack_replay_'),
     });
 
     replayCollector.on('collect', async (buttonInteraction: ButtonInteraction) => {
@@ -758,14 +740,19 @@ async function resolveSplitGame(
         ...interaction,
         client: interaction.client,
         options: {
-          getString: (name: string): string | null => (name === 'amount' ? game.originalBet.toString() : null),
+          getString: (name: string): string | null =>
+            name === 'amount' ? game.originalBet.toString() : null,
         },
         deferReply: async (): Promise<void> => {},
         editReply: interaction.editReply.bind(interaction),
         user: buttonInteraction.user,
       };
 
-      await executeNewGame(fakeInteraction as unknown as ChatInputCommandInteraction, game.originalBet, game.table);
+      await executeNewGame(
+        fakeInteraction as unknown as ChatInputCommandInteraction,
+        game.originalBet,
+        game.table
+      );
     });
 
     replayCollector.on('end', async (_collected, reason: string) => {
@@ -977,17 +964,6 @@ async function resolveGame(
     }).catch((err) => console.error('Failed to check achievements:', err));
   }
 
-  // Award NFLmon XP for wins (non-blocking)
-  let xpResult: XpResult | null = null;
-  if (isWin) {
-    try {
-      const xpSource: string = isBlackjack ? 'blackjack_natural' : 'blackjack_win';
-      xpResult = await nflmonService.addXpToTraining(userId, xpSource);
-    } catch (err) {
-      console.error('[BLACKJACK] XP award failed:', err);
-    }
-  }
-
   const embed = createGameEmbed(game, outcome, color, false);
 
   // Update fields with payout info
@@ -1018,27 +994,6 @@ async function resolveGame(
   fields.push({ name: 'Balance', value: formatCurrency(updatedUser?.wallet ?? 0), inline: true });
   embed.addFields(fields);
 
-  // Add NFLmon Training field if XP was earned
-  if (xpResult && xpResult.results.length > 0) {
-    const xpLines: string[] = xpResult.results.map((result) => {
-      const name: string = result.player?.name || 'Unknown';
-      const emoji: string = getEvolutionEmoji(result.nflmon.evolution_stage);
-      let line = `${emoji} ${name} Lv.${result.nflmon.level}`;
-      if (result.levelsGained > 0) {
-        line += ` (+${result.levelsGained} level${result.levelsGained > 1 ? 's' : ''}!)`;
-      }
-      if (result.evolved && result.newStage) {
-        line += ` Evolved to ${result.newStage.name}!`;
-      }
-      return line;
-    });
-    embed.addFields({
-      name: `NFLmon Training: +${xpResult.xpAmount} XP`,
-      value: xpLines.join('\n'),
-      inline: false,
-    });
-  }
-
   // Build footer with outcome and streak
   let footerText: string = outcome;
   if (stats && stats.current_streak > 1) {
@@ -1068,7 +1023,8 @@ async function resolveGame(
     const replayCollector = response.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 30000, // 30 seconds
-      filter: (i: ButtonInteraction) => i.user.id === userId && i.customId.startsWith('blackjack_replay_'),
+      filter: (i: ButtonInteraction) =>
+        i.user.id === userId && i.customId.startsWith('blackjack_replay_'),
     });
 
     replayCollector.on('collect', async (buttonInteraction: ButtonInteraction) => {
@@ -1120,7 +1076,8 @@ async function resolveGame(
         ...interaction,
         client: interaction.client,
         options: {
-          getString: (name: string): string | null => (name === 'amount' ? game.originalBet.toString() : null),
+          getString: (name: string): string | null =>
+            name === 'amount' ? game.originalBet.toString() : null,
         },
         deferReply: async (): Promise<void> => {},
         editReply: interaction.editReply.bind(interaction),
@@ -1128,7 +1085,11 @@ async function resolveGame(
       };
 
       // Execute a new game with the same table
-      await executeNewGame(fakeInteraction as unknown as ChatInputCommandInteraction, game.originalBet, game.table);
+      await executeNewGame(
+        fakeInteraction as unknown as ChatInputCommandInteraction,
+        game.originalBet,
+        game.table
+      );
     });
 
     replayCollector.on('end', async (_collected, reason: string) => {
@@ -1327,7 +1288,8 @@ async function executeNewGame(
   const collector = response.createMessageComponentCollector({
     componentType: ComponentType.Button,
     time: CONFIG.BLACKJACK_TIMEOUT_SECONDS * 1000,
-    filter: (i: ButtonInteraction) => i.user.id === userId && !i.customId.startsWith('blackjack_replay_'),
+    filter: (i: ButtonInteraction) =>
+      i.user.id === userId && !i.customId.startsWith('blackjack_replay_'),
   });
 
   collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
@@ -1520,7 +1482,10 @@ async function executeNewGame(
         return;
       }
 
-      const doubleResult: EconomyUser | null = await economyDb.gambleLose(userId, currentGame.originalBet);
+      const doubleResult: EconomyUser | null = await economyDb.gambleLose(
+        userId,
+        currentGame.originalBet
+      );
       if (!doubleResult) {
         await buttonInteraction.reply({
           content: 'Insufficient funds to double down!',
@@ -1694,7 +1659,9 @@ async function executeNewGame(
 
       // Add play again button if can afford
       const canPlayAgain: boolean = refundResult.wallet >= currentGame.originalBet;
-      const finalComponents: ActionRowBuilder<ButtonBuilder>[] = [createButtons(currentGame, false, true, false)];
+      const finalComponents: ActionRowBuilder<ButtonBuilder>[] = [
+        createButtons(currentGame, false, true, false),
+      ];
       if (canPlayAgain) {
         finalComponents.push(createPlayAgainRow(currentGame.originalBet));
       }
@@ -1712,7 +1679,8 @@ async function executeNewGame(
         const surrenderReplayCollector = buttonInteraction.message.createMessageComponentCollector({
           componentType: ComponentType.Button,
           time: 30000,
-          filter: (i: ButtonInteraction) => i.user.id === userId && i.customId.startsWith('blackjack_replay_'),
+          filter: (i: ButtonInteraction) =>
+            i.user.id === userId && i.customId.startsWith('blackjack_replay_'),
         });
 
         surrenderReplayCollector.on('collect', async (replayInteraction: ButtonInteraction) => {
@@ -1763,14 +1731,19 @@ async function executeNewGame(
             ...interaction,
             client: interaction.client,
             options: {
-              getString: (name: string): string | null => (name === 'amount' ? currentGame.originalBet.toString() : null),
+              getString: (name: string): string | null =>
+                name === 'amount' ? currentGame.originalBet.toString() : null,
             },
             deferReply: async (): Promise<void> => {},
             editReply: interaction.editReply.bind(interaction),
             user: replayInteraction.user,
           };
 
-          await executeNewGame(fakeInteraction as unknown as ChatInputCommandInteraction, currentGame.originalBet, currentGame.table);
+          await executeNewGame(
+            fakeInteraction as unknown as ChatInputCommandInteraction,
+            currentGame.originalBet,
+            currentGame.table
+          );
         });
 
         surrenderReplayCollector.on('end', async (_collected, reason: string) => {

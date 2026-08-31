@@ -11,17 +11,13 @@ import { sql } from '@vercel/postgres';
 import * as economyDb from '../../economy/economyDb.js';
 import * as inventoryDb from '../../inventory/inventoryDb.js';
 import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
-import * as nflmonService from '../../nflmon/nflmonService.js';
-import * as nflmonDb from '../../nflmon/nflmonDb.js';
-import { TRAINING_CONFIG } from '../../nflmon/nflmonConfig.js';
 import type { EconomyUser } from '../../types/database.js';
-import type { RollResult } from '../../nflmon/nflmonService.js';
 
 // ============================================================
 // Type Definitions
 // ============================================================
 
-type ShopItemType = 'economy' | 'inventory' | 'nflmon_pack' | 'nflmon_training';
+type ShopItemType = 'economy' | 'inventory';
 
 interface ShopItem {
   readonly id: string;
@@ -31,7 +27,6 @@ interface ShopItem {
   readonly description: string;
   readonly type: ShopItemType;
   readonly inventoryQuantity?: number;
-  readonly quantity?: number;
 }
 
 interface ShopCategory {
@@ -49,11 +44,6 @@ interface BuyInventoryResult {
 interface PurchaseDetails {
   bankCapacity?: number;
   quantity?: number;
-  nflmonPack?: boolean;
-  packResults?: RollResult[];
-  packName?: string;
-  trainingSlot?: boolean;
-  newMax?: number;
 }
 
 // ============================================================
@@ -81,47 +71,6 @@ const SHOP_CATEGORIES: Record<string, ShopCategory> = {
         price: CONFIG.BANK_EXPANSION_COST,
         description: `Increases bank capacity by ${formatCurrency(CONFIG.BANK_EXPANSION_AMOUNT)}`,
         type: 'economy',
-      },
-    ],
-  },
-  nflmon: {
-    name: 'NFLmon',
-    emoji: '🎮',
-    items: [
-      {
-        id: 'nflmon_starter_pack',
-        name: 'Starter Pack',
-        emoji: '📦',
-        price: 500,
-        description: '1 random NFLmon',
-        type: 'nflmon_pack',
-        quantity: 1,
-      },
-      {
-        id: 'nflmon_pro_pack',
-        name: 'Pro Pack',
-        emoji: '📦',
-        price: 1500,
-        description: '3 random NFLmon',
-        type: 'nflmon_pack',
-        quantity: 3,
-      },
-      {
-        id: 'nflmon_elite_pack',
-        name: 'Elite Pack',
-        emoji: '🎯',
-        price: 5000,
-        description: '5 random NFLmon (best value!)',
-        type: 'nflmon_pack',
-        quantity: 5,
-      },
-      {
-        id: 'nflmon_training_slot',
-        name: 'Training Slot',
-        emoji: '🏋️',
-        price: 3000,
-        description: 'Expand training capacity (+1 slot, max 5)',
-        type: 'nflmon_training',
       },
     ],
   },
@@ -376,51 +325,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           updatedUser = result.user;
           purchaseDetails.quantity = inventoryQty;
         }
-      } else if (item.type === 'nflmon_pack') {
-        // NFLmon pack: deduct wallet and roll NFLmon
-        const packQty = item.quantity ?? 1;
-        const deductResult = await sql`
-          UPDATE economy_users
-          SET wallet = wallet - ${item.price}
-          WHERE user_id = ${userId} AND wallet >= ${item.price}
-          RETURNING *
-        `;
-        if (deductResult.rows.length > 0) {
-          try {
-            const packResult = await nflmonService.rollMultipleNflmon(
-              userId,
-              username,
-              packQty
-            );
-            if (packResult.success) {
-              updatedUser = deductResult.rows[0] as EconomyUser;
-              purchaseDetails.nflmonPack = true;
-              purchaseDetails.packResults = packResult.results;
-              purchaseDetails.packName = item.name;
-            } else {
-              // Refund on failure
-              await sql`UPDATE economy_users SET wallet = wallet + ${item.price} WHERE user_id = ${userId}`;
-            }
-          } catch (packError: unknown) {
-            // Refund on exception
-            console.error('[SHOP] NFLmon pack error, refunding:', packError);
-            await sql`UPDATE economy_users SET wallet = wallet + ${item.price} WHERE user_id = ${userId}`;
-          }
-        }
-      } else if (item.type === 'nflmon_training') {
-        // NFLmon training slot: use nflmonDb purchase function
-        const result = await nflmonDb.purchaseTrainingSlot(userId, item.price);
-        if (result.success) {
-          updatedUser = await economyDb.getUser(userId);
-          purchaseDetails.trainingSlot = true;
-          purchaseDetails.newMax = result.newMax;
-        } else if (result.error === 'MAX_SLOTS_REACHED') {
-          await buttonInteraction.reply({
-            content: 'You already have the maximum training slots (5)!',
-            ephemeral: true,
-          });
-          return;
-        }
       }
 
       // If purchase failed
@@ -461,31 +365,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
           inline: true,
         });
         purchaseEmbed.setFooter({ text: 'View your items with /inventory view' });
-      }
-
-      // NFLmon pack purchase - show pack opening results
-      if (purchaseDetails.nflmonPack && purchaseDetails.packResults) {
-        const packLines = purchaseDetails.packResults.map((rollResult: RollResult, i: number) => {
-          const { player, rarity } = rollResult;
-          const rarityName = rarity?.name ?? 'Unknown';
-          return `${i + 1}. **${player.name}** (${player.position}) - ${rarityName}`;
-        });
-        purchaseEmbed.addFields({
-          name: '🎮 NFLmon Received',
-          value: packLines.join('\n'),
-          inline: false,
-        });
-        purchaseEmbed.setFooter({ text: 'Use /nflmon bench to view your collection' });
-      }
-
-      // Training slot purchase - show new slot count
-      if (purchaseDetails.trainingSlot) {
-        purchaseEmbed.addFields({
-          name: 'Training Slots',
-          value: `You now have **${purchaseDetails.newMax}/${TRAINING_CONFIG.MAX_SLOTS}** training slots!`,
-          inline: true,
-        });
-        purchaseEmbed.setFooter({ text: 'Use /nflmon train to assign NFLmon to training' });
       }
 
       await buttonInteraction.reply({ embeds: [purchaseEmbed], ephemeral: true });

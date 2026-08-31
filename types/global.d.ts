@@ -22,7 +22,6 @@ declare global {
       OPEN_API_KEY?: string;
       API_KEY?: string;
       BOT_ID?: string;
-      GENERAL_CHANNEL_ID?: string;
       PORT?: string;
     }
   }
