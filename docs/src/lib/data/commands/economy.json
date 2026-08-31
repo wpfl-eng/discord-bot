@@ -92,7 +92,7 @@
     {
       "name": "deposit",
       "description": "Deposit coins from wallet to bank",
-      "longDescription": "Move coins from your wallet to your bank. Bank storage protects your coins from robbery attempts.",
+      "longDescription": "Move coins from your wallet to your bank. Bank storage keeps coins separate from your spendable wallet.",
       "category": "Economy",
       "categorySlug": "economy",
       "usage": ["/deposit amount:500", "/deposit amount:all"],
@@ -114,7 +114,7 @@
       "tips": [
         "Bank has a capacity limit (starts at 1,000)",
         "Buy Bank Expansions from /shop to increase capacity",
-        "Coins in bank are safe from /rob"
+        "Bank capacity can be raised with a Bank Expansion from /shop"
       ],
       "gameConfig": {
         "startingCapacity": 1000,
@@ -126,7 +126,7 @@
     {
       "name": "withdraw",
       "description": "Withdraw coins from bank to wallet",
-      "longDescription": "Move coins from your bank to your wallet. Wallet coins are needed for gambling, purchases, and can be stolen via robbery.",
+      "longDescription": "Move coins from your bank to your wallet. Wallet coins are needed for gambling and purchases.",
       "category": "Economy",
       "categorySlug": "economy",
       "usage": ["/withdraw amount:500", "/withdraw amount:all"],
@@ -146,7 +146,6 @@
         }
       ],
       "tips": [
-        "Wallet coins can be stolen via /rob",
         "Keep large amounts in the bank for safety"
       ],
       "relatedCommands": ["deposit", "balance"]

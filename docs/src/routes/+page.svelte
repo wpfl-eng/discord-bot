@@ -5,7 +5,6 @@
 
 	const quickLinks = [
 		{ name: 'Economy System', href: '/guides/economy', icon: 'coins', description: 'Learn how to earn and manage coins' },
-		{ name: 'Training Ground', href: '/guides/training', icon: 'dumbbell', description: 'Master the rookie development game' },
 		{ name: 'Gambling Guide', href: '/guides/gambling', icon: 'dice', description: 'Slots, blackjack, and betting strategies' }
 	];
 

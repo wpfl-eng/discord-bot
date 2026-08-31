@@ -32,9 +32,7 @@
       "tips": [
         "Admin-only command",
         "First correct answer wins",
-        "Correct answers earn economy coins",
-        "15% chance to catch an NFLmon on correct answers",
-        "Training NFLmon earn 5-15 XP per correct answer"
+        "Correct answers earn economy coins"
       ],
       "relatedCommands": ["trivialeaderboard", "triviastats"]
     },

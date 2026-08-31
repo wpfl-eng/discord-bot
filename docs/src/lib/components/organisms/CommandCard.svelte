@@ -16,9 +16,7 @@
 		'performance-analysis': 'trophy',
 		economy: 'coins',
 		gambling: 'dice',
-		robbery: 'mask',
 		'shop-inventory': 'cart',
-		training: 'dumbbell',
 		trivia: 'question',
 		betting: 'ticket',
 		utility: 'wrench'

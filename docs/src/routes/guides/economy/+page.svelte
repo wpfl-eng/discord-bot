@@ -1,6 +1,5 @@
 <script lang="ts">
 	import GuideLayout from '$lib/components/templates/GuideLayout.svelte';
-	import CodeBlock from '$lib/components/atoms/CodeBlock.svelte';
 	import Icon from '$lib/components/atoms/Icon.svelte';
 
 	const toc = [
@@ -11,15 +10,13 @@
 		{ id: 'managing-wealth', text: 'Managing Your Wealth', level: 2 },
 		{ id: 'wallet-vs-bank', text: 'Wallet vs Bank', level: 3 },
 		{ id: 'bank-expansion', text: 'Bank Expansion', level: 3 },
-		{ id: 'protection', text: 'Protection', level: 2 },
-		{ id: 'robbery-defense', text: 'Robbery Defense', level: 3 },
 		{ id: 'tips', text: 'Pro Tips', level: 2 }
 	];
 </script>
 
 <svelte:head>
 	<title>Economy System Guide - CommishBot Docs</title>
-	<meta name="description" content="Master the CommishBot coin economy - earn with daily bonuses and work, manage your bank and wallet, and protect against robbery." />
+	<meta name="description" content="Master the CommishBot coin economy - earn with daily bonuses and work, and manage your bank and wallet." />
 	<meta property="og:title" content="Economy System Guide - CommishBot Docs" />
 	<meta property="og:description" content="Learn how to earn, save, and grow your wealth in CommishBot." />
 	<meta property="og:type" content="article" />
@@ -44,17 +41,16 @@
 					<li>• Daily bonus (100+ coins)</li>
 					<li>• Work command (20-80 coins)</li>
 					<li>• Gambling winnings</li>
-					<li>• Training Ground graduates</li>
-					<li>• Robbery (risky!)</li>
+					<li>• Trivia and Wordle rewards</li>
 				</ul>
 			</div>
 			<div class="card">
 				<h3 class="font-semibold text-dark-100 mb-2">Ways to Spend</h3>
 				<ul class="space-y-1 text-dark-300 text-sm">
 					<li>• Gambling (slots, blackjack, coin flip)</li>
-					<li>• Shop purchases (padlocks, contracts)</li>
+					<li>• Shop purchases (bank expansions)</li>
 					<li>• User-to-user bets</li>
-					<li>• Training Ground supplies</li>
+					<li>• Stock trading</li>
 				</ul>
 			</div>
 		</div>
@@ -146,14 +142,12 @@
 					<ul class="space-y-1 text-dark-300 text-sm">
 						<li>• Used for all transactions</li>
 						<li>• Required for gambling/betting</li>
-						<li>• Vulnerable to robbery</li>
 						<li>• No capacity limit</li>
 					</ul>
 				</div>
 				<div class="card border-accent-success/30">
 					<h4 class="font-semibold text-accent-success mb-2">🏦 Bank</h4>
 					<ul class="space-y-1 text-dark-300 text-sm">
-						<li>• Safe from robbery</li>
 						<li>• Starting capacity: 1,000</li>
 						<li>• Can be expanded</li>
 						<li>• Use /deposit and /withdraw</li>
@@ -188,32 +182,6 @@
 		</div>
 	</section>
 
-	<section id="protection" class="mb-12">
-		<h2 class="text-2xl font-bold text-dark-100 mb-4">Protection</h2>
-
-		<div id="robbery-defense" class="mb-8">
-			<h3 class="text-xl font-bold text-dark-100 mb-3">Robbery Defense</h3>
-			<p class="text-dark-300 mb-4">
-				Other players can attempt to rob your wallet. Here's how to protect yourself:
-			</p>
-			<div class="space-y-4">
-				<div class="card">
-					<h4 class="font-semibold text-dark-100 mb-2">🔒 Padlock</h4>
-					<p class="text-dark-300 text-sm mb-2">Purchase from /shop for 🪙 500. Blocks one robbery attempt and is consumed.</p>
-					<CodeBlock code="/shop → Buy Padlock → 🪙 500" language="text" showCopy={false} />
-				</div>
-				<div class="card">
-					<h4 class="font-semibold text-dark-100 mb-2">🏦 Bank Storage</h4>
-					<p class="text-dark-300 text-sm">Coins in your bank cannot be stolen. Only wallet coins are at risk.</p>
-				</div>
-				<div class="card">
-					<h4 class="font-semibold text-dark-100 mb-2">⏱️ Victim Protection</h4>
-					<p class="text-dark-300 text-sm">After being robbed, you have 60 minutes of protection from further attempts.</p>
-				</div>
-			</div>
-		</div>
-	</section>
-
 	<section id="tips" class="mb-8">
 		<h2 class="text-2xl font-bold text-dark-100 mb-4">Pro Tips</h2>
 		<div class="space-y-3">
@@ -228,10 +196,6 @@
 			<div class="flex items-start gap-3 p-4 bg-dark-bg rounded-lg">
 				<span class="text-accent-success text-lg">3</span>
 				<p class="text-dark-300">Use /work during downtime - even with 70% success, it averages ~35 coins per attempt with zero risk.</p>
-			</div>
-			<div class="flex items-start gap-3 p-4 bg-dark-bg rounded-lg">
-				<span class="text-accent-success text-lg">4</span>
-				<p class="text-dark-300">Buy a padlock if you're holding significant wallet coins. It's cheap insurance at 500 coins.</p>
 			</div>
 		</div>
 	</section>

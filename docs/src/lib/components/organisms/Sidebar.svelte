@@ -14,11 +14,8 @@
 		{ name: 'Draft Analysis', slug: 'draft-analysis', icon: 'chart' },
 		{ name: 'Performance', slug: 'performance-analysis', icon: 'trophy' },
 		{ name: 'Economy', slug: 'economy', icon: 'coins' },
-		{ name: 'NFLmon', slug: 'nflmon', icon: 'trophy' },
 		{ name: 'Gambling', slug: 'gambling', icon: 'dice' },
-		{ name: 'Robbery', slug: 'robbery', icon: 'mask' },
 		{ name: 'Shop & Inventory', slug: 'shop-inventory', icon: 'cart' },
-		{ name: 'Training', slug: 'training', icon: 'dumbbell' },
 		{ name: 'Trivia', slug: 'trivia', icon: 'question' },
 		{ name: 'Betting', slug: 'betting', icon: 'ticket' },
 		{ name: 'Utility', slug: 'utility', icon: 'wrench' }
@@ -26,8 +23,6 @@
 
 	const guides = [
 		{ name: 'Economy System', slug: 'economy' },
-		{ name: 'NFLmon', slug: 'nflmon' },
-		{ name: 'Training Ground', slug: 'training' },
 		{ name: 'Gambling Strategies', slug: 'gambling' }
 	];
 </script>

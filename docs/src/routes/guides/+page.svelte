@@ -8,14 +8,7 @@
 			description: 'Master the coin economy - earn, save, and grow your wealth',
 			href: '/guides/economy',
 			icon: 'coins',
-			topics: ['Daily bonuses', 'Work system', 'Bank & wallet', 'Protection']
-		},
-		{
-			title: 'Training Ground',
-			description: 'Learn the idle game mechanics for developing rookie players',
-			href: '/guides/training',
-			icon: 'dumbbell',
-			topics: ['Grid management', 'Position tiers', 'Timing strategy', 'Maximizing returns']
+			topics: ['Daily bonuses', 'Work system', 'Bank & wallet', 'Bank expansion']
 		},
 		{
 			title: 'Gambling Strategies',
@@ -36,7 +29,7 @@
 
 <svelte:head>
 	<title>Guides - CommishBot Docs</title>
-	<meta name="description" content="In-depth guides for mastering CommishBot's game systems including economy, training ground, and gambling strategies." />
+	<meta name="description" content="In-depth guides for mastering CommishBot's game systems including economy, gambling strategies, and Red Zone." />
 	<meta property="og:title" content="Guides - CommishBot Docs" />
 	<meta property="og:description" content="Master CommishBot's game systems with comprehensive guides." />
 	<meta property="og:type" content="website" />
