@@ -74,21 +74,20 @@ There is no build step — TypeScript runs directly through `tsx`.
 
 This is a Discord bot for fantasy football league management (CommishBot). It pulls league data from
 ESPN and the WPFL history API, and layers on a virtual economy: casino games, collectibles,
-prediction markets, stock trading, trivia, and Wordle. 50 slash commands are registered.
+prediction markets, stock trading, trivia, and Wordle. 47 slash commands are registered.
 
 ### Core Structure
 - **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, routes button/autocomplete/DM interactions, runs Express health check server
 - **Commands**: Located in `/discordCommands/[commandname]/[commandname].ts`
 - **External APIs**: ESPN Fantasy Football (custom fork), WPFL history API, Polymarket Gamma API, Finnhub, Sleeper API, OpenAI
-- **Database**: PostgreSQL via @vercel/postgres (~30 tables; schemas in `/sql`, numbered migrations in `/migrations`, no automated runner)
+- **Database**: PostgreSQL via @vercel/postgres (~25 tables; schemas in `/sql`, numbered migrations in `/migrations`, no automated runner). `migrations/008_remove_nflmon_rob_training.sql` is written but deliberately NOT applied - it drops retired NFLmon/rob/training tables and columns
 - **Misc Data**: `/data`
 
 ### Feature Modules
 Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `economy/` - `economyConfig.ts` (all payout/cooldown/limit tuning) and `economyDb.ts`
-- `achievements/` - 9 achievements awarded off 20 action types; `checkForAchievements` is called from game commands
-- `inventory/` - item definitions and inventory DB
-- `nflmon/` - config (rarities, evolution, IVs, XP sources), DB, and service
+- `achievements/` - 8 achievements awarded off 18 action types; `checkForAchievements` is called from game commands
+- `inventory/` - item definitions and inventory DB (only the Wordle Lucky Letter has a live source)
 - `trivia/` - `triviaService.ts` (cron scheduler), `categoryLoader.ts`, `answerMatcher.ts`, `*Questions.json` banks
 - `wordle/`, `stock/`, `polymarket/` - config + DB + API client per feature
 - `blackjack/`, `craps/`, `redzone/`, `videopoker/` - per-game stats DB modules
@@ -111,7 +110,6 @@ and `mypredictions/` registers `/my-predictions`.
 ### Background Behavior
 - **Trivia scheduler** (`trivia/triviaService.ts:150`) - cron in `America/New_York`; posts at 9/11/13/15/17/19/21, auto-closes each 2h later, season rollover at midnight on the 1st
 - **Trivia DMs** - `messageCreate` handler accepts answers sent to the bot directly
-- **NFLmon trade buttons** - `nflmon_trade_*` handled at the client level in `index.ts` so DM buttons work; announces completions to `GENERAL_CHANNEL_ID`
 - **Roulette auto-spin** - rounds spin on a timer in `discordCommands/roulette/rouletteState.ts`
 - **Autocomplete** - `/craps`, `/roulette`, `/inventory`, `/triviaquestion` export an `autocomplete` handler dispatched by `index.ts`
 
@@ -139,11 +137,8 @@ Required environment variables (create `.env` from `.env.sample`):
 - Database: PostgreSQL connection variables (`POSTGRES_*`)
 - Stock: `FINNHUB_API_KEY`
 - Trivia: `TRIVIA_CHANNEL_ID`, `TRIVIA_ADMIN_USER_IDS` (comma-separated; gates `/triviaquestion`)
-- Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID`, `ROULETTE_CHANNEL_ID`, `CRAPS_CHANNEL_ID`, `GENERAL_CHANNEL_ID`
+- Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID`, `ROULETTE_CHANNEL_ID`, `CRAPS_CHANNEL_ID`
 - Other: `OPEN_API_KEY`, `PORT`, `API_KEY`, `BOT_ID`
-
-`GENERAL_CHANNEL_ID` is read by `index.ts` for NFLmon trade announcements but is not present in
-`.env.sample`. Without it trades still complete; the public announcement is skipped.
 
 ### Key Dependencies
 - `discord.js` v14 - Modern Discord bot framework

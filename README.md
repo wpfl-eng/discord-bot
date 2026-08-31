@@ -75,7 +75,7 @@ npm run format:check
 
 ## Available Commands
 
-50 slash commands are registered. Each lives in `discordCommands/<name>/<name>.ts`.
+47 slash commands are registered. Each lives in `discordCommands/<name>/<name>.ts`.
 
 ### Fantasy Football
 
@@ -109,11 +109,12 @@ npm run format:check
 | `/withdraw` | `amount` (required, number or `all`) | Bank → wallet |
 | `/eleaderboard` | — | Wealth rankings |
 | `/economyhelp` | — | Economy command reference |
-| `/rob` | `target` (required) | Steal from another player's wallet |
-| `/shop` | — | Buy padlocks, bank expansions, NFLmon packs, training slots |
+| `/shop` | — | Buy bank expansions |
 | `/inventory` | `view` \| `sell <item> [quantity]` | Item autocomplete on `sell` |
 
-Tuning constants live in [`economy/economyConfig.ts`](economy/economyConfig.ts).
+`/shop` currently stocks a single item, Bank Expansion. `/inventory` holds the Wordle
+first-solver Lucky Letter, the only item with a live source. Tuning constants live in
+[`economy/economyConfig.ts`](economy/economyConfig.ts).
 
 ### Casino
 
@@ -152,18 +153,6 @@ Live quotes come from [Finnhub](https://finnhub.io/). Requires `FINNHUB_API_KEY`
 
 Market data comes from the Polymarket Gamma API (`polymarket/`). Folder name `checkpredictions`
 maps to command name `check-predictions`; `mypredictions` maps to `my-predictions`.
-
-### NFLmon
-
-| Command | Notes |
-| --- | --- |
-| `/starter` | One-time starter NFLmon pick |
-| `/nflmon` | Button/modal menu: bench, view, train, untrain, stats, dex, trade |
-
-`/nflmon` takes no options — everything is driven through its component menu. Trade offers are DM'd
-to the target with accept/reject buttons handled globally in `index.ts` so they work outside the
-original channel. Config (rarities, evolution stages, IVs, XP sources) lives in
-[`nflmon/nflmonConfig.ts`](nflmon/nflmonConfig.ts).
 
 ### Trivia
 
@@ -209,8 +198,6 @@ Not everything is a slash command. `index.ts` and the service modules also run:
   midnight on the 1st of each month.
 - **Trivia DM answers** — a `messageCreate` handler accepts answers sent to the bot in DMs.
 - **Trivia button answers** — button interactions prefixed `trivia_`.
-- **NFLmon trade buttons** — `nflmon_trade_*` accept/reject/cancel handled at the client level so
-  they work from DMs, with a public announcement posted to `GENERAL_CHANNEL_ID`.
 - **Roulette auto-spin** — rounds spin on a timer (`discordCommands/roulette/rouletteState.ts`).
 - **Achievements** — 9 achievements awarded off 20 action types
   (`achievements/achievementConfig.ts`), checked from the game commands.
@@ -237,11 +224,7 @@ Create `.env` from `.env.sample`.
 | `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID` | Channel gating for economy/casino commands |
 | `ROULETTE_CHANNEL_ID` | Roulette round announcements |
 | `CRAPS_CHANNEL_ID` | Craps table announcements |
-| `GENERAL_CHANNEL_ID` | NFLmon trade completion announcements |
 | `API_KEY`, `BOT_ID` | Legacy GroupMe-era values kept in `.env.sample` |
-
-> `GENERAL_CHANNEL_ID` is read by `index.ts` but is not yet listed in `.env.sample`. Without it,
-> NFLmon trades still complete — the public announcement is just skipped.
 
 ## Development Guide
 
@@ -256,7 +239,6 @@ discord-bot/
 ├── economy/                  # Shared economy config + DB access
 ├── achievements/             # Achievement definitions and award service
 ├── inventory/                # Item definitions and inventory DB
-├── nflmon/                   # NFLmon config, DB, and service
 ├── trivia/                   # Trivia service, scheduler, question banks, answer matching
 ├── wordle/                   # Wordle config, word lists, DB
 ├── stock/                    # Finnhub client, config, holdings DB
@@ -369,11 +351,10 @@ import { sql } from '@vercel/postgres';
 const result = await sql`SELECT * FROM economy_users WHERE user_id = ${userId}`;
 ```
 
-Roughly 30 tables back the bot, grouped by feature: `economy_users`, `user_inventory`,
+Roughly 25 tables back the bot, grouped by feature: `economy_users`, `user_inventory`,
 `achievements`, `blackjack_stats`, `redzone_stats`, `video_poker_stats`,
 `craps_sessions` / `craps_bets` / `craps_stats`, `roulette_rounds` / `roulette_bets`,
 `stock_holdings` / `stock_prices`, `prediction_bets`,
-`nflmon_bench` / `nflmon_stats` / `nflmon_trades`, `training_grounds` / `training_slots`,
 `trivia_active` / `trivia_answers` / `trivia_history` / `trivia_scores` / `trivia_seasons`,
 `wordle_words` / `wordle_stats` / `wordle_user_games`,
 `draft_picks` / `owner_draft_stats` / `draft_computation_status`, `player_scores`, plus the original
@@ -381,6 +362,10 @@ Roughly 30 tables back the bot, grouped by feature: `economy_users`, `user_inven
 
 Schemas are split between `sql/` (per-feature table definitions) and `migrations/` (numbered SQL
 files). There is no automated migration runner — apply them manually.
+
+`migrations/008_remove_nflmon_rob_training.sql` has not been applied. It drops the retired NFLmon
+tables, the rob/padlock columns on `economy_users`, and the long-dead `training_grounds` /
+`training_slots` tables. The bot runs correctly either way; applying it is irreversible.
 
 ### Testing
 
@@ -419,6 +404,13 @@ npm run deploy   # build + wrangler pages deploy
 The bot is configured for Vercel deployment:
 - Uses Vercel PostgreSQL
 - Express server provides the health check endpoint
+
+After deploying a change that adds or removes slash commands, re-run the deploy script:
+```bash
+npx tsx deploy-commands.ts
+```
+It does a full `PUT` refresh of the guild's commands. Until it runs, removed commands stay visible
+in Discord and fail with "The application did not respond".
 
 ## Contributing
 
