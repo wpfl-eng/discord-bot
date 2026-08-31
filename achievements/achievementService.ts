@@ -33,7 +33,6 @@ type ActionToAchievements = Record<string, AchievementKey[]>;
 // ============ Configuration ============
 
 const ACTION_TO_ACHIEVEMENTS: ActionToAchievements = {
-  [ACTION_TYPES.ROB_SUCCESS]: ['THIEF'],
   [ACTION_TYPES.WORDLE_SOLVE]: ['WORDLE_5_SOLVES', 'WORDLE_10_SOLVES'],
   [ACTION_TYPES.WORDLE_FIRST_SOLVE]: ['WORDLE_FIRST_SOLVE'],
   [ACTION_TYPES.PREDICTION_WIN]: ['ORACLE', 'FORTUNE_TELLER', 'WHALE'],
@@ -101,10 +100,6 @@ async function checkAchievementCriteria(
   metadata: ActionMetadata
 ): Promise<boolean> {
   switch (achievementKey) {
-    case 'THIEF':
-      // THIEF is granted on any successful rob
-      return metadata.actionType === ACTION_TYPES.ROB_SUCCESS;
-
     case 'WORDLE_FIRST_SOLVE':
       // Granted on first solve of any Wordle puzzle
       return metadata.actionType === ACTION_TYPES.WORDLE_FIRST_SOLVE;

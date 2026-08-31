@@ -370,7 +370,13 @@ describe('videoPokerUtils', () => {
 
     test('returns false for high card only', () => {
       // Use different suits to avoid flush
-      const h = hand(card('A', '♠'), card('K', '♥'), card('Q', '♦'), card('J', '♣'), card('9', '♠'));
+      const h = hand(
+        card('A', '♠'),
+        card('K', '♥'),
+        card('Q', '♦'),
+        card('J', '♣'),
+        card('9', '♠')
+      );
       expect(isJacksOrBetter(h)).toBe(false);
     });
   });
@@ -463,7 +469,13 @@ describe('videoPokerUtils', () => {
 
     test('evaluates High Card for no pair', () => {
       // Use different suits to avoid flush
-      const h = hand(card('A', '♠'), card('K', '♥'), card('Q', '♦'), card('J', '♣'), card('9', '♠'));
+      const h = hand(
+        card('A', '♠'),
+        card('K', '♥'),
+        card('Q', '♦'),
+        card('J', '♣'),
+        card('9', '♠')
+      );
       expect(evaluateHand(h)).toBe(HandRank.HIGH_CARD);
     });
   });

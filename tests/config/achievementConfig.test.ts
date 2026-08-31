@@ -11,7 +11,6 @@ describe('achievementConfig', () => {
 
   describe('ACHIEVEMENTS', () => {
     test('has all defined achievements', () => {
-      expect(ACHIEVEMENTS.THIEF).toBeDefined();
       expect(ACHIEVEMENTS.WORDLE_FIRST_SOLVE).toBeDefined();
       expect(ACHIEVEMENTS.WORDLE_5_SOLVES).toBeDefined();
       expect(ACHIEVEMENTS.WORDLE_10_SOLVES).toBeDefined();
@@ -28,11 +27,6 @@ describe('achievementConfig', () => {
       });
     });
 
-    test('THIEF has correct data', () => {
-      expect(ACHIEVEMENTS.THIEF.name).toBe('Thief');
-      expect(ACHIEVEMENTS.THIEF.rewardValue).toBe(100);
-    });
-
     test('WORDLE_FIRST_SOLVE has correct data', () => {
       expect(ACHIEVEMENTS.WORDLE_FIRST_SOLVE.name).toBe('Word Wizard');
       expect(ACHIEVEMENTS.WORDLE_FIRST_SOLVE.rewardValue).toBe(500);
@@ -42,11 +36,6 @@ describe('achievementConfig', () => {
   // ============ ACTION_TYPES TESTS ============
 
   describe('ACTION_TYPES', () => {
-    test('has ROB actions', () => {
-      expect(ACTION_TYPES.ROB_SUCCESS).toBe('ROB_SUCCESS');
-      expect(ACTION_TYPES.ROB_FAIL).toBe('ROB_FAIL');
-    });
-
     test('has GAMBLE actions', () => {
       expect(ACTION_TYPES.GAMBLE_WIN).toBe('GAMBLE_WIN');
       expect(ACTION_TYPES.GAMBLE_LOSE).toBe('GAMBLE_LOSE');
@@ -82,13 +71,12 @@ describe('achievementConfig', () => {
 
   describe('getAchievement', () => {
     test('returns achievement for valid key', () => {
-      const achievement = getAchievement('THIEF');
+      const achievement = getAchievement('WORDLE_FIRST_SOLVE');
       expect(achievement).not.toBeNull();
-      expect(achievement?.name).toBe('Thief');
+      expect(achievement?.name).toBe('Word Wizard');
     });
 
     test('returns all achievements correctly', () => {
-      expect(getAchievement('THIEF')?.name).toBe('Thief');
       expect(getAchievement('WORDLE_FIRST_SOLVE')?.name).toBe('Word Wizard');
       expect(getAchievement('WORDLE_5_SOLVES')?.name).toBe('Vocabulary Builder');
       expect(getAchievement('WORDLE_10_SOLVES')?.name).toBe('Lexicon Master');
@@ -96,7 +84,7 @@ describe('achievementConfig', () => {
 
     test('returns null for unknown key', () => {
       expect(getAchievement('INVALID_KEY')).toBeNull();
-      expect(getAchievement('thief')).toBeNull(); // Case sensitive
+      expect(getAchievement('wordle_first_solve')).toBeNull(); // Case sensitive
     });
 
     test('returns null for null/undefined', () => {
@@ -109,12 +97,11 @@ describe('achievementConfig', () => {
     test('returns array of all achievement keys', () => {
       const keys = getAllAchievementKeys();
       expect(Array.isArray(keys)).toBe(true);
-      expect(keys.length).toBe(4);
+      expect(keys.length).toBe(8);
     });
 
     test('includes all achievement keys', () => {
       const keys = getAllAchievementKeys();
-      expect(keys).toContain('THIEF');
       expect(keys).toContain('WORDLE_FIRST_SOLVE');
       expect(keys).toContain('WORDLE_5_SOLVES');
       expect(keys).toContain('WORDLE_10_SOLVES');

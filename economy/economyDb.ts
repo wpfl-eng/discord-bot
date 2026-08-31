@@ -2,7 +2,12 @@
 // User wallet, bank, transactions, and leaderboards
 
 import { sql } from '@vercel/postgres';
-import type { EconomyUser, TransferResult, EconomyLeaderboardEntry, TotalWealthEntry } from '../types/database.js';
+import type {
+  EconomyUser,
+  TransferResult,
+  EconomyLeaderboardEntry,
+  TotalWealthEntry,
+} from '../types/database.js';
 
 // Re-export shared types for consumers
 export type { EconomyUser, TransferResult, EconomyLeaderboardEntry, TotalWealthEntry };
@@ -15,10 +20,7 @@ export type { EconomyUser, TransferResult, EconomyLeaderboardEntry, TotalWealthE
  * @param username - Discord username
  * @returns User economy data
  */
-export async function getOrCreateUser(
-  userId: string,
-  username: string
-): Promise<EconomyUser> {
+export async function getOrCreateUser(userId: string, username: string): Promise<EconomyUser> {
   const result = await sql<EconomyUser>`
     INSERT INTO economy_users (user_id, username, created_at)
     VALUES (${userId}, ${username}, NOW())
@@ -51,10 +53,7 @@ export async function getUser(userId: string): Promise<EconomyUser | null> {
  * @param amount - Amount to add (must be positive)
  * @returns Updated user data or null if amount invalid
  */
-export async function addToWallet(
-  userId: string,
-  amount: number
-): Promise<EconomyUser | null> {
+export async function addToWallet(userId: string, amount: number): Promise<EconomyUser | null> {
   if (amount <= 0) return null;
 
   const result = await sql<EconomyUser>`
@@ -93,11 +92,12 @@ export async function deductFromWallet(
 }
 
 /**
- * Transfer coins between two users atomically (for rob)
- * Deducts from victim's wallet and adds to attacker's wallet
+ * Transfer coins between two users atomically
+ * Deducts from one wallet and adds to the other
  * Uses a proper database transaction to ensure both operations succeed or both fail
- * @param fromUserId - Victim's Discord user ID
- * @param toUserId - Attacker's Discord user ID
+ * NOTE: currently unreferenced - the /rob command was its only caller
+ * @param fromUserId - Source Discord user ID
+ * @param toUserId - Destination Discord user ID
  * @param amount - Amount to transfer
  * @returns Both updated users or nulls if failed
  */
@@ -151,10 +151,7 @@ export async function transferBetweenUsers(
  * @param amount - Amount to transfer
  * @returns Updated user data or null if insufficient funds/capacity
  */
-export async function transferToBank(
-  userId: string,
-  amount: number
-): Promise<EconomyUser | null> {
+export async function transferToBank(userId: string, amount: number): Promise<EconomyUser | null> {
   if (amount <= 0) return null;
 
   const result = await sql<EconomyUser>`
@@ -227,10 +224,7 @@ export async function claimDaily(
  * @param reward - Coins to add to wallet (0 for failed work)
  * @returns Updated user data or null
  */
-export async function claimWork(
-  userId: string,
-  reward: number
-): Promise<EconomyUser | null> {
+export async function claimWork(userId: string, reward: number): Promise<EconomyUser | null> {
   const result = await sql<EconomyUser>`
     UPDATE economy_users
     SET
@@ -243,110 +237,7 @@ export async function claimWork(
   return result.rows[0] ?? null;
 }
 
-// ============ Rob System ============
-
-/**
- * Update rob timestamps for attacker
- * @param userId - Discord user ID (attacker)
- * @returns Updated user data or null
- */
-export async function setLastRob(userId: string): Promise<EconomyUser | null> {
-  const result = await sql<EconomyUser>`
-    UPDATE economy_users
-    SET last_rob = NOW()
-    WHERE user_id = ${userId}
-    RETURNING *
-  `;
-  return result.rows[0] ?? null;
-}
-
-/**
- * Update robbed timestamps for victim
- * @param victimId - Discord user ID (victim)
- * @param attackerId - Discord user ID (attacker)
- * @returns Updated user data or null
- */
-export async function setLastRobbed(
-  victimId: string,
-  attackerId: string
-): Promise<EconomyUser | null> {
-  const result = await sql<EconomyUser>`
-    UPDATE economy_users
-    SET
-      last_robbed_at = NOW(),
-      last_robbed_by = ${attackerId}
-    WHERE user_id = ${victimId}
-    RETURNING *
-  `;
-  return result.rows[0] ?? null;
-}
-
-/**
- * Pay fine for failed robbery (atomic)
- * @param userId - Discord user ID
- * @param fine - Fine amount
- * @returns Updated user data or null if can't pay
- */
-export async function payRobFine(
-  userId: string,
-  fine: number
-): Promise<EconomyUser | null> {
-  const result = await sql<EconomyUser>`
-    UPDATE economy_users
-    SET
-      wallet = wallet - ${fine},
-      total_lost = total_lost + ${fine}
-    WHERE user_id = ${userId}
-      AND wallet >= ${fine}
-    RETURNING *
-  `;
-  return result.rows[0] ?? null;
-}
-
 // ============ Shop Items ============
-
-/**
- * Set padlock status for a user
- * @param userId - Discord user ID
- * @param hasPadlock - Whether user has a padlock
- * @returns Updated user data or null
- */
-export async function setPadlock(
-  userId: string,
-  hasPadlock: boolean
-): Promise<EconomyUser | null> {
-  const result = await sql<EconomyUser>`
-    UPDATE economy_users
-    SET has_padlock = ${hasPadlock}
-    WHERE user_id = ${userId}
-    RETURNING *
-  `;
-  return result.rows[0] ?? null;
-}
-
-/**
- * Purchase padlock (atomic - deducts cost and sets padlock)
- * @param userId - Discord user ID
- * @param cost - Cost of padlock
- * @returns Updated user data or null if can't afford or already has one
- */
-export async function buyPadlock(
-  userId: string,
-  cost: number
-): Promise<EconomyUser | null> {
-  const result = await sql<EconomyUser>`
-    UPDATE economy_users
-    SET
-      wallet = wallet - ${cost},
-      has_padlock = TRUE,
-      total_lost = total_lost + ${cost}
-    WHERE user_id = ${userId}
-      AND wallet >= ${cost}
-      AND has_padlock = FALSE
-    RETURNING *
-  `;
-  return result.rows[0] ?? null;
-}
 
 /**
  * Purchase bank expansion (atomic)
@@ -379,10 +270,7 @@ export async function buyBankExpansion(
  * @param amount - Amount to expand by
  * @returns Updated user data or null
  */
-export async function expandBank(
-  userId: string,
-  amount: number
-): Promise<EconomyUser | null> {
+export async function expandBank(userId: string, amount: number): Promise<EconomyUser | null> {
   const result = await sql<EconomyUser>`
     UPDATE economy_users
     SET bank_capacity = bank_capacity + ${amount}
@@ -400,10 +288,7 @@ export async function expandBank(
  * @param winnings - Amount won
  * @returns Updated user data or null
  */
-export async function gambleWin(
-  userId: string,
-  winnings: number
-): Promise<EconomyUser | null> {
+export async function gambleWin(userId: string, winnings: number): Promise<EconomyUser | null> {
   const result = await sql<EconomyUser>`
     UPDATE economy_users
     SET
@@ -421,10 +306,7 @@ export async function gambleWin(
  * @param bet - Amount lost
  * @returns Updated user data or null if insufficient funds
  */
-export async function gambleLose(
-  userId: string,
-  bet: number
-): Promise<EconomyUser | null> {
+export async function gambleLose(userId: string, bet: number): Promise<EconomyUser | null> {
   const result = await sql<EconomyUser>`
     UPDATE economy_users
     SET
@@ -444,9 +326,7 @@ export async function gambleLose(
  * @param limit - Number of users to return
  * @returns Top users sorted by total wealth
  */
-export async function getLeaderboard(
-  limit: number = 10
-): Promise<EconomyLeaderboardEntry[]> {
+export async function getLeaderboard(limit: number = 10): Promise<EconomyLeaderboardEntry[]> {
   const result = await sql<EconomyLeaderboardEntry>`
     SELECT user_id, username, wallet, bank, (wallet + bank) as total_wealth, total_earned, total_lost
     FROM economy_users
@@ -496,9 +376,7 @@ export async function getTotalUsers(): Promise<number> {
  * @param limit - Number of users to return
  * @returns Top users sorted by total wealth
  */
-export async function getTotalWealthLeaderboard(
-  limit: number = 10
-): Promise<TotalWealthEntry[]> {
+export async function getTotalWealthLeaderboard(limit: number = 10): Promise<TotalWealthEntry[]> {
   const safeLimit = Math.min(Math.max(1, limit), 25);
 
   const result = await sql<TotalWealthEntry>`
@@ -526,7 +404,7 @@ export async function getTotalWealthLeaderboard(
     LIMIT ${safeLimit}
   `;
 
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     user_id: row.user_id,
     username: row.username,
     cash_wealth: Number(row.cash_wealth),

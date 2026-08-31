@@ -17,10 +17,6 @@ export interface EconomyUser {
   readonly total_lost: number;
   readonly last_daily: Date | null;
   readonly last_work: Date | null;
-  readonly last_rob: Date | null;
-  readonly last_robbed_at: Date | null;
-  readonly last_robbed_by: string | null;
-  readonly has_padlock: boolean;
   readonly daily_streak: number;
   readonly created_at: Date;
 }

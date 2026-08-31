@@ -23,10 +23,7 @@ export interface AchievementRecord {
  * @param achievementKey - The achievement key to check
  * @returns True if already earned
  */
-export async function hasAchievement(
-  userId: string,
-  achievementKey: string
-): Promise<boolean> {
+export async function hasAchievement(userId: string, achievementKey: string): Promise<boolean> {
   const result = await sql`
     SELECT 1 FROM achievements
     WHERE user_id = ${userId}
@@ -63,9 +60,7 @@ export async function grantAchievement(
  * @param userId - Discord user ID
  * @returns Array of achievement records
  */
-export async function getUserAchievements(
-  userId: string
-): Promise<AchievementRecord[]> {
+export async function getUserAchievements(userId: string): Promise<AchievementRecord[]> {
   const result = await sql<AchievementRecord>`
     SELECT * FROM achievements
     WHERE user_id = ${userId}
@@ -79,9 +74,7 @@ export async function getUserAchievements(
  * @param achievementKey - The achievement key
  * @returns Count of users with this achievement
  */
-export async function getAchievementCount(
-  achievementKey: string
-): Promise<number> {
+export async function getAchievementCount(achievementKey: string): Promise<number> {
   const result = await sql<{ count: string }>`
     SELECT COUNT(*) as count FROM achievements
     WHERE achievement_key = ${achievementKey}

@@ -4,7 +4,6 @@
 // ============ TYPE DEFINITIONS ============
 
 export type AchievementKey =
-  | 'THIEF'
   | 'WORDLE_FIRST_SOLVE'
   | 'WORDLE_5_SOLVES'
   | 'WORDLE_10_SOLVES'
@@ -15,8 +14,6 @@ export type AchievementKey =
   | 'VIDEO_POKER_STREAK';
 
 export type ActionType =
-  | 'ROB_SUCCESS'
-  | 'ROB_FAIL'
   | 'GAMBLE_WIN'
   | 'GAMBLE_LOSE'
   | 'BLACKJACK_WIN'
@@ -48,11 +45,6 @@ export interface Achievement {
  * Achievement definitions
  */
 export const ACHIEVEMENTS: Record<AchievementKey, Achievement> = {
-  THIEF: {
-    name: 'Thief',
-    description: 'Successfully rob another player',
-    rewardValue: 100,
-  },
   WORDLE_FIRST_SOLVE: {
     name: 'Word Wizard',
     description: 'Be the first to solve a Wordle puzzle',
@@ -99,8 +91,6 @@ export const ACHIEVEMENTS: Record<AchievementKey, Achievement> = {
  * Action types that can trigger achievement checks
  */
 export const ACTION_TYPES: Record<ActionType, ActionType> = {
-  ROB_SUCCESS: 'ROB_SUCCESS',
-  ROB_FAIL: 'ROB_FAIL',
   GAMBLE_WIN: 'GAMBLE_WIN',
   GAMBLE_LOSE: 'GAMBLE_LOSE',
   BLACKJACK_WIN: 'BLACKJACK_WIN',

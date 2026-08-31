@@ -61,43 +61,6 @@ describe('achievementService', () => {
   });
 
   describe('checkForAchievements', () => {
-    describe('THIEF achievement', () => {
-      test('grants THIEF on ROB_SUCCESS action', async () => {
-        mockGrantAchievement.mockResolvedValue({
-          user_id: '123',
-          username: 'testuser',
-          achievement_key: 'THIEF',
-          achieved_at: new Date(),
-        });
-        mockAddToWallet.mockResolvedValue({ wallet: 200 });
-
-        const result = await checkForAchievements({
-          actionType: ACTION_TYPES.ROB_SUCCESS,
-          userId: '123',
-          username: 'testuser',
-          client: mockClient as Client,
-        });
-
-        expect(achievementDb.grantAchievement).toHaveBeenCalledWith('123', 'testuser', 'THIEF');
-        expect(economyDb.addToWallet).toHaveBeenCalledWith('123', 100);
-        expect(result).toContain('THIEF');
-      });
-
-      test('does not grant already owned achievement', async () => {
-        mockGrantAchievement.mockResolvedValue(null);
-
-        const result = await checkForAchievements({
-          actionType: ACTION_TYPES.ROB_SUCCESS,
-          userId: '123',
-          username: 'testuser',
-          client: mockClient as Client,
-        });
-
-        expect(result).not.toContain('THIEF');
-        expect(economyDb.addToWallet).not.toHaveBeenCalled();
-      });
-    });
-
     describe('WORDLE_FIRST_SOLVE achievement', () => {
       test('grants WORDLE_FIRST_SOLVE on first solve action', async () => {
         mockGrantAchievement.mockResolvedValue({
@@ -204,13 +167,13 @@ describe('achievementService', () => {
         mockGrantAchievement.mockResolvedValue({
           user_id: '123',
           username: 'testuser',
-          achievement_key: 'THIEF',
+          achievement_key: 'WORDLE_FIRST_SOLVE',
           achieved_at: new Date(),
         });
-        mockAddToWallet.mockResolvedValue({ wallet: 200 });
+        mockAddToWallet.mockResolvedValue({ wallet: 600 });
 
         await checkForAchievements({
-          actionType: ACTION_TYPES.ROB_SUCCESS,
+          actionType: ACTION_TYPES.WORDLE_FIRST_SOLVE,
           userId: '123',
           username: 'testuser',
           client: mockClient as Client,
@@ -226,20 +189,20 @@ describe('achievementService', () => {
         mockGrantAchievement.mockResolvedValue({
           user_id: '123',
           username: 'testuser',
-          achievement_key: 'THIEF',
+          achievement_key: 'WORDLE_FIRST_SOLVE',
           achieved_at: new Date(),
         });
-        mockAddToWallet.mockResolvedValue({ wallet: 200 });
+        mockAddToWallet.mockResolvedValue({ wallet: 600 });
 
         // Should not throw
         const result = await checkForAchievements({
-          actionType: ACTION_TYPES.ROB_SUCCESS,
+          actionType: ACTION_TYPES.WORDLE_FIRST_SOLVE,
           userId: '123',
           username: 'testuser',
           client: mockClient as Client,
         });
 
-        expect(result).toContain('THIEF');
+        expect(result).toContain('WORDLE_FIRST_SOLVE');
       });
     });
 
@@ -249,7 +212,7 @@ describe('achievementService', () => {
         const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
         const result = await checkForAchievements({
-          actionType: ACTION_TYPES.ROB_SUCCESS,
+          actionType: ACTION_TYPES.WORDLE_FIRST_SOLVE,
           userId: '123',
           username: 'testuser',
           client: mockClient as Client,

@@ -22,7 +22,6 @@ describe('economyConfig', () => {
       expect(CONFIG.WORK_MAX).toBeDefined();
       expect(CONFIG.GAMBLE_MIN).toBeDefined();
       expect(CONFIG.GAMBLE_MAX).toBeDefined();
-      expect(CONFIG.ROB_SUCCESS_RATE).toBeDefined();
       expect(CONFIG.BANK_STARTING_CAPACITY).toBeDefined();
     });
 
@@ -32,11 +31,6 @@ describe('economyConfig', () => {
 
     test('GAMBLE_MIN is less than GAMBLE_MAX', () => {
       expect(CONFIG.GAMBLE_MIN).toBeLessThan(CONFIG.GAMBLE_MAX);
-    });
-
-    test('ROB_SUCCESS_RATE is between 0 and 1', () => {
-      expect(CONFIG.ROB_SUCCESS_RATE).toBeGreaterThan(0);
-      expect(CONFIG.ROB_SUCCESS_RATE).toBeLessThan(1);
     });
   });
 
@@ -86,8 +80,11 @@ describe('economyConfig', () => {
     test('multipliers increase as yard line increases', () => {
       const positions = [20, 30, 40, 50, 60, 70, 80, 90, 100];
       for (let i = 1; i < positions.length; i++) {
-        const prevMultiplier = REDZONE_FIELD_POSITIONS[positions[i - 1] as keyof typeof REDZONE_FIELD_POSITIONS].multiplier;
-        const currMultiplier = REDZONE_FIELD_POSITIONS[positions[i] as keyof typeof REDZONE_FIELD_POSITIONS].multiplier;
+        const prevMultiplier =
+          REDZONE_FIELD_POSITIONS[positions[i - 1] as keyof typeof REDZONE_FIELD_POSITIONS]
+            .multiplier;
+        const currMultiplier =
+          REDZONE_FIELD_POSITIONS[positions[i] as keyof typeof REDZONE_FIELD_POSITIONS].multiplier;
         expect(currMultiplier).toBeGreaterThan(prevMultiplier);
       }
     });

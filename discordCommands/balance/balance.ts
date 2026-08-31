@@ -20,7 +20,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const targetUser = interaction.options.getUser('user') || interaction.user;
 
     // Get or create user
-    const userData: EconomyUser = await economyDb.getOrCreateUser(targetUser.id, targetUser.username);
+    const userData: EconomyUser = await economyDb.getOrCreateUser(
+      targetUser.id,
+      targetUser.username
+    );
 
     // Get user's rank
     const rank: number | null = await economyDb.getUserRank(targetUser.id);
@@ -65,15 +68,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       )
       .setTimestamp()
       .setFooter({ text: 'Economy System' });
-
-    // Add padlock indicator if they have one
-    if (userData.has_padlock) {
-      embed.addFields({
-        name: 'Protection',
-        value: '🔒 Padlock active',
-        inline: false,
-      });
-    }
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error: unknown) {

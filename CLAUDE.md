@@ -58,16 +58,62 @@ After adding or modifying slash commands, deploy them to Discord:
 npx tsx deploy-commands.ts
 ```
 
+### Development
+```bash
+npm run dev        # tsx watch index.ts
+npm start          # tsx index.ts
+npm test           # Jest
+npm run lint       # ESLint (lint:fix to autofix)
+npm run typecheck  # tsc --noEmit
+npm run format     # Prettier (format:check to verify)
+```
+
+There is no build step — TypeScript runs directly through `tsx`.
+
 ## Architecture
 
-This is a Discord bot for fantasy football league management (CommishBot) that integrates with ESPN and Sleeper fantasy platforms.
+This is a Discord bot for fantasy football league management (CommishBot). It pulls league data from
+ESPN and the WPFL history API, and layers on a virtual economy: casino games, collectibles,
+prediction markets, stock trading, trivia, and Wordle. 50 slash commands are registered.
 
 ### Core Structure
-- **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, runs Express health check server
+- **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, routes button/autocomplete/DM interactions, runs Express health check server
 - **Commands**: Located in `/discordCommands/[commandname]/[commandname].ts`
-- **External APIs**: ESPN Fantasy Football (custom fork), Sleeper API, OpenAI
-- **Database**: PostgreSQL via @vercel/postgres (tables: pins, Bets)
+- **External APIs**: ESPN Fantasy Football (custom fork), WPFL history API, Polymarket Gamma API, Finnhub, Sleeper API, OpenAI
+- **Database**: PostgreSQL via @vercel/postgres (~30 tables; schemas in `/sql`, numbered migrations in `/migrations`, no automated runner)
 - **Misc Data**: `/data`
+
+### Feature Modules
+Shared logic lives outside `/discordCommands` so multiple commands can use it:
+- `economy/` - `economyConfig.ts` (all payout/cooldown/limit tuning) and `economyDb.ts`
+- `achievements/` - 9 achievements awarded off 20 action types; `checkForAchievements` is called from game commands
+- `inventory/` - item definitions and inventory DB
+- `nflmon/` - config (rarities, evolution, IVs, XP sources), DB, and service
+- `trivia/` - `triviaService.ts` (cron scheduler), `categoryLoader.ts`, `answerMatcher.ts`, `*Questions.json` banks
+- `wordle/`, `stock/`, `polymarket/` - config + DB + API client per feature
+- `blackjack/`, `craps/`, `redzone/`, `videopoker/` - per-game stats DB modules
+- `errors/`, `helpers/`, `constants/`, `types/` - shared support code
+
+Some features keep their config next to the command instead: `discordCommands/roulette/` and
+`discordCommands/craps/` each hold their own `*Config.ts`, `*State.ts` and engine files.
+
+### Command Loading
+Both `index.ts` and `deploy-commands.ts` scan `discordCommands/` and, for each folder, import **only**
+the file whose basename matches the folder name (case-insensitive). That is why
+`videopoker/videoPoker.ts` loads while `videoPokerUtils.ts` and `videoPokerDb.ts` are skipped. If no
+file matches the folder name, every `.ts`/`.js` file in the folder is imported as a fallback.
+Modules are validated by `isValidCommandModule` (`types/commands.ts`) — anything missing `data` or
+`execute` is logged and skipped.
+
+Folder name does not have to equal command name: `checkpredictions/` registers `/check-predictions`
+and `mypredictions/` registers `/my-predictions`.
+
+### Background Behavior
+- **Trivia scheduler** (`trivia/triviaService.ts:150`) - cron in `America/New_York`; posts at 9/11/13/15/17/19/21, auto-closes each 2h later, season rollover at midnight on the 1st
+- **Trivia DMs** - `messageCreate` handler accepts answers sent to the bot directly
+- **NFLmon trade buttons** - `nflmon_trade_*` handled at the client level in `index.ts` so DM buttons work; announces completions to `GENERAL_CHANNEL_ID`
+- **Roulette auto-spin** - rounds spin on a timer in `discordCommands/roulette/rouletteState.ts`
+- **Autocomplete** - `/craps`, `/roulette`, `/inventory`, `/triviaquestion` export an `autocomplete` handler dispatched by `index.ts`
 
 ### Command Pattern
 Each command must export:
@@ -90,16 +136,27 @@ Required environment variables (create `.env` from `.env.sample`):
 - Discord: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`
 - ESPN: `ESPN_S2`, `SWID`, `LEAGUE_ID`
 - Sleeper: `SLEEPER_LEAGUE_ID`
-- Database: PostgreSQL connection variables
-- Other: `OPEN_API_KEY`, `API_KEY`, `BOT_ID`
+- Database: PostgreSQL connection variables (`POSTGRES_*`)
+- Stock: `FINNHUB_API_KEY`
+- Trivia: `TRIVIA_CHANNEL_ID`, `TRIVIA_ADMIN_USER_IDS` (comma-separated; gates `/triviaquestion`)
+- Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID`, `ROULETTE_CHANNEL_ID`, `CRAPS_CHANNEL_ID`, `GENERAL_CHANNEL_ID`
+- Other: `OPEN_API_KEY`, `PORT`, `API_KEY`, `BOT_ID`
+
+`GENERAL_CHANNEL_ID` is read by `index.ts` for NFLmon trade announcements but is not present in
+`.env.sample`. Without it trades still complete; the public announcement is skipped.
 
 ### Key Dependencies
 - `discord.js` v14 - Modern Discord bot framework
+- `tsx` - runs TypeScript directly, no build step
+- `node-cron` - trivia scheduling
+- `@vercel/postgres` - database access
 - Custom ESPN API fork: `git+https://github.com/aboorde/ESPN-Fantasy-Football-API.git`
 - Direct Sleeper API calls to `api.sleeper.app`
 
 ### Testing
-Uses Jest for unit testing. Tests are in `/tests` directory and mock external dependencies like the ESPN client.
+Uses Jest for unit testing. Tests are in `/tests`, organized as `config/`, `helpers/`, `services/`,
+`trivia/` and `utils/`. They cover pure config and utility modules plus mocked services; external
+dependencies like the ESPN client and the database are mocked.
 
 ## APIs you have access to 
 - Custom ESPN API fork: `git+https://github.com/aboorde/ESPN-Fantasy-Football-API.git`

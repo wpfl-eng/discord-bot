@@ -57,14 +57,6 @@ const SHOP_CATEGORIES: Record<string, ShopCategory> = {
     emoji: '💰',
     items: [
       {
-        id: 'padlock',
-        name: 'Padlock',
-        emoji: '🔒',
-        price: CONFIG.PADLOCK_COST,
-        description: 'Protects you from one robbery attempt',
-        type: 'economy',
-      },
-      {
         id: 'bank_expansion',
         name: 'Bank Expansion',
         emoji: '🏦',
@@ -117,13 +109,9 @@ function buildShopEmbed(userData: EconomyUser): EmbedBuilder {
 
     // Add items in this category
     for (const item of category.items) {
-      let status = '';
-      if (item.id === 'padlock' && userData.has_padlock) {
-        status = ' *(Already owned)*';
-      }
       embed.addFields({
         name: `${item.emoji} ${item.name} - ${formatCurrency(item.price)}`,
-        value: `${item.description}${status}`,
+        value: item.description,
         inline: true,
       });
     }
@@ -144,14 +132,13 @@ function buildShopButtons(userData: EconomyUser): ActionRowBuilder<ButtonBuilder
     const rowItems = allItems.slice(i, i + 5);
     const buttons = rowItems.map((item) => {
       const canAfford = userData.wallet >= item.price;
-      const alreadyOwned = item.id === 'padlock' && userData.has_padlock;
 
       return new ButtonBuilder()
         .setCustomId(`shop_${item.id}`)
         .setLabel(item.name)
         .setEmoji(item.emoji)
-        .setStyle(canAfford && !alreadyOwned ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setDisabled(!canAfford || alreadyOwned);
+        .setStyle(canAfford ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setDisabled(!canAfford);
     });
 
     rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
@@ -292,24 +279,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         return;
       }
 
-      // Check if already owned (padlock only)
-      if (item.id === 'padlock' && currentUser.has_padlock) {
-        await buttonInteraction.reply({
-          content: 'You already have a padlock!',
-          ephemeral: true,
-        });
-        return;
-      }
-
       // Process purchase based on type
       let updatedUser: EconomyUser | null | undefined;
       const purchaseDetails: PurchaseDetails = {};
 
       if (item.type === 'economy') {
         // Economy items: direct effects
-        if (item.id === 'padlock') {
-          updatedUser = await economyDb.buyPadlock(userId, item.price);
-        } else if (item.id === 'bank_expansion') {
+        if (item.id === 'bank_expansion') {
           updatedUser = await economyDb.buyBankExpansion(
             userId,
             item.price,

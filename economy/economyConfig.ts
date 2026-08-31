@@ -54,22 +54,10 @@ export interface EconomyConfig {
   readonly CRAPS_MAX: number;
   readonly CRAPS_MAX_EXPOSURE: number;
 
-  // Rob
-  readonly ROB_SUCCESS_RATE: number;
-  readonly ROB_MIN_PERCENT: number;
-  readonly ROB_MAX_PERCENT: number;
-  readonly ROB_FAIL_FINE: number;
-  readonly ROB_COOLDOWN_MINUTES: number;
-  readonly ROB_VICTIM_COOLDOWN_MINUTES: number;
-  readonly ROB_MIN_WALLET: number;
-
   // Bank
   readonly BANK_STARTING_CAPACITY: number;
   readonly BANK_EXPANSION_COST: number;
   readonly BANK_EXPANSION_AMOUNT: number;
-
-  // Shop
-  readonly PADLOCK_COST: number;
 }
 
 export interface WorkJob {
@@ -162,22 +150,10 @@ export const CONFIG: EconomyConfig = {
   CRAPS_MAX: 10000,
   CRAPS_MAX_EXPOSURE: 50000,
 
-  // Rob
-  ROB_SUCCESS_RATE: 0.4,
-  ROB_MIN_PERCENT: 0.1,
-  ROB_MAX_PERCENT: 0.3,
-  ROB_FAIL_FINE: 100,
-  ROB_COOLDOWN_MINUTES: 30,
-  ROB_VICTIM_COOLDOWN_MINUTES: 60,
-  ROB_MIN_WALLET: 100,
-
   // Bank
   BANK_STARTING_CAPACITY: 1000,
   BANK_EXPANSION_COST: 2000,
   BANK_EXPANSION_AMOUNT: 1000,
-
-  // Shop
-  PADLOCK_COST: 500,
 } as const;
 
 export const WORK_JOBS: readonly WorkJob[] = [
