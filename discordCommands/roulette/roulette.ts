@@ -12,9 +12,6 @@ import {
   ChatInputCommandInteraction,
   AutocompleteInteraction,
   ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ActionRowBuilder,
   TextChannel,
   type MessageComponentInteraction,
   type ModalSubmitInteraction,
@@ -27,6 +24,7 @@ import {
   registerComponentHandler,
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
+import { amountModal } from '../../casino/casinoModal.js';
 import {
   ALL_BET_TYPES,
   BET_TYPES,
@@ -95,6 +93,15 @@ const activeChip = new Map<string, number>();
 function chipFor(userId: string): number {
   return activeChip.get(userId) ?? DEFAULT_CHIP;
 }
+
+/**
+ * The pocket each player's panel is currently focused on.
+ *
+ * The panel is a two-step flow - pick a number, then pick one of the bets covering it -
+ * and that intermediate choice has to live somewhere between the two interactions.
+ * In memory only; the worst a restart costs is a panel that reopens unfocused.
+ */
+const panelFocus = new Map<string, string>();
 
 // ============ AUTOCOMPLETE ============
 
@@ -377,14 +384,20 @@ async function handleComponent(interaction: MessageComponentInteraction): Promis
     return;
   }
 
-  if (
-    customId === IDS.SELECT_COLUMN ||
-    customId === IDS.SELECT_LOW ||
-    customId === IDS.SELECT_HIGH
-  ) {
+  // Picking a number does NOT place a bet - it focuses the panel on that pocket so the
+  // cover select can be rebuilt for it.
+  if (customId === IDS.SELECT_LOW || customId === IDS.SELECT_HIGH) {
+    const select = interaction as StringSelectMenuInteraction;
+    const pocket: string | undefined = select.values[0];
+    if (pocket) await focusPocket(select, pocket);
+    return;
+  }
+
+  // Choosing from the cover select is what actually lands a bet.
+  if (customId === IDS.SELECT_COVER) {
     const select = interaction as StringSelectMenuInteraction;
     const betType: string | undefined = select.values[0];
-    if (betType) await betFromComponent(interaction, betType, chipFor(userId));
+    if (betType) await betFromPanel(select, betType);
     return;
   }
 
@@ -409,18 +422,21 @@ async function handleComponent(interaction: MessageComponentInteraction): Promis
   }
 }
 
+/**
+ * The chip modal.
+ *
+ * Built on `Label` rather than an ActionRow-wrapped TextInput, which is the deprecated
+ * form this file used previously.
+ */
 function buildChipModal(): ModalBuilder {
-  const input = new TextInputBuilder()
-    .setCustomId('amount')
-    .setLabel(`Chip size (${LIMITS.MIN_BET} - ${LIMITS.MAX_BET})`)
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(9);
-
-  return new ModalBuilder()
-    .setCustomId(IDS.CHIP_MODAL)
-    .setTitle('Set your chip')
-    .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
+  return amountModal({
+    id: IDS.CHIP_MODAL,
+    title: 'Set your chip',
+    label: `Chip size (${LIMITS.MIN_BET} – ${LIMITS.MAX_BET})`,
+    description: 'Every one-click bet on the table will use this stake.',
+    fieldId: 'amount',
+    placeholder: '2500',
+  });
 }
 
 async function setChip(interaction: RoutableInteraction, amount: number): Promise<void> {
@@ -478,9 +494,64 @@ async function betFromComponent(
 
 async function openPanel(interaction: MessageComponentInteraction): Promise<void> {
   const userId: string = interaction.user.id;
-  await interaction.reply(
-    buildBetPanel(chipFor(userId), buildSlipText(rouletteState.getUserBets(userId)))
+  await interaction.reply(panelFor(userId));
+}
+
+/** The panel as this player currently has it. */
+function panelFor(userId: string) {
+  return buildBetPanel(
+    chipFor(userId),
+    buildSlipText(rouletteState.getUserBets(userId)),
+    panelFocus.get(userId) ?? null,
+    !rouletteState.isBettingOpen()
   );
+}
+
+/**
+ * Focus the panel on a pocket.
+ *
+ * The panel is ephemeral and per-player, so updating it in place is safe - doing the
+ * same to a select on the shared board would yank it out from under everyone else.
+ */
+async function focusPocket(
+  interaction: StringSelectMenuInteraction,
+  pocket: string
+): Promise<void> {
+  panelFocus.set(interaction.user.id, pocket);
+  await interaction.update(panelFor(interaction.user.id));
+}
+
+/**
+ * Place one of the bets covering the focused pocket, then rebuild the panel so the slip
+ * reflects it immediately.
+ */
+async function betFromPanel(
+  interaction: StringSelectMenuInteraction,
+  betType: string
+): Promise<void> {
+  const userId: string = interaction.user.id;
+
+  const channelCheck: string | null = wrongChannelMessage(interaction.channelId);
+  if (channelCheck) {
+    await interaction.reply({ content: channelCheck, ephemeral: true });
+    return;
+  }
+
+  await economyDb.getOrCreateUser(userId, interaction.user.username);
+
+  const outcome: PlaceBetOutcome = await placeBet(
+    userId,
+    interaction.user.username,
+    chipFor(userId),
+    betType,
+    interaction.channel as TextChannel
+  );
+
+  await interaction.update(panelFor(userId));
+
+  if (!outcome.ok) {
+    await interaction.followUp({ content: `⚠️ ${outcome.message}`, ephemeral: true });
+  }
 }
 
 async function showSlip(interaction: MessageComponentInteraction): Promise<void> {

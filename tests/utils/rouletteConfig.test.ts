@@ -5,6 +5,7 @@ import {
   RED_NUMBERS,
   BLACK_NUMBERS,
   ALL_BET_TYPES,
+  OUTSIDE_BET_TYPES,
   getColor,
   type RouletteColor,
 } from '../../discordCommands/roulette/rouletteConfig.js';
@@ -64,10 +65,39 @@ describe('bet type resolution', () => {
 
   // The green pockets are the entire house edge. If any even-money or 2:1 bet were to
   // pay on 0 or 00 the game would be better than break-even for the player.
+  //
+  // OUTSIDE_BET_TYPES is used rather than "everything that is not a pocket": since the
+  // inside bets were generated, splits and the basket are also not pockets, and some of
+  // them cover green quite legitimately.
   test.each(['0', '00'])('no outside bet wins on %s', (position) => {
-    const outsideNames = ALL_BET_TYPES.filter((n) => !WHEEL_POSITIONS.includes(n));
-    for (const name of outsideNames) {
+    for (const name of OUTSIDE_BET_TYPES) {
       expect(BET_TYPES[name].matches(position, getColor(position))).toBe(false);
+    }
+  });
+
+  // The complement: the inside bets that are SUPPOSED to reach green must actually do
+  // so, or a player betting the basket would never be paid.
+  test.each([
+    ['basket', '0'],
+    ['basket', '00'],
+    ['split-0-00', '0'],
+    ['split-0-00', '00'],
+    ['split-0-1', '0'],
+    ['split-00-3', '00'],
+  ])('%s covers %s', (betType, position) => {
+    expect(BET_TYPES[betType].matches(position, getColor(position))).toBe(true);
+  });
+
+  test('the only bets reaching green are straight ups, zero splits and the basket', () => {
+    for (const position of ['0', '00']) {
+      const winners = ALL_BET_TYPES.filter((name) =>
+        BET_TYPES[name].matches(position, getColor(position))
+      );
+      for (const name of winners) {
+        const allowed: boolean =
+          name === position || name === 'basket' || name.startsWith('split-0');
+        expect(allowed).toBe(true);
+      }
     }
   });
 

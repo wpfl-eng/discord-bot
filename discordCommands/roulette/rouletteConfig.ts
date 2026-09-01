@@ -1,8 +1,19 @@
 // Roulette Configuration
 // American roulette wheel with Vegas standard payouts
+//
+// The felt carries 158 bets: the 12 outside bets written out below, plus the 146 inside
+// bets generated from the layout in rouletteInsideBets.ts. Listing 146 combinations by
+// hand would be both unreadable and impossible to keep correct.
 
 import { emoji } from '../../emoji/emojiRegistry.js';
 import { pocketEmojiName } from '../../emoji/emojiRegistry.js';
+import {
+  INSIDE_BETS,
+  insideBet,
+  insideBetsCovering,
+  type InsideBet,
+  type InsideFamily,
+} from './rouletteInsideBets.js';
 
 // ============ WHEEL LAYOUT ============
 
@@ -175,33 +186,93 @@ export const BET_TYPES: Record<string, BetType> = {
   },
 };
 
-// Add straight-up number bets (0, 00, 1-36) - 35:1 payout
-for (const pos of WHEEL_POSITIONS) {
-  BET_TYPES[pos] = {
-    name: pos,
-    display: pos,
-    payout: 35,
-    matches: (r) => r === pos,
+// ============ INSIDE BETS ============
+
+/** The twelve written-out bets above, before the generated ones are merged in. */
+export const OUTSIDE_BET_TYPES: readonly string[] = Object.keys(BET_TYPES);
+
+/**
+ * Prefix an inside bet's display with its shape, so a slip reads "Corner 13-14-16-17"
+ * rather than a bare run of numbers that could be any of four families.
+ */
+const FAMILY_LABEL: Readonly<Record<InsideFamily, string>> = {
+  straight: '',
+  split: 'Split ',
+  street: 'Street ',
+  corner: 'Corner ',
+  line: 'Line ',
+  basket: 'Basket ',
+} as const;
+
+// Merge every generated inside bet into the same table the outside bets live in, so
+// nothing downstream has to know which kind it is holding.
+for (const bet of INSIDE_BETS) {
+  BET_TYPES[bet.key] = {
+    name: bet.key,
+    display: `${FAMILY_LABEL[bet.family]}${bet.display}`.trim(),
+    payout: bet.payout,
+    matches: (result: string) => bet.pockets.includes(result),
   };
 }
 
 // ============ AUTOCOMPLETE OPTIONS ============
 
 export const ALL_BET_TYPES: readonly string[] = [
-  'red',
-  'black',
-  'odd',
-  'even',
-  'low',
-  'high',
-  'first-dozen',
-  'second-dozen',
-  'third-dozen',
-  'first-column',
-  'second-column',
-  'third-column',
-  ...WHEEL_POSITIONS,
+  ...OUTSIDE_BET_TYPES,
+  ...INSIDE_BETS.map((b) => b.key),
 ];
+
+// ============ COVERAGE ============
+
+/** A bet offered on the number-anchored panel. */
+export interface CoveringBet {
+  readonly key: string;
+  readonly display: string;
+  readonly payout: number;
+  /** 'straight', 'split', ... or 'outside' */
+  readonly family: InsideFamily | 'outside';
+}
+
+/**
+ * Every bet that covers a pocket, longest shot first.
+ *
+ * This is what the number-anchored panel is built on. A player thinks "I want 17
+ * covered", not "I want the corner whose top-left is 13", so the panel is keyed on the
+ * number and lists what reaches it. Never exceeds about 16 entries, which keeps it
+ * inside a single 25-option select.
+ *
+ * @param pocket - a wheel position, e.g. '17' or '00'
+ */
+export function betsCovering(pocket: string): CoveringBet[] {
+  const inside: CoveringBet[] = insideBetsCovering(pocket).map((b: InsideBet) => ({
+    key: b.key,
+    display: BET_TYPES[b.key]?.display ?? b.display,
+    payout: b.payout,
+    family: b.family,
+  }));
+
+  const color: RouletteColor = getColor(pocket);
+  const outside: CoveringBet[] = OUTSIDE_BET_TYPES.filter((key) =>
+    BET_TYPES[key]?.matches(pocket, color)
+  ).map((key) => ({
+    key,
+    display: BET_TYPES[key].display,
+    payout: BET_TYPES[key].payout,
+    family: 'outside' as const,
+  }));
+
+  return [...inside, ...outside].sort((a, b) => b.payout - a.payout);
+}
+
+/** Whether a bet of any kind covers a pocket. */
+export function betCovers(betType: string, pocket: string): boolean {
+  const bet = BET_TYPES[betType];
+  if (!bet) return false;
+  return bet.matches(pocket, getColor(pocket));
+}
+
+/** The inside-bet record behind a key, or null for an outside bet. */
+export { insideBet };
 
 // ============ TIMING ============
 
@@ -301,4 +372,10 @@ export function pocketIcon(position: string): string {
 export function betDisplayRich(betType: string): string {
   if (WHEEL_POSITIONS.includes(betType)) return pocketDisplay(betType);
   return getBetDisplay(betType);
+}
+
+/** Payout as a ratio string, e.g. '17:1'. */
+export function payoutLabel(betType: string): string {
+  const bet = BET_TYPES[betType];
+  return bet ? `${bet.payout}:1` : '';
 }

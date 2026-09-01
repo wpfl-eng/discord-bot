@@ -186,10 +186,24 @@ describe('table controls', () => {
 
   // A click landing mid-spin must not be able to place a bet the wheel has passed.
   test.each(['spinning', 'result', 'closed'] as const)(
-    'controls are disabled while %s',
+    'every wagering control is disabled while %s',
     (phase) => {
       const payload = buildTableMessage({ ...emptyTable, phase, closesAt: null });
-      expect(allButtons(payload).every((b) => b.disabled === true)).toBe(true);
+      const wagering = allButtons(payload).filter((b) => b.custom_id !== IDS.SLIP);
+      expect(wagering.length).toBeGreaterThan(0);
+      expect(wagering.every((b) => b.disabled === true)).toBe(true);
+    }
+  );
+
+  // My Slip stays live in every phase. It cannot place a bet, and wanting to check your
+  // own action while the wheel is spinning is exactly when you want it most.
+  test.each(['spinning', 'result', 'closed'] as const)(
+    'My Slip stays available while %s',
+    (phase) => {
+      const payload = buildTableMessage({ ...emptyTable, phase, closesAt: null });
+      const slip = allButtons(payload).find((b) => b.custom_id === IDS.SLIP);
+      expect(slip).toBeDefined();
+      expect(slip.disabled).toBeFalsy();
     }
   );
 
@@ -225,15 +239,86 @@ describe('bet panel', () => {
     }
   });
 
-  test('covers all three column bets', () => {
-    const options = (panel.components as any[])
-      .flatMap((c) => c.components ?? [])
-      .filter((c: any) => c.type === 3)
-      .flatMap((s: any) => s.options.map((o: any) => o.value));
+  // Columns moved off the panel and onto the board as one-click buttons when the panel
+  // was rebuilt around numbers. They are outside bets and belong with the others.
+  test('column bets are on the board, not the panel', () => {
+    const boardIds = allButtons(buildTableMessage(emptyTable)).map((b) => b.custom_id);
+    for (const column of ['first-column', 'second-column', 'third-column']) {
+      expect(boardIds).toContain(`${IDS.BET}${column}`);
+    }
+  });
 
-    expect(options).toEqual(
-      expect.arrayContaining(['first-column', 'second-column', 'third-column'])
+  test('unfocused, the panel offers no bets to place', () => {
+    // Before a number is picked there is nothing to cover, so only the two pocket
+    // pickers are present.
+    const selects = (panel.components as any[])
+      .flatMap((c) => c.components ?? [])
+      .filter((c: any) => c.type === 3);
+    expect(selects.map((s: any) => s.custom_id).sort()).toEqual(
+      [IDS.SELECT_LOW, IDS.SELECT_HIGH].sort()
     );
+  });
+
+  describe('focused on a number', () => {
+    const focused = buildBetPanel(1000, buildSlipText([]), '17');
+
+    test('stays within component limits', () => {
+      expectWithinLimits(focused);
+    });
+
+    test('offers every bet covering that number', () => {
+      const cover = (focused.components as any[])
+        .flatMap((c) => c.components ?? [])
+        .find((c: any) => c.custom_id === IDS.SELECT_COVER);
+
+      const values = cover.options.map((o: any) => o.value);
+
+      // 17's straight up, its four splits, its street, its four corners, its two six
+      // lines, plus the outside bets it belongs to.
+      expect(values).toEqual(
+        expect.arrayContaining([
+          '17',
+          'split-16-17',
+          'split-17-18',
+          'split-14-17',
+          'split-17-20',
+          'street-16',
+          'corner-13',
+          'line-13',
+          'black',
+          'odd',
+          'second-dozen',
+          'second-column',
+        ])
+      );
+    });
+
+    test('never exceeds the 25-option select cap', () => {
+      for (const position of WHEEL_POSITIONS) {
+        const payload = buildBetPanel(1000, '', position);
+        const selects = (payload.components as any[])
+          .flatMap((c) => c.components ?? [])
+          .filter((c: any) => c.type === 3);
+        for (const select of selects) {
+          expect(select.options.length).toBeLessThanOrEqual(25);
+        }
+      }
+    });
+
+    test('lists the longest shot first', () => {
+      const cover = (focused.components as any[])
+        .flatMap((c) => c.components ?? [])
+        .find((c: any) => c.custom_id === IDS.SELECT_COVER);
+      expect(cover.options[0].value).toBe('17');
+    });
+
+    test('marks the focused pocket as selected in the picker', () => {
+      const picker = (focused.components as any[])
+        .flatMap((c) => c.components ?? [])
+        .find((c: any) => c.custom_id === IDS.SELECT_LOW || c.custom_id === IDS.SELECT_HIGH);
+      const defaults = picker.options.filter((o: any) => o.default);
+      expect(defaults.length).toBeLessThanOrEqual(1);
+    });
   });
 });
 

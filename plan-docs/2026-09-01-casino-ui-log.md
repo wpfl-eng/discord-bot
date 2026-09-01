@@ -211,7 +211,43 @@ clean. Migration 010 is written but NOT applied — this repo has no runner.
 
 ## Phase 2 — Roulette
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
+
+The felt went from 50 bets to 158.
+
+**Created**
+
+| File | Purpose |
+|---|---|
+| `discordCommands/roulette/rouletteInsideBets.ts` | generates all 146 inside bets from the layout |
+| `migrations/011_roulette_inside_bets.sql` | bet_type length constraint + index |
+| `tests/roulette/rouletteInsideBets.test.ts` | 30 tests including the exhaustive 146x38 coverage grid |
+
+**Modified**
+
+- `rouletteConfig.ts` — merges generated inside bets into `BET_TYPES`; adds
+  `betsCovering(pocket)`, `betCovers`, `OUTSIDE_BET_TYPES`, `payoutLabel`.
+- `rouletteRender.ts` — D16 board (player totals + biggest action), D15 number-anchored
+  panel, columns moved onto the board as buttons.
+- `roulette.ts` — per-player panel focus, two-step select flow, chip modal rebuilt on
+  `Label` (removing the deprecated `ActionRow`+`TextInput` form).
+
+**Bet population, asserted in tests:** 38 straight + 62 split + 12 street + 22 corner +
+11 six line + 1 basket = 146, plus the 12 outside = 158.
+
+**Two existing tests failed and both were right to.** Neither was a bug in the new code;
+both pinned assumptions the design deliberately changed:
+
+1. `controls are disabled while spinning` — `My Slip` is now live in every phase. It
+   cannot place a bet, and checking your own action while the wheel spins is exactly
+   when you want it. Split into two tests: wagering controls locked, slip available.
+2. `no outside bet wins on 0` — the test defined "outside" as "not a pocket". Since
+   inside bets are also not pockets, `basket` and `split-0-1` were being swept in, and
+   they cover green quite legitimately. Retargeted at `OUTSIDE_BET_TYPES` and paired
+   with a complement test asserting the zero-covering bets DO pay.
+
+**Verification:** `npm test` 832 passed / 32 suites; typecheck clean; `npx eslint .`
+clean.
 
 ---
 

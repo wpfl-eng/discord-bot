@@ -3,35 +3,57 @@
 // Builds every surface the table shows, as pure functions of a view model so the
 // layout can be tested without a Discord client.
 //
-// LAYOUT CONSTRAINTS (measured, not assumed)
+// THE INSIDE-BET PROBLEM
 //
-// A Container holds at most 10 direct children, a message at most 10 top-level
-// components and 40 in total, and a StringSelect at most 25 options. The 38 pockets
-// therefore need two selects, which will not fit alongside the outside-bet buttons in
-// one container.
+// An American felt carries 146 inside bets. Buttons are impossible, and a
+// category-then-instance flow breaks the 25-option select cap on splits alone, of which
+// there are 62.
 //
-// So the shared table message carries display plus the high-frequency one-click bets
-// (5 top-level, 4 action rows, 29 components), and the straight-up numbers and columns
-// live on a per-player ephemeral panel. Being per-player is what makes that panel
-// safe to re-render on every interaction - resetting a select on a shared message
-// would yank it out from under everyone else.
+// So the panel is anchored on a NUMBER. Pick a pocket and one select lists every bet
+// that covers it - its straight up, its splits, its street, its corners, its six lines
+// and the outside bets it belongs to. That is never more than about sixteen entries,
+// and it matches how a player actually thinks: "I want 17 covered", not "I want the
+// corner whose top-left is 13".
+//
+// BOARD LAYOUT
+//
+// The shared board carries display plus the one-click outside bets (Container + 5 action
+// rows = 6 top-level, 27 components). The pockets and their combinations live on a
+// per-player ephemeral panel. Being per-player is what makes that panel safe to
+// re-render on every interaction - resetting a select on a shared message would yank it
+// out from under everyone else.
 
-import { ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
+import {
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  type APIMessageTopLevelComponent,
+} from 'discord.js';
 import type { RenderedMessage } from '../../interactions/renderedMessage.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
-import { formatAmount } from '../../casino/casinoFormat.js';
-import { button, frame, rendered, row, separator, text } from '../../casino/casinoRender.js';
+import { formatAmount, plural, relativeTime } from '../../casino/casinoFormat.js';
+import {
+  assertWithinBudget,
+  button,
+  frame,
+  rendered,
+  row,
+  separator,
+  text,
+} from '../../casino/casinoRender.js';
 import {
   BET_TYPES,
   CHIPS,
   LIMITS,
   WHEEL_POSITIONS,
   betDisplayRich,
+  betsCovering,
   getBetDisplay,
   getColor,
   getColorEmoji,
+  payoutLabel,
   pocketDisplay,
   pocketIcon,
+  type CoveringBet,
   type RouletteColor,
 } from './rouletteConfig.js';
 
@@ -50,9 +72,11 @@ export const IDS = {
   REBET: 'rl:rebet',
   UNDO: 'rl:undo',
   CLEAR: 'rl:clear',
-  SELECT_COLUMN: 'rl:sel:col',
+  /** Pick which pocket the panel is focused on */
   SELECT_LOW: 'rl:sel:na',
   SELECT_HIGH: 'rl:sel:nb',
+  /** Place one of the bets covering the focused pocket */
+  SELECT_COVER: 'rl:sel:cover',
 } as const;
 
 // ============ VIEW MODEL ============
@@ -110,41 +134,47 @@ function recentStrip(recentSpins: readonly string[]): string {
 }
 
 /**
- * The live board: one line per bet type, listing who is on it.
+ * The live board.
  *
- * Mentions render as names but never notify - buildTableMessage sets allowedMentions
- * to suppress them. Without that, a board re-rendered on every chip and every
- * countdown tick would notify everyone on it, every time.
+ * Grouped by PLAYER rather than by bet type. Grouping by type was fine for twelve
+ * outside bets, but with 146 available a table of five could easily show thirty
+ * distinct types and the old eight-row cap would hide most of it. Length now scales
+ * with player count, which is bounded in a way bet variety is not.
+ *
+ * Mentions render as names but never notify - rendered() suppresses them. Without that,
+ * a board repainted on every chip and every countdown tick would ping everyone on it,
+ * every time.
  */
 function betBoard(bets: readonly RenderBet[]): string {
   if (bets.length === 0) return '_No bets yet - first bet starts the clock_';
 
-  const byType = new Map<string, RenderBet[]>();
+  const perUser = new Map<string, { total: number; count: number }>();
   for (const bet of bets) {
-    const existing = byType.get(bet.betType) ?? [];
-    existing.push(bet);
-    byType.set(bet.betType, existing);
+    const existing = perUser.get(bet.userId) ?? { total: 0, count: 0 };
+    existing.total += bet.amount;
+    existing.count += 1;
+    perUser.set(bet.userId, existing);
   }
 
-  // Biggest money first, so the interesting action is at the top.
-  const ordered = [...byType.entries()].sort(
-    (a, b) => b[1].reduce((s, x) => s + x.amount, 0) - a[1].reduce((s, x) => s + x.amount, 0)
-  );
+  const total: number = bets.reduce((sum, b) => sum + b.amount, 0);
+  const lines: string[] = [`**ON THE TABLE**  ·  ${formatAmount(total)}`];
 
-  const lines: string[] = [];
-  for (const [betType, typeBets] of ordered.slice(0, 8)) {
-    // Collapse a player's repeated bets on one type into a single total.
-    const perUser = new Map<string, number>();
-    for (const bet of typeBets) {
-      perUser.set(bet.userId, (perUser.get(bet.userId) ?? 0) + bet.amount);
+  for (const [userId, agg] of [...perUser.entries()].sort((a, b) => b[1].total - a[1].total)) {
+    lines.push(`  <@${userId}>  **${formatAmount(agg.total)}**  ·  ${plural(agg.count, 'bet')}`);
+  }
+
+  // The drama the per-player rollup would otherwise hide: who has the big money, and on
+  // what.
+  const biggest = [...bets].sort((a, b) => b.amount - a.amount).slice(0, 3);
+  if (biggest.length > 0) {
+    lines.push('', '**BIGGEST ACTION**');
+    for (const bet of biggest) {
+      lines.push(
+        `  ${formatAmount(bet.amount)}  <@${bet.userId}>  ${betDisplayRich(bet.betType)}  ` +
+          `_(${payoutLabel(bet.betType)})_`
+      );
     }
-    const who = [...perUser.entries()]
-      .map(([userId, amount]) => `<@${userId}> ${formatAmount(amount)}`)
-      .join(' · ');
-    lines.push(`${betDisplayRich(betType)}  ${who}`);
   }
-
-  if (ordered.length > 8) lines.push(`_+${ordered.length - 8} more bet types_`);
 
   return lines.join('\n');
 }
@@ -165,9 +195,13 @@ function winnerBoard(payouts: readonly RenderPayout[]): string {
   const lines = [...perUser.entries()]
     .sort((a, b) => b[1].profit - a[1].profit)
     .slice(0, 10)
-    .map(
-      ([userId, w]) => `🏆 <@${userId}> **+${formatAmount(w.profit)}** _(${w.bets.join(', ')})_`
-    );
+    .map(([userId, w]) => {
+      // A player covering a number six ways wins on all six; listing every one would
+      // swamp the frame.
+      const shown: string = w.bets.slice(0, 3).join(', ');
+      const more: string = w.bets.length > 3 ? ` +${w.bets.length - 3}` : '';
+      return `🏆 <@${userId}> **+${formatAmount(w.profit)}** _(${shown}${more})_`;
+    });
 
   // A won-but-uncredited bet means the payout failed and the stake will be refunded by
   // the startup sweep. Saying so beats letting the player think they were paid.
@@ -184,7 +218,7 @@ function header(view: TableView): string {
   switch (view.phase) {
     case 'betting':
       return view.closesAt
-        ? `## 🎰 ROULETTE\nBetting closes <t:${Math.floor(view.closesAt / 1000)}:R>`
+        ? `## 🎰 ROULETTE\nBetting closes ${relativeTime(view.closesAt)}`
         : '## 🎰 ROULETTE\nPlace a bet to start the next spin';
     case 'spinning':
       return '## 🎰 ROULETTE\n🔒 **NO MORE BETS**';
@@ -210,7 +244,7 @@ function body(view: TableView): string {
       return view.payouts ? winnerBoard(view.payouts) : '';
     case 'closed':
       return view.spinCount > 0
-        ? `${view.spinCount} spin${view.spinCount === 1 ? '' : 's'} · ${formatAmount(view.sessionWagered)} wagered`
+        ? `${plural(view.spinCount, 'spin')} · ${formatAmount(view.sessionWagered)} wagered`
         : 'No spins this session.';
   }
 }
@@ -245,17 +279,16 @@ function accentFor(view: TableView): number {
 
 // ============ CONTROLS ============
 
-/** Bets that get a one-click button: every even-money and dozen bet. */
+/** Outside bets that get a one-click button, in board order. */
 const TABLE_BET_ROW_1: readonly string[] = ['red', 'black', 'odd', 'even', 'low'];
 const TABLE_BET_ROW_2: readonly string[] = ['high', 'first-dozen', 'second-dozen', 'third-dozen'];
+const TABLE_BET_ROW_3: readonly string[] = ['first-column', 'second-column', 'third-column'];
 
 function chipRow(disabled: boolean) {
   const buttons = CHIPS.map((amount) =>
     button({ id: `${IDS.CHIP}${amount}`, label: formatAmount(amount), disabled })
   );
-
   buttons.push(button({ id: IDS.CHIP_CUSTOM, label: 'Custom…', disabled }));
-
   return row(buttons);
 }
 
@@ -277,7 +310,7 @@ function betRow(betTypes: readonly string[], disabled: boolean) {
 function actionRow(disabled: boolean) {
   return row([
     button({ id: IDS.PANEL, label: 'Numbers…', style: ButtonStyle.Success, disabled }),
-    button({ id: IDS.SLIP, label: 'My Slip', disabled }),
+    button({ id: IDS.SLIP, label: 'My Slip' }),
     button({ id: IDS.REBET, label: 'Rebet', disabled }),
     button({ id: IDS.UNDO, label: 'Undo', disabled }),
     button({ id: IDS.CLEAR, label: 'Clear', style: ButtonStyle.Danger, disabled }),
@@ -286,15 +319,13 @@ function actionRow(disabled: boolean) {
 
 // ============ TABLE MESSAGE ============
 
-// Shared with the other V2 renderer; re-exported so callers can keep importing it from
-// the module that builds their views.
 export type { RenderedMessage };
 
 /**
  * The shared table message.
  *
  * Controls are disabled outside the betting phase so a click during the spin cannot
- * land a bet that the wheel has already passed.
+ * land a bet the wheel has already passed.
  */
 export function buildTableMessage(view: TableView): RenderedMessage {
   const locked: boolean = view.phase !== 'betting';
@@ -306,68 +337,110 @@ export function buildTableMessage(view: TableView): RenderedMessage {
     .addSeparatorComponents(separator())
     .addTextDisplayComponents(text(`${body(view)}\n\n${footer(view)}`));
 
-  // rendered() suppresses mentions unconditionally. Without that the board would notify
-  // every player listed on it, on every edit.
-  return rendered([
+  const payload = rendered([
     container.toJSON(),
     chipRow(locked).toJSON(),
     betRow(TABLE_BET_ROW_1, locked).toJSON(),
     betRow(TABLE_BET_ROW_2, locked).toJSON(),
+    betRow(TABLE_BET_ROW_3, locked).toJSON(),
     actionRow(locked).toJSON(),
   ]);
+
+  assertWithinBudget(payload, 'roulette board');
+  return payload;
 }
 
-// ============ EPHEMERAL BET PANEL ============
+// ============ NUMBER-ANCHORED PANEL ============
 
-function pocketOptions(positions: readonly string[]): { label: string; value: string }[] {
+/**
+ * Split the 38 pockets across two selects, because one caps at 25 options.
+ *
+ * The split is by wheel order rather than numeric value so 0 and 00 sit at the front
+ * where a player looks for them.
+ */
+const LOW_POCKETS: readonly string[] = WHEEL_POSITIONS.slice(0, 25);
+const HIGH_POCKETS: readonly string[] = WHEEL_POSITIONS.slice(25);
+
+function pocketOptions(positions: readonly string[], focus: string | null) {
   return positions.map((position) => ({
     label: `${position}  ${getColorEmoji(getColor(position))}`,
     value: position,
+    default: position === focus,
   }));
 }
 
+function pocketSelect(
+  id: string,
+  positions: readonly string[],
+  focus: string | null,
+  disabled: boolean
+) {
+  return row([
+    new StringSelectMenuBuilder()
+      .setCustomId(id)
+      .setPlaceholder(`Pick a number  ${positions[0]}–${positions[positions.length - 1]}`)
+      .setDisabled(disabled)
+      .addOptions(pocketOptions(positions, focus)),
+  ]);
+}
+
 /**
- * The per-player panel carrying the bets that will not fit on the shared table:
- * the three columns and all 38 straight-up pockets.
+ * The bets covering the focused pocket.
  *
- * Split across two selects because a StringSelect caps at 25 options.
+ * `betsCovering` returns them longest-shot first, so the 35:1 straight up is always the
+ * first thing a player sees.
  */
-export function buildBetPanel(chip: number, slipText: string): RenderedMessage {
-  const lowPockets: string[] = WHEEL_POSITIONS.slice(0, 25);
-  const highPockets: string[] = WHEEL_POSITIONS.slice(25);
+function coverSelect(pocket: string, disabled: boolean) {
+  const covering: CoveringBet[] = betsCovering(pocket).slice(0, 25);
 
-  const columnSelect = new StringSelectMenuBuilder()
-    .setCustomId(IDS.SELECT_COLUMN)
-    .setPlaceholder('Column bet (2:1)')
-    .addOptions([
-      { label: '1st Column', value: 'first-column' },
-      { label: '2nd Column', value: 'second-column' },
-      { label: '3rd Column', value: 'third-column' },
-    ]);
+  return row([
+    new StringSelectMenuBuilder()
+      .setCustomId(IDS.SELECT_COVER)
+      .setPlaceholder(`Bets covering ${pocket}`)
+      .setDisabled(disabled)
+      .addOptions(
+        covering.map((bet) => ({
+          label: `${bet.display}`.slice(0, 100),
+          value: bet.key,
+          description: `Pays ${bet.payout}:1`,
+        }))
+      ),
+  ]);
+}
 
-  const lowSelect = new StringSelectMenuBuilder()
-    .setCustomId(IDS.SELECT_LOW)
-    .setPlaceholder(`Straight up  ${lowPockets[0]}–${lowPockets[lowPockets.length - 1]}  (35:1)`)
-    .addOptions(pocketOptions(lowPockets));
-
-  const highSelect = new StringSelectMenuBuilder()
-    .setCustomId(IDS.SELECT_HIGH)
-    .setPlaceholder(`Straight up  ${highPockets[0]}–${highPockets[highPockets.length - 1]}  (35:1)`)
-    .addOptions(pocketOptions(highPockets));
+/**
+ * The per-player panel carrying every bet that will not fit on the shared board.
+ *
+ * @param chip - the player's current stake
+ * @param slipText - their own action, from buildSlipText
+ * @param focus - the pocket they are looking at, or null before they have picked one
+ * @param locked - true outside the betting phase
+ */
+export function buildBetPanel(
+  chip: number,
+  slipText: string,
+  focus: string | null = null,
+  locked: boolean = false
+): RenderedMessage {
+  const heading: string = focus
+    ? `### ${pocketDisplay(focus)}  ${focus}\nEvery bet below covers **${focus}**.`
+    : '### Numbers\nPick a number to see every bet that covers it.';
 
   const container = frame(ACCENT.betting).addTextDisplayComponents(
-    text(`### Your bets\nChip: **${formatAmount(chip)}** — change it on the table.\n\n${slipText}`)
+    text(
+      `${heading}\n\nChip: **${formatAmount(chip)}** — change it on the table.\n\n${slipText}`
+    )
   );
 
-  return rendered(
-    [
-      container.toJSON(),
-      row([columnSelect]).toJSON(),
-      row([lowSelect]).toJSON(),
-      row([highSelect]).toJSON(),
-    ],
-    { ephemeral: true }
-  );
+  const components: APIMessageTopLevelComponent[] = [container.toJSON()];
+
+  if (focus) components.push(coverSelect(focus, locked).toJSON());
+  components.push(pocketSelect(IDS.SELECT_LOW, LOW_POCKETS, focus, locked).toJSON());
+  components.push(pocketSelect(IDS.SELECT_HIGH, HIGH_POCKETS, focus, locked).toJSON());
+
+  const payload = rendered(components, { ephemeral: true });
+  assertWithinBudget(payload, 'roulette panel');
+  return payload;
 }
 
 // ============ SLIP ============
@@ -383,10 +456,20 @@ export function buildSlipText(bets: readonly RenderBet[]): string {
     byType.set(bet.betType, (byType.get(bet.betType) ?? 0) + bet.amount);
   }
 
-  const lines = [...byType.entries()].map(
+  // A player covering one number six ways has six lines; cap it so the panel stays
+  // readable and report the remainder as a total.
+  const entries = [...byType.entries()].sort((a, b) => b[1] - a[1]);
+  const shown = entries.slice(0, 10);
+
+  const lines = shown.map(
     ([betType, amount]) =>
       `• **${formatAmount(amount)}** on ${betDisplayRich(betType)} _(${BET_TYPES[betType]?.payout ?? '?'}:1)_`
   );
+
+  if (entries.length > shown.length) {
+    const rest = entries.slice(shown.length).reduce((sum, [, amount]) => sum + amount, 0);
+    lines.push(`• _+${plural(entries.length - shown.length, 'more bet')} · ${formatAmount(rest)}_`);
+  }
 
   const total = bets.reduce((sum, b) => sum + b.amount, 0);
   lines.push(`\n**Total: ${formatAmount(total)}**`);
