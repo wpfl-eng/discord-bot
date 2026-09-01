@@ -303,9 +303,9 @@ describe('askRunner', () => {
   });
 
   describe('the options it builds', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const capture = async (
       over: Partial<typeof REQUEST> & { sessionId?: string } = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ): Promise<any> => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let seen: any;

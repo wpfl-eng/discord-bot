@@ -26,6 +26,8 @@ export interface SyncDeps {
   readonly fetchFn?: FetchFn;
   readonly now?: () => number;
   readonly refreshCache?: typeof refreshWpflCache;
+  /** Overridden in tests; defaults to ASK.WPFL_FETCH_TIMEOUT_MS. */
+  readonly timeoutMs?: number;
 }
 
 /**
@@ -40,7 +42,29 @@ export function normalizeEtag(raw: string | null | undefined): string | null {
   return bare === '' ? null : bare;
 }
 
+/**
+ * One sync at a time, per data directory.
+ *
+ * ensureFresh runs at the top of every /ask and again on `ready`. Two questions
+ * arriving past the staleness window would otherwise both fetch, both shred and
+ * both swap -- and swap() renames the live directory, which is the agent's own
+ * cwd, out from under any run already reading it, then fails when the second
+ * rename lands on a directory the first has recreated. Later callers join the
+ * in-flight sync and get its outcome.
+ */
+const inFlight = new Map<string, Promise<SyncOutcome>>();
+
 export async function ensureFresh(deps: SyncDeps = {}): Promise<SyncOutcome> {
+  const key: string = deps.dataDir ?? ASK.DATA_DIR;
+  const running: Promise<SyncOutcome> | undefined = inFlight.get(key);
+  if (running !== undefined) return running;
+
+  const started: Promise<SyncOutcome> = sync(deps).finally(() => inFlight.delete(key));
+  inFlight.set(key, started);
+  return started;
+}
+
+async function sync(deps: SyncDeps): Promise<SyncOutcome> {
   const dataDir: string = deps.dataDir ?? ASK.DATA_DIR;
   const fetchFn: FetchFn = deps.fetchFn ?? fetch;
   const now: () => number = deps.now ?? Date.now;
@@ -51,17 +75,27 @@ export async function ensureFresh(deps: SyncDeps = {}): Promise<SyncOutcome> {
     return { kind: 'fresh' };
   }
 
+  // Every other fetch in this feature carries a deadline; this one used not to,
+  // so a hung artifact host stalled the question that triggered it -- after
+  // deferReply, with nothing yet on screen.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), deps.timeoutMs ?? ASK.WPFL_FETCH_TIMEOUT_MS);
+
   let response: Awaited<ReturnType<FetchFn>>;
   let artifact: unknown;
   let etag: string | null;
   try {
-    response = await fetchFn(ASK.ARTIFACT_URL);
+    response = await fetchFn(ASK.ARTIFACT_URL, { signal: controller.signal });
     if (!response.ok) {
       return failed(`the artifact URL returned HTTP ${response.status}`);
     }
     etag = normalizeEtag(response.headers?.get('etag'));
 
-    if (etag !== null && etag === lastSeenEtag(dataDir)) {
+    // The etag alone is not enough to short-circuit on: this branch is only
+    // reached when INDEX.md is missing or stale, and touching a file that is
+    // not there threw ENOENT into the catch below. The etag matched again on
+    // the next call, so it failed identically forever and nothing re-shredded.
+    if (etag !== null && etag === lastSeenEtag(dataDir) && fs.existsSync(index)) {
       // Same build. Touch INDEX.md so the staleness window restarts rather
       // than re-checking on every question for the next six hours.
       fs.utimesSync(index, new Date(), new Date());
@@ -70,7 +104,10 @@ export async function ensureFresh(deps: SyncDeps = {}): Promise<SyncOutcome> {
 
     artifact = await response.json();
   } catch (error: unknown) {
-    return failed(String(error));
+    const timedOut: boolean = error instanceof Error && error.name === 'AbortError';
+    return failed(timedOut ? `the artifact fetch timed out` : String(error));
+  } finally {
+    clearTimeout(timeout);
   }
 
   // Build the whole new tree beside the live one and swap at the end, so a

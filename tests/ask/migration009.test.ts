@@ -21,6 +21,7 @@
  * with its own index.
  */
 
+import { describe, test, expect } from '@jest/globals';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

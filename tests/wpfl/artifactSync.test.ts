@@ -109,6 +109,102 @@ describe('artifactSync', () => {
       expect(outcome.kind).toBe('unchanged');
     });
 
+    /**
+     * The unchanged branch used to touch INDEX.md unconditionally. It is only
+     * ever reached when INDEX.md is missing or stale, so a missing INDEX.md
+     * beside a matching .etag -- an interrupted swap, or someone clearing a
+     * file by hand -- made utimesSync throw ENOENT, which the outer catch
+     * turned into `failed`. The etag still matched on the next call, so it
+     * failed identically forever and the bot never re-shredded again.
+     */
+    test('re-shreds rather than wedging when INDEX.md is gone but the etag still matches', async () => {
+      await ensureFresh(deps());
+      fs.rmSync(path.join(dataDir, 'INDEX.md'));
+
+      const outcome: SyncOutcome = await ensureFresh(
+        deps({ fetchFn: (async () => respond('W/"etag-1"')) as FetchFn })
+      );
+
+      expect(outcome.kind).toBe('reshredded');
+      expect(fs.existsSync(path.join(dataDir, 'INDEX.md'))).toBe(true);
+    });
+
+    /**
+     * ensureFresh runs at the top of every /ask. Two questions arriving past
+     * the staleness window would otherwise both fetch, both shred, and both
+     * swap -- and swap() renames the live directory out from under any agent
+     * whose cwd is it, then fails when the second rename lands on a directory
+     * the first has already recreated.
+     */
+    test('collapses concurrent callers onto one fetch and one swap', async () => {
+      let fetches = 0;
+      const fetchFn = (async (): Promise<HttpResponse> => {
+        fetches += 1;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return respond('W/"etag-1"');
+      }) as FetchFn;
+
+      const outcomes: SyncOutcome[] = await Promise.all([
+        ensureFresh(deps({ fetchFn })),
+        ensureFresh(deps({ fetchFn })),
+        ensureFresh(deps({ fetchFn })),
+      ]);
+
+      expect(fetches).toBe(1);
+      for (const outcome of outcomes) expect(outcome.kind).toBe('reshredded');
+      expect(fs.existsSync(path.join(dataDir, 'INDEX.md'))).toBe(true);
+      // No staging or retired directory survived the run.
+      expect(fs.readdirSync(parent)).toEqual(['wpfl-data']);
+    });
+
+    test('lets a later caller sync again once the in-flight one has finished', async () => {
+      await ensureFresh(deps());
+      const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+
+      const outcome: SyncOutcome = await ensureFresh(
+        deps({ now: () => stale, fetchFn: (async () => respond('W/"etag-2"')) as FetchFn })
+      );
+
+      expect(outcome.kind).toBe('reshredded');
+    });
+
+    /**
+     * Every other fetch in the feature (historyCache, wpflApiTools) carries an
+     * AbortController and WPFL_FETCH_TIMEOUT_MS. This one did not, so a hung
+     * connection to pages.dev stalled /ask indefinitely -- after deferReply,
+     * with no ticker posted yet and nothing on screen.
+     */
+    test('gives up on a hung artifact host instead of stalling the question', async () => {
+      const fetchFn = ((_url: string, init?: { signal?: AbortSignal }): Promise<HttpResponse> =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
+        })) as FetchFn;
+
+      const outcome: SyncOutcome = await ensureFresh(deps({ fetchFn, timeoutMs: 25 }));
+
+      expect(outcome.kind).toBe('failed');
+      expect((outcome as { reason: string }).reason).toMatch(/timed out/i);
+    });
+
+    test('passes an abort signal to the artifact fetch', async () => {
+      let signal: AbortSignal | undefined;
+      const fetchFn = (async (
+        _url: string,
+        init?: { signal?: AbortSignal }
+      ): Promise<HttpResponse> => {
+        signal = init?.signal;
+        return respond('W/"etag-1"');
+      }) as FetchFn;
+
+      await ensureFresh(deps({ fetchFn }));
+
+      expect(signal).toBeInstanceOf(AbortSignal);
+    });
+
     test('reshreds when the etag has actually changed', async () => {
       await ensureFresh(deps());
       const stale: number = Date.now() + 7 * 60 * 60 * 1000;
