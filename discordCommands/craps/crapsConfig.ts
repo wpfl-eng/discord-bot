@@ -355,18 +355,9 @@ export function getBetDisplay(betType: BetType): string {
   return BET_TYPES[betType]?.name ?? betType;
 }
 
-/**
- * Format amount with abbreviation (1000 -> 1K)
- */
-export function formatAmount(amount: number): string {
-  if (amount >= 10000) {
-    return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
-  }
-  if (amount >= 1000) {
-    return `${(amount / 1000).toFixed(1).replace(/\.0$/, '')}K`;
-  }
-  return String(amount);
-}
+// Compact amounts live in casino/casinoFormat.ts, shared with roulette and blackjack.
+// Re-exported here so every existing importer keeps its import path.
+export { formatAmount } from '../../casino/casinoFormat.js';
 
 // ============ CHANNEL CONFIGURATION ============
 

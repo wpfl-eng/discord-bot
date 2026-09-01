@@ -13,20 +13,15 @@
 // That is still unambiguous - exactly one hand is ever live, and it is marked - and it
 // is a clear improvement on the previous shared row plus an arrow buried in the
 // description.
+//
+// Colours, formatting and the component builders come from casino/, so this table and
+// the other two stay visually identical as all three grow.
 
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ContainerBuilder,
-  SeparatorBuilder,
-  TextDisplayBuilder,
-  MessageFlags,
-  type MessageActionRowComponentBuilder,
-} from 'discord.js';
-import type { APIMessageTopLevelComponent } from 'discord.js';
+import { ButtonStyle, type APIMessageTopLevelComponent } from 'discord.js';
 import type { RenderedMessage } from '../../interactions/renderedMessage.js';
-import { formatCurrency } from '../../economy/economyConfig.js';
+import { CASINO_COLORS, bar } from '../../casino/casinoTheme.js';
+import { formatCurrency } from '../../casino/casinoFormat.js';
+import { button, frame, rendered, row, separator, text } from '../../casino/casinoRender.js';
 import {
   calculateHandValue,
   getVisibleDealerValue,
@@ -59,12 +54,14 @@ export const IDS = {
 
 // ============ COLOURS ============
 
+// Blackjack's own mapping onto the shared palette. Note push is blue here and purple at
+// the craps table - preserved as-is; unifying that is a design change, not a refactor.
 const ACCENT = {
-  playing: 0xf1c40f,
-  win: 0x2ecc71,
-  loss: 0xe74c3c,
-  push: 0x3498db,
-  prompt: 0x9b59b6,
+  playing: CASINO_COLORS.gold,
+  win: CASINO_COLORS.green,
+  loss: CASINO_COLORS.red,
+  push: CASINO_COLORS.blue,
+  prompt: CASINO_COLORS.purple,
 } as const;
 
 // ============ VIEW MODEL ============
@@ -90,8 +87,6 @@ export interface GameView {
   readonly streakNote?: string;
 }
 
-// Shared with the other V2 renderer; re-exported so callers can keep importing it from
-// the module that builds their views.
 export type { RenderedMessage };
 
 // ============ TEXT ============
@@ -116,12 +111,11 @@ function title(view: GameView): string {
   if (view.shoe) {
     const remaining: number = shoeRemaining(view.shoe);
     const total: number = shoeSize(view.shoe);
-    const filled: number = Math.max(0, Math.round((remaining / total) * 10));
-    const bar: string = '█'.repeat(filled) + '░'.repeat(10 - filled);
+    const strip: string = bar(remaining / total);
     parts.push(
       view.shoe.justShuffled
-        ? `🔄 Cut card reached — shoe reshuffled\n\`${bar}\` ${remaining} cards`
-        : `\`${bar}\` ${remaining} cards`
+        ? `🔄 Cut card reached — shoe reshuffled\n\`${strip}\` ${remaining} cards`
+        : `\`${strip}\` ${remaining} cards`
     );
   }
 
@@ -213,26 +207,20 @@ function accentFor(view: GameView): number {
 
 // ============ CONTROLS ============
 
-function button(
-  id: string,
-  label: string,
-  style: ButtonStyle,
-  disabled: boolean = false
-): ButtonBuilder {
-  return new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style).setDisabled(disabled);
-}
-
-function actionRow(view: GameView): ActionRowBuilder<MessageActionRowComponentBuilder> {
-  const buttons: ButtonBuilder[] = [
-    button(IDS.HIT, 'Hit', ButtonStyle.Primary),
-    button(IDS.STAND, 'Stand', ButtonStyle.Secondary),
+function actionRow(view: GameView) {
+  const buttons = [
+    button({ id: IDS.HIT, label: 'Hit', style: ButtonStyle.Primary }),
+    button({ id: IDS.STAND, label: 'Stand', style: ButtonStyle.Secondary }),
   ];
 
-  if (view.canDouble) buttons.push(button(IDS.DOUBLE, 'Double', ButtonStyle.Success));
-  if (view.canSplit) buttons.push(button(IDS.SPLIT, 'Split', ButtonStyle.Primary));
-  if (view.canSurrender) buttons.push(button(IDS.SURRENDER, 'Surrender', ButtonStyle.Danger));
+  if (view.canDouble)
+    buttons.push(button({ id: IDS.DOUBLE, label: 'Double', style: ButtonStyle.Success }));
+  if (view.canSplit)
+    buttons.push(button({ id: IDS.SPLIT, label: 'Split', style: ButtonStyle.Primary }));
+  if (view.canSurrender)
+    buttons.push(button({ id: IDS.SURRENDER, label: 'Surrender', style: ButtonStyle.Danger }));
 
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(buttons);
+  return row(buttons);
 }
 
 /**
@@ -243,28 +231,24 @@ export function playAgainId(originalBet: number, table: string): string {
   return `${IDS.PLAY_AGAIN}:${originalBet}:${table}`;
 }
 
-function playAgainRow(
-  originalBet: number,
-  table: string
-): ActionRowBuilder<MessageActionRowComponentBuilder> {
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents([
-    button(
-      playAgainId(originalBet, table),
-      `Play again (${formatCurrency(originalBet)})`,
-      ButtonStyle.Success
-    ),
+function playAgainRow(originalBet: number, table: string) {
+  return row([
+    button({
+      id: playAgainId(originalBet, table),
+      label: `Play again (${formatCurrency(originalBet)})`,
+      style: ButtonStyle.Success,
+    }),
   ]);
 }
 
 // ============ GAME VIEW ============
 
-function container(view: GameView): ContainerBuilder {
-  const builder = new ContainerBuilder()
-    .setAccentColor(accentFor(view))
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(title(view)))
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(dealerBlock(view)))
-    .addSeparatorComponents(new SeparatorBuilder());
+function container(view: GameView) {
+  const builder = frame(accentFor(view))
+    .addTextDisplayComponents(text(title(view)))
+    .addSeparatorComponents(separator())
+    .addTextDisplayComponents(text(dealerBlock(view)))
+    .addSeparatorComponents(separator());
 
   // Four hands is the maximum, so this stays within the container's 10-child budget:
   // title, separator, dealer, separator, up to 4 hands, footer = 9.
@@ -272,8 +256,8 @@ function container(view: GameView): ContainerBuilder {
     .map((hand, i) => handBlock(view, hand, i, view.results?.[i]))
     .join('\n\n');
 
-  builder.addTextDisplayComponents(new TextDisplayBuilder().setContent(handText));
-  builder.addTextDisplayComponents(new TextDisplayBuilder().setContent(footer(view)));
+  builder.addTextDisplayComponents(text(handText));
+  builder.addTextDisplayComponents(text(footer(view)));
 
   return builder;
 }
@@ -282,17 +266,12 @@ export function buildGameMessage(view: GameView): RenderedMessage {
   const components: APIMessageTopLevelComponent[] = [container(view).toJSON()];
 
   if (view.results) {
-    if (view.canPlayAgain)
-      components.push(playAgainRow(view.originalBet, view.table.name).toJSON());
+    if (view.canPlayAgain) components.push(playAgainRow(view.originalBet, view.table.name).toJSON());
   } else {
     components.push(actionRow(view).toJSON());
   }
 
-  return {
-    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    components,
-    allowedMentions: { parse: [] },
-  };
+  return rendered(components, { ephemeral: true });
 }
 
 // ============ PROMPTS ============
@@ -305,27 +284,17 @@ function promptMessage(
   view: GameView,
   heading: string,
   explain: string,
-  buttons: ButtonBuilder[]
+  buttons: ReturnType<typeof button>[]
 ): RenderedMessage {
-  const builder = new ContainerBuilder()
-    .setAccentColor(ACCENT.prompt)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${title(view)}\n### ${heading}`))
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(dealerBlock(view)))
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(handBlock(view, view.hands[0], 0, undefined))
-    )
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(explain));
+  const builder = frame(ACCENT.prompt)
+    .addTextDisplayComponents(text(`${title(view)}\n### ${heading}`))
+    .addSeparatorComponents(separator())
+    .addTextDisplayComponents(text(dealerBlock(view)))
+    .addTextDisplayComponents(text(handBlock(view, view.hands[0], 0, undefined)))
+    .addSeparatorComponents(separator())
+    .addTextDisplayComponents(text(explain));
 
-  return {
-    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    components: [
-      builder.toJSON(),
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(buttons).toJSON(),
-    ],
-    allowedMentions: { parse: [] },
-  };
+  return rendered([builder.toJSON(), row(buttons).toJSON()], { ephemeral: true });
 }
 
 export function buildInsurancePrompt(view: GameView, insuranceCost: number): RenderedMessage {
@@ -334,12 +303,12 @@ export function buildInsurancePrompt(view: GameView, insuranceCost: number): Ren
     'Insurance?',
     `Dealer shows an Ace. Insurance costs ${formatCurrency(insuranceCost)} and pays 2:1 if the dealer has blackjack.`,
     [
-      button(
-        IDS.INSURANCE_YES,
-        `Take insurance (${formatCurrency(insuranceCost)})`,
-        ButtonStyle.Primary
-      ),
-      button(IDS.INSURANCE_NO, 'No insurance', ButtonStyle.Secondary),
+      button({
+        id: IDS.INSURANCE_YES,
+        label: `Take insurance (${formatCurrency(insuranceCost)})`,
+        style: ButtonStyle.Primary,
+      }),
+      button({ id: IDS.INSURANCE_NO, label: 'No insurance', style: ButtonStyle.Secondary }),
     ]
   );
 }
@@ -353,8 +322,8 @@ export function buildEvenMoneyPrompt(view: GameView): RenderedMessage {
       `Take a guaranteed ${formatCurrency(bet)}, or risk it for ${formatCurrency(Math.floor(bet * 1.5))} — ` +
       `a push if the dealer also has blackjack.`,
     [
-      button(IDS.EVEN_MONEY_YES, 'Even money (1:1)', ButtonStyle.Success),
-      button(IDS.EVEN_MONEY_NO, 'Risk it (3:2)', ButtonStyle.Danger),
+      button({ id: IDS.EVEN_MONEY_YES, label: 'Even money (1:1)', style: ButtonStyle.Success }),
+      button({ id: IDS.EVEN_MONEY_NO, label: 'Risk it (3:2)', style: ButtonStyle.Danger }),
     ]
   );
 }

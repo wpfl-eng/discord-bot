@@ -16,26 +16,17 @@
 // safe to re-render on every interaction - resetting a select on a shared message
 // would yank it out from under everyone else.
 
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ContainerBuilder,
-  SeparatorBuilder,
-  StringSelectMenuBuilder,
-  TextDisplayBuilder,
-  MessageFlags,
-  type MessageActionRowComponentBuilder,
-} from 'discord.js';
+import { ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import type { RenderedMessage } from '../../interactions/renderedMessage.js';
+import { CASINO_COLORS } from '../../casino/casinoTheme.js';
+import { formatAmount } from '../../casino/casinoFormat.js';
+import { button, frame, rendered, row, separator, text } from '../../casino/casinoRender.js';
 import {
   BET_TYPES,
   CHIPS,
   LIMITS,
   WHEEL_POSITIONS,
   betDisplayRich,
-  formatAmount,
-  EMBED_COLORS,
   getBetDisplay,
   getColor,
   getColorEmoji,
@@ -97,19 +88,17 @@ export interface TableView {
   readonly payouts?: readonly RenderPayout[];
   readonly spinCount: number;
   readonly sessionWagered: number;
-  /** Who opened the table */
 }
 
 // ============ COLOURS ============
 
-// The palette lives in the config so it is defined once; this maps the table's phases
-// onto it.
+// Roulette's own mapping onto the shared casino palette.
 const ACCENT = {
-  betting: EMBED_COLORS.ACTIVE,
-  spinning: EMBED_COLORS.SPINNING,
-  win: EMBED_COLORS.WIN,
-  lose: EMBED_COLORS.LOSE,
-  closed: EMBED_COLORS.CLOSED,
+  betting: CASINO_COLORS.blue,
+  spinning: CASINO_COLORS.gold,
+  win: CASINO_COLORS.green,
+  lose: CASINO_COLORS.red,
+  closed: CASINO_COLORS.slate,
 } as const;
 
 // ============ TEXT SECTIONS ============
@@ -260,58 +249,38 @@ function accentFor(view: TableView): number {
 const TABLE_BET_ROW_1: readonly string[] = ['red', 'black', 'odd', 'even', 'low'];
 const TABLE_BET_ROW_2: readonly string[] = ['high', 'first-dozen', 'second-dozen', 'third-dozen'];
 
-function chipRow(disabled: boolean): ActionRowBuilder<MessageActionRowComponentBuilder> {
-  const buttons: ButtonBuilder[] = CHIPS.map((amount) =>
-    new ButtonBuilder()
-      .setCustomId(`${IDS.CHIP}${amount}`)
-      .setLabel(formatAmount(amount))
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(disabled)
+function chipRow(disabled: boolean) {
+  const buttons = CHIPS.map((amount) =>
+    button({ id: `${IDS.CHIP}${amount}`, label: formatAmount(amount), disabled })
   );
 
-  buttons.push(
-    new ButtonBuilder()
-      .setCustomId(IDS.CHIP_CUSTOM)
-      .setLabel('Custom…')
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(disabled)
+  buttons.push(button({ id: IDS.CHIP_CUSTOM, label: 'Custom…', disabled }));
+
+  return row(buttons);
+}
+
+function betRow(betTypes: readonly string[], disabled: boolean) {
+  return row(
+    betTypes.map((betType) =>
+      button({
+        id: `${IDS.BET}${betType}`,
+        label: getBetDisplay(betType).replace(/^[^\w]+\s*/u, ''),
+        style:
+          betType === 'red' || betType === 'black' ? ButtonStyle.Primary : ButtonStyle.Secondary,
+        emoji: betType === 'red' ? '🔴' : betType === 'black' ? '⚫' : undefined,
+        disabled,
+      })
+    )
   );
-
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(buttons);
 }
 
-function betRow(
-  betTypes: readonly string[],
-  disabled: boolean
-): ActionRowBuilder<MessageActionRowComponentBuilder> {
-  const buttons: ButtonBuilder[] = betTypes.map((betType) => {
-    const button = new ButtonBuilder()
-      .setCustomId(`${IDS.BET}${betType}`)
-      .setLabel(getBetDisplay(betType).replace(/^[^\w]+\s*/u, ''))
-      .setStyle(
-        betType === 'red' || betType === 'black' ? ButtonStyle.Primary : ButtonStyle.Secondary
-      )
-      .setDisabled(disabled);
-
-    if (betType === 'red') button.setEmoji('🔴');
-    if (betType === 'black') button.setEmoji('⚫');
-
-    return button;
-  });
-
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(buttons);
-}
-
-function actionRow(disabled: boolean): ActionRowBuilder<MessageActionRowComponentBuilder> {
-  const make = (id: string, label: string, style: ButtonStyle): ButtonBuilder =>
-    new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style).setDisabled(disabled);
-
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents([
-    make(IDS.PANEL, 'Numbers…', ButtonStyle.Success),
-    make(IDS.SLIP, 'My Slip', ButtonStyle.Secondary),
-    make(IDS.REBET, 'Rebet', ButtonStyle.Secondary),
-    make(IDS.UNDO, 'Undo', ButtonStyle.Secondary),
-    make(IDS.CLEAR, 'Clear', ButtonStyle.Danger),
+function actionRow(disabled: boolean) {
+  return row([
+    button({ id: IDS.PANEL, label: 'Numbers…', style: ButtonStyle.Success, disabled }),
+    button({ id: IDS.SLIP, label: 'My Slip', disabled }),
+    button({ id: IDS.REBET, label: 'Rebet', disabled }),
+    button({ id: IDS.UNDO, label: 'Undo', disabled }),
+    button({ id: IDS.CLEAR, label: 'Clear', style: ButtonStyle.Danger, disabled }),
   ]);
 }
 
@@ -330,30 +299,22 @@ export type { RenderedMessage };
 export function buildTableMessage(view: TableView): RenderedMessage {
   const locked: boolean = view.phase !== 'betting';
 
-  const container = new ContainerBuilder()
-    .setAccentColor(accentFor(view))
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(header(view)))
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`**Last spins**\n${recentStrip(view.recentSpins)}`)
-    )
-    .addSeparatorComponents(new SeparatorBuilder())
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`${body(view)}\n\n${footer(view)}`)
-    );
+  const container = frame(accentFor(view))
+    .addTextDisplayComponents(text(header(view)))
+    .addSeparatorComponents(separator())
+    .addTextDisplayComponents(text(`**Last spins**\n${recentStrip(view.recentSpins)}`))
+    .addSeparatorComponents(separator())
+    .addTextDisplayComponents(text(`${body(view)}\n\n${footer(view)}`));
 
-  return {
-    flags: MessageFlags.IsComponentsV2,
-    components: [
-      container.toJSON(),
-      chipRow(locked).toJSON(),
-      betRow(TABLE_BET_ROW_1, locked).toJSON(),
-      betRow(TABLE_BET_ROW_2, locked).toJSON(),
-      actionRow(locked).toJSON(),
-    ],
-    // Without this the board would notify every player listed on it, on every edit.
-    allowedMentions: { parse: [] },
-  };
+  // rendered() suppresses mentions unconditionally. Without that the board would notify
+  // every player listed on it, on every edit.
+  return rendered([
+    container.toJSON(),
+    chipRow(locked).toJSON(),
+    betRow(TABLE_BET_ROW_1, locked).toJSON(),
+    betRow(TABLE_BET_ROW_2, locked).toJSON(),
+    actionRow(locked).toJSON(),
+  ]);
 }
 
 // ============ EPHEMERAL BET PANEL ============
@@ -394,24 +355,19 @@ export function buildBetPanel(chip: number, slipText: string): RenderedMessage {
     .setPlaceholder(`Straight up  ${highPockets[0]}–${highPockets[highPockets.length - 1]}  (35:1)`)
     .addOptions(pocketOptions(highPockets));
 
-  const container = new ContainerBuilder()
-    .setAccentColor(ACCENT.betting)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `### Your bets\nChip: **${formatAmount(chip)}** — change it on the table.\n\n${slipText}`
-      )
-    );
+  const container = frame(ACCENT.betting).addTextDisplayComponents(
+    text(`### Your bets\nChip: **${formatAmount(chip)}** — change it on the table.\n\n${slipText}`)
+  );
 
-  return {
-    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    components: [
+  return rendered(
+    [
       container.toJSON(),
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(columnSelect).toJSON(),
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(lowSelect).toJSON(),
-      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(highSelect).toJSON(),
+      row([columnSelect]).toJSON(),
+      row([lowSelect]).toJSON(),
+      row([highSelect]).toJSON(),
     ],
-    allowedMentions: { parse: [] },
-  };
+    { ephemeral: true }
+  );
 }
 
 // ============ SLIP ============

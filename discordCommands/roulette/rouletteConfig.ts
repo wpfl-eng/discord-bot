@@ -257,30 +257,11 @@ export const CHIPS: readonly number[] = [100, 1_000, 10_000, 50_000];
 /** Stake a player starts on before touching a chip button */
 export const DEFAULT_CHIP = 1_000;
 
-// ============ EMBED COLORS ============
-
-export const EMBED_COLORS = {
-  ACTIVE: 0x3498db, // Blue
-  SPINNING: 0xf1c40f, // Gold
-  WIN: 0x2ecc71, // Green
-  LOSE: 0xe74c3c, // Red
-  CLOSED: 0x5d6874, // Slate - the table is shut
-} as const;
-
 // ============ FORMATTING ============
 
-/**
- * Format amount with abbreviation (1000 -> 1K)
- */
-export function formatAmount(amount: number): string {
-  if (amount >= 10000) {
-    return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
-  }
-  if (amount >= 1000) {
-    return `${(amount / 1000).toFixed(1).replace(/\.0$/, '')}K`;
-  }
-  return String(amount);
-}
+// Compact amounts live in casino/casinoFormat.ts, shared with craps and blackjack.
+// Re-exported here so every existing importer keeps its import path.
+export { formatAmount } from '../../casino/casinoFormat.js';
 
 /**
  * Get display name for a bet type
