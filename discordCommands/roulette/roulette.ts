@@ -25,6 +25,8 @@ import {
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
 import { registerGameStatus } from '../../casino/casinoHub.js';
+import { ackBoard } from '../../casino/casinoPaint.js';
+import { forEdit } from '../../casino/casinoRender.js';
 import { amountModal } from '../../casino/casinoModal.js';
 import {
   ALL_BET_TYPES,
@@ -473,7 +475,7 @@ async function betFromComponent(
     return;
   }
 
-  await interaction.deferUpdate();
+  await ackBoard(interaction);
 
   await economyDb.getOrCreateUser(interaction.user.id, interaction.user.username);
 
@@ -538,6 +540,9 @@ async function betFromPanel(
     return;
   }
 
+  // Opening the table and taking the stake both happen before the panel can be rebuilt.
+  await ackBoard(interaction);
+
   await economyDb.getOrCreateUser(userId, interaction.user.username);
 
   const outcome: PlaceBetOutcome = await placeBet(
@@ -548,7 +553,10 @@ async function betFromPanel(
     interaction.channel as TextChannel
   );
 
-  await interaction.update(panelFor(userId));
+  // The panel is this player's own ephemeral message, so it is edited in place. The
+  // Ephemeral flag comes off first - a message cannot be told it is ephemeral a second
+  // time once it exists.
+  await interaction.editReply(forEdit(panelFor(userId)));
 
   if (!outcome.ok) {
     await interaction.followUp({ content: `⚠️ ${outcome.message}`, ephemeral: true });
@@ -580,7 +588,7 @@ async function rebet(interaction: MessageComponentInteraction): Promise<void> {
     return;
   }
 
-  await interaction.deferUpdate();
+  await ackBoard(interaction);
 
   const placed: string[] = [];
   const failed: string[] = [];
@@ -627,7 +635,7 @@ async function undo(interaction: MessageComponentInteraction): Promise<void> {
     return;
   }
 
-  await interaction.deferUpdate();
+  await ackBoard(interaction);
 
   const refunded = await escrowDb.voidEscrow(removed.escrowId, userId);
   await rouletteState.refresh();
@@ -656,7 +664,7 @@ async function clearBets(interaction: MessageComponentInteraction): Promise<void
     return;
   }
 
-  await interaction.deferUpdate();
+  await ackBoard(interaction);
 
   // One transaction for the whole slip rather than one per chip.
   const refund = await escrowDb.voidEscrowIds(

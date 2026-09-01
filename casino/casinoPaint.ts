@@ -18,6 +18,7 @@
 import type { Message } from 'discord.js';
 import type { MessageComponentInteraction, ModalSubmitInteraction } from 'discord.js';
 import type { RenderedMessage } from '../interactions/renderedMessage.js';
+import { forEdit } from './casinoRender.js';
 
 /**
  * Minimum gap between timer-driven repaints.
@@ -112,25 +113,95 @@ export function createPainter<S>(options: PainterOptions<S>): Painter<S> {
   };
 }
 
-// ============ INTERACTION-DRIVEN PAINTS ============
+// ============ ACKNOWLEDGEMENT ============
+//
+// Discord gives three seconds to acknowledge a click before it errors in the player's
+// client. Several handlers open a table, take coins into escrow, or replay a slip of
+// bets before they say anything back - work that is nowhere near guaranteed to fit.
+// Those handlers acknowledge FIRST and answer afterwards.
+//
+// There are two ways to acknowledge and they are not interchangeable. A private defer
+// creates a real, empty reply that must be filled with editReply; answering it with
+// followUp instead leaves a permanent "thinking..." sitting next to the real answer. A
+// board defer acknowledges the component without creating a reply at all, so anything
+// private afterwards has to be a followUp.
+//
+// Neither may be used by a handler that opens a modal: showModal IS the acknowledgement
+// and Discord rejects it once the interaction has been answered.
 
 type Routable = MessageComponentInteraction | ModalSubmitInteraction;
 
+/** Interactions acknowledged by ackPrivate, whose empty reply whisper must fill. */
+const privateAcks = new WeakSet<Routable>();
+
 /**
- * Acknowledge a click by repainting the message it came from.
+ * Acknowledge a click that will be answered only to the player who made it.
  *
- * This is the fast path: it both satisfies the three-second acknowledgement deadline
- * and updates the shared board for every viewer in one call.
+ * Safe to call twice; the second call does nothing.
+ */
+export async function ackPrivate(interaction: Routable): Promise<void> {
+  if (interaction.replied || interaction.deferred) return;
+
+  try {
+    await interaction.deferReply({ ephemeral: true });
+    privateAcks.add(interaction);
+  } catch (error: unknown) {
+    // Already expired or answered elsewhere. whisper() will find its own way.
+    console.error('[CASINO] Could not acknowledge an interaction privately:', error);
+  }
+}
+
+/**
+ * Acknowledge a click that will repaint the message it came from.
  *
+ * A modal submit cannot defer an update, so it falls back to a private acknowledgement.
+ */
+export async function ackBoard(interaction: Routable): Promise<void> {
+  if (!interaction.isMessageComponent()) {
+    await ackPrivate(interaction);
+    return;
+  }
+  if (interaction.replied || interaction.deferred) return;
+
+  try {
+    await interaction.deferUpdate();
+  } catch (error: unknown) {
+    console.error('[CASINO] Could not acknowledge an interaction:', error);
+  }
+}
+
+// ============ INTERACTION-DRIVEN PAINTS ============
+
+/**
+ * Repaint the live board through the click that changed it.
+ *
+ * Only when the click actually came from the live board. A board message left behind by
+ * a previous run still carries working buttons, and painting current state onto it would
+ * leave two boards that both look live and disagree - so a click from anywhere else is
+ * refused here and the caller repaints the real board through the painter instead.
+ *
+ * Editing through the interaction rather than through the message keeps these on the
+ * interaction's own rate limit rather than the channel's, which matters on a table where
+ * several seats act at once.
+ *
+ * @param liveMessageId - id of the board the game is actually driving, or null if none
  * @returns true if the board was repainted through this interaction
  */
 export async function paintViaInteraction(
   interaction: Routable,
   payload: RenderedMessage,
-  label: string
+  label: string,
+  liveMessageId: string | null
 ): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false;
+  if (liveMessageId === null || interaction.message.id !== liveMessageId) return false;
+
   try {
-    if (interaction.isMessageComponent() && !interaction.replied && !interaction.deferred) {
+    if (interaction.deferred && !interaction.replied) {
+      await interaction.editReply(forEdit(payload));
+      return true;
+    }
+    if (!interaction.replied) {
       await interaction.update(payload);
       return true;
     }
@@ -148,7 +219,9 @@ export async function paintViaInteraction(
  */
 export async function whisper(interaction: Routable, content: string): Promise<void> {
   try {
-    if (interaction.replied || interaction.deferred) {
+    if (privateAcks.has(interaction) && !interaction.replied) {
+      await interaction.editReply({ content });
+    } else if (interaction.replied || interaction.deferred) {
       await interaction.followUp({ content, ephemeral: true });
     } else {
       await interaction.reply({ content, ephemeral: true });

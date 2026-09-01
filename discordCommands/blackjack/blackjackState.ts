@@ -243,6 +243,17 @@ export function currentBoard(): ReturnType<typeof buildBoard> | null {
   return table ? buildBoard(viewOf(table)) : null;
 }
 
+/**
+ * Id of the board the table is actually driving, or null when there is none.
+ *
+ * A click carries the message it came from, and a board left behind by an earlier run
+ * still has working buttons. Comparing against this is how a handler tells a live click
+ * apart from one on a board nobody is painting any more.
+ */
+export function getBoardMessageId(): string | null {
+  return table?.message?.id ?? null;
+}
+
 export function refresh(): void {
   if (table) painter.schedulePaint(table);
 }
@@ -784,6 +795,14 @@ export type PlayerAction = 'hit' | 'stand' | 'double' | 'split' | 'surrender';
 export interface ActionResult {
   readonly ok: boolean;
   readonly message: string;
+  /**
+   * True when this action finished the round.
+   *
+   * `finishRound` owns the board from that moment and paints it several times over the
+   * settle, so the handler must not also paint through its own interaction - the two
+   * edits race and whichever lands last wins.
+   */
+  readonly roundEnded?: boolean;
 }
 
 /**
@@ -846,9 +865,10 @@ export async function act(userId: string, action: PlayerAction): Promise<ActionR
     // table feel quick.
     if (everyoneDone(t)) {
       void guard.run('finishRound', () => finishRound(t));
-    } else {
-      painter.schedulePaint(t);
+      return { ...result, roundEnded: true };
     }
+
+    painter.schedulePaint(t);
   }
 
   return result;

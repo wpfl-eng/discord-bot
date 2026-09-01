@@ -120,6 +120,18 @@ export interface RenderOptions {
 }
 
 /**
+ * The same payload, made safe to pass to an edit.
+ *
+ * `MessageEditOptions.flags` accepts only SuppressEmbeds and IsComponentsV2: a message
+ * cannot become ephemeral, or stop being ephemeral, after it exists. So the Ephemeral
+ * bit `rendered` sets for a private panel has to come off before that panel is edited.
+ */
+export function forEdit(payload: RenderedMessage): RenderedMessage {
+  const flags: number = payload.flags & ~MessageFlags.Ephemeral;
+  return flags === payload.flags ? payload : { ...payload, flags };
+}
+
+/**
  * Seal a list of top-level components into a sendable payload.
  *
  * Mentions are suppressed unconditionally. A V2 TextDisplay is real message content

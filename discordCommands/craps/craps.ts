@@ -20,7 +20,7 @@ import {
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
 import { registerGameStatus } from '../../casino/casinoHub.js';
-import { paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
+import { ackBoard, ackPrivate, paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
 import { amountModal, choiceModal, parseStake } from '../../casino/casinoModal.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
 import { formatAmount, formatCurrency, plural } from '../../casino/casinoFormat.js';
@@ -290,6 +290,26 @@ async function handleStatus(interaction: ChatInputCommandInteraction): Promise<v
 
 // ============ COMPONENT HANDLERS ============
 
+/**
+ * Repaint the board after a click changed it.
+ *
+ * Through the click itself when it came from the live board, which keeps the edit on the
+ * interaction's rate limit rather than the channel's. From anywhere else - a board left
+ * behind by an earlier run - the painter repaints the real board instead.
+ */
+async function repaintBoard(interaction: RoutableInteraction): Promise<void> {
+  const board = crapsState.currentBoard();
+  if (!board) return;
+
+  const painted: boolean = await paintViaInteraction(
+    interaction,
+    board,
+    'CRAPS',
+    crapsState.getBoardMessageId()
+  );
+  if (!painted) crapsState.refresh();
+}
+
 async function handleChip(interaction: RoutableInteraction, rest: string): Promise<void> {
   if (rest === 'custom') {
     if (!interaction.isButton()) return;
@@ -315,6 +335,8 @@ async function handleChip(interaction: RoutableInteraction, rest: string): Promi
 
 async function handleChipModal(interaction: RoutableInteraction): Promise<void> {
   if (!interaction.isModalSubmit()) return;
+
+  await ackPrivate(interaction);
 
   const user = await economyDb.getOrCreateUser(interaction.user.id, interaction.user.username);
   const parsed: number | null = parseStake(
@@ -343,6 +365,10 @@ async function handleChipModal(interaction: RoutableInteraction): Promise<void> 
 async function handleBoardBet(interaction: RoutableInteraction, betType: string): Promise<void> {
   if (!isBetType(betType)) return;
 
+  // The first bet of a session posts the board and edits it, and every bet takes coins
+  // into escrow, all before there is a new board to show. Acknowledge ahead of it.
+  await ackBoard(interaction);
+
   const channel = await requireTableChannel(interaction);
   if (!channel) return;
 
@@ -360,8 +386,7 @@ async function handleBoardBet(interaction: RoutableInteraction, betType: string)
     return;
   }
 
-  const board = crapsState.currentBoard();
-  if (board) await paintViaInteraction(interaction, board, 'CRAPS');
+  await repaintBoard(interaction);
 }
 
 /**
@@ -417,6 +442,8 @@ async function handleOddsButton(interaction: RoutableInteraction): Promise<void>
 
 async function handleOddsModal(interaction: RoutableInteraction): Promise<void> {
   if (!interaction.isModalSubmit()) return;
+
+  await ackPrivate(interaction);
 
   const channel = await requireTableChannel(interaction);
   if (!channel) return;
@@ -490,6 +517,9 @@ async function handleSlip(interaction: RoutableInteraction): Promise<void> {
 }
 
 async function handleUndo(interaction: RoutableInteraction): Promise<void> {
+  // Returning a stake is a database transaction; the click cannot wait on it.
+  await ackPrivate(interaction);
+
   const returned: number | null = await crapsState.undoLastBet(interaction.user.id);
 
   if (returned === null) {
@@ -502,6 +532,8 @@ async function handleUndo(interaction: RoutableInteraction): Promise<void> {
 }
 
 async function handleTakeDown(interaction: RoutableInteraction): Promise<void> {
+  await ackPrivate(interaction);
+
   const returned: number = await crapsState.takeDownAll(interaction.user.id);
 
   if (returned === 0) {
@@ -517,6 +549,9 @@ async function handleTakeDown(interaction: RoutableInteraction): Promise<void> {
 }
 
 async function handleRebet(interaction: RoutableInteraction): Promise<void> {
+  // Replaying a slip is one escrow transaction per bet.
+  await ackPrivate(interaction);
+
   const previous = lastRound.get(interaction.user.id) ?? [];
   if (previous.length === 0) {
     await whisper(interaction, 'You have nothing to repeat yet.');
@@ -550,8 +585,9 @@ async function handleRebet(interaction: RoutableInteraction): Promise<void> {
 
   await whisper(interaction, `Repeated ${plural(placed, 'bet')} for ${formatCurrency(total)}.`);
 
-  const board = crapsState.currentBoard();
-  if (board) await paintViaInteraction(interaction, board, 'CRAPS');
+  // This interaction is carrying a private reply, so the board is repainted through the
+  // painter rather than through the click.
+  crapsState.refresh();
 }
 
 /**
@@ -579,9 +615,7 @@ async function handleRoll(interaction: RoutableInteraction): Promise<void> {
 
   // Acknowledge before rolling: the animation takes seconds and the click must be
   // answered inside Discord's three-second window.
-  if (interaction.isButton()) {
-    await interaction.deferUpdate();
-  }
+  await ackBoard(interaction);
 
   await crapsState.executeRoll(false);
 }

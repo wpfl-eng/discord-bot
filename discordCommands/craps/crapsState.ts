@@ -210,6 +210,17 @@ export function currentBoard(): ReturnType<typeof buildBoard> | null {
   return table ? buildBoard(viewOf(table)) : null;
 }
 
+/**
+ * Id of the board the table is actually driving, or null when there is none.
+ *
+ * A click carries the message it came from, and a board left behind by an earlier run
+ * still has working buttons. Comparing against this is how a handler tells a live click
+ * apart from one on a board nobody is painting any more.
+ */
+export function getBoardMessageId(): string | null {
+  return table?.message?.id ?? null;
+}
+
 /** Request a coalesced repaint. Safe to call on every bet. */
 export function refresh(): void {
   if (table) painter.schedulePaint(table);

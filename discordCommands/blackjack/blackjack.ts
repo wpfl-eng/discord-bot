@@ -21,7 +21,7 @@ import {
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
 import { registerGameStatus } from '../../casino/casinoHub.js';
-import { paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
+import { ackBoard, ackPrivate, paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
 import { amountWithTogglesModal, parseStake } from '../../casino/casinoModal.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
 import { formatCurrency } from '../../casino/casinoFormat.js';
@@ -223,6 +223,30 @@ async function handleRules(interaction: ChatInputCommandInteraction): Promise<vo
 
 // ============ COMPONENT HANDLERS ============
 
+/**
+ * Repaint the table after a click changed it.
+ *
+ * Through the click itself when it came from the live board, which keeps the edit on the
+ * interaction's rate limit and shows the new card immediately. From anywhere else - a
+ * board left behind by an earlier run - the painter repaints the real board instead.
+ *
+ * @returns false when there is no table to paint
+ */
+async function repaintTable(interaction: RoutableInteraction): Promise<boolean> {
+  const board = blackjackState.currentBoard();
+  if (!board) return false;
+
+  const painted: boolean = await paintViaInteraction(
+    interaction,
+    board,
+    'BLACKJACK',
+    blackjackState.getBoardMessageId()
+  );
+  if (!painted) blackjackState.refresh();
+
+  return true;
+}
+
 async function handleChip(interaction: RoutableInteraction, rest: string): Promise<void> {
   if (rest === 'custom') {
     await openSitModal(interaction);
@@ -286,6 +310,10 @@ async function openSitModal(interaction: RoutableInteraction): Promise<void> {
 async function handleSitModal(interaction: RoutableInteraction): Promise<void> {
   if (!interaction.isModalSubmit()) return;
 
+  // Seating reads the wallet, may post the board and edits it, all before there is
+  // anything to say back. Acknowledge first; whisper() fills this reply in.
+  await ackPrivate(interaction);
+
   const channel = await requireTableChannel(interaction);
   if (!channel) return;
 
@@ -335,9 +363,8 @@ async function handleLeave(interaction: RoutableInteraction): Promise<void> {
     return;
   }
 
-  const board = blackjackState.currentBoard();
-  if (board) await paintViaInteraction(interaction, board, 'BLACKJACK');
-  else await whisper(interaction, result.message);
+  await ackBoard(interaction);
+  if (!(await repaintTable(interaction))) await whisper(interaction, result.message);
 }
 
 async function handleSlip(interaction: RoutableInteraction): Promise<void> {
@@ -370,6 +397,10 @@ async function handleAction(
   interaction: RoutableInteraction,
   action: blackjackState.PlayerAction
 ): Promise<void> {
+  // Double and split each open an escrow row before the board can change, so the click
+  // is acknowledged ahead of the action rather than by its result.
+  await ackBoard(interaction);
+
   const result = await blackjackState.act(interaction.user.id, action);
 
   if (!result.ok) {
@@ -377,11 +408,17 @@ async function handleAction(
     return;
   }
 
-  const board = blackjackState.currentBoard();
-  if (board) await paintViaInteraction(interaction, board, 'BLACKJACK');
+  // The round ended on this action. finishRound is painting the settle; a second edit
+  // from here would only race it.
+  if (result.roundEnded) return;
+
+  await repaintTable(interaction);
 }
 
 async function handleInsurance(interaction: RoutableInteraction, take: boolean): Promise<void> {
+  // Taking insurance opens an escrow row before there is anything to report.
+  await ackPrivate(interaction);
+
   const result = take
     ? await blackjackState.takeInsurance(interaction.user.id)
     : blackjackState.declineInsurance(interaction.user.id);
