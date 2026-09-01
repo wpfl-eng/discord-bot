@@ -112,11 +112,18 @@ describe('systemPrompt', () => {
       expect(text).toMatch(/not.*(mapped|member)|don't know who/i);
     });
 
+    // Labor Day 2026 is 7 September, so the season opens Thursday the 10th and
+    // the 15th is still week 1. Two dates, so this asserts the week is computed
+    // rather than merely printed.
     test('carries the date and the NFL week', () => {
       const text: string = dynamic();
 
       expect(text).toContain('2026-09-15');
-      expect(text).toMatch(/week 2/i);
+      expect(text).toMatch(/week 1\b/i);
+
+      const later: string = dynamic({ now: new Date('2026-09-22T18:00:00Z') });
+      expect(later).toContain('2026-09-22');
+      expect(later).toMatch(/week 2\b/i);
     });
 
     test('carries every as-of date and the artifact etag', () => {
