@@ -26,7 +26,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 3 | — | — | Build-readiness review: TDD, branches, conciseness, `prompt.md` | DONE |
 | 4 | 0 | `feat/ask` | Scaffolding — deps, `askConfig`, `askAuth`, `wpflMembers` | DONE |
 | 5 | 1 | `feat/ask-data` | Data layer — fixtures + generator, sync, shredder, INDEX.md, history cache | DONE |
-| 6 | 2 | `feat/ask-persistence` | Persistence — migration 009, `askDb`, caps | NOT STARTED |
+| 6 | 2 | `feat/ask-persistence` | Persistence — migration 009, `askDb`, caps | DONE |
 | 7 | 3 | `feat/ask-tools` | Tools (API) — 3 WPFL aggregates, 4 ESPN | NOT STARTED |
 | 8 | 4 | `feat/ask-sql` | SQL and MCP — DuckDB, statement guard, `mcpServer` | NOT STARTED |
 | 9 | 5 | `feat/ask-runner` | Runner — system prompt, `askRunner`, concurrency, hooks | NOT STARTED |
@@ -667,11 +667,79 @@ list updated to match.
 
 ---
 
-## Stage 6 — Persistence (Phase 2) — `feat/ask-persistence` — NOT STARTED
+## Stage 6 — Persistence (Phase 2) — `feat/ask-persistence` — 2026-08-31 — DONE
 
-_Should record: that 009 parses; cap behaviour at the daily, monthly and turn
-boundaries against a mocked `askDb`; confirmation that no test touched the real
-Postgres and that the migration was **not** applied._
+Merged to `feat/ask` as **`1e21fe3`** (`--no-ff`); branch deleted.
+
+### Changed
+- `migrations/009_ask_agent.sql` — **new.** `ask_sessions`, `ask_usage`,
+  `ask_tool_calls`, wrapped in `BEGIN`/`COMMIT` to match 008 and what
+  `runMigration.ts` expects.
+- `ask/askDb.ts` — **new.** Cap counts, session upsert / turn bump / close, the
+  usage ledger, and the tool-exception insert.
+- `ask/caps.ts` — **new.** Daily, monthly and turn caps.
+- `tests/ask/caps.test.ts` — **new**, 17 tests, written first.
+
+### Verified
+
+**The migration does more than parse.** `runMigration.ts --dry-run` only prints
+the file, so it proves nothing. Applied instead against a **throwaway Postgres
+16 container on localhost** — never the production database, whose URL sits in
+`.env`:
+
+| Check | Result |
+| --- | --- |
+| Applies | clean |
+| Applies a second time | clean — `IF NOT EXISTS` throughout makes it idempotent |
+| Schema | exactly §8: 9 / 10 / 8 columns across the three tables, `jsonb` for `tool_input`, `timestamptz` throughout |
+| Indexes | all six — 3 primary keys plus `idx_ask_usage_user_day`, `idx_ask_usage_created`, `idx_ask_tool_calls_thread` |
+| `ask_usage → ask_sessions` FK | **enforced** — an insert for an unknown thread is rejected |
+| Every statement `askDb` issues | runs: the session upsert, `recordTurn` returning `turns = 2`, the ledger insert, the tool-exception insert, and the cap count |
+
+The container was removed afterwards; nothing persists.
+
+**Caps are correct at the boundaries.** The day and month windows are New York
+calendar boundaries, matching the trivia scheduler. Asserted at
+`2026-09-15T18:00Z` → day start `2026-09-15T04:00Z` (EDT) and month start
+`2026-09-01T04:00Z`; at `2026-01-15T18:00Z` → `2026-01-15T05:00Z`, so the DST
+offset is handled rather than hardcoded; and across a real rollover, where
+`03:59Z` and `04:01Z` on 16 September land in different days.
+
+Daily and monthly caps tested one short of, at, and past their limits. Turn caps
+tested at 14/15/16 and 19/20/21: 14 is silent, 15 through 19 answer with a
+nudge, 20 and 21 decline. The hard turn cap is checked before any database round
+trip, verified by asserting neither count function was called.
+
+**No test touched the real Postgres.** `askDb` is mocked with
+`jest.unstable_mockModule`, per the repo's existing idiom.
+
+**Green gate on `feat/ask` after the merge:**
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `npm run typecheck` | 0 | clean |
+| `npm run lint` | 0 | clean |
+| `npm test` | 0 | **534 passed / 22 suites** (was 517 / 21) |
+
+### Two of my own assertions were wrong, and were corrected rather than weakened
+
+1. One demanded the monthly refusal contain the literal word "month". It names
+   the actual month — "September" — which is better. Re-aimed at the month name
+   and the limit figure.
+2. One tried to prove refusal precedence by asserting the turn-cap message does
+   *not* contain `DAILY_QUESTIONS_PER_USER`. That value is 20 and so is
+   `HARD_TURN_CAP`, so the string "20 turns" matched by coincidence and the test
+   proved nothing. Both precedence tests now assert on the text that actually
+   distinguishes the two refusals.
+
+### Open
+
+| # | Item | Resolves in |
+| --- | --- | --- |
+| 14 | The `ask_usage → ask_sessions` FK means the session row must be written **before** the ledger row. Proven enforced; the ordering is Stage 9's and Stage 10's to respect | Stages 9–10 |
+
+**The migration was not applied to the production database**, per design §17.5.
+That remains AJ's.
 
 ---
 
