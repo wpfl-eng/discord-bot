@@ -6,6 +6,13 @@ import { Client, Collection, GatewayIntentBits, Events, ActivityType, Partials }
 import { fileURLToPath, pathToFileURL } from 'url';
 import { TriviaService } from './trivia/triviaService.js';
 import { isValidCommandModule } from './types/commands.js';
+import {
+  dispatchComponent,
+  registerComponentHandler,
+  getRegisteredPrefixes,
+} from './interactions/componentRouter.js';
+import { loadApplicationEmojis } from './emoji/emojiRegistry.js';
+import { runStartupRefundSweep } from './economy/startupSweep.js';
 
 // Create a new client instance
 const client = new Client({
@@ -23,10 +30,25 @@ const client = new Client({
 const triviaService = new TriviaService(client);
 client.triviaService = triviaService;
 
+// Trivia predates the component router; registering it here keeps its behaviour
+// identical while routing every component through one dispatcher.
+registerComponentHandler('trivia_', async (interaction) => {
+  if (!interaction.isButton()) return;
+  await triviaService.handleButtonAnswer(interaction);
+});
+
 // When the client is ready, run this code (only once)
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log('Ready!');
+  console.log(`[ROUTER] Component prefixes: ${getRegisteredPrefixes().join(', ')}`);
+
   triviaService.init();
+
+  // Custom card and pocket art. Failure here is cosmetic - lookups fall back to text.
+  await loadApplicationEmojis(client);
+
+  // Any wager still held in escrow belongs to a round or hand a restart ended early.
+  await runStartupRefundSweep(client);
 });
 
 client.commands = new Collection();
@@ -128,26 +150,16 @@ try {
 client.login(process.env.DISCORD_TOKEN);
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  // Handle button interactions for trivia
-  if (interaction.isButton() && interaction.customId.startsWith('trivia_')) {
-    const triviaService = client.triviaService;
-    if (triviaService) {
-      try {
-        await triviaService.handleButtonAnswer(interaction);
-      } catch (error) {
-        console.error('[TRIVIA] Button handler error:', error);
-        try {
-          if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({
-              content: 'An error occurred processing your answer. Please try again.',
-              ephemeral: true,
-            });
-          }
-        } catch (replyError) {
-          // Interaction may have expired
-          console.error('[TRIVIA] Could not send error reply:', replyError);
-        }
-      }
+  // Buttons and select menus go through the central router, which owns error
+  // handling. Each click carries its own interaction token, so handlers that call
+  // update() are never limited by the 15-minute lifetime of the original command.
+  // Modal submits ride the same registry: a modal opened from a button shares that
+  // feature's customId prefix, so one registration covers both.
+  if (interaction.isMessageComponent() || interaction.isModalSubmit()) {
+    const handled: boolean = await dispatchComponent(interaction);
+    if (!handled) {
+      // Almost always a message from before a restart, or a renamed customId.
+      console.warn(`[ROUTER] No handler for component "${interaction.customId}"`);
     }
     return;
   }

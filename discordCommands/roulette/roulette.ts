@@ -1,24 +1,42 @@
 // Roulette Command
-// American roulette with automatic 2-minute spins
+//
+// American roulette played at a shared session table. The table opens on the first
+// bet, spins on a short adaptive window, and closes after a spin nobody joins.
+//
+// Betting happens through buttons on the table message, routed centrally so each click
+// carries its own interaction token. The slash command remains as a power-user path
+// and is the only way to bet an arbitrary amount without opening the chip modal.
 
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   AutocompleteInteraction,
-  EmbedBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder,
   TextChannel,
+  type MessageComponentInteraction,
+  type ModalSubmitInteraction,
+  type StringSelectMenuInteraction,
 } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
-import type { EconomyUser } from '../../economy/economyDb.js';
-import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
+import * as escrowDb from '../../economy/escrowDb.js';
+import { formatCurrency } from '../../economy/economyConfig.js';
+import { registerComponentHandler } from '../../interactions/componentRouter.js';
 import {
   ALL_BET_TYPES,
   BET_TYPES,
-  getBetDisplay,
+  DEFAULT_CHIP,
+  LIMITS,
+  betDisplayRich,
   formatAmount,
+  getBetDisplay,
+  pocketDisplay,
 } from './rouletteConfig.js';
 import * as rouletteState from './rouletteState.js';
 import * as rouletteDb from './rouletteDb.js';
+import { IDS, ID_PREFIX, buildBetPanel, buildSlipText } from './rouletteRender.js';
 
 // ============ COMMAND DEFINITION ============
 
@@ -32,10 +50,10 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption((opt) =>
         opt
           .setName('amount')
-          .setDescription(`Coins to wager (${CONFIG.GAMBLE_MIN}-${CONFIG.GAMBLE_MAX})`)
+          .setDescription(`Coins to wager (${LIMITS.MIN_BET}-${LIMITS.MAX_BET})`)
           .setRequired(true)
-          .setMinValue(CONFIG.GAMBLE_MIN)
-          .setMaxValue(CONFIG.GAMBLE_MAX)
+          .setMinValue(LIMITS.MIN_BET)
+          .setMaxValue(LIMITS.MAX_BET)
       )
       .addStringOption((opt) =>
         opt
@@ -45,23 +63,47 @@ export const data = new SlashCommandBuilder()
           .setAutocomplete(true)
       )
   )
+  .addSubcommand((sub) => sub.setName('stats').setDescription('Your lifetime roulette numbers'))
   .addSubcommand((sub) =>
-    sub.setName('history').setDescription('View the last 20 roulette spins')
+    sub
+      .setName('leaderboard')
+      .setDescription('Roulette leaderboards')
+      .addStringOption((opt) =>
+        opt
+          .setName('category')
+          .setDescription('What to rank by (default: net)')
+          .addChoices(
+            { name: 'Net profit', value: 'net' },
+            { name: 'Total wagered', value: 'wagered' },
+            { name: 'Biggest single hit', value: 'biggest' },
+            { name: 'Return rate', value: 'rtp' }
+          )
+      )
   );
+
+// ============ PER-PLAYER CHIP ============
+
+/**
+ * The stake each player's next one-click bet will use. In memory only - a restart
+ * costs nothing but a reset to the default.
+ */
+const activeChip = new Map<string, number>();
+
+function chipFor(userId: string): number {
+  return activeChip.get(userId) ?? DEFAULT_CHIP;
+}
 
 // ============ AUTOCOMPLETE ============
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused: string = interaction.options.getFocused().toLowerCase();
 
-  const filtered: string[] = ALL_BET_TYPES.filter((t) => t.toLowerCase().startsWith(focused)).slice(0, 25);
-
-  await interaction.respond(
-    filtered.map((t) => ({
-      name: getBetDisplay(t),
-      value: t,
-    }))
+  const filtered: string[] = ALL_BET_TYPES.filter((t) => t.toLowerCase().startsWith(focused)).slice(
+    0,
+    25
   );
+
+  await interaction.respond(filtered.map((t) => ({ name: getBetDisplay(t), value: t })));
 }
 
 // ============ EXECUTE ============
@@ -70,186 +112,522 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const subcommand: string = interaction.options.getSubcommand();
 
   try {
-    if (subcommand === 'bet') {
-      await handleBet(interaction);
-    } else if (subcommand === 'history') {
-      await handleHistory(interaction);
-    }
+    if (subcommand === 'bet') await handleBetCommand(interaction);
+    else if (subcommand === 'stats') await handleStats(interaction);
+    else if (subcommand === 'leaderboard') await handleLeaderboard(interaction);
   } catch (error: unknown) {
     console.error('[ROULETTE] Command error:', error);
     const message: string = error instanceof Error ? error.message : 'Unknown error';
 
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: `An error occurred: ${message}`,
-        ephemeral: true,
-      });
+      await interaction.reply({ content: `An error occurred: ${message}`, ephemeral: true });
     } else {
-      await interaction.editReply({
-        content: `An error occurred: ${message}`,
-      });
+      await interaction.editReply({ content: `An error occurred: ${message}` });
     }
   }
 }
 
-async function handleBet(interaction: ChatInputCommandInteraction): Promise<void> {
+// ============ SHARED BET PATH ============
+
+interface PlaceBetOutcome {
+  readonly ok: boolean;
+  readonly message: string;
+}
+
+/**
+ * The single path every bet takes, whatever placed it - slash command, table button or
+ * panel select.
+ *
+ * Order matters: the table is opened first so the wager has a session to belong to,
+ * then the coins are taken atomically, then the bet joins the round. If the last step
+ * fails the stake is handed straight back rather than waiting for the startup sweep.
+ */
+async function placeBet(
+  userId: string,
+  username: string,
+  amount: number,
+  betType: string,
+  client: import('discord.js').Client,
+  channel: TextChannel
+): Promise<PlaceBetOutcome> {
+  if (!BET_TYPES[betType]) {
+    return { ok: false, message: `Unknown bet type: "${betType}".` };
+  }
+
+  if (!Number.isInteger(amount) || amount < LIMITS.MIN_BET || amount > LIMITS.MAX_BET) {
+    return {
+      ok: false,
+      message: `Bets run from ${formatAmount(LIMITS.MIN_BET)} to ${formatAmount(LIMITS.MAX_BET)}.`,
+    };
+  }
+
+  await rouletteState.ensureTable(client, channel, userId);
+
+  if (!rouletteState.isBettingOpen()) {
+    return { ok: false, message: 'Betting is closed for this spin. Hang on for the next one.' };
+  }
+
+  const sessionKey: string | null = rouletteState.getActiveSessionKey();
+  if (!sessionKey) {
+    return { ok: false, message: 'The table just closed. Try again in a moment.' };
+  }
+
+  const escrow: escrowDb.OpenEscrowResult = await escrowDb.openEscrow({
+    userId,
+    username,
+    game: 'roulette',
+    sessionKey,
+    amount,
+    purpose: 'bet',
+    detail: { betType },
+  });
+
+  if (!escrow.ok || escrow.escrowId === null) {
+    return {
+      ok: false,
+      message: `You do not have ${formatCurrency(amount)} in your wallet.`,
+    };
+  }
+
+  try {
+    await rouletteState.addBet({
+      userId,
+      username,
+      betType,
+      amount,
+      placedAt: new Date(),
+      escrowId: escrow.escrowId,
+    });
+  } catch (err) {
+    console.error('[ROULETTE] addBet failed after escrow opened; voiding:', err);
+    await escrowDb.voidEscrow(escrow.escrowId, userId);
+    return {
+      ok: false,
+      message: `The wheel spun before your bet landed. Your ${formatCurrency(amount)} was returned.`,
+    };
+  }
+
+  return {
+    ok: true,
+    message: `${formatAmount(amount)} on ${betDisplayRich(betType)}`,
+  };
+}
+
+// ============ SLASH: BET ============
+
+async function handleBetCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const userId: string = interaction.user.id;
-  const username: string = interaction.user.username;
+  const channelCheck: string | null = wrongChannelMessage(interaction.channelId);
+  if (channelCheck) {
+    await interaction.editReply({ content: channelCheck });
+    return;
+  }
+
+  if (!interaction.channel) {
+    await interaction.editReply({ content: 'This command must be used in a text channel.' });
+    return;
+  }
+
   const amount: number = interaction.options.getInteger('amount', true);
   const betType: string = interaction.options.getString('type', true).toLowerCase();
 
-  // Check if in roulette channel
-  const rouletteChannelId: string | undefined = rouletteState.getRouletteChannelId();
-  if (!rouletteChannelId) {
-    await interaction.editReply({
-      content: 'Roulette is not configured. Contact an admin.',
-    });
-    return;
-  }
+  await economyDb.getOrCreateUser(interaction.user.id, interaction.user.username);
 
-  if (interaction.channelId !== rouletteChannelId) {
-    await interaction.editReply({
-      content: `Head to <#${rouletteChannelId}> to play roulette!`,
-    });
-    return;
-  }
-
-  // Validate bet type
-  if (!BET_TYPES[betType]) {
-    await interaction.editReply({
-      content: `Invalid bet type: "${betType}". Try: red, black, odd, even, 0-36, etc.`,
-    });
-    return;
-  }
-
-  // Get user data
-  const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
-
-  // Check balance
-  if (userData.wallet < amount) {
-    const embed = new EmbedBuilder()
-      .setColor(0xe74c3c)
-      .setTitle('🎰 Insufficient Funds')
-      .setDescription(
-        `You need ${formatCurrency(amount)} but only have ${formatCurrency(userData.wallet)} in your wallet.`
-      )
-      .setFooter({ text: 'Tip: Use /withdraw to get coins from your bank' });
-
-    await interaction.editReply({ embeds: [embed] });
-    return;
-  }
-
-  // Deduct coins immediately
-  const deductResult: EconomyUser | null = await economyDb.deductFromWallet(userId, amount);
-  if (!deductResult) {
-    await interaction.editReply({
-      content: 'Failed to place bet. Please try again.',
-    });
-    return;
-  }
-
-  // Start round if needed
-  if (!rouletteState.hasActiveRound()) {
-    if (!interaction.channel) {
-      await interaction.editReply({
-        content: 'This command must be used in a text channel.',
-      });
-      return;
-    }
-    const channel: TextChannel = interaction.channel as TextChannel;
-    await rouletteState.startRound(interaction.client, channel);
-  }
-
-  // Add bet to round
-  await rouletteState.addBet({
-    userId,
-    username,
-    betType,
+  const outcome: PlaceBetOutcome = await placeBet(
+    interaction.user.id,
+    interaction.user.username,
     amount,
-    placedAt: new Date(),
+    betType,
+    interaction.client,
+    interaction.channel as TextChannel
+  );
+
+  await interaction.editReply({
+    content: outcome.ok
+      ? `${outcome.message}\n\n${buildSlipText(rouletteState.getUserBets(interaction.user.id))}`
+      : outcome.message,
   });
-
-  // Build confirmation with user's full bet slate
-  const userBets: rouletteState.RouletteBet[] = rouletteState.getUserBets(userId);
-  const totalBet: number = userBets.reduce((sum, b) => sum + b.amount, 0);
-
-  const betLines: string[] = userBets.map((b) => `• ${formatAmount(b.amount)} on ${getBetDisplay(b.betType)}`);
-
-  const embed = new EmbedBuilder()
-    .setColor(0x2ecc71)
-    .setTitle('✓ Bet Placed')
-    .setDescription(
-      `${formatAmount(amount)} on ${getBetDisplay(betType)}\n\n` +
-        '**Your bets this round:**\n' +
-        betLines.join('\n') +
-        `\n\nTotal: ${formatCurrency(totalBet)}`
-    );
-
-  await interaction.editReply({ embeds: [embed] });
 }
 
-// ============ HISTORY HANDLER ============
+/** null when the channel is fine, otherwise the message to show the player. */
+function wrongChannelMessage(channelId: string): string | null {
+  const rouletteChannelId: string | undefined = rouletteState.getRouletteChannelId();
+  if (!rouletteChannelId) return 'Roulette is not configured. Contact an admin.';
+  if (channelId !== rouletteChannelId) return `Head to <#${rouletteChannelId}> to play roulette!`;
+  return null;
+}
 
-const COLOR_EMOJI: Record<string, string> = {
-  red: '🔴',
-  black: '⚫',
-  green: '🟢',
-};
+// ============ SLASH: STATS ============
 
-async function handleHistory(interaction: ChatInputCommandInteraction): Promise<void> {
+async function handleStats(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const rounds = await rouletteDb.getRecentRounds(20);
+  const stats = await rouletteDb.getUserStats(interaction.user.id);
 
-  if (rounds.length === 0) {
-    const embed = new EmbedBuilder()
-      .setColor(0x3498db)
-      .setTitle('🎰 Roulette History')
-      .setDescription('No spins recorded yet. Be the first to play!');
-
-    await interaction.editReply({ embeds: [embed] });
+  if (stats.betCount === 0) {
+    await interaction.editReply({ content: 'You have not played roulette yet.' });
     return;
   }
 
-  // Build compact strip display (10 per row)
-  const row1: string[] = [];
-  const row2: string[] = [];
+  const sign: string = stats.net >= 0 ? '+' : '-';
+  const lines: string[] = [
+    '### 🎰 Your roulette',
+    '',
+    `**Spins played** ${stats.spins}  ·  **Bets** ${stats.betCount}  ·  **Wins** ${stats.wins}`,
+    `**Wagered** ${formatAmount(stats.wagered)}  ·  **Returned** ${formatAmount(stats.returned)}`,
+    `**Net** ${sign}${formatAmount(Math.abs(stats.net))}` +
+      (stats.rtp !== null ? `  ·  **Return rate** ${(stats.rtp * 100).toFixed(1)}%` : ''),
+  ];
 
-  for (let i = 0; i < rounds.length; i++) {
-    const round = rounds[i];
-    const emoji = COLOR_EMOJI[round.result_color] || '⚪';
-    const display = `${emoji}${round.result_number}`;
-
-    if (i < 10) {
-      row1.push(display);
-    } else {
-      row2.push(display);
-    }
+  if (stats.biggestHit > 0 && stats.biggestHitBet) {
+    lines.push(
+      `**Biggest hit** ${formatAmount(stats.biggestHit)} on ${betDisplayRich(stats.biggestHitBet)}`
+    );
+  }
+  if (stats.favouriteBet && stats.favouriteBetShare !== null) {
+    lines.push(
+      `**Favourite bet** ${betDisplayRich(stats.favouriteBet)} ` +
+        `_(${(stats.favouriteBetShare * 100).toFixed(0)}% of your bets)_`
+    );
+  }
+  if (stats.luckiestPocket) {
+    lines.push(
+      `**Luckiest pocket** ${pocketDisplay(stats.luckiestPocket)} ` +
+        `_(${stats.luckiestPocketHits} win${stats.luckiestPocketHits === 1 ? '' : 's'})_`
+    );
   }
 
-  // Count colors
-  let redCount = 0;
-  let blackCount = 0;
-  let greenCount = 0;
-
-  for (const round of rounds) {
-    if (round.result_color === 'red') redCount++;
-    else if (round.result_color === 'black') blackCount++;
-    else if (round.result_color === 'green') greenCount++;
-  }
-
-  const stripDisplay =
-    row1.join(' ') + (row2.length > 0 ? '\n' + row2.join(' ') : '');
-
-  const embed = new EmbedBuilder()
-    .setColor(0x3498db)
-    .setTitle('🎰 Last 20 Spins')
-    .setDescription(
-      stripDisplay + `\n\n📊 Red: ${redCount} | Black: ${blackCount} | Green: ${greenCount}`
-    )
-    .setFooter({ text: 'Most recent on the left' });
-
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply({ content: lines.join('\n') });
 }
+
+// ============ SLASH: LEADERBOARD ============
+
+const CATEGORY_LABEL: Record<rouletteDb.RouletteLeaderboardCategory, string> = {
+  net: 'Net profit',
+  wagered: 'Total wagered',
+  biggest: 'Biggest single hit',
+  rtp: 'Return rate',
+};
+
+async function handleLeaderboard(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const category = (interaction.options.getString('category') ??
+    'net') as rouletteDb.RouletteLeaderboardCategory;
+
+  const rows = await rouletteDb.getLeaderboard(category, 10);
+
+  if (rows.length === 0) {
+    await interaction.editReply({
+      content:
+        category === 'rtp'
+          ? `Nobody has the ${rouletteDb.RTP_MIN_BETS} bets needed to rank on return rate yet.`
+          : 'No roulette results recorded yet.',
+    });
+    return;
+  }
+
+  const medals: string[] = ['🥇', '🥈', '🥉'];
+  const lines: string[] = rows.map((row, i) => {
+    const rank: string = medals[i] ?? `**${i + 1}.**`;
+    const value: string =
+      category === 'rtp'
+        ? `${(row.value * 100).toFixed(1)}%`
+        : category === 'net'
+          ? `${row.value >= 0 ? '+' : '-'}${formatAmount(Math.abs(row.value))}`
+          : formatAmount(row.value);
+    return `${rank} <@${row.userId}> — **${value}**`;
+  });
+
+  await interaction.editReply({
+    content:
+      `### 🎰 Roulette — ${CATEGORY_LABEL[category]}\n\n${lines.join('\n')}` +
+      (category === 'rtp' ? `\n\n_Minimum ${rouletteDb.RTP_MIN_BETS} bets to rank._` : ''),
+    allowedMentions: { parse: [] },
+  });
+}
+
+// ============ COMPONENT HANDLERS ============
+
+/**
+ * Everything on the table message and the bet panel arrives here.
+ *
+ * Replies are always ephemeral: the shared message is repainted by the state module,
+ * so a player's own feedback never adds a message to the channel.
+ */
+async function handleComponent(interaction: MessageComponentInteraction): Promise<void> {
+  const { customId } = interaction;
+  const userId: string = interaction.user.id;
+
+  if (customId === IDS.CHIP_CUSTOM) {
+    await interaction.showModal(buildChipModal());
+    return;
+  }
+
+  if (customId.startsWith(IDS.CHIP)) {
+    const amount: number = Number(customId.slice(IDS.CHIP.length));
+    await setChip(interaction, amount);
+    return;
+  }
+
+  if (customId.startsWith(IDS.BET)) {
+    await betFromComponent(interaction, customId.slice(IDS.BET.length), chipFor(userId));
+    return;
+  }
+
+  if (
+    customId === IDS.SELECT_COLUMN ||
+    customId === IDS.SELECT_LOW ||
+    customId === IDS.SELECT_HIGH
+  ) {
+    const select = interaction as StringSelectMenuInteraction;
+    const betType: string | undefined = select.values[0];
+    if (betType) await betFromComponent(interaction, betType, chipFor(userId));
+    return;
+  }
+
+  switch (customId) {
+    case IDS.PANEL:
+      await openPanel(interaction);
+      return;
+    case IDS.SLIP:
+      await showSlip(interaction);
+      return;
+    case IDS.REBET:
+      await rebet(interaction);
+      return;
+    case IDS.UNDO:
+      await undo(interaction);
+      return;
+    case IDS.CLEAR:
+      await clearBets(interaction);
+      return;
+    default:
+      await interaction.reply({ content: 'That control is no longer active.', ephemeral: true });
+  }
+}
+
+function buildChipModal(): ModalBuilder {
+  const input = new TextInputBuilder()
+    .setCustomId('amount')
+    .setLabel(`Chip size (${LIMITS.MIN_BET} - ${LIMITS.MAX_BET})`)
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(9);
+
+  return new ModalBuilder()
+    .setCustomId(IDS.CHIP_MODAL)
+    .setTitle('Set your chip')
+    .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
+}
+
+async function setChip(interaction: MessageComponentInteraction, amount: number): Promise<void> {
+  if (!Number.isInteger(amount) || amount < LIMITS.MIN_BET || amount > LIMITS.MAX_BET) {
+    await interaction.reply({
+      content: `Chips run from ${formatAmount(LIMITS.MIN_BET)} to ${formatAmount(LIMITS.MAX_BET)}.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  activeChip.set(interaction.user.id, amount);
+  await interaction.reply({
+    content: `Chip set to **${formatAmount(amount)}**. Every one-click bet now uses it.`,
+    ephemeral: true,
+  });
+}
+
+/**
+ * Place a bet from a button or select.
+ *
+ * The click is acknowledged with deferUpdate so the shared table message is not
+ * touched here - the state module repaints it once, after the bet lands.
+ */
+async function betFromComponent(
+  interaction: MessageComponentInteraction,
+  betType: string,
+  amount: number
+): Promise<void> {
+  const channelCheck: string | null = wrongChannelMessage(interaction.channelId);
+  if (channelCheck) {
+    await interaction.reply({ content: channelCheck, ephemeral: true });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  await economyDb.getOrCreateUser(interaction.user.id, interaction.user.username);
+
+  const outcome: PlaceBetOutcome = await placeBet(
+    interaction.user.id,
+    interaction.user.username,
+    amount,
+    betType,
+    interaction.client,
+    interaction.channel as TextChannel
+  );
+
+  await interaction.followUp({
+    content: outcome.ok
+      ? `✅ ${outcome.message}\n\n${buildSlipText(rouletteState.getUserBets(interaction.user.id))}`
+      : `⚠️ ${outcome.message}`,
+    ephemeral: true,
+  });
+}
+
+async function openPanel(interaction: MessageComponentInteraction): Promise<void> {
+  const userId: string = interaction.user.id;
+  await interaction.reply({
+    ...buildBetPanel(chipFor(userId), buildSlipText(rouletteState.getUserBets(userId))),
+  } as never);
+}
+
+async function showSlip(interaction: MessageComponentInteraction): Promise<void> {
+  const userId: string = interaction.user.id;
+  await interaction.reply({
+    content:
+      `**Chip:** ${formatAmount(chipFor(userId))}\n\n` +
+      buildSlipText(rouletteState.getUserBets(userId)),
+    ephemeral: true,
+  });
+}
+
+/**
+ * Replay the bets this player had down on the previous spin.
+ */
+async function rebet(interaction: MessageComponentInteraction): Promise<void> {
+  const userId: string = interaction.user.id;
+  const previous = rouletteState.getLastRoundBets(userId);
+
+  if (previous.length === 0) {
+    await interaction.reply({
+      content: 'You had nothing down on the last spin.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  const placed: string[] = [];
+  const failed: string[] = [];
+
+  for (const bet of previous) {
+    const outcome: PlaceBetOutcome = await placeBet(
+      userId,
+      interaction.user.username,
+      bet.amount,
+      bet.betType,
+      interaction.client,
+      interaction.channel as TextChannel
+    );
+    if (outcome.ok) placed.push(outcome.message);
+    else failed.push(outcome.message);
+  }
+
+  await interaction.followUp({
+    content:
+      (placed.length > 0 ? `✅ Rebet ${placed.length} wager(s)\n` : '') +
+      (failed.length > 0 ? `⚠️ ${failed[0]}\n` : '') +
+      `\n${buildSlipText(rouletteState.getUserBets(userId))}`,
+    ephemeral: true,
+  });
+}
+
+/**
+ * Take back the most recent bet and return the stake.
+ *
+ * voidEscrow only claims rows that are still open, so racing the spin refunds at most
+ * once - and the bet is removed from the round before the refund is attempted, so a
+ * failed refund cannot leave a bet on the table that has been paid back.
+ */
+async function undo(interaction: MessageComponentInteraction): Promise<void> {
+  const userId: string = interaction.user.id;
+
+  if (!rouletteState.isBettingOpen()) {
+    await interaction.reply({ content: 'Betting is closed for this spin.', ephemeral: true });
+    return;
+  }
+
+  const removed = rouletteState.popLastBet(userId);
+  if (!removed) {
+    await interaction.reply({ content: 'You have no bets to undo.', ephemeral: true });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  const refunded = await escrowDb.voidEscrow(removed.escrowId, userId);
+  await rouletteState.refresh();
+
+  await interaction.followUp({
+    content: refunded
+      ? `↩️ Took back ${formatAmount(removed.amount)} from ${betDisplayRich(removed.betType)}.\n\n` +
+        buildSlipText(rouletteState.getUserBets(userId))
+      : 'That bet had already been resolved.',
+    ephemeral: true,
+  });
+}
+
+/** Take back every bet this player has on the table. */
+async function clearBets(interaction: MessageComponentInteraction): Promise<void> {
+  const userId: string = interaction.user.id;
+
+  if (!rouletteState.isBettingOpen()) {
+    await interaction.reply({ content: 'Betting is closed for this spin.', ephemeral: true });
+    return;
+  }
+
+  const removed = rouletteState.popAllBets(userId);
+  if (removed.length === 0) {
+    await interaction.reply({ content: 'You have no bets on the table.', ephemeral: true });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  let returned = 0;
+  for (const bet of removed) {
+    const refund = await escrowDb.voidEscrow(bet.escrowId, userId);
+    if (refund) returned += bet.amount;
+  }
+
+  await rouletteState.refresh();
+
+  await interaction.followUp({
+    content: `🧹 Cleared ${removed.length} bet(s), ${formatAmount(returned)} returned.`,
+    ephemeral: true,
+  });
+}
+
+// ============ MODAL ============
+
+async function handleChipModal(interaction: ModalSubmitInteraction): Promise<void> {
+  const raw: string = interaction.fields.getTextInputValue('amount').replace(/[,\s]/g, '');
+  const amount: number = Number.parseInt(raw, 10);
+
+  if (!Number.isInteger(amount) || amount < LIMITS.MIN_BET || amount > LIMITS.MAX_BET) {
+    await interaction.reply({
+      content: `Chips run from ${formatAmount(LIMITS.MIN_BET)} to ${formatAmount(LIMITS.MAX_BET)}.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  activeChip.set(interaction.user.id, amount);
+  await interaction.reply({
+    content: `Chip set to **${formatAmount(amount)}**. Every one-click bet now uses it.`,
+    ephemeral: true,
+  });
+}
+
+// ============ REGISTRATION ============
+
+registerComponentHandler(ID_PREFIX, async (interaction) => {
+  if (interaction.isModalSubmit()) {
+    await handleChipModal(interaction);
+    return;
+  }
+  await handleComponent(interaction as MessageComponentInteraction);
+});

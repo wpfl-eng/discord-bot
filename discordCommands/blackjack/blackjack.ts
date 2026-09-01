@@ -9,7 +9,9 @@ import {
   ButtonInteraction,
   TextChannel,
 } from 'discord.js';
+import { randomUUID } from 'node:crypto';
 import * as economyDb from '../../economy/economyDb.js';
+import * as escrowDb from '../../economy/escrowDb.js';
 import type { EconomyUser } from '../../types/database.js';
 import { CONFIG, formatCurrency, CHANNELS } from '../../economy/economyConfig.js';
 import {
@@ -42,6 +44,10 @@ import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 type HandResult = 'playing' | 'stood' | 'busted';
 
 interface GameState {
+  /** Groups every escrow row for this hand so they resolve together */
+  sessionKey: string;
+  /** wager_escrow rows holding this hand's stakes: bet, doubles, splits, insurance */
+  escrowIds: number[];
   deck: Deck;
   playerHand: Hand;
   dealerHand: Hand;
@@ -82,6 +88,52 @@ interface GameOutcomeResult {
 // In-memory state tracking (resets on bot restart)
 const activeGames: Map<string, GameState> = new Map();
 const blackjackCooldowns: Map<string, number> = new Map();
+
+/**
+ * Take coins for this hand and record them as at-risk.
+ *
+ * Every blackjack debit goes through here rather than gambleLose/deductFromWallet, so
+ * a hand interrupted by a restart leaves rows the startup sweep can refund. Without
+ * this the stake was simply gone: the wallet was debited with nothing recording why.
+ *
+ * @returns the updated user, or null if the wallet could not cover it (nothing taken)
+ */
+async function takeStake(
+  sessionKey: string,
+  escrowIds: number[],
+  userId: string,
+  username: string,
+  amount: number,
+  purpose: escrowDb.EscrowPurpose
+): Promise<EconomyUser | null> {
+  const result: escrowDb.OpenEscrowResult = await escrowDb.openEscrow({
+    userId,
+    username,
+    game: 'blackjack',
+    sessionKey,
+    amount,
+    purpose,
+  });
+
+  if (!result.ok || result.escrowId === null) return null;
+
+  escrowIds.push(result.escrowId);
+  return result.user;
+}
+
+/**
+ * Mark a finished hand's stakes resolved.
+ *
+ * Called once the outcome has been paid. Failure is non-fatal - unsettled rows are
+ * refunded by the next startup sweep, which errs toward giving coins back.
+ */
+async function releaseStakes(game: GameState): Promise<void> {
+  try {
+    await escrowDb.settleSession('blackjack', game.sessionKey);
+  } catch (err) {
+    console.error('[BLACKJACK] Failed to settle escrow for hand:', err);
+  }
+}
 
 function formatHandValue(hand: Hand): string {
   const value: number = calculateHandValue(hand);
@@ -502,6 +554,18 @@ async function resolveSplitGame(
     updatedUser = await economyDb.gambleWin(userId, totalPayout);
   } else {
     updatedUser = await economyDb.getUser(userId);
+  }
+
+  // Resolve the held stakes - but only once the payout has actually landed. A credit
+  // that failed leaves the rows open so the startup sweep returns the stakes, rather
+  // than recording a hand as settled that the player was never paid for.
+  if (totalPayout > 0 && !updatedUser) {
+    console.error(
+      `[BLACKJACK] Payout of ${totalPayout} to ${userId} failed; ` +
+        `leaving escrow session ${game.sessionKey} open for refund`
+    );
+  } else {
+    await releaseStakes(game);
   }
 
   // Record stats for each hand (with wasSplit=true)
@@ -931,6 +995,18 @@ async function resolveGame(
     updatedUser = await economyDb.getUser(userId);
   }
 
+  // Resolve the held stakes - but only once the payout has actually landed. A credit
+  // that failed leaves the rows open so the startup sweep returns the stakes, rather
+  // than recording a hand as settled that the player was never paid for.
+  if (totalPayout > 0 && !updatedUser) {
+    console.error(
+      `[BLACKJACK] Payout of ${totalPayout} to ${userId} failed; ` +
+        `leaving escrow session ${game.sessionKey} open for refund`
+    );
+  } else {
+    await releaseStakes(game);
+  }
+
   // Record stats (non-blocking - don't let stats failure break game)
   let stats: BlackjackStats | null = null;
   try {
@@ -1138,8 +1214,19 @@ async function executeNewGame(
 ): Promise<void> {
   const userId: string = interaction.user.id;
 
-  // Deduct bet
-  const betResult: EconomyUser | null = await economyDb.gambleLose(userId, amount);
+  // Take the bet into escrow. Groups every stake this hand takes - double, split,
+  // insurance - under one session so they settle or refund as a unit.
+  const sessionKey: string = randomUUID();
+  const escrowIds: number[] = [];
+
+  const betResult: EconomyUser | null = await takeStake(
+    sessionKey,
+    escrowIds,
+    userId,
+    interaction.user.username,
+    amount,
+    'bet'
+  );
   if (!betResult) {
     await interaction.editReply({
       content: 'Something went wrong placing your bet. Please try again.',
@@ -1159,13 +1246,20 @@ async function executeNewGame(
 
   // Safety check for cards
   if (!playerCard1 || !playerCard2 || !dealerCard1 || !dealerCard2) {
+    // The stake is already held but no hand will ever be played, so give it straight
+    // back rather than leaving it for the next restart sweep to find.
+    for (const escrowId of escrowIds) {
+      await escrowDb.voidEscrow(escrowId, userId);
+    }
     await interaction.editReply({
-      content: 'Something went wrong dealing cards. Please try again.',
+      content: 'Something went wrong dealing cards. Your bet was returned.',
     });
     return;
   }
 
   const game: GameState = {
+    sessionKey,
+    escrowIds,
     deck,
     playerHand: [playerCard1, playerCard2],
     dealerHand: [dealerCard1, dealerCard2],
@@ -1225,9 +1319,21 @@ async function executeNewGame(
         if (canAffordInsurance) {
           await handleInsurancePrompt(interaction, game, userId, insuranceAmount);
 
-          // If insurance was taken, deduct from wallet
+          // If insurance was taken, take it into escrow alongside the main bet
           if (game.insuranceBet > 0) {
-            await economyDb.deductFromWallet(userId, game.insuranceBet);
+            const insuranceTaken: EconomyUser | null = await takeStake(
+              game.sessionKey,
+              game.escrowIds,
+              userId,
+              interaction.user.username,
+              game.insuranceBet,
+              'insurance'
+            );
+            if (!insuranceTaken) {
+              // Wallet moved between the offer and the confirm - treat as declined
+              // rather than granting free insurance.
+              game.insuranceBet = 0;
+            }
           }
         }
 
@@ -1482,9 +1588,13 @@ async function executeNewGame(
         return;
       }
 
-      const doubleResult: EconomyUser | null = await economyDb.gambleLose(
+      const doubleResult: EconomyUser | null = await takeStake(
+        currentGame.sessionKey,
+        currentGame.escrowIds,
         userId,
-        currentGame.originalBet
+        interaction.user.username,
+        currentGame.originalBet,
+        'double'
       );
       if (!doubleResult) {
         await buttonInteraction.reply({
@@ -1618,6 +1728,10 @@ async function executeNewGame(
         });
         return;
       }
+
+      // Half the stake has been returned; the other half is the house's. Either way
+      // the hand is over, so the held rows resolve.
+      await releaseStakes(currentGame);
 
       currentGame.phase = 'finished';
       currentGame.surrendered = true;
@@ -1796,9 +1910,13 @@ async function executeNewGame(
       }
 
       // Deduct split bet from wallet
-      const splitDeduct: EconomyUser | null = await economyDb.deductFromWallet(
+      const splitDeduct: EconomyUser | null = await takeStake(
+        currentGame.sessionKey,
+        currentGame.escrowIds,
         userId,
-        currentGame.originalBet
+        interaction.user.username,
+        currentGame.originalBet,
+        'split'
       );
       if (!splitDeduct) {
         await buttonInteraction.reply({
