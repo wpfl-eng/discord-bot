@@ -24,6 +24,7 @@ import {
   type RouletteColor,
 } from './rouletteConfig.js';
 import { pacingFor, type Pacing } from '../../casino/casinoPacing.js';
+import { createAdvanceGuard, type RecoveryContext } from '../../casino/casinoRecovery.js';
 import { renderHero, rouletteHeroSvg, type Hero } from '../../casino/casinoHero.js';
 import { formatAmount } from '../../casino/casinoFormat.js';
 import {
@@ -78,6 +79,13 @@ interface TableSession {
   graceTimer: NodeJS.Timeout | null;
   /** Bets from the previous spin, per user, for the Rebet button */
   lastRoundBets: Map<string, { betType: string; amount: number }[]>;
+  /**
+   * True once this spin has begun crediting wallets.
+   *
+   * Between a credit and its escrow row being marked settled the row is paid but still
+   * 'open'. Recovery must not void one, or the stake is returned on top of the payout.
+   */
+  settlementStarted: boolean;
 }
 
 // ============ STATE ============
@@ -191,12 +199,13 @@ function startBettingWindow(session: TableSession, firstOfSession: boolean): voi
   session.phase = 'betting';
   session.sessionKey = randomUUID();
   session.bets = [];
+  session.settlementStarted = false;
 
   const seconds: number = firstOfSession ? TIMING.FIRST_WINDOW_SECONDS : TIMING.NEXT_WINDOW_SECONDS;
 
   session.closesAt = Date.now() + seconds * 1000;
   session.windowTimer = setTimeout(() => {
-    void runSpin();
+    void guard.run('runSpin', runSpin);
   }, seconds * 1000);
 }
 
@@ -217,9 +226,57 @@ function extendWindow(session: TableSession): void {
   session.closesAt = extended;
   if (session.windowTimer) clearTimeout(session.windowTimer);
   session.windowTimer = setTimeout(() => {
-    void runSpin();
+    void guard.run('runSpin', runSpin);
   }, extended - Date.now());
 }
+
+// ============ RECOVERY ============
+
+/**
+ * Whether this spin's stakes can still be handed back.
+ *
+ * False from the moment `processPayouts` is entered: between a credit and its escrow
+ * row being marked settled the row is paid but still 'open', so voiding it would return
+ * a stake the player has already been paid.
+ *
+ * Exported as a plain predicate so the rule is testable without driving a whole spin.
+ */
+export function canVoidSpin(settlementStarted: boolean): boolean {
+  return !settlementStarted;
+}
+
+/**
+ * Put the table back together after an advance threw.
+ *
+ * The stakes are returned against the session key the failed spin was using, and only
+ * then does a new window rotate that key and clear the felt.
+ */
+async function recoverTable(context: RecoveryContext): Promise<void> {
+  const session = table;
+  if (!session) return;
+
+  clearTimers(session);
+  cancelPendingPaint();
+
+  if (canVoidSpin(session.settlementStarted)) {
+    try {
+      await escrowDb.voidSession('roulette', session.sessionKey);
+    } catch (err) {
+      console.error('[ROULETTE] Could not return stakes after a failed advance:', err);
+    }
+  }
+
+  // The fault is still there. Re-arming would only fail again on the next window.
+  if (context.exhausted) {
+    await closeTable();
+    return;
+  }
+
+  startBettingWindow(session, false);
+  await paint(session);
+}
+
+const guard = createAdvanceGuard('ROULETTE', recoverTable);
 
 // ============ PAYOUTS ============
 
@@ -371,7 +428,9 @@ async function runSpin(): Promise<void> {
     await sleep(pacing.frameMs);
   }
 
-  // THE ONLY PAYOUT PASS.
+  // THE ONLY PAYOUT PASS. Past this line a wallet may have been credited against an
+  // escrow row that is still 'open', so recovery must stop offering to hand stakes back.
+  session.settlementStarted = true;
   const results: PayoutResult[] = await processPayouts(bets, resultNumber, resultColor);
 
   const totalWagered: number = bets.reduce((sum, b) => sum + b.amount, 0);
@@ -474,7 +533,7 @@ async function logSpin(
 function startGracePeriod(session: TableSession): void {
   clearTimers(session);
   session.graceTimer = setTimeout(() => {
-    void closeTable();
+    void guard.run('closeTable', closeTable);
   }, TIMING.GRACE_SECONDS * 1000);
 }
 
@@ -568,6 +627,7 @@ async function openTable(channel: TextChannel): Promise<void> {
     windowTimer: null,
     graceTimer: null,
     lastRoundBets: new Map(),
+    settlementStarted: false,
   };
 
   // Seed the strip from history so a fresh table is not blank.
@@ -663,6 +723,7 @@ export async function refresh(): Promise<void> {
 export function __resetTableForTesting(): void {
   if (table) clearTimers(table);
   cancelPendingPaint();
+  guard.reset();
   lastPaintAt = 0;
   table = null;
   openLock = null;

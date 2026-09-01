@@ -26,6 +26,7 @@ import * as crapsDb from '../../craps/crapsDb.js';
 import { pacingFor, sleep, type Pacing } from '../../casino/casinoPacing.js';
 import { crapsHeroSvg, renderHero, type Hero } from '../../casino/casinoHero.js';
 import { createPainter } from '../../casino/casinoPaint.js';
+import { createAdvanceGuard, type RecoveryContext } from '../../casino/casinoRecovery.js';
 import {
   clearTableState,
   loadTableState,
@@ -89,6 +90,14 @@ interface TableSession {
   /** Rendered result image, set only for a big roll */
   hero: Hero | null;
 
+  /**
+   * True once this roll has begun crediting wallets.
+   *
+   * Between a credit and its escrow row being marked settled the row is paid but still
+   * 'open'. Recovery must not void one, or the stake is returned on top of the payout.
+   */
+  settlementStarted: boolean;
+
   /** Groups every escrow row for this shooter's turn */
   sessionKey: string;
   sessionWagered: number;
@@ -139,6 +148,7 @@ function createSession(channelId: string, client: Client): TableSession {
     nextShooter: null,
     tumbling: undefined,
     hero: null,
+    settlementStarted: false,
     sessionKey: randomUUID(),
     sessionWagered: 0,
     sessionPaid: 0,
@@ -233,12 +243,16 @@ function startBettingWindow(session: TableSession): void {
   session.hero = null;
   session.sevenOut = false;
   session.nextShooter = null;
+  session.settlementStarted = false;
 
   const seconds: number =
     session.point === null ? TIMING.COMEOUT_BETTING_SECONDS : TIMING.POINT_BETTING_SECONDS;
 
   session.deadline = Date.now() + seconds * 1000;
-  session.windowTimer = setTimeout(() => void closeBetting(), seconds * 1000);
+  session.windowTimer = setTimeout(
+    () => void guard.run('closeBetting', closeBetting),
+    seconds * 1000
+  );
 
   // The rotation is stable between rolls, which is what is worth persisting.
   void saveState();
@@ -254,8 +268,67 @@ function extendWindow(session: TableSession): void {
 
   session.deadline = extended;
   if (session.windowTimer) clearTimeout(session.windowTimer);
-  session.windowTimer = setTimeout(() => void closeBetting(), extended - Date.now());
+  session.windowTimer = setTimeout(
+    () => void guard.run('closeBetting', closeBetting),
+    extended - Date.now()
+  );
 }
+
+// ============ RECOVERY ============
+
+/**
+ * Whether this turn's stakes can still be handed back.
+ *
+ * False from the moment `settleResolution` starts crediting wallets: between a credit
+ * and its escrow row being marked settled the row is paid but still 'open', so voiding
+ * it would return a stake the player has already been paid.
+ *
+ * Exported as a plain predicate so the rule is testable without driving a whole roll.
+ */
+export function canVoidTurn(settlementStarted: boolean): boolean {
+  return !settlementStarted;
+}
+
+/**
+ * Put the table back together after an advance threw.
+ *
+ * A voided turn takes the point with it. The point belongs to a shooter's turn whose
+ * bets have just been returned, so leaving it up would show a contract nobody is on.
+ */
+async function recoverTable(context: RecoveryContext): Promise<void> {
+  const session = table;
+  if (!session) return;
+
+  clearTimers(session);
+
+  if (canVoidTurn(session.settlementStarted)) {
+    try {
+      await escrowDb.voidSession('craps', session.sessionKey);
+    } catch (error: unknown) {
+      console.error('[CRAPS] Could not return stakes after a failed advance:', error);
+    }
+
+    session.bets = [];
+    session.point = null;
+    // A fresh key, so a later void can never reach the rows just returned.
+    session.sessionKey = randomUUID();
+  }
+
+  // The fault is still there. Re-arming would only fail again on the next window.
+  if (context.exhausted) {
+    await closeTable();
+    return;
+  }
+
+  if (session.queue.length > 0) {
+    startBettingWindow(session);
+    await painter.paintNow(session);
+  } else {
+    startGracePeriod(session);
+  }
+}
+
+const guard = createAdvanceGuard('CRAPS', recoverTable);
 
 /**
  * Lock betting and hand the dice to the shooter.
@@ -289,7 +362,10 @@ function startGracePeriod(session: TableSession): void {
   clearTimers(session);
   session.phase = 'idle';
   session.deadline = null;
-  session.graceTimer = setTimeout(() => void closeTable(), TIMING.GRACE_PERIOD_SECONDS * 1000);
+  session.graceTimer = setTimeout(
+    () => void guard.run('closeTable', closeTable),
+    TIMING.GRACE_PERIOD_SECONDS * 1000
+  );
   void painter.paintNow(session);
 }
 
@@ -311,6 +387,12 @@ function tumbleFrames(count: number): Roll[] {
  * @param automatic - true when the grace timer fired rather than the shooter clicking
  */
 export async function executeRoll(automatic: boolean = false): Promise<void> {
+  // Guarded here rather than at the shooter timer, because the ROLL button reaches this
+  // from a component handler too and that path needs the same recovery.
+  await guard.run('executeRoll', () => runRoll(automatic));
+}
+
+async function runRoll(automatic: boolean): Promise<void> {
   const session = table;
   if (!session || session.phase !== 'awaiting_roll') return;
 
@@ -398,6 +480,10 @@ async function settleResolution(
   session: TableSession,
   resolution: RollResolutionResult
 ): Promise<RenderResult[]> {
+  // Past this line a wallet may have been credited against an escrow row that is still
+  // 'open', so recovery must stop offering to hand this turn's stakes back.
+  session.settlementStarted = true;
+
   const settledEscrowIds: number[] = [];
   const netByUser = new Map<string, number>();
 
@@ -962,5 +1048,6 @@ export async function restoreState(client: Client): Promise<boolean> {
 export function __resetTableForTesting(): void {
   if (table) clearTimers(table);
   table = null;
+  guard.reset();
   painter.reset();
 }

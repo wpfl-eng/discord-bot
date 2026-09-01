@@ -33,6 +33,7 @@ import * as blackjackDb from '../../blackjack/blackjackDb.js';
 import { pacingFor, sleep } from '../../casino/casinoPacing.js';
 import { blackjackHeroSvg, renderHero, type Hero } from '../../casino/casinoHero.js';
 import { createPainter } from '../../casino/casinoPaint.js';
+import { createAdvanceGuard, type RecoveryContext } from '../../casino/casinoRecovery.js';
 import {
   clearTableState,
   loadTableState,
@@ -154,6 +155,15 @@ interface Table {
 
   /** Rendered settle image, set only for a big round */
   hero: Hero | null;
+
+  /**
+   * True once this round has begun crediting wallets.
+   *
+   * Between that point and the escrow rows being marked settled, a row is paid but
+   * still 'open'. Recovery must not void one, or the stake is handed back on top of
+   * the payout.
+   */
+  settlementStarted: boolean;
 }
 
 // ============ STATE ============
@@ -178,6 +188,7 @@ function createTable(channelId: string, client: Client): Table {
     windowTimer: null,
     graceTimer: null,
     hero: null,
+    settlementStarted: false,
   };
 }
 
@@ -255,6 +266,62 @@ function armWindow(t: Table, seconds: number, next: () => Promise<void>): void {
   t.windowTimer = setTimeout(() => void next(), seconds * 1000);
 }
 
+// ============ RECOVERY ============
+
+/**
+ * Whether this round's stakes can still be handed back.
+ *
+ * False from the moment `finishRound` starts crediting wallets: between a credit and
+ * its escrow row being marked settled the row is paid but still 'open', so voiding it
+ * would return a stake the player has already been paid.
+ *
+ * Exported as a plain predicate so the rule is testable without driving a whole round.
+ */
+export function canVoidRound(settlementStarted: boolean): boolean {
+  return !settlementStarted;
+}
+
+/**
+ * Put the table back together after an advance threw.
+ *
+ * Order matters: the stakes are returned against the session key the failed round was
+ * using, and only then does a new window rotate that key.
+ */
+async function recoverTable(context: RecoveryContext): Promise<void> {
+  const t = table;
+  if (!t) return;
+
+  clearTimers(t);
+
+  if (canVoidRound(t.settlementStarted)) {
+    try {
+      await escrowDb.voidSession('blackjack', t.sessionKey);
+    } catch (error: unknown) {
+      console.error('[BLACKJACK] Could not return stakes after a failed advance:', error);
+    }
+
+    for (const seat of t.seats) {
+      seat.escrowIds = [];
+      seat.inRound = false;
+    }
+  }
+
+  // The fault is still there. Re-arming would only fail again on the next window.
+  if (context.exhausted) {
+    await closeTable();
+    return;
+  }
+
+  if (t.seats.length > 0) {
+    startBettingWindow(t, false);
+    await painter.paintNow(t);
+  } else {
+    startGrace(t);
+  }
+}
+
+const guard = createAdvanceGuard('BLACKJACK', recoverTable);
+
 // ============ LOOKUP ============
 
 function seatOf(userId: string): Seat | undefined {
@@ -310,6 +377,7 @@ function startBettingWindow(t: Table, firstOfSession: boolean): void {
   t.dealerHand = [];
   t.hideHole = true;
   t.hero = null;
+  t.settlementStarted = false;
   t.sessionKey = randomUUID();
 
   for (const seat of t.seats) {
@@ -325,7 +393,7 @@ function startBettingWindow(t: Table, firstOfSession: boolean): void {
   }
 
   armWindow(t, firstOfSession ? TIMING.FIRST_WINDOW_SECONDS : TIMING.NEXT_WINDOW_SECONDS, () =>
-    closeSeating()
+    guard.run('closeSeating', closeSeating)
   );
 
   // Seats are stable between rounds, which is exactly what is worth persisting.
@@ -336,7 +404,10 @@ function startGrace(t: Table): void {
   clearTimers(t);
   t.phase = 'idle';
   t.deadline = null;
-  t.graceTimer = setTimeout(() => void closeTable(), TIMING.GRACE_SECONDS * 1000);
+  t.graceTimer = setTimeout(
+    () => void guard.run('closeTable', closeTable),
+    TIMING.GRACE_SECONDS * 1000
+  );
   void painter.paintNow(t);
 }
 
@@ -547,7 +618,7 @@ async function closeSeating(): Promise<void> {
   // Insurance is offered before anyone acts, only when the upcard is an ace.
   if (dealerShowsAce(t.dealerHand)) {
     t.phase = 'insurance';
-    armWindow(t, TIMING.INSURANCE_SECONDS, () => beginActing());
+    armWindow(t, TIMING.INSURANCE_SECONDS, () => guard.run('beginActing', beginActing));
     await painter.paintNow(t);
     return;
   }
@@ -683,7 +754,7 @@ async function beginActing(): Promise<void> {
   }
 
   t.phase = 'acting';
-  armWindow(t, TIMING.ACTION_SECONDS, () => timeOutActing());
+  armWindow(t, TIMING.ACTION_SECONDS, () => guard.run('timeOutActing', timeOutActing));
   await painter.paintNow(t);
 }
 
@@ -774,7 +845,7 @@ export async function act(userId: string, action: PlayerAction): Promise<ActionR
     // Not waiting for the clock when nobody is left to act is most of what makes the
     // table feel quick.
     if (everyoneDone(t)) {
-      void finishRound(t);
+      void guard.run('finishRound', () => finishRound(t));
     } else {
       painter.schedulePaint(t);
     }
@@ -939,6 +1010,10 @@ async function finishRound(t: Table): Promise<void> {
   }
 
   const settledEscrowIds: number[] = [];
+
+  // Past this line a wallet may have been credited against an escrow row that is still
+  // 'open', so recovery must stop offering to hand this round's stakes back.
+  t.settlementStarted = true;
 
   for (const seat of t.seats) {
     if (!seat.inRound) continue;
@@ -1141,5 +1216,6 @@ export async function restoreState(client: Client): Promise<boolean> {
 export function __resetTableForTesting(): void {
   if (table) clearTimers(table);
   table = null;
+  guard.reset();
   painter.reset();
 }
