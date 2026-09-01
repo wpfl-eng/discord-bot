@@ -7,6 +7,7 @@ import {
   toFreeAgents,
   toTransactions,
   espnTools,
+  FREE_AGENT_LIMIT,
 } from '../../wpfl/espnTools.js';
 
 const load = <T>(name: string): T =>
@@ -137,6 +138,42 @@ describe('espnTools', () => {
     test('returns everyone when no position is given', () => {
       expect(toFreeAgents(recording)).toHaveLength(2);
     });
+
+    // Measured live: 837 free agents, ~140 KB, ~35K tokens in one tool result.
+    // The pool is long-tailed -- almost all of it is players nobody would pick
+    // up -- so the cap keeps the useful end and says it truncated.
+    describe('the pool is capped', () => {
+      const many = Array.from({ length: 300 }, (_, i) => ({
+        player: {
+          id: i,
+          fullName: `Player ${i}`,
+          defaultPosition: 'RB',
+          percentOwned: i, // ascending, so the most-owned are last
+        },
+      }));
+
+      test('returns at most FREE_AGENT_LIMIT players', () => {
+        expect(toFreeAgents(many).length).toBe(FREE_AGENT_LIMIT);
+      });
+
+      test('keeps the most-owned end of the pool, not whatever ESPN listed first', () => {
+        const kept = toFreeAgents(many);
+
+        expect(kept[0].name).toBe('Player 299');
+        expect(kept[0].percentOwned).toBe(299);
+        expect(kept[kept.length - 1].percentOwned).toBe(300 - FREE_AGENT_LIMIT);
+      });
+
+      test('does not cap a result that already fits', () => {
+        expect(toFreeAgents(recording)).toHaveLength(2);
+      });
+
+      test('sorts a short result too, so the answer leads with the relevant player', () => {
+        const kept = toFreeAgents(recording);
+
+        expect(kept[0].percentOwned).toBeGreaterThanOrEqual(kept[1].percentOwned ?? 0);
+      });
+    });
   });
 
   describe('espn_transactions', () => {
@@ -212,10 +249,17 @@ describe('espnTools', () => {
       expect(transactions?.description).toMatch(/current season/i);
     });
 
-    test('espn_teams says it is the source of truth for the season in progress', () => {
+    test('espn_teams says it is the live source for the season in progress', () => {
       const teams = espnTools.find((t) => t.name === 'espn_teams');
 
-      expect(teams?.description).toMatch(/2026|current season/i);
+      expect(teams?.description).toMatch(/live/i);
+      expect(teams?.description).toMatch(/season in progress|current season/i);
+    });
+
+    test('every ESPN description distinguishes itself from the historical sources', () => {
+      for (const definition of espnTools) {
+        expect(definition.description).toMatch(/history API|draft artifact|historical|sql tool/i);
+      }
     });
   });
 });

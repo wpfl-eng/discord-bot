@@ -20,6 +20,44 @@ declare module 'espn-fantasy-football-api/node.js' {
     homeScore: number;
     awayTeamId?: number;
     awayScore?: number;
+    homeRoster?: BoxscorePlayer[];
+    awayRoster?: BoxscorePlayer[];
+  }
+
+  /** A lineup slot in a boxscore. */
+  export interface BoxscorePlayer {
+    player: EspnPlayer;
+    /** Lineup slot, e.g. 'WR', 'Flex', 'Bench'. */
+    position: string;
+    totalPoints: number;
+  }
+
+  /**
+   * A player as the fork returns it, on a roster or in the free-agent pool.
+   */
+  export interface EspnPlayer {
+    id: number;
+    fullName: string;
+    firstName?: string;
+    lastName?: string;
+    /** The player's own position, e.g. 'RB'. */
+    defaultPosition: string;
+    eligiblePositions?: string[];
+    proTeam?: string;
+    proTeamAbbreviation?: string;
+    injuryStatus?: string;
+    isInjured?: boolean;
+    availabilityStatus?: string;
+    percentOwned?: number;
+    percentChange?: number;
+    percentStarted?: number;
+    auctionValueAverage?: number;
+    averageDraftPosition?: number;
+  }
+
+  /** getFreeAgents wraps each player alongside its stat blocks. */
+  export interface FreeAgentEntry {
+    player: EspnPlayer;
   }
 
   /**
@@ -32,6 +70,13 @@ declare module 'espn-fantasy-football-api/node.js' {
     ties: number;
     playoffSeed: number;
     finalStandingsPosition?: number;
+    /** Always ' ' on the fork, which is why constants/wpflMembers.ts exists. */
+    name?: string;
+    abbreviation?: string;
+    regularSeasonPointsFor?: number;
+    regularSeasonPointsAgainst?: number;
+    totalPointsScored?: number;
+    roster?: EspnPlayer[];
   }
 
   /**
@@ -43,7 +88,12 @@ declare module 'espn-fantasy-football-api/node.js' {
         fullName: string;
       };
     };
-    player: {
+    /**
+     * Optional: a recorded FA ADDED action carries playerPoolEntry and no
+     * `player` at all. discordCommands/activity/activity.ts already reads this
+     * with optional chaining.
+     */
+    player?: {
       fullName: string;
     };
   }
@@ -70,7 +120,7 @@ declare module 'espn-fantasy-football-api/node.js' {
     setCookies(cookies: CookieOptions): void;
     getBoxscoreForWeek(options: BoxscoreOptions): Promise<BoxscoreMatchup[]>;
     getTeamsAtWeek(options: { seasonId: number; scoringPeriodId: number }): Promise<EspnTeam[]>;
-    getFreeAgents(options: { seasonId: number; scoringPeriodId: number }): Promise<unknown[]>;
+    getFreeAgents(options: { seasonId: number; scoringPeriodId: number }): Promise<FreeAgentEntry[]>;
     getHistoricalScoreboardForWeek(options: BoxscoreOptions): Promise<unknown[]>;
     getRecentActivity(options: { seasonId: number }): Promise<ActivityAction[][]>;
   }
