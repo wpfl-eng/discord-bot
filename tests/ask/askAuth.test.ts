@@ -39,10 +39,27 @@ describe('askAuth', () => {
       expect(env).not.toHaveProperty('ANTHROPIC_API_KEY');
     });
 
-    test('throws a BotError naming both variables when neither is set', () => {
+    test('throws a BotError when neither credential is set', () => {
       expect(() => agentEnv()).toThrow(BotError);
-      expect(() => agentEnv()).toThrow(/ANTHROPIC_API_KEY/);
-      expect(() => agentEnv()).toThrow(/CLAUDE_CODE_OAUTH_TOKEN/);
+    });
+
+    // The member sees userMessage; the operator sees originalError through
+    // BotError.toLogObject(). Which variable is missing is an operator's
+    // problem, so it belongs on the cause and must stay out of the Discord
+    // reply.
+    test('names both variables on the cause and neither in the member-facing text', () => {
+      let thrown: BotError | undefined;
+      try {
+        agentEnv();
+      } catch (error: unknown) {
+        thrown = error as BotError;
+      }
+
+      expect(thrown).toBeInstanceOf(BotError);
+      expect(thrown?.originalError?.message).toMatch(/ANTHROPIC_API_KEY/);
+      expect(thrown?.originalError?.message).toMatch(/CLAUDE_CODE_OAUTH_TOKEN/);
+      expect(thrown?.userMessage).not.toMatch(/ANTHROPIC_API_KEY/);
+      expect(thrown?.userMessage).not.toMatch(/CLAUDE_CODE_OAUTH_TOKEN/);
     });
 
     test('treats an empty ANTHROPIC_API_KEY as absent rather than as a credential', () => {
@@ -102,11 +119,19 @@ describe('askAuth', () => {
       ]);
     });
 
-    test('throws when PATH is missing', () => {
+    test('throws when PATH is missing, naming it on the cause', () => {
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
       delete process.env.PATH;
 
-      expect(() => agentEnv()).toThrow(/PATH/);
+      let thrown: BotError | undefined;
+      try {
+        agentEnv();
+      } catch (error: unknown) {
+        thrown = error as BotError;
+      }
+
+      expect(thrown).toBeInstanceOf(BotError);
+      expect(thrown?.originalError?.message).toMatch(/PATH/);
     });
   });
 });
