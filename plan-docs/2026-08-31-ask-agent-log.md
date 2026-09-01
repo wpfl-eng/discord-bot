@@ -27,7 +27,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 4 | 0 | `feat/ask` | Scaffolding — deps, `askConfig`, `askAuth`, `wpflMembers` | DONE |
 | 5 | 1 | `feat/ask-data` | Data layer — fixtures + generator, sync, shredder, INDEX.md, history cache | DONE |
 | 6 | 2 | `feat/ask-persistence` | Persistence — migration 009, `askDb`, caps | DONE |
-| 7 | 3 | `feat/ask-tools` | Tools (API) — 3 WPFL aggregates, 4 ESPN | NOT STARTED |
+| 7 | 3 | `feat/ask-tools` | Tools (API) — 3 WPFL aggregates, 4 ESPN | DONE |
 | 8 | 4 | `feat/ask-sql` | SQL and MCP — DuckDB, statement guard, `mcpServer` | NOT STARTED |
 | 9 | 5 | `feat/ask-runner` | Runner — system prompt, `askRunner`, concurrency, hooks | NOT STARTED |
 | 10 | 6 | `feat/ask-discord` | Discord surface — `/ask`, threads, ticker, continuation | NOT STARTED |
@@ -743,11 +743,89 @@ That remains AJ's.
 
 ---
 
-## Stage 7 — Tools, API (Phase 3) — `feat/ask-tools` — NOT STARTED
+## Stage 7 — Tools, API (Phase 3) — `feat/ask-tools` — 2026-08-31 — DONE
 
-_Should record: the recorded response shape for each of the three WPFL aggregates
-and each of the four ESPN tools, with the date recorded; anything the live shapes
-contradicted in design §4.2._
+Merged to `feat/ask` as **`515b161`** (`--no-ff`); branch deleted.
+
+### Changed
+- `wpfl/wpflApiTools.ts` — **new.** The three computed aggregates.
+- `wpfl/espnTools.ts` — **new.** The four ESPN 2026 tools.
+- `types/espn-fantasy.d.ts` — extended with the fields these tools read; one
+  existing declaration corrected.
+- `scripts/makeAskFixtures.ts` — now records the seven tool responses too.
+- Seven recordings under `tests/fixtures/`.
+- Tests: `wpflApiTools` (17), `espnTools` (26), written against the recordings.
+
+### Verified
+
+**Recorded shapes, 2026-08-31.** These are §13.3's carve-outs — the interfaces
+could not honestly be designed before the payload was known.
+
+| Tool | Recorded | Shape |
+| --- | --- | --- |
+| `expected_wins` | 14 rows, 2.3 KB | `owner, expectedWins, actualWins, seasonMin, seasonMax, weekMin, weekMax` |
+| `optimal_coaching` | 14 rows, 1.9 KB | `owner, actualPointsFor, optimalPointsFor, season, week` |
+| `drafted_points` | 14 rows, 1.7 KB | `owner, draftedPoints, rosteredOptimalPoints, actualPoints` |
+| `espn_teams` | 14 teams | 25 fields per team, roster of 19-field players |
+| `espn_boxscores` | 7 matchups | `home/awayTeamId`, `home/awayScore`, rosters of `{player, position, totalPoints}` |
+| `espn_free_agents` | 837 players | `{player, rawStats, projectedRawStats}` |
+| `espn_transactions` | 29 actions in 16 topics | `{team, player, ids, action, date, bidAmount, targetId}` |
+
+**All seven return live data through the fork:**
+
+| Tool | Latency | Result |
+| --- | ---: | --- |
+| `espn_teams` | 486 ms | 14 rows, 30.6 KB |
+| `espn_boxscores` | 373 ms | 7 matchups, 16.8 KB |
+| `espn_free_agents` | 297 ms | 50 rows, 8.6 KB |
+| `espn_transactions` | 913 ms | 29 rows, 5.0 KB |
+| `expected_wins` | 748 ms | 14 rows |
+| `optimal_coaching` | 753 ms | 14 rows |
+| `drafted_points` | 1,295 ms | 14 rows |
+
+**Green gate on `feat/ask` after the merge:** typecheck 0 · lint 0 · `npm test`
+**577 passed / 24 suites** (was 534 / 22).
+
+### What the recordings changed
+
+1. **Every ESPN tool has to project, and the numbers say why.** Raw
+   `getRecentActivity` for 29 transactions is **196 KB** — almost all of it the
+   full ESPN team object, roster included, embedded in *every* action, of which
+   the tool reads only `team.id`. Projected: **5 KB**. Design §4.2 said these
+   tools "return rows"; it did not say the raw rows would be unusable, and they
+   are.
+
+2. **The free-agent pool needed a cap that the design does not mention.**
+   Measured: **837 players, 513 KB raw**, and ~140 KB even after projection —
+   roughly 35,000 tokens in one tool result, a third of a context window spent
+   on players nobody would claim. Added test-first: sort by percent owned, keep
+   50. Now **8.8 KB, ~2,200 tokens**. This mirrors the row cap §4.3 already
+   specifies for the SQL tool.
+
+3. **`tool()` does not expose `alwaysLoad` as a property.** It writes
+   `_meta['anthropic/alwaysLoad']`, which is what the API reads. A test caught
+   this by asserting the wrong access path; both tool suites now assert the
+   wire-level metadata instead.
+
+4. **`drafted_points` returns two dead fields.** `rosteredOptimalPoints` and
+   `actualPoints` come back as `0.0` for every owner; only `draftedPoints` is
+   populated. The tool description says so, or the agent would cite zeroes as
+   findings.
+
+5. **`ActivityPlayer.player` is optional, not required.** The repo's type
+   declaration had it required. A recorded `FA ADDED` action carries
+   `playerPoolEntry` and no `player` at all. `activity.ts:69` already read it
+   with optional chaining, so nothing changes for the existing command — but
+   the type was wrong and is now right.
+
+6. **`optimal_coaching`'s week parameter is cumulative.** `week=5` is weeks
+   1–5, not week 5 alone. The endpoint does not signal this; the tool
+   description now does.
+
+### Open
+- Nothing new. §15.9 stands unchanged: these tools are written against a 0-0
+  preseason. Every score in every recording is 0, so `espn_boxscores` is
+  verified for shape and not for scoring until week 1.
 
 ---
 
