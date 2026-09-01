@@ -119,11 +119,22 @@ function stripLiteralsAndComments(sql: string): string {
 interface Materialized {
   readonly connection: DuckDBConnection;
   readonly tables: string[];
-  readonly dataDir: string;
-  readonly builtFrom: number;
+  /** `<dataDir>:<shred mtime>` -- what this database was built from. */
+  readonly key: string;
 }
 
 let current: Materialized | null = null;
+
+/**
+ * The build in progress, if there is one.
+ *
+ * MAX_CONCURRENT_QUERIES is 2, so two questions can both find the cache stale
+ * and both run the whole CREATE TABLE loop over ~11 MB -- twice the work, two
+ * live native instances, and the second build closing the connection the first
+ * one's caller is already holding. The second caller now joins the first build.
+ */
+let building: Promise<Materialized> | null = null;
+let buildingKey: string | null = null;
 
 /**
  * Drop the in-memory database, so the next query rebuilds it.
@@ -136,6 +147,8 @@ let current: Materialized | null = null;
 export function resetSqlDatabase(): void {
   close(current);
   current = null;
+  building = null;
+  buildingKey = null;
 }
 
 function close(materialized: Materialized | null): void {
@@ -177,13 +190,23 @@ export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promi
   }
 }
 
-/** Rebuilt whenever the shred changes, detected through INDEX.md's mtime. */
+/** Rebuilt whenever the shred changes; concurrent callers share one build. */
 async function database(dataDir: string): Promise<Materialized> {
-  const stamp: number = shredStamp(dataDir);
-  if (current !== null && current.dataDir === dataDir && current.builtFrom === stamp) {
-    return current;
-  }
+  const key = `${dataDir}:${shredStamp(dataDir)}`;
+  if (current !== null && current.key === key) return current;
+  if (building !== null && buildingKey === key) return building;
 
+  buildingKey = key;
+  building = build(dataDir, key).finally((): void => {
+    if (buildingKey === key) {
+      building = null;
+      buildingKey = null;
+    }
+  });
+  return building;
+}
+
+async function build(dataDir: string, key: string): Promise<Materialized> {
   const instance = await DuckDBInstance.create(':memory:');
   const connection = await instance.connect();
   const tables: string[] = [];
@@ -205,7 +228,7 @@ async function database(dataDir: string): Promise<Materialized> {
   await connection.run('SET lock_configuration=true');
 
   close(current);
-  current = { connection, tables: tables.sort(), dataDir, builtFrom: stamp };
+  current = { connection, tables: tables.sort(), key };
   return current;
 }
 
@@ -242,9 +265,20 @@ function tableName(directory: string | null, file: string): string {
   return directory === null ? base : `${directory}_${base}`;
 }
 
+/**
+ * meta.json's mtime, not INDEX.md's.
+ *
+ * INDEX.md is the wrong file to watch: artifactSync deliberately touches it on
+ * the `unchanged` path, to restart the six-hour staleness window without
+ * re-fetching. Keying on it meant that up to four times a day a sync which had
+ * just concluded *nothing changed* threw away the materialized database, and
+ * the next question paid a full ~11 MB rebuild inside a member's turn -- the
+ * exact cost the etag short-circuit exists to avoid. meta.json is written only
+ * by a real shred, and the swap is a rename, which preserves the new mtime.
+ */
 function shredStamp(dataDir: string): number {
-  const index: string = path.join(dataDir, 'INDEX.md');
-  return fs.existsSync(index) ? fs.statSync(index).mtimeMs : 0;
+  const meta: string = path.join(dataDir, 'meta.json');
+  return fs.existsSync(meta) ? fs.statSync(meta).mtimeMs : 0;
 }
 
 export const sqlTool: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(

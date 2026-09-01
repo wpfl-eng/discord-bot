@@ -271,6 +271,47 @@ describe('sqlTool', () => {
     });
   });
 
+  describe('when the materialized database is rebuilt', () => {
+    let dataDir: string;
+
+    beforeAll(() => {
+      dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-sql-stamp-'));
+      fs.writeFileSync(path.join(dataDir, 'meta.json'), '{"season":2026}');
+      fs.writeFileSync(path.join(dataDir, 'alpha.json'), '{"n":1}');
+      fs.writeFileSync(path.join(dataDir, 'INDEX.md'), '# index\n');
+      resetSqlDatabase();
+    });
+
+    afterAll(() => {
+      resetSqlDatabase();
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+
+    test('touching INDEX.md does not throw the database away', async () => {
+      // artifactSync touches INDEX.md on the `unchanged` path, to restart the
+      // staleness window without re-fetching. Keying the cache on that mtime
+      // meant a sync which had just concluded nothing changed discarded ~11 MB
+      // of materialized database, and the next question rebuilt it inside a
+      // member's turn. Deleting the source proves the answer came from the
+      // cache and not from a rebuild.
+      // Integers come back as strings; getRowObjectsJson keeps full precision.
+      expect((await runSql('SELECT n FROM alpha', dataDir)).rows).toEqual([{ n: '1' }]);
+
+      fs.rmSync(path.join(dataDir, 'alpha.json'));
+      const later = new Date(Date.now() + 60_000);
+      fs.utimesSync(path.join(dataDir, 'INDEX.md'), later, later);
+
+      expect((await runSql('SELECT n FROM alpha', dataDir)).rows).toEqual([{ n: '1' }]);
+    });
+
+    test('a real shred, which rewrites meta.json, does rebuild it', async () => {
+      const later = new Date(Date.now() + 120_000);
+      fs.utimesSync(path.join(dataDir, 'meta.json'), later, later);
+
+      await expect(runSql('SELECT n FROM alpha', dataDir)).rejects.toThrow(/alpha/);
+    });
+  });
+
   describe('the MCP tool definition', () => {
     test('is named sql and always rides in the initial prompt', () => {
       expect(sqlTool.name).toBe('sql');
