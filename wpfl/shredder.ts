@@ -91,8 +91,14 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
   const deadKeys: string[] = [];
   const ignored: string[] = [];
 
+  const root: string = path.resolve(targetDir);
   const write = (relative: string, contents: string): void => {
-    const full: string = path.join(targetDir, relative);
+    const full: string = path.resolve(root, relative);
+    // Belt to safeName's braces: nothing is written outside the shred root,
+    // whatever the artifact called its keys.
+    if (full !== root && !full.startsWith(`${root}${path.sep}`)) {
+      throw new ShredAbort(`Refusing to write \`${relative}\` outside the shred directory.`);
+    }
     fs.mkdirSync(path.dirname(full), { recursive: true });
     fs.writeFileSync(full, contents);
     files.push({ path: relative, bytes: fs.statSync(full).size });
@@ -117,7 +123,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
     switch (plan.kind) {
       case 'single':
         requireDict(body, value);
-        write(`${body}.json`, JSON.stringify(value));
+        write(`${safeName(body)}.json`, JSON.stringify(value));
         break;
 
       case 'list-by-owner':
@@ -129,7 +135,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
               `A \`${body}\` entry has no string \`owner\` to name its file after.`
             );
           }
-          write(`${body}/${slug(owner)}.json`, JSON.stringify(entry));
+          write(`${safeName(body)}/${slug(owner)}.json`, JSON.stringify(entry));
         }
         break;
 
@@ -142,9 +148,9 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
             continue;
           }
           if (asJsonl.has(key) && isDict(member)) {
-            write(`${body}/${key}.jsonl`, toJsonl(member));
+            write(`${safeName(body)}/${safeName(key)}.jsonl`, toJsonl(member));
           } else {
-            write(`${body}/${key}.json`, JSON.stringify(member));
+            write(`${safeName(body)}/${safeName(key)}.json`, JSON.stringify(member));
           }
         }
         break;
@@ -163,11 +169,11 @@ function shredGenerically(
 ): void {
   if (isDict(value)) {
     for (const [key, member] of Object.entries(value)) {
-      write(`${body}/${key}.json`, JSON.stringify(member));
+      write(`${safeName(body)}/${safeName(key)}.json`, JSON.stringify(member));
     }
     return;
   }
-  write(`${body}.json`, JSON.stringify(value));
+  write(`${safeName(body)}.json`, JSON.stringify(value));
 }
 
 /**
@@ -180,6 +186,20 @@ function toJsonl(collection: JsonDict): string {
     JSON.stringify(isDict(value) ? { key, ...value } : { key, value })
   );
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * One artifact key to one safe path component.
+ *
+ * Body and key names come out of a JSON document fetched over the network and
+ * were being handed straight to path.join, so a key of `../../authorized_keys`
+ * wrote outside the shred root. Owner names were already slugged; nothing else
+ * was. Every real key -- `spend_race`, `hall_of_fame`, `board_intro` -- is
+ * unchanged by this, so no existing filename moves.
+ */
+function safeName(name: string): string {
+  const cleaned: string = name.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^\.+/, '');
+  return cleaned === '' ? '_' : cleaned;
 }
 
 /** Canonical WPFL owner spelling to a filename: `AJ Boorde` -> `aj-boorde`. */

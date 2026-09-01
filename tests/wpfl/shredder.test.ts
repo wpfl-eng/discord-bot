@@ -254,4 +254,128 @@ describe('shredder', () => {
       expect(() => shred(withoutNight, dir)).not.toThrow();
     });
   });
+  /**
+   * The artifact is fetched over the network. Body and key names go straight
+   * into the path a file is written at, so a key like `../../x` was a
+   * remote-content-to-arbitrary-file-write primitive. Owner names were already
+   * slugged; nothing else was.
+   */
+  describe('filenames from artifact content', () => {
+    // The shred root is buried several levels inside a sandbox this test owns,
+    // so a `..` climb lands somewhere it can assert on. One level is not
+    // enough: keys are written as `<body>/<key>.json`, so the body directory
+    // absorbs the first climb and a single `../` never leaves the root at all.
+    let sandbox: string;
+    let target: string;
+
+    beforeEach(() => {
+      sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-shred-escape-'));
+      target = path.join(sandbox, 'a', 'b', 'c', 'shred');
+      fs.mkdirSync(target, { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(sandbox, { recursive: true, force: true });
+    });
+
+    /** Every file anywhere under the sandbox, as absolute paths. */
+    const filesUnder = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const full: string = path.join(dir, entry.name);
+        return entry.isDirectory() ? filesUnder(full) : [full];
+      });
+
+    const expectNothingEscaped = (): void => {
+      const root: string = path.resolve(target);
+      for (const file of filesUnder(sandbox)) {
+        expect(file.startsWith(`${root}${path.sep}`)).toBe(true);
+      }
+    };
+
+    const withKey = (key: string): Record<string, unknown> => ({
+      meta: { generated: '2026-08-31' },
+      teams: [{ owner: 'AJ Boorde' }],
+      league: {},
+      news: {},
+      history: { [key]: { value: 1 } },
+    });
+
+    test('never writes outside the target directory', () => {
+      shred(withKey('../../escaped'), target);
+
+      expectNothingEscaped();
+    });
+
+    test('a deeper climb does not escape either', () => {
+      shred(withKey('../../../escaped'), target);
+
+      expectNothingEscaped();
+    });
+
+    test('an unknown body climbing out of the root does not escape', () => {
+      shred(
+        {
+          meta: { generated: '2026-08-31' },
+          teams: [{ owner: 'AJ Boorde' }],
+          league: {},
+          news: {},
+          history: {},
+          '../../..': { escaped: 1 },
+        },
+        target
+      );
+
+      expectNothingEscaped();
+    });
+
+    test('every file it reports is inside the target directory', () => {
+      const result: ShredResult = shred(withKey('../../../etc/cron.d/x'), target);
+
+      for (const file of result.files) {
+        const full: string = path.resolve(target, file.path);
+        expect(full.startsWith(path.resolve(target) + path.sep)).toBe(true);
+      }
+    });
+
+    test('an absolute key does not become an absolute path', () => {
+      shred(withKey('/etc/passwd'), target);
+
+      expect(fs.readFileSync('/etc/passwd', 'utf8')).toMatch(/root/);
+    });
+
+    test('flattens a separator in a key rather than nesting on it', () => {
+      const result: ShredResult = shred(withKey('a/b'), target);
+
+      expect(result.files.some((f) => f.path.includes('..'))).toBe(false);
+      for (const file of result.files) {
+        expect(fs.existsSync(path.join(target, file.path))).toBe(true);
+      }
+    });
+
+    test('an unknown body with a traversing name stays inside too', () => {
+      const artifact: Record<string, unknown> = {
+        meta: { generated: '2026-08-31' },
+        teams: [{ owner: 'AJ Boorde' }],
+        league: {},
+        news: {},
+        history: {},
+        '../evil': { a: 1 },
+      };
+
+      const result: ShredResult = shred(artifact, target);
+
+      expect(result.undocumented).toContain('../evil');
+      for (const file of result.files) {
+        const full: string = path.resolve(target, file.path);
+        expect(full.startsWith(path.resolve(target) + path.sep)).toBe(true);
+      }
+    });
+
+    test('still writes the ordinary keys under their own names', () => {
+      const result: ShredResult = shred(withKey('seasons'), target);
+
+      expect(result.files.some((f) => f.path === 'history/seasons.json')).toBe(true);
+      expect(fs.existsSync(path.join(target, 'history/seasons.json'))).toBe(true);
+    });
+  });
 });
