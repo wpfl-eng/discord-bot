@@ -301,8 +301,9 @@ async function persist(
   resume: string | null
 ): Promise<void> {
   try {
-    // The session row must exist before the ledger row: ask_usage carries a
-    // foreign key onto ask_sessions.
+    // Runs after runAsk() has already written the ledger row. That ordering is
+    // fine and is why ask_usage carries no foreign key onto this table: the
+    // ledger has to record a run that died before it ever had a session id.
     if (resume === null && outcome.sessionId !== null) {
       await openSession(threadId, outcome.sessionId, userId, question);
     } else if (resume !== null) {

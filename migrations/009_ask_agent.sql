@@ -24,10 +24,20 @@ CREATE TABLE IF NOT EXISTS ask_sessions (
 
 -- One row per query() call. Drives the daily and monthly caps, which count
 -- rows here and never sum cost_usd.
+--
+-- thread_id is deliberately a plain correlation column with NO foreign key onto
+-- ask_sessions. The ledger is written from inside runAsk() on every terminal
+-- result -- before the Discord layer writes the session row, and on a run that
+-- died before the SDK emitted a session id there is no session row to write at
+-- all. A foreign key here made that insert fail (verified against Postgres 16:
+-- `violates foreign key constraint "ask_usage_thread_id_fkey"`), writeLedger()
+-- swallowed the error, and the caps -- which count rows in this table -- counted
+-- nothing. An append-only accounting ledger must not depend on a mutable,
+-- prunable session table for its right to exist.
 CREATE TABLE IF NOT EXISTS ask_usage (
   id           SERIAL PRIMARY KEY,
   user_id      TEXT NOT NULL,
-  thread_id    TEXT REFERENCES ask_sessions(thread_id),
+  thread_id    TEXT,                          -- correlation only; see above
   prompt       TEXT NOT NULL,
   model        TEXT,
   num_turns    INTEGER,
@@ -38,6 +48,7 @@ CREATE TABLE IF NOT EXISTS ask_usage (
 );
 CREATE INDEX IF NOT EXISTS idx_ask_usage_user_day ON ask_usage (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ask_usage_created  ON ask_usage (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ask_usage_thread   ON ask_usage (thread_id, created_at);
 
 -- One row per DENIED or FAILED tool call. The happy path is deliberately not
 -- written here: the ticker already shows every file read and query run, in the
