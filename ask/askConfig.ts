@@ -31,6 +31,20 @@ export const ASK = {
   // otherwise see nothing, and thinking is billed identically either way.
   THINKING_DISPLAY: 'summarized',
 
+  // ---- The agent's tool surface (design §5.3, §10.2) ----
+  // Declared once, because it has to agree in three places: `tools` (what the
+  // agent can see), `allowedTools` (what `dontAsk` will permit), and the
+  // PreToolUse matcher that confines the file tools to DATA_DIR. Stage 12's
+  // worst defect -- every Grep and Glob denied -- was these lists disagreeing,
+  // and only two of the three were then covered by a test.
+  FILE_TOOLS: ['Read', 'Grep', 'Glob'],
+  WEB_TOOLS: ['WebSearch', 'WebFetch'],
+
+  // ---- Time ----
+  // One timezone for the whole feature: the cap-reset line a member reads and
+  // the "Today is" the agent is told must be the same day.
+  LEAGUE_TZ: 'America/New_York',
+
   // ---- Data and freshness (design §3.5) ----
   // Outside the bot's repo: cwd points here and the PreToolUse hook confines
   // every file tool to it.

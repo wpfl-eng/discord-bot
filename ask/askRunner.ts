@@ -18,6 +18,7 @@ import { buildSystemPrompt, readAsOf } from './systemPrompt.js';
 import { createHooks } from './hooks.js';
 import { requestSlot, startDeadline, type Slot } from './concurrency.js';
 import { recordUsage } from './askDb.js';
+import { logError } from '../errors/errorHandler.js';
 import { wpflServer } from '../wpfl/mcpServer.js';
 
 export interface AskRequest {
@@ -92,7 +93,9 @@ export async function runAsk(
     }
   } catch (error: unknown) {
     failure = error instanceof Error ? error.message : String(error);
-    console.error('[ASK] query() threw:', failure);
+    // logError, not console.error: it captures the stack, which is the only
+    // thing that distinguishes an SDK abort from a bug in the consumption loop.
+    logError('ask', 'query() threw', error);
   } finally {
     deadline.clear();
     held.release();
@@ -185,9 +188,11 @@ function buildOptions(request: AskRequest, signal: AbortSignal): Options {
     permissionMode: 'dontAsk',
     // An availability allowlist, not a denylist: every unlisted built-in is
     // removed from Claude's context rather than merely denied at call time.
-    tools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
+    tools: [...ASK.FILE_TOOLS, ...ASK.WEB_TOOLS],
     // `dontAsk` denies anything not pre-approved here, so every tool named in
     // `tools` above must also appear in this list or it is dead on arrival.
+    // Derived from the same two lists rather than restated, so the two cannot
+    // drift apart again.
     allowedTools: [
       // The `//` prefix anchors at the filesystem root. A single slash would
       // anchor at the session's working directory instead.
@@ -198,10 +203,8 @@ function buildOptions(request: AskRequest, signal: AbortSignal): Options {
       // strand the whole reason the two big collections are shredded to JSONL.
       // The PreToolUse path guard is what confines them, and a hook deny holds
       // even in bypassPermissions.
-      'Grep',
-      'Glob',
-      'WebSearch',
-      'WebFetch',
+      ...ASK.FILE_TOOLS.filter((name: string): boolean => name !== 'Read'),
+      ...ASK.WEB_TOOLS,
       'mcp__wpfl__*',
     ],
 
@@ -252,6 +255,6 @@ async function writeLedger(
     });
   } catch (error: unknown) {
     // The answer is already produced; losing the bookkeeping must not lose it.
-    console.error('[ASK] Could not write the usage ledger:', error);
+    logError('ask', 'Could not write the usage ledger', error);
   }
 }

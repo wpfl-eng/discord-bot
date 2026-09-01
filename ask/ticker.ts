@@ -14,6 +14,7 @@
 
 import type { AskSink } from './askRunner.js';
 import { ASK } from './askConfig.js';
+import { logError } from '../errors/errorHandler.js';
 
 const DISCORD_LIMIT = 2000;
 
@@ -192,7 +193,7 @@ export function createThrottledEditor(
     sent = content;
     inFlight = edit(content).catch((error: unknown) => {
       // A rate limit or a deleted message must not stop the next edit.
-      console.error('[ASK] Ticker edit failed:', error);
+      logError('ask', 'Ticker edit failed', error);
     });
   };
 

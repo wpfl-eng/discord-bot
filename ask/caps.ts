@@ -13,8 +13,8 @@ import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { ASK } from './askConfig.js';
 import { countUserQuestionsSince, countAllQuestionsSince } from './askDb.js';
 
-/** The league's timezone, matching the trivia scheduler. */
-const LEAGUE_TZ = 'America/New_York';
+/** The league's timezone. One definition, in the config file. */
+const LEAGUE_TZ: string = ASK.LEAGUE_TZ;
 
 export interface CapDecision {
   readonly allowed: boolean;

@@ -20,13 +20,13 @@ import { ASK } from './askConfig.js';
 import { getCurrentNFLWeek } from '../helpers/utils.js';
 
 /**
- * The league's timezone, matching caps.ts and the trivia scheduler.
+ * The league's timezone. One definition, in the config file.
  *
  * This half of the prompt used toISOString() (UTC) and getFullYear() (the
  * host's local zone). From 8pm ET onwards that told the agent tomorrow's date,
  * which it then put in the source footer of a public answer.
  */
-const LEAGUE_TZ = 'America/New_York';
+const LEAGUE_TZ: string = ASK.LEAGUE_TZ;
 
 export interface AsOf {
   readonly generated: string | null;

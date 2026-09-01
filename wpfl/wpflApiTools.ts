@@ -19,31 +19,24 @@ import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ASK } from '../ask/askConfig.js';
 import type { FetchFn } from './historyCache.js';
+import type {
+  ExpectedWinsResponse,
+  OptimalCoachingResponse,
+  DraftedPointsResponse,
+} from '../types/api.js';
 
-export interface ExpectedWinsRow {
-  readonly owner: string;
-  readonly expectedWins: number;
-  readonly actualWins: number;
-  readonly seasonMin: number;
-  readonly seasonMax: number;
-  readonly weekMin: number;
-  readonly weekMax: number;
-}
-
-export interface OptimalCoachingRow {
-  readonly owner: string;
-  readonly actualPointsFor: number;
-  readonly optimalPointsFor: number;
-  readonly season: number;
-  readonly week: number;
-}
-
-export interface DraftedPointsRow {
-  readonly owner: string;
-  readonly draftedPoints: number;
-  readonly rosteredOptimalPoints: number;
-  readonly actualPoints: number;
-}
+/**
+ * The row shapes are `types/api.ts`'s, not this module's own.
+ *
+ * /ewins and /optimal read the same three endpoints through those interfaces,
+ * and the system prompt promises the agent's number is the same number those
+ * commands publish. Two independent declarations of the payload is exactly how
+ * that promise comes apart quietly, so there is one declaration and these are
+ * aliases for it.
+ */
+export type ExpectedWinsRow = ExpectedWinsResponse;
+export type OptimalCoachingRow = OptimalCoachingResponse;
+export type DraftedPointsRow = DraftedPointsResponse;
 
 /** Every description says this, because the agent will otherwise retry 2026 until it gives up. */
 const HISTORY_ONLY =

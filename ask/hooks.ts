@@ -21,6 +21,7 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from './askConfig.js';
 import { recordToolException } from './askDb.js';
+import { logError } from '../errors/errorHandler.js';
 
 export interface HookContext {
   readonly threadId: string | null;
@@ -140,7 +141,9 @@ export function createHooks(
 
   return {
     PreToolUse: [
-      { matcher: 'Read|Grep|Glob', hooks: [createPathGuard(context, dataDir)] },
+      // Built from the same list askRunner exposes, so a file tool added there
+      // is confined here automatically rather than by anyone remembering.
+      { matcher: ASK.FILE_TOOLS.join('|'), hooks: [createPathGuard(context, dataDir)] },
       { matcher: 'WebFetch', hooks: [createWebFetchGuard(context)] },
     ],
     PostToolUse: [{ hooks: [audit] }],
@@ -192,7 +195,7 @@ async function record(
     });
   } catch (writeError: unknown) {
     // Never let bookkeeping block a denial or kill an answer.
-    console.error('[ASK] Could not record a tool exception:', writeError);
+    logError('ask', 'Could not record a tool exception', writeError);
   }
 }
 

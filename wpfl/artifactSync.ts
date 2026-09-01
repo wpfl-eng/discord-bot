@@ -14,6 +14,7 @@ import { ASK } from '../ask/askConfig.js';
 import { shred, type ShredResult } from './shredder.js';
 import { generateIndex } from './indexGenerator.js';
 import { refreshWpflCache, type FetchFn, type HistoryCacheResult } from './historyCache.js';
+import { logError } from '../errors/errorHandler.js';
 
 export type SyncOutcome =
   | { readonly kind: 'fresh' }
@@ -170,6 +171,6 @@ function lastSeenEtag(dataDir: string): string | null {
 }
 
 function failed(reason: string): SyncOutcome {
-  console.error(`[ASK] Artifact sync failed: ${reason}. Continuing on the previous shred.`);
+  logError('ask', `Artifact sync failed: ${reason}. Continuing on the previous shred.`);
   return { kind: 'failed', reason };
 }

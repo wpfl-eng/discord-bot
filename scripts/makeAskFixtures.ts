@@ -33,13 +33,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import prettier from 'prettier';
 import pkg from 'espn-fantasy-football-api/node.js';
+import { ASK } from '../ask/askConfig.js';
+import { getCurrentNFLSeason } from '../helpers/utils.js';
 
 const { Client } = pkg;
 
-const ARTIFACT_URL = 'https://wpfl-receipts-694ed0.pages.dev/postdraft.json';
+// The URLs come from askConfig rather than being restated here. The whole point
+// of this script is that the fixtures match what the bot actually fetches, and a
+// forked copy of a host is exactly how it would stop being true -- silently,
+// with the tests still green against a source production no longer reads.
+const ARTIFACT_URL: string = ASK.ARTIFACT_URL;
 const LOCAL_ARTIFACT = '../draft-2026/data/cache/postdraft_2026.json';
 const OUT_DIR = 'tests/fixtures';
-const ASK_API = 'https://wpflapi.azurewebsites.net/api';
+const ASK_API: string = ASK.WPFL_API_BASE;
 
 /** Entries kept from any list, and from any dict judged to be a collection. */
 const KEEP = 3;
@@ -163,7 +169,9 @@ if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) {
 } else {
   const client = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
   client.setCookies({ espnS2: ESPN_S2, SWID });
-  const seasonId: number = new Date().getFullYear();
+  // Not getFullYear(): in January and February that names a season ESPN has no
+  // data for, and the recording would be of an empty league.
+  const seasonId: number = getCurrentNFLSeason();
 
   // Trimmed to a few entries each: 837 free agents and 14 full rosters are the
   // same shape repeated, and the interface is what these are recorded for.

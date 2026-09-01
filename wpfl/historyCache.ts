@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ASK } from '../ask/askConfig.js';
 import { getCurrentNFLSeason } from '../helpers/utils.js';
+import { logError } from '../errors/errorHandler.js';
 
 /** Only what this module actually uses, so a test fake is a few lines. */
 export interface HttpResponse {
@@ -135,21 +136,23 @@ async function fetchRows(
   try {
     const response: HttpResponse = await fetchFn(url.toString(), { signal: controller.signal });
     if (!response.ok) {
-      console.error(
-        `[ASK] WPFL cache: ${label} returned HTTP ${response.status}. Keeping the previous file.`
+      logError(
+        'ask',
+        `WPFL cache: ${label} returned HTTP ${response.status}. Keeping the previous file.`
       );
       return null;
     }
     const body: unknown = await response.json();
     if (!Array.isArray(body)) {
-      console.error(`[ASK] WPFL cache: ${label} did not return a list. Keeping the previous file.`);
+      logError('ask', `WPFL cache: ${label} did not return a list. Keeping the previous file.`);
       return null;
     }
     return body;
   } catch (error: unknown) {
     const timedOut: boolean = error instanceof Error && error.name === 'AbortError';
-    console.error(
-      `[ASK] WPFL cache: ${label} failed (${timedOut ? 'timed out' : String(error)}). Keeping the previous file.`
+    logError(
+      'ask',
+      `WPFL cache: ${label} failed (${timedOut ? 'timed out' : String(error)}). Keeping the previous file.`
     );
     return null;
   } finally {
