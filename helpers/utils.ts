@@ -6,7 +6,25 @@ export interface ResponseObject {
   text: string;
 }
 
-export type NFLWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
+export type NFLWeek =
+  | 1
+  | 2
+  | 3
+  | 4
+  | 5
+  | 6
+  | 7
+  | 8
+  | 9
+  | 10
+  | 11
+  | 12
+  | 13
+  | 14
+  | 15
+  | 16
+  | 17
+  | 18;
 
 /**
  * Produce an immediate response with some text.
@@ -29,6 +47,20 @@ export const produceResponseObjectForText = (text: string): ResponseObject => {
 export const formatNumber = (floatNumber: number): number => {
   if (Number.isNaN(floatNumber)) return 0;
   return Math.round(floatNumber * 100) / 100;
+};
+
+/**
+ * The season an NFL date belongs to, which is what ESPN's `seasonId` wants.
+ *
+ * A season is named for the calendar year it starts in and runs into February
+ * of the next one, so January and February belong to the previous season --
+ * exactly the weeks that carry the fantasy playoffs and the championship. The
+ * NFL league year turns over in March.
+ */
+export const getCurrentNFLSeason = (referenceDate: Date = new Date()): number => {
+  const year: number = referenceDate.getFullYear();
+  // Months are zero-based: 2 is March.
+  return referenceDate.getMonth() < 2 ? year - 1 : year;
 };
 
 /**
