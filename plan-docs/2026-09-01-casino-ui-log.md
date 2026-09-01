@@ -345,12 +345,47 @@ loader. Migration 013 written, not applied.
 
 ## Deviations from plan
 
-None yet.
+| # | Deviation | Why |
+|---|---|---|
+| 1 | `casinoPacing` and `casinoModal` built in Phase 1, not Phase 4 | Craps needed both the moment it got an animation loop and an odds dialog; deferring would have meant writing them twice |
+| 2 | Roulette has no persistence snapshot | It holds nothing durable between spins, and its spin history is already durable in `roulette_rounds`. A second store would only be a second way to disagree |
+| 3 | `My Slip` stays enabled in every phase | It cannot place a bet, and checking your own action mid-spin is when you most want to. Existing test updated to assert wagering controls are locked, slip is not |
+| 4 | Three place/hardway rules corrected beyond the plan | Place bets rode through a point hit instead of being returned; place and hardway bets are off on the come-out; the pass line is a contract bet. All three were wrong before and D14 depended on the first |
 
 ---
 
 ## Verification record
 
-| Date | Check | Result |
-|---|---|---|
-| — | — | — |
+Every phase was verified with the same three checks. There is **no Discord token or live
+guild in this environment**, so the rendered UI was never seen — component budgets are
+asserted structurally instead, which catches payloads Discord would reject outright but
+says nothing about how anything looks.
+
+| Phase | `npm test` | Typecheck | Lint | Extra |
+|---|---|---|---|---|
+| 0 — foundation | 664 / 29 | clean | clean | 640-test baseline passed unchanged before new tests were added |
+| 1 — craps | 786 / 31 | clean | clean | 103 emoji tiles rendered; dice and puck checked by eye |
+| 2 — roulette | 832 / 32 | clean | clean | exhaustive 146 x 38 coverage grid |
+| 3 — blackjack | 874 / 33 | clean | clean | — |
+| 4 — hub/hero/persistence | 904 / 36 | clean | clean | all 47 command modules loaded through a replica of the `index.ts` loader |
+
+Net: **+264 tests** over the 640 that existed at the start, and 7 suites added.
+
+---
+
+## What the user must still do
+
+1. **Run the migrations.** This repo has no runner. `010` (craps stats), `011` (roulette
+   bet_type constraint), `012` (blackjack side-bet stats), `013` (table persistence).
+   Every game plays correctly without them — they add stats columns and restart
+   persistence, nothing load-bearing. `008` remains deliberately unapplied.
+2. **Deploy the commands:** `npx tsx deploy-commands.ts`. `/blackjack` changed shape
+   (now `sit` / `leave` / `rules`, and the `table` option is gone) and `/craps bet` now
+   autocompletes 20 bet types.
+3. **Set `BLACKJACK_CHANNEL_ID`** in the environment. Blackjack has a public board now
+   and will refuse to open without a channel. `ECONOMY_CASINO_CHANNEL_ID` drives the hub.
+4. **Upload the new emoji:** `npm run emoji:upload`. 103 tiles now, up from 91 — 6 dice,
+   2 pucks, 4 chips. Everything falls back to text until this runs.
+5. **`npm install`** — `sharp` moved from devDependencies to dependencies for hero
+   frames. It ships native binaries; if it fails to load, result frames are text-only and
+   nothing else is affected.
