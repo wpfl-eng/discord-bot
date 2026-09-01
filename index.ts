@@ -6,6 +6,9 @@ import { Client, Collection, GatewayIntentBits, Events, ActivityType, Partials }
 import { fileURLToPath, pathToFileURL } from 'url';
 import { TriviaService } from './trivia/triviaService.js';
 import { isValidCommandModule } from './types/commands.js';
+import { continueThread, checkIdentityMapping } from './discordCommands/ask/ask.js';
+import { ensureFresh } from './wpfl/artifactSync.js';
+import { logError } from './errors/errorHandler.js';
 
 // Create a new client instance
 const client = new Client({
@@ -24,9 +27,25 @@ const triviaService = new TriviaService(client);
 client.triviaService = triviaService;
 
 // When the client is ready, run this code (only once)
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log('Ready!');
   triviaService.init();
+
+  // /ask setup. Both are non-fatal: a stale shred still answers, and an
+  // unresolved snowflake only costs that member their implicit "my team".
+  const guildId: string | undefined = process.env.DISCORD_GUILD_ID;
+  if (guildId !== undefined) {
+    try {
+      await checkIdentityMapping(await client.guilds.fetch(guildId));
+    } catch (error) {
+      logError('ask', 'Could not verify the league identity mapping', error);
+    }
+  }
+  try {
+    console.log('[ASK] Artifact sync:', JSON.stringify(await ensureFresh()));
+  } catch (error) {
+    logError('ask', 'Artifact sync failed at startup', error);
+  }
 });
 
 client.commands = new Collection();
@@ -192,10 +211,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// Handle DMs for trivia answers
+// Handle DMs for trivia answers, and ordinary messages in an /ask thread
 client.on('messageCreate', async (message) => {
-  if (message.guild === null && !message.author.bot) {
+  if (message.author.bot) return;
+
+  if (message.guild === null) {
     await triviaService.handleDM(message);
+    return;
+  }
+
+  // An /ask thread continues as ordinary conversation (design §6.2). This runs
+  // on every guild message, so the cheap checks come first and the database is
+  // only consulted once they pass.
+  try {
+    await continueThread(message);
+  } catch (error) {
+    logError('ask', 'Thread continuation failed', error);
   }
 });
 

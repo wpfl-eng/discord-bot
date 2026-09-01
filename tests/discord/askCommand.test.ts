@@ -12,7 +12,7 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
   countAllQuestionsSince: jest.fn(),
 }));
 
-const { resolveTarget, threadName, checkIdentityMapping, data } = await import(
+const { resolveTarget, threadName, checkIdentityMapping, isAskThreadMessage, data } = await import(
   '../../discordCommands/ask/ask.js'
 );
 const { wpflMembers } = await import('../../constants/wpflMembers.js');
@@ -100,6 +100,40 @@ describe('the /ask command', () => {
 
     test('never produces an empty name', () => {
       expect(threadName('   ').length).toBeGreaterThan(0);
+    });
+  });
+
+  // index.ts's messageCreate handler currently serves trivia DMs only. The
+  // continuation branch has to be cheap to evaluate: it runs on every message
+  // in the guild.
+  describe('which messages continue a thread', () => {
+    const message = (over: Record<string, unknown> = {}) => ({
+      channelType: ChannelType.PublicThread,
+      authorIsBot: false,
+      content: 'what about Neill?',
+      ...over,
+    });
+
+    test('a person talking in a thread continues it', () => {
+      expect(isAskThreadMessage(message())).toBe(true);
+    });
+
+    test('anyone in the thread may continue it, not only whoever opened it', () => {
+      expect(isAskThreadMessage(message({ authorId: 'someone-else' }))).toBe(true);
+    });
+
+    test('the bot never answers itself', () => {
+      expect(isAskThreadMessage(message({ authorIsBot: true }))).toBe(false);
+    });
+
+    test('a message outside a thread is not a continuation', () => {
+      expect(isAskThreadMessage(message({ channelType: ChannelType.GuildText }))).toBe(false);
+      expect(isAskThreadMessage(message({ channelType: ChannelType.DM }))).toBe(false);
+    });
+
+    test('an empty message -- an image or a sticker -- is not a question', () => {
+      expect(isAskThreadMessage(message({ content: '' }))).toBe(false);
+      expect(isAskThreadMessage(message({ content: '   ' }))).toBe(false);
     });
   });
 
