@@ -97,13 +97,14 @@ describe('caps', () => {
       expect((await checkCaps('u1', 0, DURING_THE_DAY)).allowed).toBe(true);
     });
 
-    test('refuses at the league-wide limit and says the feature is paused for the month', async () => {
+    test('refuses at the league-wide limit, naming the month it is paused for', async () => {
       mockAllCount.mockResolvedValue(ASK.MONTHLY_QUERIES_TOTAL);
 
       const decision: Decision = await checkCaps('u1', 0, DURING_THE_DAY);
 
       expect(decision.allowed).toBe(false);
-      expect(decision.refusal).toMatch(/month/i);
+      expect(decision.refusal).toContain(String(ASK.MONTHLY_QUERIES_TOTAL));
+      expect(decision.refusal).toContain('September');
     });
   });
 
@@ -148,13 +149,16 @@ describe('caps', () => {
   });
 
   describe('which limit is reported when more than one is hit', () => {
+    // DAILY_QUESTIONS_PER_USER and HARD_TURN_CAP are both 20 today, so these
+    // assert on the text that distinguishes the two refusals rather than on a
+    // number that would match either by coincidence.
     test('reports the thread being finished before the personal quota', async () => {
       mockUserCount.mockResolvedValue(ASK.DAILY_QUESTIONS_PER_USER);
 
-      const decision: Decision = await checkCaps('u1', 20, DURING_THE_DAY);
+      const decision: Decision = await checkCaps('u1', ASK.HARD_TURN_CAP, DURING_THE_DAY);
 
-      expect(decision.refusal).toMatch(/\/ask/);
-      expect(decision.refusal).not.toContain(String(ASK.DAILY_QUESTIONS_PER_USER));
+      expect(decision.refusal).toMatch(/thread/i);
+      expect(decision.refusal).not.toMatch(/today|daily limit/i);
     });
 
     test('reports the personal quota before the league-wide one', async () => {
@@ -163,7 +167,8 @@ describe('caps', () => {
 
       const decision: Decision = await checkCaps('u1', 0, DURING_THE_DAY);
 
-      expect(decision.refusal).toContain(String(ASK.DAILY_QUESTIONS_PER_USER));
+      expect(decision.refusal).toMatch(/today/i);
+      expect(decision.refusal).not.toContain('September');
     });
   });
 });
