@@ -12,8 +12,15 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
   countAllQuestionsSince: jest.fn(),
 }));
 
-const { resolveTarget, threadName, checkIdentityMapping, isAskThreadMessage, data } =
-  await import('../../discordCommands/ask/ask.js');
+const askDb = await import('../../ask/askDb.js');
+const {
+  resolveTarget,
+  threadName,
+  checkIdentityMapping,
+  isAskThreadMessage,
+  onThreadArchived,
+  data,
+} = await import('../../discordCommands/ask/ask.js');
 const { wpflMembers } = await import('../../constants/wpflMembers.js');
 
 const live = {
@@ -197,6 +204,75 @@ describe('the /ask command', () => {
       expect(seen).toHaveLength(14);
       expect(new Set(seen).size).toBe(14);
       warn.mockRestore();
+    });
+  });
+  /**
+   * Design §6.2: "When a thread archives, ask_sessions.closed is set." Nothing
+   * did. closeSession() existed, was exported, was mocked here -- and had no
+   * caller anywhere in the repo.
+   *
+   * The consequence is not cosmetic. Threads auto-archive after a day and the
+   * SDK prunes its transcripts after seven (cleanupPeriodDays). Without this,
+   * a message in a revived thread still passed `resume: <pruned session id>`,
+   * so the run failed instead of starting fresh, and the member never got the
+   * one line saying the earlier context had aged out.
+   */
+  describe('closing a session when its thread archives', () => {
+    const thread = (over: Record<string, unknown> = {}): never =>
+      ({
+        id: 't1',
+        type: ChannelType.PublicThread,
+        archived: true,
+        ...over,
+      }) as never;
+
+    test('closes the session when a thread goes from live to archived', async () => {
+      (askDb.closeSession as jest.Mock).mockClear();
+
+      await onThreadArchived(thread({ archived: false }), thread({ archived: true }));
+
+      expect(askDb.closeSession).toHaveBeenCalledWith('t1');
+    });
+
+    test('does nothing when the thread was already archived', async () => {
+      (askDb.closeSession as jest.Mock).mockClear();
+
+      await onThreadArchived(thread({ archived: true }), thread({ archived: true }));
+
+      expect(askDb.closeSession).not.toHaveBeenCalled();
+    });
+
+    test('does nothing when a thread is un-archived', async () => {
+      (askDb.closeSession as jest.Mock).mockClear();
+
+      await onThreadArchived(thread({ archived: true }), thread({ archived: false }));
+
+      expect(askDb.closeSession).not.toHaveBeenCalled();
+    });
+
+    test('does nothing for an edit that did not touch the archive flag', async () => {
+      (askDb.closeSession as jest.Mock).mockClear();
+
+      await onThreadArchived(
+        thread({ archived: false, name: 'old' }),
+        thread({ archived: false, name: 'new' })
+      );
+
+      expect(askDb.closeSession).not.toHaveBeenCalled();
+    });
+
+    test('a failed write is logged, not thrown at the gateway handler', async () => {
+      (askDb.closeSession as jest.Mock).mockClear();
+      (askDb.closeSession as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('postgres is down');
+      });
+      const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(
+        onThreadArchived(thread({ archived: false }), thread({ archived: true }))
+      ).resolves.toBeUndefined();
+
+      error.mockRestore();
     });
   });
 });

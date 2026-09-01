@@ -6,7 +6,11 @@ import { Client, Collection, GatewayIntentBits, Events, ActivityType, Partials }
 import { fileURLToPath, pathToFileURL } from 'url';
 import { TriviaService } from './trivia/triviaService.js';
 import { isValidCommandModule } from './types/commands.js';
-import { continueThread, checkIdentityMapping } from './discordCommands/ask/ask.js';
+import {
+  continueThread,
+  checkIdentityMapping,
+  onThreadArchived,
+} from './discordCommands/ask/ask.js';
 import { ensureFresh } from './wpfl/artifactSync.js';
 import { logError } from './errors/errorHandler.js';
 
@@ -228,6 +232,13 @@ client.on('messageCreate', async (message) => {
   } catch (error) {
     logError('ask', 'Thread continuation failed', error);
   }
+});
+
+// An archived thread's session is closed rather than resumed (design §6.2):
+// the SDK prunes its transcript on its own schedule, so resuming one that has
+// aged out fails instead of starting fresh.
+client.on(Events.ThreadUpdate, async (before, after) => {
+  await onThreadArchived(before, after);
 });
 
 client.on('ready', () => {

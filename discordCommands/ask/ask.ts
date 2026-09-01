@@ -27,7 +27,13 @@ import {
   splitForDiscord,
   type Ticker,
 } from '../../ask/ticker.js';
-import { getSession, openSession, recordTurn, type AskSession } from '../../ask/askDb.js';
+import {
+  getSession,
+  openSession,
+  recordTurn,
+  closeSession,
+  type AskSession,
+} from '../../ask/askDb.js';
 import { ensureFresh } from '../../wpfl/artifactSync.js';
 import {
   getWpflMemberByDiscordId,
@@ -171,6 +177,32 @@ export async function continueThread(message: Message): Promise<void> {
     resume: session.closed ? null : session.session_id,
     ...(decision.notice === undefined ? {} : { notice: decision.notice }),
   });
+}
+
+/**
+ * Mark a session closed when its thread archives (design §6.2).
+ *
+ * Threads carry ThreadAutoArchiveDuration.OneDay and the SDK prunes its
+ * transcripts after SESSION_RETENTION_DAYS. Without this, a message in a
+ * revived thread still passed `resume: <session id>` for a transcript the SDK
+ * had already deleted -- so the run failed rather than starting fresh, and the
+ * member never saw the line saying the earlier context had aged out.
+ *
+ * Wired to Events.ThreadUpdate. Only the live-to-archived edge matters; the
+ * gateway sends ThreadUpdate for renames and every other edit too.
+ */
+export async function onThreadArchived(
+  before: { archived: boolean | null },
+  after: { id: string; archived: boolean | null }
+): Promise<void> {
+  if (before.archived === true || after.archived !== true) return;
+
+  try {
+    await closeSession(after.id);
+  } catch (error: unknown) {
+    // A gateway handler that throws takes nothing useful with it.
+    logError('ask', 'Could not close the session for an archived thread', error);
+  }
 }
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
