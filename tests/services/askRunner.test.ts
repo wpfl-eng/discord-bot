@@ -1,0 +1,378 @@
+import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+
+jest.unstable_mockModule('../../ask/askDb.js', () => ({
+  recordUsage: jest.fn(),
+  recordToolException: jest.fn(),
+}));
+
+const { runAsk } = await import('../../ask/askRunner.js');
+const { resetConcurrency, inFlight } = await import('../../ask/concurrency.js');
+const { ASK } = await import('../../ask/askConfig.js');
+const askDb = await import('../../ask/askDb.js');
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockRecordUsage = askDb.recordUsage as any;
+
+type Message = Record<string, unknown>;
+
+const REQUEST = {
+  prompt: 'why did Jimmy get an A+?',
+  userId: 'u1',
+  threadId: 't1',
+  owner: 'AJ Boorde',
+  espnId: 4,
+};
+
+const toolStart = (name: string): Message => ({
+  type: 'stream_event',
+  session_id: 's1',
+  event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'tu1', name, input: {} } },
+});
+
+const delta = (d: Record<string, unknown>): Message => ({
+  type: 'stream_event',
+  session_id: 's1',
+  event: { type: 'content_block_delta', index: 0, delta: d },
+});
+
+const assistant = (): Message => ({
+  type: 'assistant',
+  session_id: 's1',
+  message: { id: 'm1', content: [] },
+});
+
+const success = (over: Message = {}): Message => ({
+  type: 'result',
+  subtype: 'success',
+  session_id: 's1',
+  duration_ms: 42000,
+  num_turns: 9,
+  total_cost_usd: 0.1473,
+  usage: {},
+  modelUsage: { 'claude-opus-5': { inputTokens: 18000, outputTokens: 2400 } },
+  result: 'done',
+  is_error: false,
+  ...over,
+});
+
+/** Collects everything the runner emits, so a test can assert on the ticker. */
+function recorder(): { events: string[]; sink: Parameters<typeof runAsk>[1] } {
+  const events: string[] = [];
+  return {
+    events,
+    sink: {
+      onToolCall: (name: string): void => events.push(`tool:${name}`),
+      onToolInput: (fragment: string): void => events.push(`input:${fragment}`),
+      onReasoning: (summary: string): void => events.push(`think:${summary}`),
+      onText: (chunk: string): void => events.push(`text:${chunk}`),
+      onToolSettled: (): void => events.push('settled'),
+      onQueued: (position: number): void => events.push(`queued:${position}`),
+    },
+  };
+}
+
+const stream =
+  (messages: Message[], thrown?: Error) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (args: any) => {
+    void args;
+    return (async function* () {
+      for (const message of messages) yield message as never;
+      if (thrown !== undefined) throw thrown;
+    })();
+  };
+
+describe('askRunner', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRecordUsage.mockResolvedValue(undefined);
+    resetConcurrency();
+  });
+
+  describe('the message stream', () => {
+    test('turns a scripted stream into ticker events in order', async () => {
+      const { events, sink } = recorder();
+
+      await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          toolStart('Read'),
+          delta({ type: 'input_json_delta', partial_json: '{"file_path":"INDEX.md"}' }),
+          assistant(),
+          delta({ type: 'thinking_delta', thinking: 'comparing his WR spend' }),
+          toolStart('mcp__wpfl__sql'),
+          assistant(),
+          delta({ type: 'text_delta', text: 'Jimmy paid ' }),
+          delta({ type: 'text_delta', text: '$54 for Drake London.' }),
+          success(),
+        ])
+      );
+
+      expect(events).toEqual([
+        'tool:Read',
+        'input:{"file_path":"INDEX.md"}',
+        'settled',
+        'think:comparing his WR spend',
+        'tool:mcp__wpfl__sql',
+        'settled',
+        'text:Jimmy paid ',
+        'text:$54 for Drake London.',
+      ]);
+    });
+
+    test('returns the prose it accumulated from text deltas', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          delta({ type: 'text_delta', text: 'Jimmy paid ' }),
+          delta({ type: 'text_delta', text: '$54.' }),
+          success(),
+        ])
+      );
+
+      expect(outcome.text).toBe('Jimmy paid $54.');
+    });
+
+    test('ignores message types it has no use for', async () => {
+      const { events, sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          { type: 'system', subtype: 'init', session_id: 's1' },
+          { type: 'user', session_id: 's1', message: { content: [] } },
+          { type: 'stream_event', session_id: 's1', event: { type: 'message_start' } },
+          delta({ type: 'text_delta', text: 'ok' }),
+          success(),
+        ])
+      );
+
+      expect(events).toEqual(['text:ok']);
+      expect(outcome.text).toBe('ok');
+    });
+  });
+
+  describe('the ledger', () => {
+    test('reads cost from total_cost_usd and turns from num_turns', async () => {
+      const { sink } = recorder();
+
+      await runAsk(REQUEST, sink, stream([success()]));
+
+      expect(mockRecordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'u1',
+          threadId: 't1',
+          prompt: 'why did Jimmy get an A+?',
+          costUsd: 0.1473,
+          numTurns: 9,
+          subtype: 'success',
+          durationMs: 42000,
+        })
+      );
+    });
+
+    test('names the model from modelUsage, which counts subagent tokens too', async () => {
+      const { sink } = recorder();
+
+      await runAsk(REQUEST, sink, stream([success()]));
+
+      expect(mockRecordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'claude-opus-5' })
+      );
+    });
+
+    test('writes the row on a budget stop as well as on success', async () => {
+      const { sink } = recorder();
+
+      await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          delta({ type: 'text_delta', text: 'partial' }),
+          success({ subtype: 'error_max_budget_usd', is_error: true, total_cost_usd: 1.01 }),
+        ])
+      );
+
+      expect(mockRecordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ subtype: 'error_max_budget_usd', costUsd: 1.01 })
+      );
+    });
+
+    // query() is documented as throwing after yielding an error result. Without
+    // a try/catch the handler dies and the ledger row promised by §6.4 is never
+    // written -- which is exactly the run that most needs recording.
+    test('a generator that throws after an error result still writes the ledger row', async () => {
+      const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream(
+          [
+            toolStart('Read'),
+            assistant(),
+            delta({ type: 'text_delta', text: 'as far as I got' }),
+            success({ subtype: 'error_max_budget_usd', is_error: true, total_cost_usd: 1.01 }),
+          ],
+          new Error('budget exceeded')
+        )
+      );
+
+      expect(mockRecordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ subtype: 'error_max_budget_usd', costUsd: 1.01 })
+      );
+      expect(outcome.text).toBe('as far as I got');
+      expect(outcome.subtype).toBe('error_max_budget_usd');
+      error.mockRestore();
+    });
+
+    test('writes a row even when the generator throws before any result at all', async () => {
+      const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const { sink } = recorder();
+
+      const outcome = await runAsk(REQUEST, sink, stream([], new Error('subprocess died')));
+
+      expect(mockRecordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ subtype: 'error_during_execution', costUsd: 0 })
+      );
+      expect(outcome.error).toMatch(/subprocess died/);
+      error.mockRestore();
+    });
+
+    test('a failing ledger write does not lose the answer', async () => {
+      const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+      mockRecordUsage.mockRejectedValue(new Error('postgres down'));
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([delta({ type: 'text_delta', text: 'the answer' }), success()])
+      );
+
+      expect(outcome.text).toBe('the answer');
+      error.mockRestore();
+    });
+  });
+
+  describe('the options it builds', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const capture = async (over: Partial<typeof REQUEST> & { sessionId?: string } = {}): Promise<any> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let seen: any;
+      const { sink } = recorder();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await runAsk({ ...REQUEST, ...over }, sink, ((args: any) => {
+        seen = args;
+        return (async function* () {
+          yield success() as never;
+        })();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any);
+      return seen;
+    };
+
+    test('sends the question as the prompt', async () => {
+      expect((await capture()).prompt).toBe('why did Jimmy get an A+?');
+    });
+
+    test('locks the tool surface down the way the design specifies', async () => {
+      const options = (await capture()).options;
+
+      expect(options.permissionMode).toBe('dontAsk');
+      expect(options.settingSources).toEqual([]);
+      expect(options.strictMcpConfig).toBe(true);
+      expect(options.cwd).toBe(ASK.DATA_DIR);
+      expect(options.tools).toEqual(['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch']);
+      expect(options.allowedTools).toContain(`Read(//${ASK.DATA_DIR}/**)`);
+      expect(options.allowedTools).toContain('mcp__wpfl__*');
+    });
+
+    test('asks for partial messages, without which there is no ticker', async () => {
+      expect((await capture()).options.includePartialMessages).toBe(true);
+    });
+
+    test('carries the model, the budget and the session retention', async () => {
+      const options = (await capture()).options;
+
+      expect(options.model).toBe(ASK.MODEL);
+      expect(options.maxBudgetUsd).toBe(ASK.MAX_BUDGET_USD);
+      expect(options.settings.cleanupPeriodDays).toBe(ASK.SESSION_RETENTION_DAYS);
+    });
+
+    test('hands the subprocess a minimal environment, not process.env', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-test';
+      try {
+        const env = (await capture()).options.env;
+
+        expect(env).not.toHaveProperty('DISCORD_TOKEN');
+        expect(env).not.toHaveProperty('POSTGRES_URL');
+        expect(env.ANTHROPIC_API_KEY).toBe('sk-test');
+      } finally {
+        delete process.env.ANTHROPIC_API_KEY;
+      }
+    });
+
+    test('registers the guards and the wpfl server', async () => {
+      const options = (await capture()).options;
+
+      expect(options.hooks.PreToolUse).toHaveLength(2);
+      expect(options.mcpServers.wpfl).toBeDefined();
+    });
+
+    test('resumes only when there is a session to resume', async () => {
+      expect((await capture()).options.resume).toBeUndefined();
+      expect((await capture({ sessionId: 'prev' })).options.resume).toBe('prev');
+    });
+
+    test('splits the system prompt at the cache boundary', async () => {
+      const prompt = (await capture()).options.systemPrompt;
+
+      expect(Array.isArray(prompt)).toBe(true);
+      expect(prompt).toHaveLength(3);
+    });
+  });
+
+  describe('the runtime guards', () => {
+    test('reports the queue position when it has to wait', async () => {
+      const held = [];
+      const { requestSlot } = await import('../../ask/concurrency.js');
+      for (let i = 0; i < ASK.MAX_CONCURRENT_QUERIES; i += 1) held.push(await requestSlot().slot);
+
+      const { events, sink } = recorder();
+      const running = runAsk(REQUEST, sink, stream([success()]));
+      await new Promise((r) => setImmediate(r));
+
+      expect(events).toContain('queued:1');
+
+      held[0].release();
+      await running;
+    });
+
+    test('releases its slot whether it succeeded or threw', async () => {
+      const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const { sink } = recorder();
+
+      await runAsk(REQUEST, sink, stream([success()]));
+      expect(inFlight()).toBe(0);
+
+      await runAsk(REQUEST, sink, stream([], new Error('died')));
+      expect(inFlight()).toBe(0);
+      error.mockRestore();
+    });
+
+    test('returns the session id so the thread can be continued', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(REQUEST, sink, stream([success()]));
+
+      expect(outcome.sessionId).toBe('s1');
+    });
+  });
+});
