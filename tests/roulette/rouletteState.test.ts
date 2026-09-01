@@ -243,3 +243,40 @@ describe('roulette table state', () => {
     });
   });
 });
+
+describe('shouldRevive', () => {
+  // A spin nobody joined leaves the table in the betting phase with no window armed.
+  // isBettingOpen() still says yes, so a stake would be taken against a wheel that has
+  // nothing scheduled to turn it - and voided when the grace timer closes the table.
+  test('a table parked in its grace period is revived', () => {
+    expect(state.shouldRevive('betting', null, true, 0)).toBe(true);
+  });
+
+  test('a table with a live window is left alone', () => {
+    expect(state.shouldRevive('betting', Date.now() + 30_000, false, 0)).toBe(false);
+  });
+
+  test('a table mid-spin is left alone', () => {
+    expect(state.shouldRevive('spinning', null, false, 0)).toBe(false);
+    expect(state.shouldRevive('result', null, false, 0)).toBe(false);
+    expect(state.shouldRevive('closed', null, true, 0)).toBe(false);
+  });
+
+  // Reviving calls startBettingWindow, which clears the felt. Bets still on it would be
+  // dropped with their escrow open, so the marker requires an empty table.
+  test('a table with bets on it is left alone', () => {
+    expect(state.shouldRevive('betting', null, true, 1)).toBe(false);
+  });
+});
+
+describe('canVoidSpin', () => {
+  test('a spin that has not started paying can be handed back', () => {
+    expect(state.canVoidSpin(false)).toBe(true);
+  });
+
+  // Between crediting a wallet and marking the escrow row settled, the row is paid but
+  // still 'open'. Voiding one there pays the stake a second time.
+  test('a spin that has started paying cannot', () => {
+    expect(state.canVoidSpin(true)).toBe(false);
+  });
+});

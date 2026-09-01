@@ -5,6 +5,7 @@ import {
   assertWithinBudget,
   button,
   countComponents,
+  forEdit,
   frame,
   rendered,
   row,
@@ -100,5 +101,27 @@ describe('theme', () => {
     expect(bar(0.5, 10)).toBe('█'.repeat(5) + '░'.repeat(5));
     expect(bar(5, 4)).toBe('████');
     expect(bar(-3, 4)).toBe('░░░░');
+  });
+});
+
+describe('forEdit', () => {
+  // A message cannot be told it is ephemeral a second time, so the flag has to come off
+  // before an ephemeral panel is edited back.
+  test('drops the ephemeral flag and keeps the V2 flag', () => {
+    const payload = rendered([frame(CASINO_COLORS.blue).toJSON()], { ephemeral: true });
+
+    expect(payload.flags & MessageFlags.Ephemeral).toBeTruthy();
+    expect(forEdit(payload).flags & MessageFlags.Ephemeral).toBe(0);
+    expect(forEdit(payload).flags & MessageFlags.IsComponentsV2).toBeTruthy();
+  });
+
+  test('leaves the components untouched', () => {
+    const payload = rendered([frame(CASINO_COLORS.blue).toJSON()], { ephemeral: true });
+    expect(forEdit(payload).components).toEqual(payload.components);
+  });
+
+  test('returns a shared board payload unchanged', () => {
+    const payload = rendered([frame(CASINO_COLORS.blue).toJSON()]);
+    expect(forEdit(payload)).toBe(payload);
   });
 });
