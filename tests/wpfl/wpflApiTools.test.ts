@@ -21,7 +21,8 @@ function replay(body: unknown, seen: string[] = []): FetchFn {
   };
 }
 
-const failing = (status: number): FetchFn =>
+const failing =
+  (status: number): FetchFn =>
   async (): Promise<HttpResponse> => ({
     ok: false,
     status,
@@ -114,7 +115,10 @@ describe('wpflApiTools', () => {
     const recording = load('wpfl-drafted-points.json');
 
     test('returns drafted points per owner', async () => {
-      const rows = await fetchDraftedPoints({ seasonMin: 2024, seasonMax: 2024 }, replay(recording));
+      const rows = await fetchDraftedPoints(
+        { seasonMin: 2024, seasonMax: 2024 },
+        replay(recording)
+      );
 
       expect(rows).toHaveLength(14);
       expect(rows[0]).toEqual({

@@ -147,8 +147,16 @@ export const wpflApiTools: SdkMcpToolDefinition<any>[] = [
     `Expected wins against actual wins for all 14 owners in one season, computed by the league's own history API from every weekly score. Expected wins is what an owner's scores would have won against an average schedule, so the gap to actual wins is schedule luck. Never compute this yourself from cached scores: /ewins publishes this exact figure to the league. ${HISTORY_ONLY}`,
     {
       season: z.number().int().describe('Season, e.g. 2024.'),
-      weekMin: z.number().int().optional().describe('First week to include. Omit for the whole season.'),
-      weekMax: z.number().int().optional().describe('Last week to include. Omit for the whole season.'),
+      weekMin: z
+        .number()
+        .int()
+        .optional()
+        .describe('First week to include. Omit for the whole season.'),
+      weekMax: z
+        .number()
+        .int()
+        .optional()
+        .describe('Last week to include. Omit for the whole season.'),
       includePlayoffs: z
         .boolean()
         .optional()

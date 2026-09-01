@@ -80,7 +80,10 @@ describe('shredder', () => {
       shred(published, dir);
 
       expect(exists('meta.json')).toBe(true);
-      const meta: Record<string, unknown> = JSON.parse(read('meta.json')) as Record<string, unknown>;
+      const meta: Record<string, unknown> = JSON.parse(read('meta.json')) as Record<
+        string,
+        unknown
+      >;
       expect(meta.season).toBe(2026);
       expect(meta.generated).toBe('2026-08-28 21:20');
     });
@@ -182,7 +185,10 @@ describe('shredder', () => {
   describe('tolerant and loud', () => {
     test('shreds an unknown body generically and flags it instead of throwing', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      const withRace: Artifact = { ...published, race: { week: 1, leaders: [{ owner: 'AJ Boorde' }] } };
+      const withRace: Artifact = {
+        ...published,
+        race: { week: 1, leaders: [{ owner: 'AJ Boorde' }] },
+      };
 
       const result: ShredResult = shred(withRace, dir);
 

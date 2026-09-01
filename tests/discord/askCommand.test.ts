@@ -12,12 +12,18 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
   countAllQuestionsSince: jest.fn(),
 }));
 
-const { resolveTarget, threadName, checkIdentityMapping, isAskThreadMessage, data } = await import(
-  '../../discordCommands/ask/ask.js'
-);
+const { resolveTarget, threadName, checkIdentityMapping, isAskThreadMessage, data } =
+  await import('../../discordCommands/ask/ask.js');
 const { wpflMembers } = await import('../../constants/wpflMembers.js');
 
-const live = { thread_id: 't1', session_id: 's1', opener_user_id: 'u1', question: 'q', turns: 3, closed: false };
+const live = {
+  thread_id: 't1',
+  session_id: 's1',
+  opener_user_id: 'u1',
+  question: 'q',
+  turns: 3,
+  closed: false,
+};
 const closed = { ...live, closed: true };
 
 describe('the /ask command', () => {
@@ -92,7 +98,7 @@ describe('the /ask command', () => {
       expect(threadName('why did Jimmy get an A+?')).toBe('why did Jimmy get an A+?');
     });
 
-    test('stays within Discord\'s 100-character limit', () => {
+    test("stays within Discord's 100-character limit", () => {
       const name: string = threadName('x'.repeat(300));
 
       expect(name.length).toBeLessThanOrEqual(100);

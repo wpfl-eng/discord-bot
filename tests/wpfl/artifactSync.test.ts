@@ -54,7 +54,9 @@ describe('artifactSync', () => {
     const respond = (etag: string | null, body?: string): HttpResponse => ({
       ok: true,
       status: 200,
-      headers: { get: (name: string): string | null => (name.toLowerCase() === 'etag' ? etag : null) },
+      headers: {
+        get: (name: string): string | null => (name.toLowerCase() === 'etag' ? etag : null),
+      },
       json: async (): Promise<unknown> => JSON.parse(body ?? artifact),
     });
 

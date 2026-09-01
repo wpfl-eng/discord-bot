@@ -193,5 +193,8 @@ if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) {
   // One topic, one action. Every action embeds the *raw* ESPN team object --
   // 8.8 KB of roster the tool never reads past `team.id` -- so two of them cost
   // 90 KB to record one field layout.
-  await write('espn-transactions.json', trim(asJson(await client.getRecentActivity({ seasonId })), 0, 1));
+  await write(
+    'espn-transactions.json',
+    trim(asJson(await client.getRecentActivity({ seasonId })), 0, 1)
+  );
 }

@@ -28,6 +28,6 @@ export const wpflServer = createSdkMcpServer({
   name: 'wpfl',
   version: '1.0.0',
   instructions:
-    'Tools for the WPFL fantasy football league. `sql` reaches ten years of rows and the 2026 draft artifact; the espn_* tools are the only source for the season in progress; expected_wins, optimal_coaching and drafted_points are computed by the league\'s own history API and must never be worked out by hand.',
+    "Tools for the WPFL fantasy football league. `sql` reaches ten years of rows and the 2026 draft artifact; the espn_* tools are the only source for the season in progress; expected_wins, optimal_coaching and drafted_points are computed by the league's own history API and must never be worked out by hand.",
   tools: wpflTools,
 });

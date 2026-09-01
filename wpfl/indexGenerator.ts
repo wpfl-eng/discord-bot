@@ -42,16 +42,13 @@ const FILE_DESCRIPTIONS: Record<string, string> = {
     'Auction dollars by position for 2026 against the career baseline: share of spend and top-5 average price.',
   'league/superlatives.json':
     'Draft-night awards -- biggest overpay, best value and the rest -- each with the sale it cites.',
-  'league/story.json':
-    'The spend curve of the night, 2026 against prior seasons.',
+  'league/story.json': 'The spend curve of the night, 2026 against prior seasons.',
   'league/runs.json':
     'Positional runs: where a cluster of one position started, how long it lasted, what it cost.',
-  'league/rivalries.json':
-    'Head-to-head bidding history between every pair of owners.',
+  'league/rivalries.json': 'Head-to-head bidding history between every pair of owners.',
   'league/playoff_field.json':
     'The most likely six-team playoff fields and how often each came up in simulation.',
-  'league/name_rankings.json':
-    'Team names of 2026 ranked on craft, with the reasoning.',
+  'league/name_rankings.json': 'Team names of 2026 ranked on craft, with the reasoning.',
   'league/intro.json': 'Prose introduction to the league section.',
   'league/board_intro.json': 'Prose introduction to the auction board.',
 
@@ -61,8 +58,7 @@ const FILE_DESCRIPTIONS: Record<string, string> = {
     'One line per player in the news: heat score, latest item, and a dated timeline of everything the wire said. Grep this by player name.',
   'news/teams.json':
     'Per owner: which of their players are flagged, a heat score, and an injury count.',
-  'news/wire.json':
-    'The wire grouped by kind -- injury watch, signings, trending adds and drops.',
+  'news/wire.json': 'The wire grouped by kind -- injury watch, signings, trending adds and drops.',
   'news/reads.json': 'A one-line read on each player carrying real uncertainty.',
   'news/team_lines.json': 'A one-paragraph read on each owner’s camp situation.',
   'news/intro.json': 'Prose introduction to the news layer.',
@@ -208,7 +204,9 @@ function skipped(shred: ShredResult): string {
     );
   }
   for (const key of shred.deadKeys) {
-    lines.push(`- \`${key}\` — retired analysis. draft-2026 no longer maintains it; do not cite it.`);
+    lines.push(
+      `- \`${key}\` — retired analysis. draft-2026 no longer maintains it; do not cite it.`
+    );
   }
 
   return lines.join('\n');

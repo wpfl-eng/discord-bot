@@ -7,9 +7,8 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
   recordToolException: jest.fn(),
 }));
 
-const { createPathGuard, createWebFetchGuard, createAuditHook, createHooks } = await import(
-  '../../ask/hooks.js'
-);
+const { createPathGuard, createWebFetchGuard, createAuditHook, createHooks } =
+  await import('../../ask/hooks.js');
 const askDb = await import('../../ask/askDb.js');
 const { ASK } = await import('../../ask/askConfig.js');
 
@@ -122,7 +121,9 @@ describe('hooks', () => {
     });
 
     test('allows a relative path that stays inside', async () => {
-      expect(denied(await call(guard(), 'Read', { file_path: 'teams/aj-boorde.json' }))).toBe(false);
+      expect(denied(await call(guard(), 'Read', { file_path: 'teams/aj-boorde.json' }))).toBe(
+        false
+      );
     });
 
     test('denies a relative path that climbs out', async () => {

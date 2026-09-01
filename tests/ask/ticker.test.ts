@@ -23,7 +23,9 @@ describe('ticker', () => {
       expect(rendered).toContain('INDEX.md');
       expect(rendered).toContain('teams/aj-boorde.json');
       // The settled one and the in-flight one must look different.
-      const lines: string[] = rendered.split('\n').filter((l) => l.includes('.json') || l.includes('.md'));
+      const lines: string[] = rendered
+        .split('\n')
+        .filter((l) => l.includes('.json') || l.includes('.md'));
       expect(lines[0]).not.toBe(lines[1]);
     });
 

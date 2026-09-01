@@ -59,10 +59,7 @@ export interface AskOutcome {
  * the seam is declared as what it actually needs -- which is also what makes a
  * plain async generator a valid substitute in tests (design §5.3).
  */
-export type QueryFn = (params: {
-  prompt: string;
-  options: Options;
-}) => AsyncIterable<SDKMessage>;
+export type QueryFn = (params: { prompt: string; options: Options }) => AsyncIterable<SDKMessage>;
 
 export async function runAsk(
   request: AskRequest,
@@ -125,7 +122,11 @@ interface TerminalResult {
 }
 
 /** @returns the terminal result when this message was one, else null. */
-function consume(message: SDKMessage, sink: AskSink, appendText: (chunk: string) => void): TerminalResult | null {
+function consume(
+  message: SDKMessage,
+  sink: AskSink,
+  appendText: (chunk: string) => void
+): TerminalResult | null {
   if (message.type === 'result') {
     return {
       subtype: message.subtype,

@@ -130,7 +130,9 @@ export function toFreeAgents(
   const wanted: string | undefined = position?.toLowerCase();
 
   return entries
-    .filter((entry) => wanted === undefined || entry.player.defaultPosition.toLowerCase() === wanted)
+    .filter(
+      (entry) => wanted === undefined || entry.player.defaultPosition.toLowerCase() === wanted
+    )
     .map((entry) => ({
       name: entry.player.fullName,
       position: entry.player.defaultPosition,
@@ -247,7 +249,11 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
         .string()
         .optional()
         .describe("Filter to one position, e.g. 'RB', 'WR', 'QB', 'TE', 'D/ST'. Omit for all."),
-      week: z.number().int().optional().describe('Scoring period. Defaults to the current NFL week.'),
+      week: z
+        .number()
+        .int()
+        .optional()
+        .describe('Scoring period. Defaults to the current NFL week.'),
     },
     async (args): Promise<CallToolResult> =>
       toToolResult(
@@ -267,7 +273,9 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
     `Recent adds, drops and trades, with who moved whom, when, and the waiver bid. **Current season only** — ESPN serves this endpoint for the current season and 404s for every prior one, so do not reach for it to answer a historical question; use the sql tool for those. ${CURRENT_SEASON_ONLY}`,
     {},
     async (): Promise<CallToolResult> =>
-      toToolResult(toTransactions(await espnClient().getRecentActivity({ seasonId: currentSeason() }))),
+      toToolResult(
+        toTransactions(await espnClient().getRecentActivity({ seasonId: currentSeason() }))
+      ),
     { alwaysLoad: false }
   ),
 ];

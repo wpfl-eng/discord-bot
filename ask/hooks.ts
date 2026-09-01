@@ -13,7 +13,12 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import type { HookCallback, HookCallbackMatcher, HookEvent, HookJSONOutput } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  HookCallback,
+  HookCallbackMatcher,
+  HookEvent,
+  HookJSONOutput,
+} from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from './askConfig.js';
 import { recordToolException } from './askDb.js';
 
@@ -41,7 +46,10 @@ function deny(reason: string): HookJSONOutput {
  * Paths are resolved with realpath rather than normalised as strings, because a
  * symlink inside the data directory pointing out of it is textually inside.
  */
-export function createPathGuard(context: HookContext, dataDir: string = ASK.DATA_DIR): HookCallback {
+export function createPathGuard(
+  context: HookContext,
+  dataDir: string = ASK.DATA_DIR
+): HookCallback {
   const root: string = realpath(dataDir);
 
   return async (input): Promise<HookJSONOutput> => {
@@ -110,7 +118,13 @@ export function createAuditHook(context: HookContext): HookCallback {
     if (input.hook_event_name === 'PostToolUse') {
       const response = input.tool_response as { isError?: boolean } | null;
       if (response?.isError === true) {
-        await record(context, input.tool_name, input.tool_input, null, describeError(input.tool_response));
+        await record(
+          context,
+          input.tool_name,
+          input.tool_input,
+          null,
+          describeError(input.tool_response)
+        );
       }
     }
 
@@ -184,5 +198,10 @@ async function record(
 
 function describeError(response: unknown): string {
   const content = (response as { content?: { text?: string }[] } | null)?.content;
-  return content?.map((block) => block.text ?? '').join(' ').trim() || 'Tool returned an error.';
+  return (
+    content
+      ?.map((block) => block.text ?? '')
+      .join(' ')
+      .trim() || 'Tool returned an error.'
+  );
 }

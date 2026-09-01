@@ -50,7 +50,11 @@ describe('historyCache', () => {
   describe('what it fetches', () => {
     test('asks each endpoint for the range it covers, one request per player-scores season', async () => {
       const seen: string[] = [];
-      await refreshWpflCache(dir, fakeFetch(() => ({ rows: rows(2, 'x') }), seen), 2026);
+      await refreshWpflCache(
+        dir,
+        fakeFetch(() => ({ rows: rows(2, 'x') }), seen),
+        2026
+      );
 
       const draft: string | undefined = seen.find((u) => u.includes('/draft/history'));
       const matchups: string | undefined = seen.find((u) => u.includes('fantasyMatchupWinners'));
@@ -98,7 +102,11 @@ describe('historyCache', () => {
     });
 
     test('every line is a self-contained JSON record', async () => {
-      await refreshWpflCache(dir, fakeFetch(() => ({ rows: rows(4, 'x') })), 2015);
+      await refreshWpflCache(
+        dir,
+        fakeFetch(() => ({ rows: rows(4, 'x') })),
+        2015
+      );
 
       for (const line of lines('draft_history.jsonl')) {
         expect(() => JSON.parse(line)).not.toThrow();

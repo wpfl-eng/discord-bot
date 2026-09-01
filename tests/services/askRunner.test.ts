@@ -26,7 +26,11 @@ const REQUEST = {
 const toolStart = (name: string): Message => ({
   type: 'stream_event',
   session_id: 's1',
-  event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'tu1', name, input: {} } },
+  event: {
+    type: 'content_block_start',
+    index: 0,
+    content_block: { type: 'tool_use', id: 'tu1', name, input: {} },
+  },
 });
 
 const delta = (d: Record<string, unknown>): Message => ({
@@ -300,7 +304,9 @@ describe('askRunner', () => {
 
   describe('the options it builds', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const capture = async (over: Partial<typeof REQUEST> & { sessionId?: string } = {}): Promise<any> => {
+    const capture = async (
+      over: Partial<typeof REQUEST> & { sessionId?: string } = {}
+    ): Promise<any> => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let seen: any;
       const { sink } = recorder();
@@ -310,7 +316,7 @@ describe('askRunner', () => {
         return (async function* () {
           yield success() as never;
         })();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any);
       return seen;
     };

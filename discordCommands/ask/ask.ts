@@ -21,10 +21,19 @@ import {
 import { ASK } from '../../ask/askConfig.js';
 import { checkCaps, type CapDecision } from '../../ask/caps.js';
 import { runAsk, type AskOutcome } from '../../ask/askRunner.js';
-import { createTicker, createThrottledEditor, splitForDiscord, type Ticker } from '../../ask/ticker.js';
+import {
+  createTicker,
+  createThrottledEditor,
+  splitForDiscord,
+  type Ticker,
+} from '../../ask/ticker.js';
 import { getSession, openSession, recordTurn, type AskSession } from '../../ask/askDb.js';
 import { ensureFresh } from '../../wpfl/artifactSync.js';
-import { getWpflMemberByDiscordId, wpflMembers, type WpflMember } from '../../constants/wpflMembers.js';
+import {
+  getWpflMemberByDiscordId,
+  wpflMembers,
+  type WpflMember,
+} from '../../constants/wpflMembers.js';
 import { logError } from '../../errors/errorHandler.js';
 
 export const data = new SlashCommandBuilder()
@@ -63,7 +72,8 @@ export function resolveTarget(channelType: ChannelType, session: AskSession | nu
 
   // A closed session's transcript has been pruned by the SDK, so resuming it
   // would fail. Start fresh in the same thread and say so.
-  const resumable: boolean = session !== null && !session.closed && THREAD_TYPES.includes(channelType);
+  const resumable: boolean =
+    session !== null && !session.closed && THREAD_TYPES.includes(channelType);
   return { kind: 'in-place', resume: resumable ? (session as AskSession).session_id : null };
 }
 
@@ -186,7 +196,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await ensureFresh();
 
   const target: AskTarget = resolveTarget(channel.type, existing);
-  const destination: SendableChannels = await openDestination(interaction, target, question, channel);
+  const destination: SendableChannels = await openDestination(
+    interaction,
+    target,
+    question,
+    channel
+  );
 
   await answer({
     user: interaction.user,
@@ -260,10 +275,12 @@ async function answer(request: AnswerRequest): Promise<void> {
 
 /** Re-render on every event, so the ticker reflects the run rather than polling it. */
 function wrap(ticker: Ticker, onChange: () => void): Ticker {
-  const notify = <T extends unknown[]>(fn: (...args: T) => void) => (...args: T): void => {
-    fn.apply(ticker, args);
-    onChange();
-  };
+  const notify =
+    <T extends unknown[]>(fn: (...args: T) => void) =>
+    (...args: T): void => {
+      fn.apply(ticker, args);
+      onChange();
+    };
 
   return {
     ...ticker,

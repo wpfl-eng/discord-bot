@@ -132,7 +132,9 @@ async function fetchRows(
   try {
     const response: HttpResponse = await fetchFn(url.toString(), { signal: controller.signal });
     if (!response.ok) {
-      console.error(`[ASK] WPFL cache: ${label} returned HTTP ${response.status}. Keeping the previous file.`);
+      console.error(
+        `[ASK] WPFL cache: ${label} returned HTTP ${response.status}. Keeping the previous file.`
+      );
       return null;
     }
     const body: unknown = await response.json();

@@ -120,7 +120,10 @@ declare module 'espn-fantasy-football-api/node.js' {
     setCookies(cookies: CookieOptions): void;
     getBoxscoreForWeek(options: BoxscoreOptions): Promise<BoxscoreMatchup[]>;
     getTeamsAtWeek(options: { seasonId: number; scoringPeriodId: number }): Promise<EspnTeam[]>;
-    getFreeAgents(options: { seasonId: number; scoringPeriodId: number }): Promise<FreeAgentEntry[]>;
+    getFreeAgents(options: {
+      seasonId: number;
+      scoringPeriodId: number;
+    }): Promise<FreeAgentEntry[]>;
     getHistoricalScoreboardForWeek(options: BoxscoreOptions): Promise<unknown[]>;
     getRecentActivity(options: { seasonId: number }): Promise<ActivityAction[][]>;
   }

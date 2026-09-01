@@ -136,7 +136,13 @@ describe('systemPrompt', () => {
 
     test('reports an unknown as-of rather than printing undefined', () => {
       const text: string = dynamic({
-        asOf: { generated: null, factsAsOf: null, newsAsOf: null, etag: null, cacheFetchedAt: null },
+        asOf: {
+          generated: null,
+          factsAsOf: null,
+          newsAsOf: null,
+          etag: null,
+          cacheFetchedAt: null,
+        },
       });
 
       expect(text).not.toContain('undefined');

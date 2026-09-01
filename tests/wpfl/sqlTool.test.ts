@@ -34,7 +34,7 @@ describe('sqlTool', () => {
     }
 
     const rejected: [string, string][] = [
-      ['COPY teams TO \'/tmp/out.csv\'', 'COPY'],
+      ["COPY teams TO '/tmp/out.csv'", 'COPY'],
       ["ATTACH '/etc/passwd' AS x", 'ATTACH'],
       ['INSTALL httpfs', 'INSTALL'],
       ['LOAD httpfs', 'LOAD'],
@@ -42,11 +42,11 @@ describe('sqlTool', () => {
       ['SET enable_external_access=true', 'SET'],
       ['CREATE TABLE x (a INT)', 'CREATE'],
       ['INSERT INTO teams VALUES (1)', 'INSERT'],
-      ['UPDATE teams SET owner = \'x\'', 'UPDATE'],
+      ["UPDATE teams SET owner = 'x'", 'UPDATE'],
       ['DELETE FROM teams', 'DELETE'],
       ['DROP TABLE teams', 'DROP'],
       ['CALL pragma_version()', 'CALL'],
-      ['EXPORT DATABASE \'/tmp/x\'', 'EXPORT'],
+      ["EXPORT DATABASE '/tmp/x'", 'EXPORT'],
     ];
 
     for (const [statement, keyword] of rejected) {
@@ -144,7 +144,11 @@ describe('sqlTool', () => {
     test('answers a plain query over the artifact', async () => {
       const result: SqlResult = await runSql('SELECT owner FROM teams ORDER BY owner', dataDir);
 
-      expect(result.rows.map((r) => r.owner)).toEqual(['AJ Boorde', 'David Evans', 'Jimmy Simpson']);
+      expect(result.rows.map((r) => r.owner)).toEqual([
+        'AJ Boorde',
+        'David Evans',
+        'Jimmy Simpson',
+      ]);
       expect(result.truncated).toBe(false);
     });
 
@@ -210,9 +214,9 @@ describe('sqlTool', () => {
       });
 
       test('cannot re-enable external access through a subquery', async () => {
-        await expect(
-          runSql("SELECT * FROM read_text('/etc/hostname')", dataDir)
-        ).rejects.toThrow(/disabled|permission/i);
+        await expect(runSql("SELECT * FROM read_text('/etc/hostname')", dataDir)).rejects.toThrow(
+          /disabled|permission/i
+        );
       });
     });
   });

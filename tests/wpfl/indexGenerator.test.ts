@@ -56,7 +56,12 @@ describe('indexGenerator', () => {
         if (match === null) continue;
         // "<size> B" plus prose, on the same line as the path.
         expect(match[2]).toMatch(/\d[\d,]* B/);
-        expect(match[2].replace(/[\d,]+ B/, '').replace(/[—\-·|]/g, '').trim().length).toBeGreaterThan(10);
+        expect(
+          match[2]
+            .replace(/[\d,]+ B/, '')
+            .replace(/[—\-·|]/g, '')
+            .trim().length
+        ).toBeGreaterThan(10);
       }
     });
   });
@@ -94,7 +99,12 @@ describe('indexGenerator', () => {
     });
 
     test('names every dead key and says it is retired', () => {
-      for (const dead of ['league.grade_board', 'league.ridgeline', 'league.season_intro', 'night.clock']) {
+      for (const dead of [
+        'league.grade_board',
+        'league.ridgeline',
+        'league.season_intro',
+        'night.clock',
+      ]) {
         expect(index).toContain(dead);
       }
       expect(index).toMatch(/retired/i);
@@ -129,7 +139,15 @@ describe('indexGenerator', () => {
 
   describe('glossary', () => {
     test('defines the artifact terms an outsider would misread', () => {
-      for (const term of ['worth', 'edge', 'composite', 'skill_luck', 'hindsight', 'fingerprints', 'market']) {
+      for (const term of [
+        'worth',
+        'edge',
+        'composite',
+        'skill_luck',
+        'hindsight',
+        'fingerprints',
+        'market',
+      ]) {
         expect(index).toContain(term);
       }
     });
