@@ -16,13 +16,18 @@ import { countUserQuestionsSince, countAllQuestionsSince } from './askDb.js';
 /** The league's timezone. One definition, in the config file. */
 const LEAGUE_TZ: string = ASK.LEAGUE_TZ;
 
-export interface CapDecision {
-  readonly allowed: boolean;
-  /** Member-facing refusal naming the limit that was hit and when it lifts. */
-  readonly refusal?: string;
-  /** Member-facing nudge to append to an answer that was still given. */
-  readonly notice?: string;
-}
+/**
+ * A refusal always carries its reason, which is why this is a union rather than
+ * one shape with two optional fields. As a single interface, `refusal` was
+ * optional even when `allowed` was false, so both call sites needed a
+ * `?? 'Not right now.'` fallback -- member-facing text that could never be
+ * reached, and that the next gate added here would have copied.
+ */
+export type CapDecision =
+  /** `notice` is a member-facing nudge appended to an answer that was still given. */
+  | { readonly allowed: true; readonly notice?: string }
+  /** `refusal` names the limit that was hit and when it lifts. */
+  | { readonly allowed: false; readonly refusal: string };
 
 const ALLOWED: CapDecision = { allowed: true };
 

@@ -163,7 +163,7 @@ export async function continueThread(message: Message): Promise<void> {
 
   const decision: CapDecision = await checkCaps(message.author.id, session.turns);
   if (!decision.allowed) {
-    await message.reply(decision.refusal ?? 'Not right now.');
+    await message.reply(decision.refusal);
     return;
   }
 
@@ -222,7 +222,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const existing: AskSession | null = await getSession(channel.id);
   const decision: CapDecision = await checkCaps(interaction.user.id, existing?.turns ?? 0);
   if (!decision.allowed) {
-    await interaction.reply({ content: decision.refusal ?? 'Not right now.', ephemeral: true });
+    await interaction.reply({ content: decision.refusal, ephemeral: true });
     return;
   }
 

@@ -17,17 +17,9 @@ import path from 'node:path';
 import { ASK } from '../ask/askConfig.js';
 import { getCurrentNFLSeason } from '../helpers/utils.js';
 import { logError } from '../errors/errorHandler.js';
+import { fetchJsonArray, type FetchFn } from './wpflHttp.js';
 
-/** Only what this module actually uses, so a test fake is a few lines. */
-export interface HttpResponse {
-  readonly ok: boolean;
-  readonly status: number;
-  /** Present on a real Response; only artifactSync reads it (for the etag). */
-  readonly headers?: { get(name: string): string | null };
-  json(): Promise<unknown>;
-}
-
-export type FetchFn = (url: string, init?: { signal?: AbortSignal }) => Promise<HttpResponse>;
+export type { HttpResponse, FetchFn } from './wpflHttp.js';
 
 export interface CachedSource {
   readonly path: string;
@@ -174,37 +166,11 @@ async function fetchRows(
   params: Record<string, number>,
   label: string
 ): Promise<Row[] | null> {
-  const url = new URL(endpoint);
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, String(value));
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ASK.WPFL_FETCH_TIMEOUT_MS);
-
   try {
-    const response: HttpResponse = await fetchFn(url.toString(), { signal: controller.signal });
-    if (!response.ok) {
-      logError(
-        'ask',
-        `WPFL cache: ${label} returned HTTP ${response.status}. Keeping the previous file.`
-      );
-      return null;
-    }
-    const body: unknown = await response.json();
-    if (!Array.isArray(body)) {
-      logError('ask', `WPFL cache: ${label} did not return a list. Keeping the previous file.`);
-      return null;
-    }
-    return body;
+    return await fetchJsonArray<Row>(endpoint, params, fetchFn);
   } catch (error: unknown) {
-    const timedOut: boolean = error instanceof Error && error.name === 'AbortError';
-    logError(
-      'ask',
-      `WPFL cache: ${label} failed (${timedOut ? 'timed out' : String(error)}). Keeping the previous file.`
-    );
+    const reason: string = error instanceof Error ? error.message : String(error);
+    logError('ask', `WPFL cache: ${label} failed (${reason}). Keeping the previous file.`);
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }

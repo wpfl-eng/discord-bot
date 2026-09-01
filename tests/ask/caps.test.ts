@@ -16,6 +16,16 @@ const mockAllCount = askDb.countAllQuestionsSince as any;
 
 type Decision = Awaited<ReturnType<typeof checkCaps>>;
 
+/**
+ * CapDecision is a discriminated union -- a refusal always carries its reason,
+ * an allowance never does -- so reading either field needs the tag checked
+ * first. These keep that narrowing out of every assertion.
+ */
+const refusalOf = (decision: Decision): string | undefined =>
+  decision.allowed ? undefined : decision.refusal;
+const noticeOf = (decision: Decision): string | undefined =>
+  decision.allowed ? decision.notice : undefined;
+
 // Mid-September is EDT (UTC-4), so the New York calendar day containing
 // 2026-09-15T18:00Z runs from 04:00Z that day to 04:00Z the next.
 const DURING_THE_DAY = new Date('2026-09-15T18:00:00Z');
@@ -79,8 +89,8 @@ describe('caps', () => {
       const decision: Decision = await checkCaps('u1', 0, DURING_THE_DAY);
 
       expect(decision.allowed).toBe(false);
-      expect(decision.refusal).toContain(String(ASK.DAILY_QUESTIONS_PER_USER));
-      expect(decision.refusal).toMatch(/midnight|reset/i);
+      expect(refusalOf(decision)).toContain(String(ASK.DAILY_QUESTIONS_PER_USER));
+      expect(refusalOf(decision)).toMatch(/midnight|reset/i);
     });
 
     test('refuses past the limit', async () => {
@@ -103,8 +113,8 @@ describe('caps', () => {
       const decision: Decision = await checkCaps('u1', 0, DURING_THE_DAY);
 
       expect(decision.allowed).toBe(false);
-      expect(decision.refusal).toContain(String(ASK.MONTHLY_QUERIES_TOTAL));
-      expect(decision.refusal).toContain('September');
+      expect(refusalOf(decision)).toContain(String(ASK.MONTHLY_QUERIES_TOTAL));
+      expect(refusalOf(decision)).toContain('September');
     });
   });
 
@@ -113,19 +123,19 @@ describe('caps', () => {
       const decision: Decision = await checkCaps('u1', 14, DURING_THE_DAY);
 
       expect(decision.allowed).toBe(true);
-      expect(decision.notice).toBeUndefined();
+      expect(noticeOf(decision)).toBeUndefined();
     });
 
     test('nudges at the soft cap of 15 but still answers', async () => {
       const decision: Decision = await checkCaps('u1', 15, DURING_THE_DAY);
 
       expect(decision.allowed).toBe(true);
-      expect(decision.notice).toMatch(/\/ask/);
+      expect(noticeOf(decision)).toMatch(/\/ask/);
     });
 
     test('keeps nudging at 16 and 19', async () => {
-      expect((await checkCaps('u1', 16, DURING_THE_DAY)).notice).toBeDefined();
-      expect((await checkCaps('u1', 19, DURING_THE_DAY)).notice).toBeDefined();
+      expect(noticeOf(await checkCaps('u1', 16, DURING_THE_DAY))).toBeDefined();
+      expect(noticeOf(await checkCaps('u1', 19, DURING_THE_DAY))).toBeDefined();
       expect((await checkCaps('u1', 19, DURING_THE_DAY)).allowed).toBe(true);
     });
 
@@ -133,7 +143,7 @@ describe('caps', () => {
       const decision: Decision = await checkCaps('u1', 20, DURING_THE_DAY);
 
       expect(decision.allowed).toBe(false);
-      expect(decision.refusal).toMatch(/\/ask/);
+      expect(refusalOf(decision)).toMatch(/\/ask/);
     });
 
     test('still declines at 21', async () => {
@@ -157,8 +167,8 @@ describe('caps', () => {
 
       const decision: Decision = await checkCaps('u1', ASK.HARD_TURN_CAP, DURING_THE_DAY);
 
-      expect(decision.refusal).toMatch(/thread/i);
-      expect(decision.refusal).not.toMatch(/today|daily limit/i);
+      expect(refusalOf(decision)).toMatch(/thread/i);
+      expect(refusalOf(decision)).not.toMatch(/today|daily limit/i);
     });
 
     test('reports the personal quota before the league-wide one', async () => {
@@ -167,8 +177,8 @@ describe('caps', () => {
 
       const decision: Decision = await checkCaps('u1', 0, DURING_THE_DAY);
 
-      expect(decision.refusal).toMatch(/today/i);
-      expect(decision.refusal).not.toContain('September');
+      expect(refusalOf(decision)).toMatch(/today/i);
+      expect(refusalOf(decision)).not.toContain('September');
     });
   });
 });

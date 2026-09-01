@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ASK } from '../ask/askConfig.js';
-import type { FetchFn } from './historyCache.js';
+import { fetchJsonArray, type FetchFn } from './wpflHttp.js';
 import type {
   ExpectedWinsResponse,
   OptimalCoachingResponse,
@@ -52,7 +52,7 @@ export async function fetchExpectedWins(
   fetchFn: FetchFn = fetch
 ): Promise<ExpectedWinsRow[]> {
   // The endpoint takes a range; a single season is that season on both bounds.
-  return getRows<ExpectedWinsRow>(
+  return fetchJsonArray<ExpectedWinsRow>(
     `${ASK.WPFL_API_BASE}/expectedwins`,
     {
       seasonMin: params.season,
@@ -69,7 +69,7 @@ export async function fetchOptimalCoaching(
   params: { season: number; week?: number },
   fetchFn: FetchFn = fetch
 ): Promise<OptimalCoachingRow[]> {
-  return getRows<OptimalCoachingRow>(
+  return fetchJsonArray<OptimalCoachingRow>(
     `${ASK.WPFL_API_BASE}/optimalcoaching/pointsfor/${params.season}`,
     { week: params.week },
     fetchFn
@@ -80,7 +80,7 @@ export async function fetchDraftedPoints(
   params: { seasonMin: number; seasonMax: number; weekMax?: number },
   fetchFn: FetchFn = fetch
 ): Promise<DraftedPointsRow[]> {
-  return getRows<DraftedPointsRow>(
+  return fetchJsonArray<DraftedPointsRow>(
     `${ASK.WPFL_API_BASE}/draft/draftedpoints`,
     { seasonMin: params.seasonMin, seasonMax: params.seasonMax, weekMax: params.weekMax },
     fetchFn
@@ -97,47 +97,6 @@ export function toToolResult(rows: readonly unknown[]): CallToolResult {
       },
     ],
   };
-}
-
-/**
- * Omitting a parameter is expressed by leaving it undefined, and skipping it is
- * this function's job. The three callers each hand over one literal describing
- * the whole query, rather than building a dict through an `if` per optional
- * parameter -- six near-identical conditionals for one rule.
- */
-async function getRows<T>(
-  endpoint: string,
-  query: Record<string, string | number | boolean | undefined>,
-  fetchFn: FetchFn
-): Promise<T[]> {
-  const url = new URL(endpoint);
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) url.searchParams.set(key, String(value));
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ASK.WPFL_FETCH_TIMEOUT_MS);
-
-  try {
-    const response = await fetchFn(url.toString(), { signal: controller.signal });
-    if (!response.ok) {
-      throw new Error(`The WPFL history API returned HTTP ${response.status} for ${endpoint}.`);
-    }
-    const body: unknown = await response.json();
-    // Every one of these endpoints returns a list. Anything else is the API
-    // reporting a problem in a shape the agent would otherwise render as data.
-    if (!Array.isArray(body)) {
-      throw new Error(`The WPFL history API returned an unexpected shape for ${endpoint}.`);
-    }
-    return body as T[];
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`The WPFL history API timed out on ${endpoint}.`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 // A tool definition's handler is contravariant in its own schema, so a
