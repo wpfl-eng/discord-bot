@@ -1,0 +1,2445 @@
+{
+  "available": true,
+  "meta": {
+    "season": 2026,
+    "generated": "2026-08-28 21:20",
+    "n_sims": 3000,
+    "total_spent": 2778,
+    "risk_model": {
+      "reliability": {
+        "QB": 0.438,
+        "RB": 0.718,
+        "WR": 0.623,
+        "TE": 0.533,
+        "K": 0.4,
+        "D/ST": 0.428
+      },
+      "rookie_factor": 0.816,
+      "note": "one-sided shrink to replacement by measured position reliability, times measured availability, times measured rookie shortfall (true first-year players only, per the fact snapshot)"
+    },
+    "facts_as_of": "2026-08-28"
+  },
+  "teams": [
+    {
+      "team_id": 5,
+      "owner": "Jimmy Simpson",
+      "team_name": "WPFL Youth Academy",
+      "grade": {
+        "letter": "A+",
+        "rank": 1,
+        "composite": 1.135,
+        "components": {
+          "starter_points": { "value": 1503.8, "z": 1.51, "weight": 0.8 },
+          "value": { "value": -0.041, "z": -0.38, "weight": 0.2 },
+          "build": { "value": 71.1, "z": -1.6, "weight": 0 }
+        }
+      },
+      "spent": 200,
+      "worth": 191.8,
+      "edge": -8.2,
+      "starter_points": 1503.8,
+      "bench_value": 71.1,
+      "roster": [
+        {
+          "name": "Bijan Robinson",
+          "position": "RB",
+          "price": 73,
+          "worth": 108.7,
+          "edge": 35.7,
+          "proj_points": 303.9,
+          "risk_points": 259,
+          "starter": true,
+          "sale_order": 3,
+          "nfl_team": "ATL",
+          "injury": null,
+          "verdict": "Plus 36, second best value in the draft. Even the Academy gets one thing right."
+        },
+        {
+          "name": "Chris Olave",
+          "position": "WR",
+          "price": 37,
+          "worth": 22.1,
+          "edge": -14.9,
+          "proj_points": 199.8,
+          "risk_points": 182.9,
+          "starter": true,
+          "sale_order": 54,
+          "nfl_team": "NO",
+          "injury": null,
+          "verdict": "Third consecutive season, at his highest price yet. Buying the dip is not supposed to work this way."
+        },
+        {
+          "name": "Jalen Hurts",
+          "position": "QB",
+          "price": 17,
+          "worth": 19.1,
+          "edge": 2.1,
+          "proj_points": 311.4,
+          "risk_points": 288.7,
+          "starter": true,
+          "sale_order": 55,
+          "nfl_team": "PHI",
+          "injury": null,
+          "verdict": ""
+        }
+      ],
+      "trends": {
+        "spend": {
+          "career": {
+            "spent_per_season": 199.2,
+            "early_spend_share": 0.492,
+            "gini": 0.605,
+            "big_bids_per_season": 1.6,
+            "max_bid": 83,
+            "dollar_share": 0.179
+          },
+          "y2026": {
+            "spent_per_season": 200,
+            "early_spend_share": 0.365,
+            "gini": 0.654,
+            "big_bids_per_season": 1,
+            "max_bid": 73,
+            "dollar_share": 0.357
+          },
+          "verdict": "Waited longer than almost anyone, then spent 73 on one player. A patience strategy with a Bijan-shaped hole in it."
+        },
+        "allocation": {
+          "career": {
+            "QB": 0.072,
+            "RB": 0.477,
+            "WR": 0.362,
+            "TE": 0.062,
+            "K": 0.016,
+            "D/ST": 0.011
+          },
+          "y2026": { "QB": 0.085, "RB": 0.47, "WR": 0.42, "TE": 0.015, "K": 0.005, "D/ST": 0.005 },
+          "verdict": "Career-normal shape, slightly more WR. The strategy does not change because the roster never changes."
+        },
+        "loyalty": {
+          "repeats_2026": [
+            {
+              "player": "Bijan Robinson",
+              "price_2026": 73,
+              "prior_seasons": [2024],
+              "avg_prior_price": 71
+            },
+            {
+              "player": "Chris Olave",
+              "price_2026": 37,
+              "prior_seasons": [2023, 2024],
+              "avg_prior_price": 33
+            },
+            {
+              "player": "Jalen Hurts",
+              "price_2026": 17,
+              "prior_seasons": [2021, 2023],
+              "avg_prior_price": 19.5
+            }
+          ],
+          "verdict": "Seven repeat buys including a fourth Sutton season. League record. Nobody else is close. Nobody else is trying."
+        },
+        "luck": {
+          "wins": 68,
+          "losses": 80,
+          "win_pct": 0.459,
+          "luck_wins": -6.9,
+          "draft_roi_vs_league": -12.7,
+          "verdict": "Minus 6.9 career wins below expectation. Statistically the most cursed man in the league. The data does not care about feelings but it noticed his."
+        }
+      },
+      "forecast": {
+        "mean_wins": 7.72,
+        "mean_points": 1097.2,
+        "playoff_odds": 0.5987,
+        "title_odds": 0.1313,
+        "expected_finish": 5.85,
+        "finish_distribution": [0.1313, 0.1117, 0.099],
+        "record": "8-6",
+        "coach_eff": 0.8884,
+        "reason": "All veterans, no rookie risk, Bijan barely dented. First expected finish, 8 and 6, 60 percent playoffs, 14 percent title. His luck ledger is owed 6.9 wins on top. Collection season."
+      },
+      "schedule": [
+        { "week": 1, "opp": "David Adler", "opp_team_id": 10, "win_prob": 0.541 },
+        { "week": 2, "opp": "David Evans", "opp_team_id": 6, "win_prob": 0.513 },
+        { "week": 3, "opp": "Doug Black", "opp_team_id": 12, "win_prob": 0.515 }
+      ],
+      "sos": { "opp_weekly_avg": 74.5, "rank": 10 },
+      "schedule_luck": -0.01,
+      "schedule_line": "Favored in all fourteen games. The schedule read the same roster everyone else did.",
+      "nominations": {
+        "noms": 14,
+        "own_buys": 0,
+        "own_spend": 0,
+        "avg_nom_price": 16.1,
+        "dollar_noms": 2,
+        "drained": 225,
+        "shill_index": 1.13,
+        "top_nom": { "player": "Ja'Marr Chase", "price": 71, "buyer": "David Evans" },
+        "line": "Fourteen nominations, zero bought. He spent the night handing the room bills and never picked up a check."
+      },
+      "fragility": {
+        "player": "Bijan Robinson",
+        "position": "RB",
+        "price": 73,
+        "playoff_odds_without": 0.2953,
+        "drop": 0.3034,
+        "title_drop": 0.103
+      },
+      "roast": "Ten seasons, nine team names. The Dad, Daddy Shark, Daddy with an exclamation point, a heart-emoji Etienne, the 69ers. Every rebrand promised a new Jimmy, and every year the ninth-and-a-half-place finish came home to whatever the team was called that week.\n\nThe file's cruelest page is the streak: ten straight losses that started in October 2023 and were still alive in September 2024. Most losing streaks die in the offseason. Jimmy's packed a bag and came back tanned.\n\nThis draft he shopped from his own past almost exclusively. Half the roster is players he's bought before, including Brooks back at 8 dollars after Jimmy personally watched him miss all of 2025 from six feet away, and Bijan at 73 after 71. Other owners scout the player pool; Jimmy checks in on old friends and asks if they need anything.\n\nHere's the part the room missed while it was laughing: the reunion tour is the best team in the league. 1504 starter points, a calendar with no underdog weeks on it, the only A plus on the board. He built a genuine contender out of pure sentimentality, which nobody else here has ever managed.\n\nHe also drags the heaviest luck debt in league history behind him, nearly seven wins the record owes him and has never once paid. So the season is a straight bet: the best roster he's ever owned against a decade of documented cosmic hostility. The sim likes the roster. The universe has seen the sim's work before and remains undefeated.",
+      "verdict_line": "Holds the all-time league records for priciest kicker and priciest defense ever bought. A trophy case is a trophy case."
+    },
+    {
+      "team_id": 4,
+      "owner": "AJ Boorde",
+      "team_name": "Little Giants",
+      "grade": {
+        "letter": "A-",
+        "rank": 3,
+        "composite": 0.933,
+        "components": {
+          "starter_points": { "value": 1466.6, "z": 0.8, "weight": 0.8 },
+          "value": { "value": 0.199, "z": 1.48, "weight": 0.2 },
+          "build": { "value": 181.2, "z": 2.26, "weight": 0 }
+        }
+      },
+      "spent": 196,
+      "worth": 235.1,
+      "edge": 39.1,
+      "starter_points": 1466.6,
+      "bench_value": 181.2,
+      "roster": [
+        {
+          "name": "George Pickens",
+          "position": "WR",
+          "price": 37,
+          "worth": 23.3,
+          "edge": -13.7,
+          "proj_points": 202.3,
+          "risk_points": 184.4,
+          "starter": true,
+          "sale_order": 19,
+          "nfl_team": "DAL",
+          "injury": null,
+          "verdict": "37 dollars for Dallas's second option, bought on feel in the first hour. Worst pick on the roster by 6 dollars."
+        },
+        {
+          "name": "Josh Allen",
+          "position": "QB",
+          "price": 35,
+          "worth": 41.1,
+          "edge": 6.1,
+          "proj_points": 360.6,
+          "risk_points": 310.2,
+          "starter": true,
+          "sale_order": 24,
+          "nfl_team": "BUF",
+          "injury": null,
+          "verdict": "The best QB in football at four times the going rate here, at the position with the least reliable projections the model measures. 361 becomes 310 after the haircut. Mahomes sold for 1 dollar two hours later."
+        },
+        {
+          "name": "Breece Hall",
+          "position": "RB",
+          "price": 32,
+          "worth": 52.1,
+          "edge": 20.1,
+          "proj_points": 220.2,
+          "risk_points": 176.4,
+          "starter": true,
+          "sale_order": 52,
+          "nfl_team": "NYJ",
+          "injury": "Q",
+          "verdict": "Plus 20 on the receipts, but he misses one week in nine by his own file, so the model prices him at 176, not 220. The edge is mostly hope."
+        }
+      ],
+      "trends": {
+        "spend": {
+          "career": {
+            "spent_per_season": 199.3,
+            "early_spend_share": 0.664,
+            "gini": 0.691,
+            "big_bids_per_season": 2,
+            "max_bid": 88,
+            "dollar_share": 0.464
+          },
+          "y2026": {
+            "spent_per_season": 196,
+            "early_spend_share": 0.367,
+            "gini": 0.497,
+            "big_bids_per_season": 0,
+            "max_bid": 37,
+            "dollar_share": 0.143
+          },
+          "verdict": "Career: two thirds of the money gone in three rounds and two 40 dollar tickets a year. This year: nothing over 37 and half the usual concentration. The overpays did not stop. They downsized."
+        },
+        "allocation": {
+          "career": {
+            "QB": 0.038,
+            "RB": 0.436,
+            "WR": 0.487,
+            "TE": 0.028,
+            "K": 0.006,
+            "D/ST": 0.006
+          },
+          "y2026": { "QB": 0.194, "RB": 0.408, "WR": 0.337, "TE": 0.046, "K": 0.005, "D/ST": 0.01 },
+          "verdict": "19 percent of the budget on quarterbacks, in the league that hands them out for a dollar. Allen plus Purdy cost more than eight other QB rooms combined."
+        },
+        "loyalty": {
+          "repeats_2026": [
+            {
+              "player": "Mike Evans",
+              "price_2026": 10,
+              "prior_seasons": [2019, 2023],
+              "avg_prior_price": 33
+            },
+            {
+              "player": "Sam LaPorta",
+              "price_2026": 9,
+              "prior_seasons": [2023],
+              "avg_prior_price": 1
+            }
+          ],
+          "verdict": "Third tour with Mike Evans. He paid 33 dollars for the prime years. The 10 dollar price is the market aging the player, not a bargain."
+        },
+        "luck": {
+          "wins": 67,
+          "losses": 81,
+          "win_pct": 0.453,
+          "luck_wins": 2.2,
+          "draft_roi_vs_league": -121.9,
+          "verdict": "Career 45 percent win rate with POSITIVE luck. He has been 2 wins luckier than he deserved and still lost. Let that sink in."
+        }
+      },
+      "forecast": {
+        "mean_wins": 7.72,
+        "mean_points": 1096.5,
+        "playoff_odds": 0.599,
+        "title_odds": 0.1253,
+        "expected_finish": 5.9,
+        "finish_distribution": [0.1253, 0.1053, 0.112],
+        "record": "8-6",
+        "coach_eff": 0.9061,
+        "reason": "8 and 6, 60 percent playoffs, 12 percent title, in a dead heat with Jimmy that expected finish breaks in Jimmy's favor. Fourth best lineup, best receipts. The lineup is what plays."
+      },
+      "schedule": [
+        { "week": 1, "opp": "Forrest Britton", "opp_team_id": 3, "win_prob": 0.557 },
+        { "week": 2, "opp": "Michael Hoyle", "opp_team_id": 14, "win_prob": 0.501 },
+        { "week": 3, "opp": "Rick Kocher", "opp_team_id": 13, "win_prob": 0.593 }
+      ],
+      "sos": { "opp_weekly_avg": 74.4, "rank": 12 },
+      "schedule_luck": 0.01,
+      "schedule_line": "Favored in thirteen of fourteen. The exception is Jimmy in week 4, a coin flip. The schedule is not his problem. It never has been.",
+      "nominations": {
+        "noms": 14,
+        "own_buys": 0,
+        "own_spend": 0,
+        "avg_nom_price": 11.6,
+        "dollar_noms": 3,
+        "drained": 162,
+        "shill_index": 0.82,
+        "top_nom": { "player": "CeeDee Lamb", "price": 59, "buyer": "Neill Bullock" },
+        "line": "Fourteen noms, zero self-buys, all mid-priced bait. Disciplined, or scared. The file cannot tell the difference."
+      },
+      "fragility": {
+        "player": "George Pickens",
+        "position": "WR",
+        "price": 37,
+        "playoff_odds_without": 0.521,
+        "drop": 0.078,
+        "title_drop": 0.0316
+      },
+      "roast": "AJ is 67 and 81 for his career, and the ledger says that flatters him. He has run 2 wins of good luck across the decade and spent all of it losing slightly slower than he deserved.\n\nThe signature season is 2019. He paid 88 dollars for Christian McCaffrey, still the fourth biggest ticket in league history, and finished dead last. The team name that August: From First To Last. He wrote the prophecy himself, then spent 88 dollars producing it. One title in 2018, two playoff trips in ten years, and the worst career draft return the league has ever recorded.\n\nThis year's shopping was, honestly, the best anyone did. Plus 39 against the stickers, tops in the room, with a bench deep enough to field a second team. Real credit; ten years of receipts and this is the cleanest set.\n\nThe catch is that the grade weighs a bench at zero, because a bench only scores when somebody starts the right guys, and a 45 percent lifetime win rate says that somebody isn't AJ. He also dropped 38 dollars at quarterback in the same room where Mahomes went for one, which reads less like a strategy and more like a tip he left on the table.\n\nThe sim calls him a coin flip for the top seed. It also schedules Jimmy in week 4, and Jimmy has beaten him 10 of 14 lifetime by 12 a game. The sim says coin flip. The coin has an opinion.",
+      "verdict_line": "Fifteenth of eighteen in career skill, behind two owners who left the league years ago. They rank higher for leaving."
+    },
+    {
+      "team_id": 6,
+      "owner": "David Evans",
+      "team_name": "Bebby Heatseekers",
+      "grade": {
+        "letter": "B",
+        "rank": 6,
+        "composite": 0.472,
+        "components": {
+          "starter_points": { "value": 1454.2, "z": 0.56, "weight": 0.8 },
+          "value": { "value": 0.025, "z": 0.13, "weight": 0.2 },
+          "build": { "value": 127.2, "z": 0.36, "weight": 0 }
+        }
+      },
+      "spent": 200,
+      "worth": 205.1,
+      "edge": 5,
+      "starter_points": 1454.2,
+      "bench_value": 127.2,
+      "roster": [
+        {
+          "name": "De'Von Achane",
+          "position": "RB",
+          "price": 56,
+          "worth": 69.2,
+          "edge": 13.2,
+          "proj_points": 245.5,
+          "risk_points": 217,
+          "starter": true,
+          "sale_order": 6,
+          "nfl_team": "MIA",
+          "injury": null,
+          "verdict": "Plus 13 on a 56 dollar player. The old Evans showing through."
+        },
+        {
+          "name": "Ja'Marr Chase",
+          "position": "WR",
+          "price": 71,
+          "worth": 53.8,
+          "edge": -17.2,
+          "proj_points": 267.1,
+          "risk_points": 224.8,
+          "starter": true,
+          "sale_order": 7,
+          "nfl_team": "CIN",
+          "injury": "Q",
+          "verdict": "71 dollars, minus 17. The price of switching religions mid-career."
+        },
+        {
+          "name": "Jayden Daniels",
+          "position": "QB",
+          "price": 8,
+          "worth": 18,
+          "edge": 10,
+          "proj_points": 309.1,
+          "risk_points": 287.7,
+          "starter": true,
+          "sale_order": 8,
+          "nfl_team": "WAS",
+          "injury": null,
+          "verdict": "8 dollars for a top five QB at the eighth sale of the night. The room was asleep and he knew it."
+        }
+      ],
+      "trends": {
+        "spend": {
+          "career": {
+            "spent_per_season": 197.4,
+            "early_spend_share": 0.549,
+            "gini": 0.582,
+            "big_bids_per_season": 1.2,
+            "max_bid": 74,
+            "dollar_share": 0.157
+          },
+          "y2026": {
+            "spent_per_season": 200,
+            "early_spend_share": 0.7,
+            "gini": 0.641,
+            "big_bids_per_season": 2,
+            "max_bid": 71,
+            "dollar_share": 0.214
+          },
+          "verdict": "More early money and more concentration than his career norm. The patient accumulator decided to sprint. The results were mixed."
+        },
+        "allocation": {
+          "career": {
+            "QB": 0.06,
+            "RB": 0.575,
+            "WR": 0.242,
+            "TE": 0.096,
+            "K": 0.013,
+            "D/ST": 0.015
+          },
+          "y2026": { "QB": 0.04, "RB": 0.37, "WR": 0.45, "TE": 0.11, "K": 0.005, "D/ST": 0.025 },
+          "verdict": "A twenty point swing out of RB into WR. The biggest strategy change of anyone who still made the playoffs in the sim."
+        },
+        "loyalty": {
+          "repeats_2026": [
+            {
+              "player": "Travis Kelce",
+              "price_2026": 1,
+              "prior_seasons": [2023, 2025],
+              "avg_prior_price": 34.5
+            },
+            {
+              "player": "Khalil Shakir",
+              "price_2026": 2,
+              "prior_seasons": [2024],
+              "avg_prior_price": 1
+            }
+          ],
+          "verdict": "Two seasons of Kelce at 34 dollars average. This year, 1 dollar. He is keeping the relationship on a maintenance dose."
+        },
+        "luck": {
+          "wins": 76,
+          "losses": 72,
+          "win_pct": 0.514,
+          "luck_wins": 1.2,
+          "draft_roi_vs_league": 110.8,
+          "verdict": "Above water on wins, above water on luck, best ROI in league history. The one owner with nothing to blame."
+        }
+      },
+      "forecast": {
+        "mean_wins": 7.59,
+        "mean_points": 1085.3,
+        "playoff_odds": 0.5643,
+        "title_odds": 0.1163,
+        "expected_finish": 6.16,
+        "finish_distribution": [0.1163, 0.1017, 0.1033],
+        "record": "8-6",
+        "coach_eff": 0.9072,
+        "reason": "Second best coaching efficiency in the league, worth a hidden win a season. 8 and 6, 57 percent playoffs, third expected finish. Ten dollars on Tate is the only true rookie money here; the rest of the youth is taxed for its own missed weeks, not its age."
+      },
+      "schedule": [
+        { "week": 1, "opp": "Rick Kocher", "opp_team_id": 13, "win_prob": 0.583 },
+        { "week": 2, "opp": "Jimmy Simpson", "opp_team_id": 5, "win_prob": 0.487 },
+        { "week": 3, "opp": "Todd Ellis", "opp_team_id": 9, "win_prob": 0.54 }
+      ],
+      "sos": { "opp_weekly_avg": 74.2, "rank": 13 },
+      "schedule_luck": 0.04,
+      "schedule_line": "Second softest draw in the league. If this schedule does not produce a playoff spot, that is a confession.",
+      "nominations": {
+        "noms": 14,
+        "own_buys": 4,
+        "own_spend": 13,
+        "avg_nom_price": 13,
+        "dollar_noms": 5,
+        "drained": 169,
+        "shill_index": 0.92,
+        "top_nom": { "player": "Jonathan Taylor", "price": 69, "buyer": "Michael Hoyle" },
+        "line": "Four self-buys for 13 total dollars. He nominates his own bargain bin and dares anyone to outbid a 3 dollar flier. Nobody ever does."
+      },
+      "fragility": {
+        "player": "Ja'Marr Chase",
+        "position": "WR",
+        "price": 71,
+        "playoff_odds_without": 0.367,
+        "drop": 0.1973,
+        "title_drop": 0.0683
+      },
+      "roast": "There was a time this was the scariest page in the report. Back to back titles in 2019 and 2020, eleven straight wins bridging them, the best career draft return this league has ever seen. His 2019 champion needed nine waiver moves all season. Nine. He built a machine in August and spent the fall watching it idle at a green light.\n\nThat was five years ago. The playoffs haven't seen him since 2021, and the finishes since read like a slow leak. The 3 and 11 in 2024 happened while his drafting stayed elite, which is somehow worse; the groceries kept arriving fresh while the restaurant burned.\n\nSo the league's most disciplined running back investor changed religions. Career Evans puts 57 cents of every dollar on backs. This Evans put 71 on Chase, minus 17 on the sheet, with a knee the beat writers check on daily.\n\nGive him the Daniels buy, though: 8 dollars for a top five quarterback while thirteen grown men sat on full wallets. That one pick funds the whole experiment. Achane at 56 was the old him too, early and right.\n\nKelce is the epilogue. Evans paid him around 34 dollars a season across two prior tours; this year the same man cost one. That's a decade summarized on a single receipt, and Evans bought it anyway. The sim says 8 and 6, comfortably in. If a fifth straight autumn goes sideways anyway, it stops being variance and starts being a signature.",
+      "verdict_line": "Fourteenth, twelfth, tenth. At two spots a year, the next ring arrives right on schedule in 2030."
+    }
+  ],
+  "league": {
+    "standings": [
+      {
+        "team_id": 5,
+        "owner": "Jimmy Simpson",
+        "team_name": "WPFL Youth Academy",
+        "record": "8-6",
+        "mean_wins": 7.72,
+        "mean_points": 1097.2,
+        "playoff_odds": 0.5987,
+        "title_odds": 0.1313,
+        "expected_finish": 5.85
+      },
+      {
+        "team_id": 4,
+        "owner": "AJ Boorde",
+        "team_name": "Little Giants",
+        "record": "8-6",
+        "mean_wins": 7.72,
+        "mean_points": 1096.5,
+        "playoff_odds": 0.599,
+        "title_odds": 0.1253,
+        "expected_finish": 5.9
+      },
+      {
+        "team_id": 6,
+        "owner": "David Evans",
+        "team_name": "Bebby Heatseekers",
+        "record": "8-6",
+        "mean_wins": 7.59,
+        "mean_points": 1085.3,
+        "playoff_odds": 0.5643,
+        "title_odds": 0.1163,
+        "expected_finish": 6.16
+      }
+    ],
+    "market": {
+      "by_position": {
+        "QB": {
+          "share_2026": 0.053,
+          "share_career": 0.059,
+          "top5_avg_2026": 19,
+          "top5_avg_career": 21.5
+        },
+        "RB": {
+          "share_2026": 0.437,
+          "share_career": 0.45,
+          "top5_avg_2026": 69.4,
+          "top5_avg_career": 70.7
+        },
+        "WR": {
+          "share_2026": 0.438,
+          "share_career": 0.407,
+          "top5_avg_2026": 67.4,
+          "top5_avg_career": 61.3
+        },
+        "TE": {
+          "share_2026": 0.053,
+          "share_career": 0.066,
+          "top5_avg_2026": 21.6,
+          "top5_avg_career": 27.4
+        },
+        "K": {
+          "share_2026": 0.007,
+          "share_career": 0.008,
+          "top5_avg_2026": 2.2,
+          "top5_avg_career": 2.8
+        },
+        "D/ST": {
+          "share_2026": 0.013,
+          "share_career": 0.01,
+          "top5_avg_2026": 4.4,
+          "top5_avg_career": 3.2
+        }
+      },
+      "prose": "WR money rose again: 44% of the room's dollars against a 41% historical share. The top five receivers averaged $67 against a $61 career norm.\nThe QB aisle collapsed: Mahomes $1, Stafford $2, Goff $1. Top-five average: $19.\nTE top-five prices fell from $27 to $22 — Andrews $2, Kelce $1.\nDefenses were the only other market to inflate, $3.2 to $4.4 at the top, on a mid-draft run nobody admits to starting.\nEvery dollar of WR premium was paid by the same owners the model flagged last year. The leak is not closing. It is a business model now."
+    },
+    "superlatives": [
+      {
+        "award": "Biggest Overpay",
+        "winner": "Rick Kocher",
+        "cite": {
+          "player": "Drake London",
+          "owner": "Rick Kocher",
+          "price": 54,
+          "worth": 27.8,
+          "market": 48
+        },
+        "quip": "54 dollars for 28 dollars of Drake London. The model needed a moment."
+      },
+      {
+        "award": "Best Value",
+        "winner": "Ryan Salchert",
+        "cite": {
+          "player": "Jahmyr Gibbs",
+          "owner": "Ryan Salchert",
+          "price": 78,
+          "worth": 116.6,
+          "market": 85.5
+        },
+        "quip": "Paid 78 for 117 dollars of Gibbs on the first sale of the night. Everything after was a victory lap."
+      },
+      {
+        "award": "Panic Buy of the Night",
+        "winner": "Todd Ellis",
+        "cite": {
+          "player": "Jadarian Price",
+          "owner": "Todd Ellis",
+          "price": 27,
+          "worth": 15.1,
+          "market": 15.1
+        },
+        "quip": "A 27 dollar Seahawks rookie, 79 percent over market, in the endgame. The room stood and applauded inside."
+      }
+    ],
+    "story": {
+      "spend_curve": { "y2026": [0.0281, 0.0508, 0.077], "career": [0.0166, 0.0367, 0.0568] },
+      "prose": "Full-throttle open: Gibbs $78 on the first card, McCaffrey $63, Bijan $73, Hampton $61 inside four sales. A kicker went fifth overall for $4 and nobody blinked.\nBy pick 50 the room had burned its usual 60% of all money. The shape of the draft was set.\nThe defense run took eight units off the board while half the league checked their phones.\nThe TE crash: LaPorta $9, Kittle $5, Goedert $4, Andrews $2, Kelce $1 — a decade of premium tight end theory liquidated in fifteen minutes.\nThe QB market never opened at all. Mahomes, a $1 bill.\nThe endgame was a scrap war over $1 bodies, during which Seahawks backup Jadarian Price sold for $27 and became a league holiday.\n$2778 of $2800 spent. The missing $22 died on the tables of five owners who each swore they had a plan for it."
+    },
+    "intro": "",
+    "board": [
+      {
+        "sale_order": 1,
+        "espn_id": 4429795,
+        "name": "Jahmyr Gibbs",
+        "position": "RB",
+        "owner": "Ryan Salchert",
+        "nominator": "Nixon Ball",
+        "price": 78,
+        "worth": 116.6,
+        "edge": 38.6,
+        "proj_points": 315.4,
+        "risk_points": 267.3,
+        "nfl_team": "DET",
+        "injury": null,
+        "sim_mean": 93,
+        "sim_p25": 87,
+        "sim_p75": 99
+      },
+      {
+        "sale_order": 2,
+        "espn_id": 3117251,
+        "name": "Christian McCaffrey",
+        "position": "RB",
+        "owner": "Doug Black",
+        "nominator": "David Adler",
+        "price": 63,
+        "worth": 92.3,
+        "edge": 29.3,
+        "proj_points": 279.6,
+        "risk_points": 218.6,
+        "nfl_team": "SF",
+        "injury": "Q",
+        "sim_mean": 77.6,
+        "sim_p25": 72,
+        "sim_p75": 82
+      },
+      {
+        "sale_order": 3,
+        "espn_id": 4430807,
+        "name": "Bijan Robinson",
+        "position": "RB",
+        "owner": "Jimmy Simpson",
+        "nominator": "Michael Hoyle",
+        "price": 73,
+        "worth": 108.7,
+        "edge": 35.7,
+        "proj_points": 303.9,
+        "risk_points": 259,
+        "nfl_team": "ATL",
+        "injury": null,
+        "sim_mean": 87.5,
+        "sim_p25": 82,
+        "sim_p75": 92
+      }
+    ],
+    "dossiers": {
+      "Jahmyr Gibbs": {
+        "history": [
+          { "season": 2023, "owner": "Jimmy Simpson", "price": 42, "pick": 44 },
+          { "season": 2024, "owner": "David Adler", "price": 50, "pick": 51 },
+          { "season": 2025, "owner": "Doug Black", "price": 70, "pick": 11 }
+        ],
+        "price_2026": 78,
+        "risk": {
+          "proj": 315.4,
+          "after_reliability": 267.3,
+          "availability": 1,
+          "rookie": 1,
+          "risk_points": 267.3
+        },
+        "facts": {
+          "team": "DET",
+          "years_exp": 3,
+          "age": 24,
+          "injury": null,
+          "depth": "RB1",
+          "outlook": "Gibbs has finished in the top 10 among running backs in yards per carry, routes, targets, receptions, touchdowns and fantasy points in each of his first three campaigns. In fact, his 38 touchdowns over the past two seasons are four more than any other player. Though Gibbs has finished as a top-three fantasy back in each of the past two years, he has yet to finish a season higher than seventh in touches. That very well could change this season with David Montgomery no longer in the mix. The 24-year-old Gibbs is one of the NFL's top playmakers in one of its best offenses. He's a strong option with the first pick of fantasy drafts."
+        }
+      },
+      "Christian McCaffrey": {
+        "history": [
+          { "season": 2017, "owner": "Nixon Ball", "price": 35, "pick": 45 },
+          { "season": 2018, "owner": "AJ Boorde", "price": 64, "pick": 23 },
+          { "season": 2019, "owner": "AJ Boorde", "price": 88, "pick": 3 }
+        ],
+        "price_2026": 63,
+        "risk": {
+          "proj": 279.6,
+          "after_reliability": 241.6,
+          "availability": 0.905,
+          "rookie": 1,
+          "risk_points": 218.6
+        },
+        "facts": {
+          "team": "SF",
+          "years_exp": 9,
+          "age": 30,
+          "injury": "Q",
+          "depth": "RB1",
+          "outlook": "McCaffrey is back for his fifth season with the 49ers after a bounce-back 2025 campaign in which he led all running backs in snaps, routes, touches, targets, receptions, receiving yards, receiving touchdowns and fantasy points. McCaffrey's rushing efficiency wasn't great (3.86 yards per carry), and he's entering his age-30 season after handling 450 touches (including the playoffs) in 2025. The history of overworked backs suggests we should expect a step back in 2026, but CMC is a unicorn, and the combination of his skill set and hefty usage in Kyle Shanahan's offense suggests he can overcome history. There's obvious risk here, but McCaffrey will be an elite option whenever he's on the field."
+        }
+      },
+      "Bijan Robinson": {
+        "history": [
+          { "season": 2023, "owner": "AJ Boorde", "price": 69, "pick": 3 },
+          { "season": 2024, "owner": "Jimmy Simpson", "price": 71, "pick": 12 },
+          { "season": 2025, "owner": "Ryan Salchert", "price": 74, "pick": 4 }
+        ],
+        "price_2026": 73,
+        "risk": {
+          "proj": 303.9,
+          "after_reliability": 259,
+          "availability": 1,
+          "rookie": 1,
+          "risk_points": 259
+        },
+        "facts": {
+          "team": "ATL",
+          "years_exp": 3,
+          "age": 24,
+          "injury": null,
+          "depth": "RB1",
+          "outlook": "Robinson enters his fourth season having finished in the top five among running backs in carries, rushing yards, touches, yards and fantasy points in each of the past two seasons. Also a big factor as a receiver, he has ranked no lower than fifth at the position in routes, targets, receptions and receiving yards in his three pro seasons. In 2025, PFF tracked him with 86 forced missed tackles, which was easily the most among backs. The 24-year-old is in his prime and, though he has a new coach in Kevin Stefanski, his path to a massive offensive role remains clear. He's on the short list of players who should be considered with the first pick of your fantasy draft."
+        }
+      }
+    },
+    "runs": [
+      {
+        "position": "RB",
+        "start_order": 1,
+        "length": 4,
+        "spent": 275,
+        "top_player": "Jahmyr Gibbs",
+        "top_price": 78,
+        "top_owner": "Ryan Salchert",
+        "started_by": "Nixon Ball"
+      },
+      {
+        "position": "WR",
+        "start_order": 17,
+        "length": 3,
+        "spent": 172,
+        "top_player": "Amon-Ra St. Brown",
+        "top_price": 68,
+        "top_owner": "Mike Simpson",
+        "started_by": "Michael Hoyle"
+      },
+      {
+        "position": "RB",
+        "start_order": 20,
+        "length": 3,
+        "spent": 162,
+        "top_player": "Jonathan Taylor",
+        "top_price": 69,
+        "top_owner": "Michael Hoyle",
+        "started_by": "Mike Simpson"
+      }
+    ],
+    "rivalries": {
+      "owners": ["Nixon Ball", "Forrest Britton", "AJ Boorde"],
+      "pairs": {
+        "Forrest Britton|AJ Boorde": {
+          "games": 15,
+          "wins": 10,
+          "losses": 5,
+          "avg_margin": 15.2,
+          "best": {
+            "season": 2020,
+            "week": 1,
+            "margin": 60.7,
+            "score": "131.0-70.3",
+            "playoffs": false
+          }
+        },
+        "AJ Boorde|Forrest Britton": {
+          "games": 15,
+          "wins": 5,
+          "losses": 10,
+          "avg_margin": -15.2,
+          "best": {
+            "season": 2024,
+            "week": 8,
+            "margin": 40.8,
+            "score": "144.5-103.7",
+            "playoffs": false
+          }
+        },
+        "Michael Hoyle|David Adler": {
+          "games": 11,
+          "wins": 5,
+          "losses": 6,
+          "avg_margin": 2.5,
+          "best": {
+            "season": 2020,
+            "week": 1,
+            "margin": 49.9,
+            "score": "114.8-64.9",
+            "playoffs": false
+          }
+        }
+      }
+    },
+    "playoff_field": {
+      "top": [
+        { "owners": ["AJ Boorde", "Jimmy Simpson", "David Evans"], "share": 0.005 },
+        { "owners": ["AJ Boorde", "Jimmy Simpson", "David Evans"], "share": 0.0047 },
+        { "owners": ["Forrest Britton", "AJ Boorde", "Jimmy Simpson"], "share": 0.0043 }
+      ]
+    },
+    "board_intro": "",
+    "name_rankings": {
+      "intro": "Five rankings above this line came out of a model. The sixth came out of Claude, who read the hundred-odd names this room has worn since 2016 and graded the fourteen of 2026 on craft and on the distance between the name and the record it fronts. The F got used.",
+      "entries": [
+        {
+          "rank": 1,
+          "team_name": "7 Step Drop",
+          "owner": "Jonathan Mims",
+          "grade": "A",
+          "verdict": "He has been counting since 2021: 2nd Year Breakout, 3rd Times The Charm, Four the Glory, 5 locks and a sock, 6 Offenders. Year seven is the first time the number landed on a real football term, so the longest-running bit in league history finally has a payoff. The A+ stays in escrow pending year eight."
+        },
+        {
+          "rank": 2,
+          "team_name": "Randy's Required Retirement",
+          "owner": "Neill Bullock",
+          "grade": "A-",
+          "verdict": "Ten consecutive seasons of Randy: battered, held captive in Cincinnati, cursed, rumbling, rueful, returned, and since 2024 required to retire, which he has not. The league's only serialized character, still running, written by the one owner whose actual draft just took an F."
+        },
+        {
+          "rank": 3,
+          "team_name": "Baby Hugo's College Fund",
+          "owner": "Forrest Britton",
+          "grade": "B+",
+          "verdict": "Third season, and the fund's full 200 dollars went to the auction again in August. The receipts are itemized and permanent, which will matter to Hugo eventually."
+        }
+      ]
+    }
+  },
+  "news": {
+    "as_of": "2026-08-28",
+    "window_days": 21,
+    "players": {
+      "Jahmyr Gibbs": {
+        "espn_id": 4429795,
+        "heat": 4,
+        "latest": {
+          "date": "2026-08-28",
+          "text": "Adam Schefter's fantasy football cheat sheet: Value picks and sleepers to target"
+        },
+        "timeline": [
+          {
+            "date": "2026-08-28",
+            "tag": null,
+            "text": "Adam Schefter's fantasy football cheat sheet: Value picks and sleepers to target"
+          },
+          {
+            "date": "2026-08-24",
+            "tag": null,
+            "text": "Gibbs or Bijan: Who should be the first pick in fantasy drafts?"
+          },
+          {
+            "date": "2026-08-14",
+            "tag": null,
+            "text": "Gibbs was held out of Thursday's preseason opener against the Bengals."
+          }
+        ],
+        "trend_add": null,
+        "trend_add_rank": null,
+        "trend_drop": null,
+        "trend_drop_rank": null,
+        "flags": []
+      },
+      "Christian McCaffrey": {
+        "espn_id": 3117251,
+        "heat": 16,
+        "latest": {
+          "date": "2026-08-27",
+          "text": "Fantasy football sleepers, busts and breakouts for 2026"
+        },
+        "timeline": [
+          {
+            "date": "2026-08-27",
+            "tag": null,
+            "text": "Fantasy football sleepers, busts and breakouts for 2026"
+          },
+          {
+            "date": "2026-08-23",
+            "tag": "undisclosed",
+            "text": "McCaffrey (undisclosed) said Sunday that he always planned to take a break during training camp and then \"ramp back up,\" Vic Tafur of The Athletic reports."
+          },
+          {
+            "date": "2026-08-23",
+            "tag": null,
+            "text": "Updating a previous report, McCaffrey (undisclosed) participated in team drills during Sunday's practice, Vic Tafur of The Athletic reports."
+          }
+        ],
+        "trend_add": null,
+        "trend_add_rank": null,
+        "trend_drop": null,
+        "trend_drop_rank": null,
+        "flags": ["injury"]
+      },
+      "Bijan Robinson": {
+        "espn_id": 4430807,
+        "heat": 5,
+        "latest": {
+          "date": "2026-08-28",
+          "text": "Adam Schefter's fantasy football cheat sheet: Value picks and sleepers to target"
+        },
+        "timeline": [
+          {
+            "date": "2026-08-28",
+            "tag": null,
+            "text": "Adam Schefter's fantasy football cheat sheet: Value picks and sleepers to target"
+          },
+          {
+            "date": "2026-08-24",
+            "tag": null,
+            "text": "Gibbs or Bijan: Who should be the first pick in fantasy drafts?"
+          },
+          {
+            "date": "2026-08-20",
+            "tag": null,
+            "text": "Why Field Yates has Bijan Robinson has his No. 1 pick in fantasy"
+          }
+        ],
+        "trend_add": null,
+        "trend_add_rank": null,
+        "trend_drop": null,
+        "trend_drop_rank": null,
+        "flags": []
+      }
+    },
+    "teams": {
+      "AJ Boorde": {
+        "flagged": ["Breece Hall", "Mike Evans", "Sam LaPorta"],
+        "heat": 66,
+        "injury_count": 5,
+        "trend_exposure": 0
+      },
+      "David Adler": {
+        "flagged": ["Jaylen Waddle", "Tucker Kraft", "Jameson Williams"],
+        "heat": 68,
+        "injury_count": 4,
+        "trend_exposure": 66052
+      },
+      "David Evans": {
+        "flagged": ["Ja'Marr Chase", "Carnell Tate", "Kyle Monangai"],
+        "heat": 67,
+        "injury_count": 4,
+        "trend_exposure": 30645
+      },
+      "Doug Black": {
+        "flagged": ["Christian McCaffrey", "Josh Jacobs", "Quinshon Judkins"],
+        "heat": 82,
+        "injury_count": 4,
+        "trend_exposure": 149769
+      },
+      "Forrest Britton": {
+        "flagged": ["DeVonta Smith", "Zach Charbonnet", "George Kittle"],
+        "heat": 62,
+        "injury_count": 5,
+        "trend_exposure": 0
+      },
+      "Jimmy Simpson": {
+        "flagged": ["Chris Olave", "Garrett Wilson", "Mark Andrews"],
+        "heat": 52,
+        "injury_count": 5,
+        "trend_exposure": 107917
+      },
+      "Jonathan Mims": {
+        "flagged": ["Zay Flowers", "Tyler Warren", "Justice Hill"],
+        "heat": 55,
+        "injury_count": 3,
+        "trend_exposure": 92280
+      },
+      "Michael Hoyle": {
+        "flagged": ["DJ Moore", "Emeka Egbuka", "Quentin Johnston"],
+        "heat": 60,
+        "injury_count": 4,
+        "trend_exposure": 29034
+      },
+      "Mike Simpson": {
+        "flagged": ["Puka Nacua", "Tony Pollard", "Rachaad White"],
+        "heat": 55,
+        "injury_count": 3,
+        "trend_exposure": 41958
+      },
+      "Neill Bullock": {
+        "flagged": ["Ashton Jeanty", "Luther Burden III", "Chris Rodriguez Jr."],
+        "heat": 75,
+        "injury_count": 4,
+        "trend_exposure": 166924
+      },
+      "Nixon Ball": {
+        "flagged": ["Jeremiyah Love", "Malik Nabers", "J.K. Dobbins"],
+        "heat": 97,
+        "injury_count": 3,
+        "trend_exposure": 765625
+      },
+      "Rick Kocher": {
+        "flagged": ["Jaxson Dart", "Chuba Hubbard", "DK Metcalf"],
+        "heat": 71,
+        "injury_count": 5,
+        "trend_exposure": 0
+      },
+      "Ryan Salchert": {
+        "flagged": ["Isiah Pacheco", "Tre Tucker", "Adonai Mitchell"],
+        "heat": 44,
+        "injury_count": 0,
+        "trend_exposure": 93536
+      },
+      "Todd Ellis": {
+        "flagged": ["De'Zhaun Stribling", "Michael Pittman Jr.", "TreVeyon Henderson"],
+        "heat": 104,
+        "injury_count": 6,
+        "trend_exposure": 0
+      }
+    },
+    "wire": {
+      "injury_watch": [
+        {
+          "name": "Ja'Marr Chase",
+          "position": "WR",
+          "owner": "David Evans",
+          "price": 71,
+          "tag": "knee",
+          "date": "2026-08-26",
+          "text": "Chase (knee) is not participating in Wednesday's practice, Ben Baby of ESPN.com reports."
+        },
+        {
+          "name": "Puka Nacua",
+          "position": "WR",
+          "owner": "Mike Simpson",
+          "price": 67,
+          "tag": "groin",
+          "date": "2026-08-24",
+          "text": "Nacua (groin) isn't practicing Monday, Sarah Barshop of ESPN.com reports."
+        },
+        {
+          "name": "Christian McCaffrey",
+          "position": "RB",
+          "owner": "Doug Black",
+          "price": 63,
+          "tag": "undisclosed",
+          "date": "2026-08-23",
+          "text": "McCaffrey (undisclosed) said Sunday that he always planned to take a break during training camp and then \"ramp back up,\" Vic Tafur of The Athletic reports."
+        }
+      ],
+      "trending_add": [
+        {
+          "name": "MarShawn Lloyd",
+          "position": "RB",
+          "nfl_team": "GB",
+          "count": 592083,
+          "owner": "Nixon Ball"
+        },
+        {
+          "name": "Malik Davis",
+          "position": "RB",
+          "nfl_team": "DAL",
+          "count": 444744,
+          "owner": null
+        },
+        {
+          "name": "Jack Strand",
+          "position": "QB",
+          "nfl_team": "ATL",
+          "count": 346150,
+          "owner": null
+        }
+      ],
+      "trending_drop": [
+        {
+          "name": "Tank Dell",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "count": 107056,
+          "owner": "Neill Bullock"
+        },
+        {
+          "name": "Emanuel Wilson",
+          "position": "RB",
+          "nfl_team": "SEA",
+          "count": 97290,
+          "owner": null
+        },
+        {
+          "name": "Alvin Kamara",
+          "position": "RB",
+          "nfl_team": "NO",
+          "count": 89184,
+          "owner": "Rick Kocher"
+        }
+      ],
+      "unbought": [
+        {
+          "name": "Malik Davis",
+          "position": "RB",
+          "nfl_team": "DAL",
+          "count": 444744,
+          "owner": null
+        },
+        {
+          "name": "Jack Strand",
+          "position": "QB",
+          "nfl_team": "ATL",
+          "count": 346150,
+          "owner": null
+        },
+        {
+          "name": "Xavier Hutchinson",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "count": 209993,
+          "owner": null
+        }
+      ],
+      "hot_rosters": [
+        { "owner": "Todd Ellis", "heat": 104, "flagged": 6 },
+        { "owner": "Nixon Ball", "heat": 97, "flagged": 7 },
+        { "owner": "Doug Black", "heat": 82, "flagged": 7 }
+      ]
+    },
+    "reads": {
+      "Ja'Marr Chase": {
+        "label": "cloudy",
+        "line": "Landed awkwardly chasing a deep ball, called it a little hyperextension, then missed Wednesday's practice anyway. David paid 71 dollars to find out whose version of the knee is true."
+      },
+      "Puka Nacua": {
+        "label": "cloudy",
+        "line": "A groin that traces to his psoas has kept him off the practice field most of August. McVay keeps saying ready. The field keeps saying not yet. Mike's 67 dollars wait."
+      },
+      "Christian McCaffrey": {
+        "label": "cloudy",
+        "line": "Skipped a chunk of camp with an injury nobody will name, then said the break was always the plan. He was back in team drills Sunday. With this medical file, undisclosed is doing a lot of work."
+      }
+    },
+    "team_lines": {
+      "Doug Black": "Doug's camp file reads like a police blotter. McCaffrey's injury has no name, Jacobs has a November court date, Tyson is gone for two months, and Mahomes says extremely confident the way people say it about knees.",
+      "David Evans": "The 71 dollar Chase knee is the league's most watched hyperextension, and Monangai, the 10 dollar insurance back, is out multiple weeks himself. The title case now includes an orthopedic wing.",
+      "Mike Simpson": "Nacua has not strung together a full practice week all August. That is 67 dollars of psoas. The rest of the camp file is quiet, which helps nothing while the headline stays hurt.",
+      "Neill Bullock": "Eight flagged players, the most in the league. Jeanty's ankle, Burden's groin, Dell's calendar free knee. The consolation: Murray, named the Vikings' starter, cost him 2 dollars.",
+      "Todd Ellis": "Six of Todd's fourteen picks carry an active injury note, tops in the league. Pierce missed all of camp, Price sat the last two exhibitions, Henderson needed precautionary tests. The Infirmary is open.",
+      "Nixon Ball": "The internet added Nixon's players 765 thousand times this week, more than four times anyone else. Lloyd, Washington, Allen, Mitchell. The hype portfolio is real. So are Love's ankle and Nabers's knee.",
+      "AJ Boorde": "Hall strained a groin August 17 with a timeline that lands days before Week 1, and he is the 32 dollar RB1. Five of AJ's fourteen carry injury notes. Four are the minor kind. The fifth is the season.",
+      "Jimmy Simpson": "Jimmy's five injury notes are all the mild kind. A stomach bug, a one day exit, and dollar bin backs easing back in. His biggest camp event was Najee Harris finding work with the Giants.",
+      "Michael Hoyle": "Egbuka's toe got the dreaded day to day, week to week, and Jacksonville listed Hunter at cornerback first. The 24 dollar breakout pick and the 3 dollar lottery ticket both need September luck.",
+      "Ryan Salchert": "Forty four news items in three weeks, the quietest roster in the league, and the only one with zero injury flags. Pacheco's knee then back is the loudest thing on it. Anonymity is not an injury designation.",
+      "David Adler": "Waddle and Kraft both cleared, though Kraft says his reps are capped into midseason. Willis keeps stacking good practices in Miami. Adler's camp was boring in the way you want.",
+      "Forrest Britton": "Kittle came off the PUP list ahead of schedule and Smith's hamstring cleared. Charbonnet stayed parked on PUP. A 5 dollar Kittle with a Week 1 chance is the best August news on this roster.",
+      "Rick Kocher": "Kamara's MCL bought at least a month of couch. Metcalf came back and restructured. Dart visited the medical tent and was cleared the same night. Rick's cheap veterans are aging in dog years.",
+      "Jonathan Mims": "Flowers is precautionary, Warren's groin got a one week tag, and Blue keeps producing through a shoulder while the wire drops him. Every flag on this roster comes with exhale instructions."
+    },
+    "intro": "The numbers in this report froze on draft night. The league did not. This layer is what the wire has said since: every practice report, signing, and panic add through August 28, pulled from the same feeds your waiver rivals read. Grades do not move. Sweat does."
+  },
+  "night": {
+    "spend_race": [
+      {
+        "1": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 78,
+        "8": 0,
+        "9": 0,
+        "10": 0,
+        "11": 0,
+        "12": 0,
+        "13": 0,
+        "14": 0,
+        "15": 0,
+        "o": 1
+      },
+      {
+        "1": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 78,
+        "8": 0,
+        "9": 0,
+        "10": 0,
+        "11": 0,
+        "12": 63,
+        "13": 0,
+        "14": 0,
+        "15": 0,
+        "o": 2
+      },
+      {
+        "1": 0,
+        "3": 0,
+        "4": 0,
+        "5": 73,
+        "6": 0,
+        "7": 78,
+        "8": 0,
+        "9": 0,
+        "10": 0,
+        "11": 0,
+        "12": 63,
+        "13": 0,
+        "14": 0,
+        "15": 0,
+        "o": 3
+      }
+    ],
+    "strip": [
+      {
+        "o": 1,
+        "pos": "RB",
+        "price": 78,
+        "name": "Jahmyr Gibbs",
+        "owner": "Ryan Salchert",
+        "run": 0
+      },
+      {
+        "o": 2,
+        "pos": "RB",
+        "price": 63,
+        "name": "Christian McCaffrey",
+        "owner": "Doug Black",
+        "run": 0
+      },
+      {
+        "o": 3,
+        "pos": "RB",
+        "price": 73,
+        "name": "Bijan Robinson",
+        "owner": "Jimmy Simpson",
+        "run": 0
+      }
+    ],
+    "annotations": [
+      { "o": 1, "kind": "record", "label": "Jahmyr Gibbs $78 — top sale" },
+      { "o": 1, "kind": "first_forty", "label": "first $40 bid: Jahmyr Gibbs $78" },
+      { "o": 73, "kind": "last_star", "label": "last $30+ sale: Kyren Williams $30" }
+    ],
+    "stepper": [
+      {
+        "kind": "record",
+        "lo": 1,
+        "hi": 1,
+        "title": "The record",
+        "text": "Sale 1: Jahmyr Gibbs to Ryan Salchert for $78 — the night's top price, against a model worth of $117."
+      },
+      {
+        "kind": "run",
+        "lo": 1,
+        "hi": 4,
+        "title": "The RB run",
+        "text": "Sales 1–4: 4 straight RBs for $275, kicked off by Nixon Ball. Jahmyr Gibbs went highest at $78."
+      },
+      {
+        "kind": "opening",
+        "lo": 1,
+        "hi": 14,
+        "title": "The opening lap",
+        "text": "The first 14 sales took $578 off the board — 21% of all the money in the room in 7% of the sales. Jahmyr Gibbs led the lap at $78."
+      }
+    ],
+    "sankey": {
+      "nodes": [
+        { "name": "Nixon Ball", "kind": "owner" },
+        { "name": "Forrest Britton", "kind": "owner" },
+        { "name": "AJ Boorde", "kind": "owner" }
+      ],
+      "links": [
+        { "source": 0, "target": 14, "value": 1 },
+        { "source": 0, "target": 15, "value": 90 },
+        { "source": 0, "target": 16, "value": 96 }
+      ]
+    },
+    "beeswarm": [
+      { "o": 1, "name": "Jahmyr Gibbs", "position": "RB", "price": 78, "row": 0 },
+      { "o": 2, "name": "Christian McCaffrey", "position": "RB", "price": 63, "row": 0 },
+      { "o": 3, "name": "Bijan Robinson", "position": "RB", "price": 73, "row": 0 }
+    ],
+    "autopsy": {
+      "walkforward": [
+        { "season": 2018, "n": 196, "mae": 2.38, "mae_10plus": 4.54 },
+        { "season": 2019, "n": 196, "mae": 2.77, "mae_10plus": 5.38 },
+        { "season": 2020, "n": 196, "mae": 2.59, "mae_10plus": 5.55 }
+      ],
+      "realization": {
+        "D/ST|$1-4": { "mult": 1.15, "raw": 5.962, "norm": 1.262, "n": 67 },
+        "D/ST|$5-14": { "mult": 1.15, "raw": 3.39, "norm": 2.253, "n": 4 },
+        "K|$1-4": { "mult": 1.15, "raw": 8.927, "norm": 1.89, "n": 70 },
+        "K|$15-29": { "mult": 0.9636513924837894, "raw": 0.053, "norm": 0.055, "n": 1 },
+        "K|$5-14": { "mult": 1.15, "raw": 9.53, "norm": 6.334, "n": 1 },
+        "QB|$1-4": { "mult": 1.15, "raw": 8.996, "norm": 1.905, "n": 49 },
+        "QB|$15-29": { "mult": 1.15, "raw": 2.337, "norm": 2.44, "n": 17 },
+        "QB|$30+": { "mult": 1.15, "raw": 1.215, "norm": 2.198, "n": 7 },
+        "QB|$5-14": { "mult": 1.15, "raw": 3.929, "norm": 2.611, "n": 26 },
+        "RB|$1-4": { "mult": 0.85, "raw": 2.666, "norm": 0.565, "n": 109 },
+        "RB|$15-29": { "mult": 0.85, "raw": 0.709, "norm": 0.74, "n": 42 },
+        "RB|$30+": { "mult": 1.059899261516088, "raw": 0.596, "norm": 1.078, "n": 84 },
+        "RB|$5-14": { "mult": 0.9046687220146733, "raw": 1.309, "norm": 0.87, "n": 69 },
+        "TE|$1-4": { "mult": 1.0805647181518367, "raw": 5.301, "norm": 1.123, "n": 48 },
+        "TE|$15-29": { "mult": 1.024391988908033, "raw": 1.023, "norm": 1.068, "n": 14 },
+        "TE|$30+": { "mult": 1.1313193616561525, "raw": 0.807, "norm": 1.46, "n": 10 },
+        "TE|$5-14": { "mult": 1.0186204543169481, "raw": 1.563, "norm": 1.039, "n": 23 },
+        "WR|$1-4": { "mult": 0.85, "raw": 2.219, "norm": 0.47, "n": 138 },
+        "WR|$15-29": { "mult": 0.85, "raw": 0.67, "norm": 0.699, "n": 48 },
+        "WR|$30+": { "mult": 0.85, "raw": 0.429, "norm": 0.775, "n": 78 },
+        "WR|$5-14": { "mult": 0.85, "raw": 0.787, "norm": 0.523, "n": 77 }
+      },
+      "reach": [
+        { "owner": "AJ Boorde", "career": 0.9, "night": -1.1 },
+        { "owner": "David Adler", "career": -0.6, "night": 0.6 },
+        { "owner": "David Evans", "career": 0.5, "night": -0.4 }
+      ],
+      "spend_curve": { "sim": [67.3, 132.6, 195.7], "room": [78, 141, 214] }
+    },
+    "acts": [
+      {
+        "label": "half the money",
+        "lo": 1,
+        "hi": 35,
+        "dollars": 1391,
+        "picks": 35,
+        "share_of_money": 0.5007
+      },
+      {
+        "label": "the middle grind",
+        "lo": 36,
+        "hi": 105,
+        "dollars": 1115,
+        "picks": 70,
+        "share_of_money": 0.4014
+      },
+      {
+        "label": "the dollar endgame",
+        "lo": 106,
+        "hi": 196,
+        "dollars": 272,
+        "picks": 91,
+        "share_of_money": 0.0979
+      }
+    ]
+  },
+  "history": {
+    "seasons": [
+      {
+        "season": 2016,
+        "owner": "Doug Black",
+        "current": true,
+        "team_name": "THIS IS AN ULTRALIGHT TEAM",
+        "wins": 9,
+        "losses": 4,
+        "points_for": 1468.8,
+        "points_against": 1346.1,
+        "seed": 3,
+        "final_rank": 1,
+        "champion": true,
+        "playoff_slots": 6,
+        "made_playoffs": true,
+        "exp_wins": 9.3,
+        "luck": -0.3,
+        "drafted_points": 1490.8,
+        "draft_roi": 240.7,
+        "coach_eff": 0.8817,
+        "bench_burn": 243.1,
+        "all_play_pct": 0.716,
+        "spent": 200,
+        "max_bid": 50,
+        "gini": 0.607,
+        "dollar_share": 0.357,
+        "acquisitions": 13,
+        "trades": 0,
+        "alloc": { "QB": 0.16, "RB": 0.34, "WR": 0.39, "TE": 0.085, "K": 0.02, "D/ST": 0.005 }
+      },
+      {
+        "season": 2016,
+        "owner": "David Evans",
+        "current": true,
+        "team_name": "Larry Legend's Victory Lap",
+        "wins": 10,
+        "losses": 3,
+        "points_for": 1473.9,
+        "points_against": 1277.3,
+        "seed": 1,
+        "final_rank": 2,
+        "champion": false,
+        "playoff_slots": 6,
+        "made_playoffs": true,
+        "exp_wins": 9.2,
+        "luck": 0.8,
+        "drafted_points": 1442.9,
+        "draft_roi": 192.8,
+        "coach_eff": 1.039,
+        "bench_burn": -71.2,
+        "all_play_pct": 0.7101,
+        "spent": 200,
+        "max_bid": 59,
+        "gini": 0.546,
+        "dollar_share": 0.143,
+        "acquisitions": 17,
+        "trades": 1,
+        "alloc": { "QB": 0.09, "RB": 0.755, "WR": 0.13, "TE": 0.005, "K": 0.005, "D/ST": 0.015 }
+      },
+      {
+        "season": 2016,
+        "owner": "Neill Bullock",
+        "current": true,
+        "team_name": "Minter Is Coming",
+        "wins": 8,
+        "losses": 5,
+        "points_for": 1403.5,
+        "points_against": 1364.5,
+        "seed": 4,
+        "final_rank": 3,
+        "champion": false,
+        "playoff_slots": 6,
+        "made_playoffs": true,
+        "exp_wins": 8.5,
+        "luck": -0.5,
+        "drafted_points": 1313.3,
+        "draft_roi": 63.2,
+        "coach_eff": 0.9628,
+        "bench_burn": 69.5,
+        "all_play_pct": 0.6509,
+        "spent": 200,
+        "max_bid": 65,
+        "gini": 0.637,
+        "dollar_share": 0.357,
+        "acquisitions": 23,
+        "trades": 1,
+        "alloc": { "QB": 0.075, "RB": 0.37, "WR": 0.54, "TE": 0.005, "K": 0.005, "D/ST": 0.005 }
+      }
+    ],
+    "bump": [
+      {
+        "owner": "Ryan Salchert",
+        "current": true,
+        "ranks": [
+          { "season": 2016, "rank": 11, "champion": false },
+          { "season": 2017, "rank": 10, "champion": false },
+          { "season": 2018, "rank": 12, "champion": false }
+        ]
+      },
+      {
+        "owner": "Nixon Ball",
+        "current": true,
+        "ranks": [
+          { "season": 2016, "rank": 9, "champion": false },
+          { "season": 2017, "rank": 4, "champion": false },
+          { "season": 2018, "rank": 11, "champion": false }
+        ]
+      },
+      {
+        "owner": "Jimmy Simpson",
+        "current": true,
+        "ranks": [
+          { "season": 2016, "rank": 7, "champion": false },
+          { "season": 2017, "rank": 13, "champion": false },
+          { "season": 2018, "rank": 10, "champion": false }
+        ]
+      }
+    ],
+    "dynasty": [
+      {
+        "owner": "Ryan Salchert",
+        "current": true,
+        "seasons_played": 10,
+        "titles": 3,
+        "title_seasons": [2021, 2022, 2025],
+        "wins": 60,
+        "losses": 75,
+        "win_pct": 0.444,
+        "pf_per_season": 1306.5,
+        "playoff_apps": 4,
+        "avg_finish": 7,
+        "best_finish": 1,
+        "luck_wins": -1.1,
+        "draft_roi": -91.9,
+        "all_play_pct": 0.4498,
+        "coach_eff": 0.9164,
+        "bench_burn": 168.7,
+        "true_rank": 14,
+        "skill_pct": 0.4635,
+        "skill_band": 0.0497
+      },
+      {
+        "owner": "David Evans",
+        "current": true,
+        "seasons_played": 10,
+        "titles": 2,
+        "title_seasons": [2019, 2020],
+        "wins": 71,
+        "losses": 64,
+        "win_pct": 0.526,
+        "pf_per_season": 1396.7,
+        "playoff_apps": 5,
+        "avg_finish": 6.6,
+        "best_finish": 1,
+        "luck_wins": 1.2,
+        "draft_roi": 113.7,
+        "all_play_pct": 0.5214,
+        "coach_eff": 0.9372,
+        "bench_burn": 130.9,
+        "true_rank": 7,
+        "skill_pct": 0.5046,
+        "skill_band": 0.0499
+      },
+      {
+        "owner": "Mike Simpson",
+        "current": true,
+        "seasons_played": 10,
+        "titles": 1,
+        "title_seasons": [2017],
+        "wins": 74,
+        "losses": 61,
+        "win_pct": 0.548,
+        "pf_per_season": 1420.8,
+        "playoff_apps": 7,
+        "avg_finish": 5.5,
+        "best_finish": 1,
+        "luck_wins": -2,
+        "draft_roi": -51.8,
+        "all_play_pct": 0.5631,
+        "coach_eff": 0.9158,
+        "bench_burn": 174.6,
+        "true_rank": 1,
+        "skill_pct": 0.5511,
+        "skill_band": 0.0478
+      }
+    ],
+    "money": {
+      "shares_by_year": [
+        {
+          "season": 2016,
+          "QB": 0.065,
+          "RB": 0.401,
+          "WR": 0.447,
+          "TE": 0.072,
+          "K": 0.007,
+          "D/ST": 0.009
+        },
+        {
+          "season": 2017,
+          "QB": 0.059,
+          "RB": 0.421,
+          "WR": 0.435,
+          "TE": 0.063,
+          "K": 0.01,
+          "D/ST": 0.011
+        },
+        {
+          "season": 2018,
+          "QB": 0.046,
+          "RB": 0.478,
+          "WR": 0.399,
+          "TE": 0.06,
+          "K": 0.007,
+          "D/ST": 0.01
+        }
+      ],
+      "top5_by_year": [
+        { "season": 2016, "QB": 24, "RB": 58.2, "WR": 60.4, "TE": 31.8, "K": 1.8, "D/ST": 2.8 },
+        { "season": 2017, "QB": 18.2, "RB": 61.2, "WR": 58.8, "TE": 23.2, "K": 3.4, "D/ST": 3.6 },
+        { "season": 2018, "QB": 14.2, "RB": 67.2, "WR": 55.4, "TE": 24.4, "K": 1.8, "D/ST": 3 }
+      ]
+    },
+    "hall_of_fame": {
+      "top_sales": [
+        {
+          "season": 2019,
+          "owner": "Colin Bradley",
+          "player": "Saquon Barkley",
+          "position": "RB",
+          "price": 95
+        },
+        {
+          "season": 2020,
+          "owner": "Jonathan Mims",
+          "player": "Christian McCaffrey",
+          "position": "RB",
+          "price": 94
+        },
+        {
+          "season": 2024,
+          "owner": "Ryan Salchert",
+          "player": "Christian McCaffrey",
+          "position": "RB",
+          "price": 89
+        }
+      ],
+      "position_records": [
+        {
+          "season": 2025,
+          "owner": "Doug Black",
+          "player": "Lamar Jackson",
+          "position": "QB",
+          "price": 39
+        },
+        {
+          "season": 2019,
+          "owner": "Colin Bradley",
+          "player": "Saquon Barkley",
+          "position": "RB",
+          "price": 95
+        },
+        {
+          "season": 2024,
+          "owner": "Ryan Salchert",
+          "player": "Tyreek Hill",
+          "position": "WR",
+          "price": 85
+        }
+      ],
+      "fifty_plus_by_year": [
+        { "season": 2016, "count": 12, "total": 695 },
+        { "season": 2017, "count": 13, "total": 753 },
+        { "season": 2018, "count": 12, "total": 739 }
+      ]
+    },
+    "arcs": [
+      {
+        "player": "Saquon Barkley",
+        "position": "RB",
+        "peak": 95,
+        "sales": [
+          { "season": 2018, "price": 76, "owner": "David Adler" },
+          { "season": 2019, "price": 95, "owner": "Colin Bradley" },
+          { "season": 2020, "price": 83, "owner": "Jimmy Simpson" }
+        ]
+      },
+      {
+        "player": "Christian McCaffrey",
+        "position": "RB",
+        "peak": 94,
+        "sales": [
+          { "season": 2017, "price": 35, "owner": "Nixon Ball" },
+          { "season": 2018, "price": 64, "owner": "AJ Boorde" },
+          { "season": 2019, "price": 88, "owner": "AJ Boorde" }
+        ]
+      },
+      {
+        "player": "Alvin Kamara",
+        "position": "RB",
+        "peak": 87,
+        "sales": [
+          { "season": 2018, "price": 49, "owner": "Doug Black" },
+          { "season": 2019, "price": 87, "owner": "David Adler" },
+          { "season": 2020, "price": 75, "owner": "Jimmy Simpson" }
+        ]
+      }
+    ],
+    "champions": [
+      { "season": 2016, "owner": "Doug Black", "team_name": "THIS IS AN ULTRALIGHT TEAM" },
+      { "season": 2017, "owner": "Mike Simpson", "team_name": "I Love Todd and Doug" },
+      { "season": 2018, "owner": "AJ Boorde", "team_name": "Andy Jeans" }
+    ],
+    "identities": [
+      {
+        "owner": "AJ Boorde",
+        "current": true,
+        "names": [
+          { "season": 2016, "team_name": "AttorneyGeneral Chris Crispies" },
+          { "season": 2017, "team_name": "JoshGordon420 BlazeIt" },
+          { "season": 2018, "team_name": "Andy Jeans" }
+        ],
+        "distinct_names": 9
+      },
+      {
+        "owner": "Alex Chapla",
+        "current": false,
+        "names": [
+          { "season": 2016, "team_name": "I Guess I'll Change This.." },
+          { "season": 2017, "team_name": "Blitz and Chitz" }
+        ],
+        "distinct_names": 2
+      },
+      {
+        "owner": "Colin Bradley",
+        "current": false,
+        "names": [{ "season": 2019, "team_name": "Elon Musk's Tonka Truck" }],
+        "distinct_names": 1
+      }
+    ],
+    "churn": [
+      {
+        "owner": "Jimmy Simpson",
+        "current": true,
+        "seasons": 10,
+        "acquisitions": 585,
+        "trades": 25,
+        "per_season": 58.5,
+        "busiest": { "season": 2023, "acquisitions": 90 },
+        "by_season": [
+          { "season": 2016, "acquisitions": 36, "trades": 1 },
+          { "season": 2017, "acquisitions": 56, "trades": 0 },
+          { "season": 2018, "acquisitions": 50, "trades": 2 }
+        ]
+      },
+      {
+        "owner": "AJ Boorde",
+        "current": true,
+        "seasons": 10,
+        "acquisitions": 424,
+        "trades": 8,
+        "per_season": 42.4,
+        "busiest": { "season": 2019, "acquisitions": 61 },
+        "by_season": [
+          { "season": 2016, "acquisitions": 26, "trades": 0 },
+          { "season": 2017, "acquisitions": 27, "trades": 1 },
+          { "season": 2018, "acquisitions": 45, "trades": 0 }
+        ]
+      },
+      {
+        "owner": "David Adler",
+        "current": true,
+        "seasons": 10,
+        "acquisitions": 422,
+        "trades": 31,
+        "per_season": 42.2,
+        "busiest": { "season": 2020, "acquisitions": 71 },
+        "by_season": [
+          { "season": 2016, "acquisitions": 34, "trades": 0 },
+          { "season": 2017, "acquisitions": 35, "trades": 0 },
+          { "season": 2018, "acquisitions": 54, "trades": 3 }
+        ]
+      }
+    ],
+    "record_book": {
+      "thru_season": 2025,
+      "team_weeks": {
+        "highs": [
+          {
+            "season": 2022,
+            "week": 8,
+            "owner": "Nixon Ball",
+            "points": 187.2,
+            "opponent": "Todd Ellis",
+            "opp_points": 92.4
+          },
+          {
+            "season": 2021,
+            "week": 5,
+            "owner": "Ryan Salchert",
+            "points": 173.8,
+            "opponent": "Forrest Britton",
+            "opp_points": 122.8
+          },
+          {
+            "season": 2019,
+            "week": 9,
+            "owner": "Mike Simpson",
+            "points": 170.1,
+            "opponent": "Doug Black",
+            "opp_points": 114.7
+          }
+        ],
+        "lows": [
+          {
+            "season": 2025,
+            "week": 6,
+            "owner": "David Adler",
+            "points": 38.5,
+            "opponent": "AJ Boorde",
+            "opp_points": 112.9
+          },
+          {
+            "season": 2019,
+            "week": 7,
+            "owner": "Doug Black",
+            "points": 42.7,
+            "opponent": "David Adler",
+            "opp_points": 143.9
+          },
+          {
+            "season": 2017,
+            "week": 13,
+            "owner": "Ean Spielvogel",
+            "points": 43.9,
+            "opponent": "Forrest Britton",
+            "opp_points": 80.2
+          }
+        ],
+        "margins": [
+          {
+            "season": 2019,
+            "week": 7,
+            "owner": "David Adler",
+            "points": 143.9,
+            "opponent": "Doug Black",
+            "opp_points": 42.7,
+            "margin": 101.1
+          },
+          {
+            "season": 2022,
+            "week": 8,
+            "owner": "Nixon Ball",
+            "points": 187.2,
+            "opponent": "Todd Ellis",
+            "opp_points": 92.4,
+            "margin": 94.8
+          },
+          {
+            "season": 2022,
+            "week": 8,
+            "owner": "David Adler",
+            "points": 154,
+            "opponent": "Jimmy Simpson",
+            "opp_points": 61.5,
+            "margin": 92.5
+          }
+        ]
+      },
+      "playoff_team_weeks": {
+        "highs": [
+          {
+            "season": 2025,
+            "week": 16,
+            "owner": "Mike Simpson",
+            "points": 165.9,
+            "opponent": "Rick Kocher",
+            "opp_points": 121
+          },
+          {
+            "season": 2018,
+            "week": 14,
+            "owner": "AJ Boorde",
+            "points": 164.8,
+            "opponent": "Doug Black",
+            "opp_points": 104
+          },
+          {
+            "season": 2018,
+            "week": 16,
+            "owner": "AJ Boorde",
+            "points": 161.4,
+            "opponent": "Mike Simpson",
+            "opp_points": 111.4
+          }
+        ],
+        "lows": [
+          {
+            "season": 2015,
+            "week": 16,
+            "owner": "David Adler",
+            "points": 30.9,
+            "opponent": "AJ Boorde",
+            "opp_points": 72
+          },
+          {
+            "season": 2022,
+            "week": 17,
+            "owner": "AJ Boorde",
+            "points": 34.5,
+            "opponent": "Neill Bullock",
+            "opp_points": 87.6
+          },
+          {
+            "season": 2016,
+            "week": 14,
+            "owner": "Ryan Salchert",
+            "points": 39.5,
+            "opponent": "Jimmy Simpson",
+            "opp_points": 92.3
+          }
+        ],
+        "margins": [
+          {
+            "season": 2017,
+            "week": 15,
+            "owner": "David Adler",
+            "points": 136.1,
+            "opponent": "Ean Spielvogel",
+            "opp_points": 45.4,
+            "margin": 90.7
+          },
+          {
+            "season": 2022,
+            "week": 15,
+            "owner": "Michael Hoyle",
+            "points": 138.9,
+            "opponent": "Todd Ellis",
+            "opp_points": 54.5,
+            "margin": 84.4
+          },
+          {
+            "season": 2019,
+            "week": 15,
+            "owner": "Colin Bradley",
+            "points": 145.8,
+            "opponent": "Rick Kocher",
+            "opp_points": 65.8,
+            "margin": 80.1
+          }
+        ]
+      },
+      "player_weeks": [
+        {
+          "position": "D/ST",
+          "player": "DAL D/ST",
+          "season": 2023,
+          "week": 1,
+          "points": 37,
+          "owner": "Forrest Britton",
+          "rank": 1
+        },
+        {
+          "position": "D/ST",
+          "player": "NE D/ST",
+          "season": 2019,
+          "week": 2,
+          "points": 35,
+          "owner": "David Adler",
+          "rank": 2
+        },
+        {
+          "position": "D/ST",
+          "player": "PHI D/ST",
+          "season": 2019,
+          "week": 5,
+          "points": 35,
+          "owner": "Doug Black",
+          "rank": 3
+        }
+      ],
+      "streaks": {
+        "wins": [
+          {
+            "owner": "David Evans",
+            "length": 11,
+            "start": { "season": 2019, "week": 13 },
+            "end": { "season": 2020, "week": 10 }
+          },
+          {
+            "owner": "Mike Simpson",
+            "length": 9,
+            "start": { "season": 2015, "week": 1 },
+            "end": { "season": 2015, "week": 9 }
+          },
+          {
+            "owner": "Jimmy Simpson",
+            "length": 8,
+            "start": { "season": 2015, "week": 1 },
+            "end": { "season": 2015, "week": 8 }
+          }
+        ],
+        "losses": [
+          {
+            "owner": "Jimmy Simpson",
+            "length": 10,
+            "start": { "season": 2023, "week": 6 },
+            "end": { "season": 2024, "week": 1 }
+          },
+          {
+            "owner": "Ryan Salchert",
+            "length": 10,
+            "start": { "season": 2024, "week": 1 },
+            "end": { "season": 2024, "week": 10 }
+          },
+          {
+            "owner": "Nixon Ball",
+            "length": 9,
+            "start": { "season": 2020, "week": 6 },
+            "end": { "season": 2021, "week": 1 }
+          }
+        ]
+      }
+    },
+    "skill_luck": [
+      {
+        "owner": "Mike Simpson",
+        "seasons": 11,
+        "weeks": 148,
+        "raw_allplay_pct": 0.578,
+        "skill_pct": 0.5511,
+        "band": 0.0478,
+        "career": { "actual_wins": 85, "allplay_wins": 85.54, "luck_wins": -0.54 },
+        "rank_score": 0.5267,
+        "true_rank": 1,
+        "current": true
+      },
+      {
+        "owner": "Neill Bullock",
+        "seasons": 11,
+        "weeks": 148,
+        "raw_allplay_pct": 0.539,
+        "skill_pct": 0.5248,
+        "band": 0.0499,
+        "career": { "actual_wins": 76, "allplay_wins": 79.77, "luck_wins": -3.77 },
+        "rank_score": 0.4993,
+        "true_rank": 2,
+        "current": true
+      },
+      {
+        "owner": "David Adler",
+        "seasons": 11,
+        "weeks": 148,
+        "raw_allplay_pct": 0.5286,
+        "skill_pct": 0.5177,
+        "band": 0.0516,
+        "career": { "actual_wins": 79, "allplay_wins": 78.23, "luck_wins": 0.77 },
+        "rank_score": 0.4914,
+        "true_rank": 3,
+        "current": true
+      }
+    ]
+  },
+  "market": {
+    "meta": {
+      "first_season": 2016,
+      "last_season": 2025,
+      "picks": 1960,
+      "matched": 1937,
+      "unmatched": 23,
+      "unmatched_by_position": { "K": 8, "QB": 1, "RB": 8, "TE": 2, "WR": 4 },
+      "weeks_used": {
+        "2016": 13,
+        "2017": 13,
+        "2018": 13,
+        "2019": 13,
+        "2020": 13,
+        "2021": 14,
+        "2022": 14,
+        "2023": 14,
+        "2024": 14,
+        "2025": 14
+      },
+      "replacement_quantile": 0.1,
+      "week_cap": "last regular-season week",
+      "replacement_method": "weekly_min",
+      "replacement_sensitivity": [
+        {
+          "method": "quantile",
+          "label": "the 10th percentile of started scores instead of the worst",
+          "ranking": ["QB", "TE", "WR"]
+        },
+        {
+          "method": "war_slot",
+          "label": "the worst starter in each lineup spot, counting RB2 and WR2 apart",
+          "ranking": ["QB", "TE", "WR"]
+        }
+      ]
+    },
+    "curve": {
+      "tiers": [
+        { "tier": "$1", "lo": 1, "hi": 1 },
+        { "tier": "$2-4", "lo": 2, "hi": 4 },
+        { "tier": "$5-9", "lo": 5, "hi": 9 }
+      ],
+      "cells": [
+        {
+          "position": "QB",
+          "tier": "$1",
+          "n": 54,
+          "avg_price": 1,
+          "par_per_dollar": 4.1199,
+          "lo": 2.5159,
+          "hi": 5.7936
+        },
+        {
+          "position": "QB",
+          "tier": "$2-4",
+          "n": 55,
+          "avg_price": 2.8,
+          "par_per_dollar": 2.5516,
+          "lo": 1.9659,
+          "hi": 3.0949
+        },
+        {
+          "position": "QB",
+          "tier": "$5-9",
+          "n": 30,
+          "avg_price": 6.6,
+          "par_per_dollar": 0.9599,
+          "lo": 0.6519,
+          "hi": 1.2724
+        }
+      ],
+      "headline": {
+        "min_price": 20,
+        "share_of_money": 0.7597,
+        "positions": [
+          {
+            "position": "QB",
+            "n": 26,
+            "spent": 735,
+            "spent_all_tiers": 1635,
+            "par_per_dollar": 0.4278,
+            "lo": 0.3545,
+            "hi": 0.4972,
+            "avg_price": 28.3
+          },
+          {
+            "position": "TE",
+            "n": 38,
+            "spent": 1218,
+            "spent_all_tiers": 1923,
+            "par_per_dollar": 0.2526,
+            "lo": 0.2191,
+            "hi": 0.2872,
+            "avg_price": 32.1
+          },
+          {
+            "position": "WR",
+            "n": 225,
+            "spent": 8819,
+            "spent_all_tiers": 11242,
+            "par_per_dollar": 0.2519,
+            "lo": 0.2374,
+            "hi": 0.2676,
+            "avg_price": 39.2
+          }
+        ]
+      },
+      "free_positions": [
+        {
+          "position": "K",
+          "n": 0,
+          "spent": 0,
+          "spent_all_tiers": 227,
+          "reason": "never bought in the band"
+        },
+        {
+          "position": "D/ST",
+          "n": 0,
+          "spent": 0,
+          "spent_all_tiers": 275,
+          "reason": "never bought in the band"
+        }
+      ]
+    },
+    "persistence": {
+      "split": {
+        "fit_seasons": [2016, 2020],
+        "test_seasons": [2021, 2025],
+        "positions": ["QB", "RB", "WR"],
+        "fit_order": ["QB", "WR", "TE"],
+        "test_order": ["QB", "TE", "WR"],
+        "fit_values": { "QB": 0.3929, "RB": 0.2126, "WR": 0.2587, "TE": 0.2579 },
+        "test_values": { "QB": 0.445, "RB": 0.2153, "WR": 0.2451, "TE": 0.2473 },
+        "fit_n": { "QB": 9, "RB": 115, "WR": 117, "TE": 19 },
+        "test_n": { "QB": 17, "RB": 107, "WR": 108, "TE": 19 },
+        "spearman": 0.8,
+        "p_value": 0.167
+      },
+      "per_season": {
+        "tests": [
+          {
+            "season": 2021,
+            "fit_through": 2020,
+            "fit_seasons": 5,
+            "spearman": 1,
+            "top_prior": "WR",
+            "top_actual": "WR"
+          },
+          {
+            "season": 2023,
+            "fit_through": 2022,
+            "fit_seasons": 7,
+            "spearman": 1,
+            "top_prior": "QB",
+            "top_actual": "QB"
+          }
+        ],
+        "n_tests": 2,
+        "mean_spearman": 1,
+        "status": "ok",
+        "note": "a single season buys too few picks in the band to rank positions; the split half is the test with power"
+      },
+      "headline_claim": {
+        "position": "QB",
+        "chosen_on": [2016, 2020],
+        "tested_on": [2021, 2025],
+        "n": 17,
+        "value": 0.445,
+        "field_value": 0.2302,
+        "difference": 0.2148,
+        "lo": 0.1221,
+        "hi": 0.3055,
+        "p_above_field": 1,
+        "confirmed": true
+      },
+      "threshold": 0.5,
+      "max_p": 0.1,
+      "verdict": "noise"
+    },
+    "hindsight": {
+      "best": [
+        {
+          "season": 2021,
+          "owner": "Ryan Salchert",
+          "player": "Leonard Fournette",
+          "position": "RB",
+          "price": 4,
+          "hindsight": 77,
+          "surplus": 73
+        },
+        {
+          "season": 2021,
+          "owner": "Jonathan Mims",
+          "player": "James Conner",
+          "position": "RB",
+          "price": 5,
+          "hindsight": 74,
+          "surplus": 69
+        },
+        {
+          "season": 2023,
+          "owner": "Nixon Ball",
+          "player": "Raheem Mostert",
+          "position": "RB",
+          "price": 8,
+          "hindsight": 77,
+          "surplus": 69
+        }
+      ],
+      "worst": [
+        {
+          "season": 2024,
+          "owner": "Ryan Salchert",
+          "player": "Christian McCaffrey",
+          "position": "RB",
+          "price": 89,
+          "hindsight": 2,
+          "surplus": -87
+        },
+        {
+          "season": 2020,
+          "owner": "Jonathan Mims",
+          "player": "Christian McCaffrey",
+          "position": "RB",
+          "price": 94,
+          "hindsight": 9,
+          "surplus": -85
+        },
+        {
+          "season": 2020,
+          "owner": "Jimmy Simpson",
+          "player": "Saquon Barkley",
+          "position": "RB",
+          "price": 83,
+          "hindsight": 1,
+          "surplus": -82
+        }
+      ]
+    },
+    "fingerprints": [
+      {
+        "owner": "David Evans",
+        "seasons": 10,
+        "picks": 138,
+        "spent": 1958,
+        "early_share": 0.5539,
+        "gini": 0.563,
+        "max_bid": 74,
+        "dollar_share": 0.1522,
+        "self_nom_rate": 0.2246,
+        "repeat_buys": 24,
+        "surplus_per_season": 27.4,
+        "position_bias": {
+          "QB": 0.0014,
+          "RB": 0.123,
+          "WR": -0.1698,
+          "TE": 0.036,
+          "K": 0.0046,
+          "D/ST": 0.0049
+        }
+      },
+      {
+        "owner": "Doug Black",
+        "seasons": 10,
+        "picks": 139,
+        "spent": 1998,
+        "early_share": 0.7757,
+        "gini": 0.6594,
+        "max_bid": 77,
+        "dollar_share": 0.4101,
+        "self_nom_rate": 0.2374,
+        "repeat_buys": 16,
+        "surplus_per_season": 24.1,
+        "position_bias": {
+          "QB": 0.0187,
+          "RB": -0.0066,
+          "WR": -0.0049,
+          "TE": -0.0067,
+          "K": 0.0028,
+          "D/ST": -0.0034
+        }
+      },
+      {
+        "owner": "Ean Spielvogel",
+        "seasons": 3,
+        "picks": 41,
+        "spent": 593,
+        "early_share": 0.7261,
+        "gini": 0.5726,
+        "max_bid": 75,
+        "dollar_share": 0.2927,
+        "self_nom_rate": 0.3902,
+        "repeat_buys": 2,
+        "surplus_per_season": 21,
+        "position_bias": {
+          "QB": -0.0032,
+          "RB": -0.1202,
+          "WR": 0.123,
+          "TE": 0.005,
+          "K": -0.0014,
+          "D/ST": -0.0032
+        }
+      }
+    ],
+    "champions": {
+      "titles": 10,
+      "distinct_champions": 7,
+      "seasons": [2016, 2017, 2018],
+      "features": [
+        {
+          "feature": "gini",
+          "kind": "strategy",
+          "n": 10,
+          "mean_z": 0.052,
+          "lo": -0.452,
+          "hi": 0.575,
+          "lo_corrected": -0.598,
+          "hi_corrected": 0.734,
+          "p_above_zero": 0.5738,
+          "separates": false
+        },
+        {
+          "feature": "max_bid",
+          "kind": "strategy",
+          "n": 10,
+          "mean_z": 0.282,
+          "lo": -0.26,
+          "hi": 0.841,
+          "lo_corrected": -0.414,
+          "hi_corrected": 1.012,
+          "p_above_zero": 0.8381,
+          "separates": false
+        },
+        {
+          "feature": "early_share",
+          "kind": "strategy",
+          "n": 10,
+          "mean_z": 0.206,
+          "lo": -0.327,
+          "hi": 0.729,
+          "lo_corrected": -0.486,
+          "hi_corrected": 0.885,
+          "p_above_zero": 0.7743,
+          "separates": false
+        }
+      ],
+      "features_tested": 5,
+      "correction": "bonferroni",
+      "alpha": 0.01,
+      "separating": [],
+      "verdict": "no draft feature separates the champions"
+    },
+    "recalibration": {
+      "narrow_first_season": 2021,
+      "wide_first_season": 2015,
+      "players_narrow": 456,
+      "players_wide": 730,
+      "players_gained": 274,
+      "shared": 456,
+      "median_std_delta": 0,
+      "median_missed_delta": 0,
+      "note": "measured only; the shipped constant still reads 2021+"
+    },
+    "usage": {
+      "season": 2025,
+      "through_week": 17,
+      "drafted": 196,
+      "covered": 165,
+      "players": {
+        "Jahmyr Gibbs": {
+          "games": 16,
+          "snap_share": 0.667,
+          "target_share": 0.163,
+          "carries": 224,
+          "receptions": 74,
+          "targets": 89
+        },
+        "Christian McCaffrey": {
+          "games": 16,
+          "snap_share": 0.829,
+          "target_share": 0.232,
+          "carries": 303,
+          "receptions": 96,
+          "targets": 122
+        },
+        "Bijan Robinson": {
+          "games": 16,
+          "snap_share": 0.778,
+          "target_share": 0.204,
+          "carries": 272,
+          "receptions": 76,
+          "targets": 100
+        }
+      }
+    },
+    "prose": {
+      "intro": "Ten seasons of prices have been sitting in the same store as ten seasons of results, and nobody had ever asked them what a dollar bought. This is that question, on 1,937 of 1,960 priced picks from 2016 to 2025 — the other 23 have no production rows and are left out rather than counted as zeroes.\n\nTwo measures, kept apart on purpose. Hindsight dollars re-deal the prices the room actually paid to the players by what they actually scored, which settles who took value off whom and adds to nothing league-wide. Points above replacement per dollar is the one that compares positions, and it only gets asked above $20, where 76% of the money goes.",
+      "curve": "Quarterbacks return about twice what running backs do, per dollar, and have for a decade: 0.428 against 0.214, with tight ends and receivers stacked together in between. The room has spent $46 on the average $20-plus back and $28 on the average $20-plus quarterback the whole time.\n\nThat survives the only test that matters. Pick the best-value position using 2016 through 2020 alone and it says QB; measured on 2021 through 2025, which had no say in the choice, QB comes back 0.445 against the field's 0.230 — a gap of +0.215, interval [0.122, 0.305], from 17 held-out picks.\n\nThe full four-position ordering is a different claim, and it does not hold: TE and WR swap places between the halves, and a rank correlation of 0.8 on four items is something a random shuffle beats 17% of the time. Reported as noise, next to the one claim that stood up. Kickers and defenses are not in the argument at all — not one dollar of the $502 spent on them in ten years was above $20.",
+      "champions": "Ten titles, seven owners, and no draft night in common. Concentration, biggest bid, early spending and the number of $1 picks all land where a coin would: the champions came out ahead of their field on those between 50% and 84% of the time, and every corrected interval runs through zero.\n\nThe one number that leans is value per dollar, ahead 99% of the time — but that is measured with hindsight, so it says the champion's players scored, which is closer to a description of the season than to a plan for the draft. Corrected for testing five things at once, even that stops short.\n\nThis was pre-registered to publish either way, and the null is the more useful answer: there is no shape of draft to copy.",
+      "fingerprints": "Twelve owners have drafted all ten seasons, and they separate by about $50 a year in hindsight dollars — David Evans +27 at one end, Ryan Salchert -24 at the other, with half of them inside five either way. Over a decade that is real money, and it is money taken from each other: the column sums to zero every season.\n\nThe habits are steadier than the results. Doug Black puts 78% of his budget in before sale 42 and takes 41% of his roster at $1, which is the same draft every year. David Evans has 24 players he has bought in more than one season.\n\nThe loudest rows are the shortest: the most concentrated draft, the most $1 picks and the worst season of hindsight value all belong to owners with three seasons or fewer, and one of them played exactly one. Read the seasons column before reading anything else."
+    }
+  }
+}
