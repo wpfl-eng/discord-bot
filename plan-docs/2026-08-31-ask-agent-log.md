@@ -1337,6 +1337,71 @@ branch push at the end of it was explicitly requested.
 
 ---
 
+## Stage 13 — the two lifetime races the cleanup review found — `feat/ask` — 2026-09-01 — DONE
+
+Not merged yet; on `feat/ask`.
+
+`/simplify` reported two things it could not fix inside its own remit, because
+both are correctness rather than cleanup. They are the same defect twice:
+shared readable state is replaced by overwriting a variable and destroying the
+old value on the spot, with nothing recording that a reader is still inside it.
+
+- `artifactSync.swap()` renamed the live shred aside and `rmSync`'d it while an
+  agent whose cwd is that directory was still reading, for up to
+  QUERY_TIMEOUT_MS.
+- `sqlTool.build()` called `closeSync()` on the connection an in-flight
+  `runSql` was reading through.
+
+### Changed
+- `ask/generations.ts` — NEW. `enter()` / `rotate(dispose)`: retiring a
+  generation defers its teardown to its last reader and never blocks. That
+  `rotate()` returns immediately is the load-bearing property — it is what
+  makes it safe to call from inside the swap, and it is why coupling the swap
+  to the concurrency semaphore (deadlock: `ensureFresh` runs before
+  `requestSlot`) was the wrong answer.
+- `wpfl/liveShred.ts` — NEW. The one process-wide generation for the shred, so
+  readers do not import the fetch-and-swap machinery to say they are inside it.
+- `wpfl/artifactSync.ts` — `swap()` retires instead of deleting, and sweeps
+  `*.old-*` / `*.new-*` siblings it does not itself owe a teardown. Deferring
+  the delete is what makes a sweep necessary: a crash mid-window used to strand
+  nothing and now strands ~10 MB.
+- `ask/askRunner.ts` — borrows the shred for the run, after the slot, released
+  in the existing `finally`.
+- `wpfl/sqlTool.ts` — `current` plus a generation, borrowed in the same
+  synchronous step so the pair is atomic; `install()` retires the previous
+  connection rather than closing it. `build()` also borrows the shred while it
+  reads ~11 MB off disk.
+
+### Verified
+- **The rename was never the problem; the delete was.** A child process with
+  its cwd on the directory read straight through `renameSync` — 4 reads,
+  correct content, its own snapshot — and every read after `rmSync` was
+  `ERROR ENOENT`. A cwd is a reference to the inode, not to the path.
+- **`closeSync()` under an in-flight `runAndReadAll` is worse than an error.**
+  Measured against DuckDB 1.5.5: it does not throw and the query does not
+  reject — the promise never settles. `interrupt()` on the closed connection
+  does not rescue it, and the stranded native thread then blocked process exit
+  (probe killed at 30 s having reached `process.exit(0)`). In the bot that is
+  one member's question wedged until QUERY_TIMEOUT_MS, holding one of the two
+  concurrency slots, and a shutdown that hangs.
+- Mutation, artifact sync: reverting `swap()` to the shipped `rmSync` turns
+  both new directory tests red.
+- Mutation, SQL: reverting `install()` to the shipped `close(previous)` turns
+  the new test red at its 20 s timeout — the hang above, reproduced through the
+  real code path.
+- typecheck 0, lint 0, prettier clean, 808 tests / 34 suites (from 796 / 33).
+- Nothing here was executed against a live model.
+
+### Open
+- A run reads its own directory generation by relative path while `readAsOf()`
+  and the PreToolUse guard resolve the *live* path. Post-swap those are two
+  different inodes, so a mid-run reshred can pair old file contents with new
+  as-of dates. Not a breach — the guard's root string is unchanged — and not
+  new. Fixing it means giving a run a generation-specific path rather than
+  `ASK.DATA_DIR`.
+
+---
+
 ---
 
 <!--

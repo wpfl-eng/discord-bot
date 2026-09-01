@@ -1317,6 +1317,7 @@ ask/
   askDb.ts              ask_sessions / ask_usage / ask_tool_calls
   askRunner.ts          query() invocation + message-stream consumption
   concurrency.ts        semaphore + wall-clock deadline (§5.3)
+  generations.ts        deferred teardown for state readers hold across an await
   systemPrompt.ts       static + per-request prompt assembly
   ticker.ts             ticker state machine + Discord render
   caps.ts               daily cap, monthly cap, turn caps
@@ -1324,9 +1325,11 @@ ask/
 
 wpfl/
   artifactSync.ts       fetch, etag check, atomic swap
+  liveShred.ts          the live shred's generation: borrowed by readers, retired by the swap
   shredder.ts           BODY_PLANS, DEAD_KEYS, tolerant-and-loud shred
   indexGenerator.ts     INDEX.md, including the glossary constants (§3.4)
   historyCache.ts       the cached WPFL decade (§3.7)
+  wpflHttp.ts           the one WPFL history API fetch helper
   sqlTool.ts            in-memory DuckDB + statement guard
   wpflApiTools.ts       the three computed-aggregate endpoints
   espnTools.ts          ESPN 2026 live — four tools (§4.2)

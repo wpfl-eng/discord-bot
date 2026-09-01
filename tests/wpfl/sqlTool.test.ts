@@ -354,4 +354,60 @@ describe('sqlTool', () => {
       expect(sqlTool.description).toMatch(/read-only|SELECT/i);
     });
   });
+
+  /**
+   * The connection owns a native DuckDB instance holding the whole
+   * materialized dataset, so a rebuild has to close the one it replaces. It
+   * used to close it on the spot, which is `closeSync()` under whatever query
+   * happened to be running when somebody else's question triggered a reshred.
+   *
+   * Measured against DuckDB 1.5.5: that does not throw and does not reject --
+   * the in-flight query's promise never settles at all, `interrupt()` on the
+   * closed connection does not rescue it, and the stranded native thread goes
+   * on to block process exit. In the bot that is a member's question wedged
+   * until QUERY_TIMEOUT_MS, holding one of the two concurrency slots the whole
+   * time.
+   */
+  describe('when a rebuild lands during a query', () => {
+    let dataDir: string;
+
+    beforeAll(() => {
+      dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-sql-race-'));
+      fs.writeFileSync(path.join(dataDir, 'meta.json'), '{"season":2026}');
+      fs.writeFileSync(path.join(dataDir, 'alpha.json'), '{"n":1}');
+      resetSqlDatabase();
+    });
+
+    afterAll(() => {
+      resetSqlDatabase();
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+
+    test('the query in flight keeps the connection it is reading through', async () => {
+      expect((await runSql('SELECT n FROM alpha', dataDir)).rows).toEqual([{ n: '1' }]);
+
+      const order: string[] = [];
+      // ~340 ms of real work on a DuckDB background thread, against a rebuild
+      // of this two-file directory that measures ~15 ms. The margin is what
+      // keeps the overlap below reliable rather than lucky.
+      const inFlight: Promise<SqlResult> = runSql(
+        'SELECT count(*) AS c FROM range(2000000000)',
+        dataDir
+      ).then((result: SqlResult): SqlResult => {
+        order.push('query');
+        return result;
+      });
+
+      // Somebody else's question reshreds: meta.json's mtime moves, so the
+      // next caller materializes a new database and retires this one.
+      const later = new Date(Date.now() + 60_000);
+      fs.utimesSync(path.join(dataDir, 'meta.json'), later, later);
+      await tableNames(dataDir);
+      order.push('rebuild');
+
+      expect((await inFlight).rows).toEqual([{ c: '2000000000' }]);
+      // Not vacuous: the rebuild really did land while the query was running.
+      expect(order).toEqual(['rebuild', 'query']);
+    }, 20_000);
+  });
 });

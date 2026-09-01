@@ -9,6 +9,8 @@ import {
   type SyncDeps,
 } from '../../wpfl/artifactSync.js';
 import type { FetchFn, HttpResponse, HistoryCacheResult } from '../../wpfl/historyCache.js';
+import { borrowShred, retiredShreds } from '../../wpfl/liveShred.js';
+import type { Release } from '../../ask/generations.js';
 
 const FIXTURE: string = path.join(process.cwd(), 'tests/fixtures/postdraft-published.json');
 
@@ -262,6 +264,85 @@ describe('artifactSync', () => {
       );
 
       expect(fs.readFileSync(cacheFile, 'utf8')).toBe('{"fresh":true}\n');
+    });
+
+    /**
+     * The swap renames the live directory aside and used to delete it on the
+     * spot. Measured on this host: a process whose cwd is that directory reads
+     * straight through the rename, and it is the delete that turns its next
+     * relative read into ENOENT -- mid-answer, on a run that can last
+     * QUERY_TIMEOUT_MS. The delete now waits for the reader.
+     */
+    describe('a run still reading the old shred', () => {
+      const reshred = (at: number): Promise<SyncOutcome> =>
+        ensureFresh(
+          deps({ now: () => at, fetchFn: (async () => respond('W/"etag-2"')) as FetchFn })
+        );
+
+      test('keeps its directory on disk until it lets go', async () => {
+        await ensureFresh(deps());
+        const before: string = fs.readFileSync(path.join(dataDir, 'meta.json'), 'utf8');
+
+        const reader: Release = borrowShred();
+        expect((await reshred(Date.now() + 7 * 60 * 60 * 1000)).kind).toBe('reshredded');
+
+        const retired: string[] = fs
+          .readdirSync(parent)
+          .filter((name: string): boolean => name.startsWith('wpfl-data.old-'));
+        expect(retired).toHaveLength(1);
+        // Still the whole previous shred, not a husk: this is what the running
+        // agent is reading by relative path.
+        expect(fs.readFileSync(path.join(parent, retired[0], 'meta.json'), 'utf8')).toBe(before);
+        expect(fs.existsSync(path.join(parent, retired[0], 'teams/aj-boorde.json'))).toBe(true);
+        expect(retiredShreds()).toBe(1);
+
+        reader();
+
+        expect(fs.readdirSync(parent)).toEqual(['wpfl-data']);
+        expect(retiredShreds()).toBe(0);
+      });
+
+      test('does not delay the swap', async () => {
+        await ensureFresh(deps());
+        const reader: Release = borrowShred();
+
+        // A four-minute query must never hold up a reshred, which is why the
+        // teardown is deferred rather than the swap made to wait.
+        const outcome: SyncOutcome = await reshred(Date.now() + 7 * 60 * 60 * 1000);
+
+        expect(outcome.kind).toBe('reshredded');
+        expect(fs.readFileSync(path.join(dataDir, '.etag'), 'utf8').trim()).toBe('etag-2');
+        reader();
+      });
+
+      /**
+       * Deferring the teardown means a crash between the rename and the last
+       * release strands ~10 MB on disk for good. Before, the window was one
+       * synchronous call and there was nothing to sweep.
+       */
+      test('sweeps what an earlier process abandoned, and only that', async () => {
+        await ensureFresh(deps());
+        const abandonedShred: string = path.join(parent, 'wpfl-data.old-99999-1');
+        const abandonedStaging: string = path.join(parent, 'wpfl-data.new-99999-2');
+        fs.mkdirSync(abandonedShred);
+        fs.writeFileSync(path.join(abandonedShred, 'meta.json'), '{}');
+        fs.mkdirSync(abandonedStaging);
+
+        const reader: Release = borrowShred();
+        await reshred(Date.now() + 7 * 60 * 60 * 1000);
+
+        expect(fs.existsSync(abandonedShred)).toBe(false);
+        expect(fs.existsSync(abandonedStaging)).toBe(false);
+        // The one this process still owes a teardown is not litter.
+        expect(
+          fs
+            .readdirSync(parent)
+            .filter((name: string): boolean => name.startsWith('wpfl-data.old-'))
+        ).toHaveLength(1);
+
+        reader();
+        expect(fs.readdirSync(parent)).toEqual(['wpfl-data']);
+      });
     });
 
     describe('a failure leaves the previous shred serving', () => {

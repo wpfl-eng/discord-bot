@@ -26,6 +26,8 @@ import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { ASK } from '../ask/askConfig.js';
+import { createGenerations, type Generations, type Release } from '../ask/generations.js';
+import { borrowShred } from './liveShred.js';
 
 export interface SqlResult {
   readonly rows: Record<string, unknown>[];
@@ -139,29 +141,64 @@ interface Materialized {
 let current: Materialized | null = null;
 
 /**
+ * Readers inside the live connection.
+ *
+ * The connection owns a native DuckDB instance holding the whole materialized
+ * dataset and the bot process is long-lived, so a rebuild has to close the one
+ * it replaces or it leaks ~11 MB of native memory per reshred. It used to close
+ * it on the spot -- which is `closeSync()` under an in-flight `runAndReadAll`,
+ * on whichever query happened to be running when somebody else's question
+ * triggered a reshred. Retiring it instead closes it when its last reader
+ * leaves, which is the same guarantee without the use-after-close.
+ */
+const connections: Generations = createGenerations('sql');
+
+/** A materialized database, borrowed. It cannot be closed until `release` runs. */
+interface Held {
+  readonly materialized: Materialized;
+  readonly release: Release;
+}
+
+/**
+ * Borrow `current`, if there is one.
+ *
+ * The read and the borrow are one synchronous step, and that is what makes the
+ * pair atomic: a rebuild can only retire `current` from another task, so it
+ * cannot land between the two.
+ */
+function borrowCurrent(): Held | null {
+  if (current === null) return null;
+  return { materialized: current, release: connections.enter() };
+}
+
+/** Install a new database and retire the one it replaces. */
+function install(next: Materialized): void {
+  const previous: Materialized | null = current;
+  current = next;
+  // Assign before rotating. Both statements are in one synchronous step so
+  // nothing can borrow between them either way, but this order is the one that
+  // stays correct if that ever stops being true: it pairs any borrower with a
+  // connection that is still open.
+  connections.rotate((): void => close(previous));
+}
+
+/**
  * The build in progress, if there is one.
  *
  * MAX_CONCURRENT_QUERIES is 2, so two questions can both find the cache stale
- * and both run the whole CREATE TABLE loop over ~11 MB -- twice the work, two
- * live native instances, and the second build closing the connection the first
- * one's caller is already holding. The second caller now joins the first build.
+ * and both run the whole CREATE TABLE loop over ~11 MB -- twice the work and
+ * two live native instances. The second caller joins the first build.
  */
-let building: Promise<Materialized> | null = null;
+let building: Promise<void> | null = null;
 let buildingKey: string | null = null;
 
-/**
- * Drop the in-memory database, so the next query rebuilds it.
- *
- * Closing matters: the connection owns a native DuckDB instance holding the
- * whole materialized dataset, and the bot process is long-lived. Simply
- * reassigning `current` leaked one of those on every rebuild -- once per shred
- * change, for as long as the bot runs.
- */
+/** Drop the in-memory database, so the next query rebuilds it. */
 export function resetSqlDatabase(): void {
-  close(current);
+  const previous: Materialized | null = current;
   current = null;
   building = null;
   buildingKey = null;
+  connections.rotate((): void => close(previous));
 }
 
 function close(materialized: Materialized | null): void {
@@ -174,14 +211,20 @@ function close(materialized: Materialized | null): void {
 }
 
 export async function tableNames(dataDir: string = ASK.DATA_DIR): Promise<string[]> {
-  return (await database(dataDir)).tables;
+  const held: Held = await database(dataDir);
+  try {
+    return held.materialized.tables;
+  } finally {
+    held.release();
+  }
 }
 
 export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promise<SqlResult> {
   const refusal: string | null = guardStatement(sql);
   if (refusal !== null) throw new Error(refusal);
 
-  const { connection } = await database(dataDir);
+  const held: Held = await database(dataDir);
+  const { connection } = held.materialized;
 
   // One row past the cap, so truncation is detected rather than guessed at.
   // The newlines are load-bearing: a statement ending in a `--` comment would
@@ -200,13 +243,35 @@ export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promi
     return { rows: truncated ? rows.slice(0, ASK.SQL_ROW_LIMIT) : rows, truncated };
   } finally {
     clearTimeout(timer);
+    held.release();
   }
 }
 
-/** Rebuilt whenever the shred changes; concurrent callers share one build. */
-async function database(dataDir: string): Promise<Materialized> {
+/**
+ * Borrow the database for this shred, building it first if it is not there.
+ * Rebuilt whenever the shred changes; concurrent callers share one build.
+ */
+async function database(dataDir: string): Promise<Held> {
   const key = `${dataDir}:${shredStamp(dataDir)}`;
-  if (current !== null && current.key === key) return current;
+
+  const live: Held | null = borrowCurrent();
+  if (live !== null && live.materialized.key === key) return live;
+  live?.release();
+
+  // Bounded, rather than a retry loop: each pass completes one build and then
+  // borrows whatever is live -- this build, or a newer one that replaced it
+  // while this caller was suspended. Either is a consistent snapshot, and
+  // neither can be closed while the borrow is out. Only resetSqlDatabase(),
+  // which tests call, can leave nothing to borrow at all.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await ensureBuilt(dataDir, key);
+    const built: Held | null = borrowCurrent();
+    if (built !== null) return built;
+  }
+  throw new Error('The SQL database could not be materialized.');
+}
+
+function ensureBuilt(dataDir: string, key: string): Promise<void> {
   if (building !== null && buildingKey === key) return building;
 
   buildingKey = key;
@@ -219,30 +284,37 @@ async function database(dataDir: string): Promise<Materialized> {
   return building;
 }
 
-async function build(dataDir: string, key: string): Promise<Materialized> {
-  const instance = await DuckDBInstance.create(':memory:');
-  const connection = await instance.connect();
+async function build(dataDir: string, key: string): Promise<void> {
+  // ~11 MB read off the live shred, a file at a time. A reshred landing
+  // half-way through would otherwise unlink the sources under the loop.
+  const shred: Release = borrowShred();
   const tables: string[] = [];
+  let connection: DuckDBConnection;
 
-  for (const [table, source] of queryableSources(dataDir)) {
-    try {
-      await connection.run(
-        `CREATE TABLE ${table} AS SELECT * FROM read_json_auto('${source.replace(/'/g, "''")}', union_by_name = true)`
-      );
-      tables.push(table);
-    } catch (error: unknown) {
-      // A body that is not table-shaped is not an error -- it is simply not a
-      // table. The agent can still Read the file.
-      console.warn(`[ASK] sql: skipping ${source} (${(error as Error).message.split('\n')[0]})`);
+  try {
+    const instance = await DuckDBInstance.create(':memory:');
+    connection = await instance.connect();
+
+    for (const [table, source] of queryableSources(dataDir)) {
+      try {
+        await connection.run(
+          `CREATE TABLE ${table} AS SELECT * FROM read_json_auto('${source.replace(/'/g, "''")}', union_by_name = true)`
+        );
+        tables.push(table);
+      } catch (error: unknown) {
+        // A body that is not table-shaped is not an error -- it is simply not a
+        // table. The agent can still Read the file.
+        console.warn(`[ASK] sql: skipping ${source} (${(error as Error).message.split('\n')[0]})`);
+      }
     }
+
+    await connection.run('SET enable_external_access=false');
+    await connection.run('SET lock_configuration=true');
+  } finally {
+    shred();
   }
 
-  await connection.run('SET enable_external_access=false');
-  await connection.run('SET lock_configuration=true');
-
-  close(current);
-  current = { connection, tables: tables.sort(), key };
-  return current;
+  install({ connection, tables: tables.sort(), key });
 }
 
 /**

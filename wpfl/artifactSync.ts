@@ -14,6 +14,7 @@ import { ASK } from '../ask/askConfig.js';
 import { shred, type ShredResult } from './shredder.js';
 import { generateIndex } from './indexGenerator.js';
 import { refreshWpflCache, type FetchFn, type HistoryCacheResult } from './historyCache.js';
+import { retireShred } from './liveShred.js';
 import { logError } from '../errors/errorHandler.js';
 
 export type SyncOutcome =
@@ -48,10 +49,9 @@ export function normalizeEtag(raw: string | null | undefined): string | null {
  *
  * ensureFresh runs at the top of every /ask and again on `ready`. Two questions
  * arriving past the staleness window would otherwise both fetch, both shred and
- * both swap -- and swap() renames the live directory, which is the agent's own
- * cwd, out from under any run already reading it, then fails when the second
- * rename lands on a directory the first has recreated. Later callers join the
- * in-flight sync and get its outcome.
+ * both swap -- twice the work, two retired directories where one belongs, and
+ * the second rename landing on a directory the first has already recreated.
+ * Later callers join the in-flight sync and get its outcome.
  */
 const inFlight = new Map<string, Promise<SyncOutcome>>();
 
@@ -163,6 +163,12 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
   }
 }
 
+/**
+ * Retired directories this process has not deleted yet, so the sweep below can
+ * tell its own deferred teardown from a previous process's litter.
+ */
+const retiring = new Set<string>();
+
 /** Two renames on the same filesystem, so the live directory is never half-written. */
 function swap(dataDir: string, staging: string): void {
   if (!fs.existsSync(dataDir)) {
@@ -179,7 +185,55 @@ function swap(dataDir: string, staging: string): void {
     fs.renameSync(retired, dataDir);
     throw error;
   }
-  fs.rmSync(retired, { recursive: true, force: true });
+
+  // Not `rmSync` here, which is what this used to do.
+  //
+  // A run already in flight has this directory's *inode* as its cwd for up to
+  // QUERY_TIMEOUT_MS. The rename above does not disturb it -- measured: a
+  // process whose cwd is a renamed directory goes on reading its own snapshot
+  // correctly. Deleting the directory is what turns its next relative read
+  // into ENOENT, mid-answer. So the deletion waits for the last reader, and
+  // the swap itself never does.
+  retiring.add(retired);
+  retireShred((): void => {
+    fs.rmSync(retired, { recursive: true, force: true });
+    retiring.delete(retired);
+  });
+
+  sweepLitter(dataDir);
+}
+
+/**
+ * Delete abandoned staging and retired directories beside the live one.
+ *
+ * Deferring the teardown above means a crash between the rename and the last
+ * release now strands ~10 MB on disk for good; before, the window was a single
+ * synchronous call and there was nothing to sweep. Anything still owed a
+ * teardown by this process is skipped, and `ensureFresh` allows only one sync
+ * per directory at a time, so everything else is litter by definition.
+ */
+function sweepLitter(dataDir: string): void {
+  const parent: string = path.dirname(dataDir);
+  const prefix: string = path.basename(dataDir);
+
+  let siblings: string[];
+  try {
+    siblings = fs.readdirSync(parent);
+  } catch {
+    return;
+  }
+
+  for (const name of siblings) {
+    if (!name.startsWith(`${prefix}.old-`) && !name.startsWith(`${prefix}.new-`)) continue;
+    const full: string = path.join(parent, name);
+    if (retiring.has(full)) continue;
+    try {
+      fs.rmSync(full, { recursive: true, force: true });
+    } catch (error: unknown) {
+      // Housekeeping. Never fail a good shred over a directory nobody reads.
+      logError('ask', `Could not sweep the abandoned shred at ${full}`, error);
+    }
+  }
 }
 
 function lastSeenEtag(dataDir: string): string | null {

@@ -20,6 +20,8 @@ import { requestSlot, startDeadline, type Slot } from './concurrency.js';
 import { recordUsage } from './askDb.js';
 import { logError } from '../errors/errorHandler.js';
 import { wpflServer } from '../wpfl/mcpServer.js';
+import { borrowShred } from '../wpfl/liveShred.js';
+import type { Release } from './generations.js';
 
 export interface AskRequest {
   readonly prompt: string;
@@ -72,6 +74,14 @@ export async function runAsk(
 
   const held: Slot = await slot;
   const deadline = startDeadline();
+
+  // Pin the shred for the whole run. The agent's cwd is the data directory and
+  // it reads from it by relative path for as long as it is thinking, so a
+  // reshred triggered by somebody else's question -- which retires this
+  // directory -- must not delete it out from under this one. Borrowed after
+  // the slot, not before: a query still queued should not hold a generation
+  // open that it has not started reading.
+  const shred: Release = borrowShred();
   const started: number = Date.now();
 
   let text = '';
@@ -98,6 +108,7 @@ export async function runAsk(
     logError('ask', 'query() threw', error);
   } finally {
     deadline.clear();
+    shred();
     held.release();
   }
 
