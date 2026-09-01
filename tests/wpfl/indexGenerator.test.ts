@@ -173,4 +173,37 @@ describe('indexGenerator', () => {
       expect(index).toMatch(/never|do not|don't/i);
     });
   });
+  /**
+   * The cached WPFL decade is written into `wpfl/` inside the shred root, but
+   * it is not part of ShredResult, so INDEX.md's file map -- the thing the
+   * prompt tells the agent to read before guessing at a filename -- listed
+   * neither the files nor the fact that they are reachable only through `sql`.
+   */
+  describe('the cached decade', () => {
+    test('names the three cached sources and the table each becomes', () => {
+      const index: string = generateIndex({
+        shred: result,
+        artifact,
+        etag: ETAG,
+        wpflCacheFetchedAt: new Date('2026-08-31T12:00:00Z'),
+      });
+
+      expect(index).toContain('wpfl_draft_history');
+      expect(index).toContain('wpfl_matchups');
+      expect(index).toContain('wpfl_player_scores');
+      expect(index).toMatch(/only through the `sql` tool/i);
+    });
+
+    test('says so plainly when the cache has never been built', () => {
+      const index: string = generateIndex({
+        shred: result,
+        artifact,
+        etag: null,
+        wpflCacheFetchedAt: null,
+      });
+
+      expect(index).toMatch(/not been (built|fetched)|unavailable/i);
+      expect(index).not.toContain('wpfl_draft_history —');
+    });
+  });
 });

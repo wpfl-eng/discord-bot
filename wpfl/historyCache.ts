@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ASK } from '../ask/askConfig.js';
+import { getCurrentNFLSeason } from '../helpers/utils.js';
 
 /** Only what this module actually uses, so a test fake is a few lines. */
 export interface HttpResponse {
@@ -50,14 +51,16 @@ const PLAYER_SCORES = 'player_scores.jsonl';
 
 /**
  * @param targetDir  the `wpfl/` directory inside the shred root
- * @param seasonMax  inclusive; defaults to the current year. Asking for a
+ * @param seasonMax  inclusive; defaults to the season in progress. Asking for a
  *   season that has not been played yet costs one request and returns `[]`,
- *   which is cheaper than getting the season boundary wrong every January.
+ *   which is cheaper than getting the boundary wrong -- but the boundary is the
+ *   NFL season rather than the calendar year, so a January refresh still asks
+ *   for the season actually being played.
  */
 export async function refreshWpflCache(
   targetDir: string,
   fetchFn: FetchFn = fetch,
-  seasonMax: number = new Date().getFullYear()
+  seasonMax: number = getCurrentNFLSeason()
 ): Promise<HistoryCacheResult> {
   fs.mkdirSync(targetDir, { recursive: true });
 

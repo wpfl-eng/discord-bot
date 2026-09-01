@@ -135,6 +135,7 @@ export function generateIndex(input: IndexInput): string {
   const sections: string[] = [
     header(meta, news, etag, wpflCacheFetchedAt),
     fileMap(shred),
+    cachedDecade(wpflCacheFetchedAt),
     skipped(shred),
     undocumented(shred),
     glossary(),
@@ -191,6 +192,39 @@ function describeFile(relative: string): string {
     FILE_DESCRIPTIONS[relative] ??
     'Undocumented — this body has no shred plan, so nobody has written a description for it. Read it before trusting it.'
   );
+}
+
+/**
+ * The cached WPFL decade lives in `wpfl/` inside the shred root but is not part
+ * of ShredResult, so the file map above cannot see it. Without this section the
+ * agent is told to read INDEX.md before guessing at a filename, and INDEX.md
+ * never mentions the largest dataset it has.
+ */
+function cachedDecade(fetchedAt: Date | null): string {
+  const lines: string[] = ['## The cached WPFL decade', ''];
+
+  if (fetchedAt === null) {
+    lines.push(
+      'The ten-year history cache has not been built. `wpfl_draft_history`,',
+      '`wpfl_matchups` and `wpfl_player_scores` are unavailable this run — say so',
+      'rather than answering a ten-year question from the artifact alone.'
+    );
+    return lines.join('\n');
+  }
+
+  lines.push(
+    `Fetched ${fetchedAt.toISOString().slice(0, 10)} from the league's history API and written`,
+    'to `wpfl/` as JSONL. Reachable **only through the `sql` tool** — one table each,',
+    'and far too many rows to read as files:',
+    '',
+    '| Table | What it holds |',
+    '| --- | --- |',
+    '| `wpfl_draft_history` | Every auction pick, one row per player per season. |',
+    '| `wpfl_matchups` | Every head-to-head result, with both scores and the margin. |',
+    '| `wpfl_player_scores` | Every weekly player score, with roster slot — the only way to ask what a drafted player went on to do. |'
+  );
+
+  return lines.join('\n');
 }
 
 function skipped(shred: ShredResult): string {

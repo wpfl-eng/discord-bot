@@ -30,7 +30,7 @@ import type {
   FreeAgentEntry,
 } from 'espn-fantasy-football-api/node.js';
 import { getWpflMemberByEspnId } from '../constants/wpflMembers.js';
-import { getCurrentNFLWeek } from '../helpers/utils.js';
+import { getCurrentNFLWeek, getCurrentNFLSeason } from '../helpers/utils.js';
 import { toToolResult } from './wpflApiTools.js';
 
 const { Client } = pkg;
@@ -189,7 +189,13 @@ function espnClient(): EspnClient {
   return client;
 }
 
-const currentSeason = (): number => new Date().getFullYear();
+/**
+ * `getFullYear()` would name the wrong season for all of January and February
+ * -- the weeks that carry the fantasy playoffs and the championship. ESPN would
+ * return nothing for the season that has not started, and the agent would tell
+ * the league in public that it has no data for the game they just played.
+ */
+const currentSeason = getCurrentNFLSeason;
 
 const CURRENT_SEASON_ONLY =
   'This is the live ESPN league and the only source of truth for the season in progress — the WPFL history API returns nothing for it and the draft artifact froze on draft night.';

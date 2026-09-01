@@ -2,6 +2,7 @@ import { describe, test, expect } from '@jest/globals';
 import {
   formatNumber,
   getCurrentNFLWeek,
+  getCurrentNFLSeason,
   produceResponseObjectForText,
   produceImmediateResponse,
 } from '../../helpers/utils.js';
@@ -115,6 +116,33 @@ describe('utils', () => {
     test('produces same result as produceResponseObjectForText', () => {
       const text = 'Hello world';
       expect(produceImmediateResponse(text)).toEqual(produceResponseObjectForText(text));
+    });
+  });
+  /**
+   * An NFL season is named for the calendar year it starts in and runs into
+   * February of the next one, which is also how ESPN keys `seasonId`. The
+   * codebase had been reaching for `new Date().getFullYear()` directly, which
+   * is right for ten months of the year and wrong for the two that contain the
+   * fantasy playoffs and the championship.
+   */
+  describe('getCurrentNFLSeason', () => {
+    test('is the calendar year during the season itself', () => {
+      expect(getCurrentNFLSeason(new Date('2026-09-15T12:00:00Z'))).toBe(2026);
+      expect(getCurrentNFLSeason(new Date('2026-12-25T12:00:00Z'))).toBe(2026);
+    });
+
+    test('is still the previous year through January and February', () => {
+      expect(getCurrentNFLSeason(new Date('2027-01-05T12:00:00Z'))).toBe(2026);
+      expect(getCurrentNFLSeason(new Date('2027-02-08T12:00:00Z'))).toBe(2026);
+    });
+
+    test('rolls over in March, when the NFL league year begins', () => {
+      expect(getCurrentNFLSeason(new Date('2027-03-15T12:00:00Z'))).toBe(2027);
+      expect(getCurrentNFLSeason(new Date('2027-08-01T12:00:00Z'))).toBe(2027);
+    });
+
+    test('defaults to now', () => {
+      expect(typeof getCurrentNFLSeason()).toBe('number');
     });
   });
 });

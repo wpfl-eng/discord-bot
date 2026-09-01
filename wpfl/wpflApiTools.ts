@@ -125,7 +125,13 @@ async function getRows<T>(
     if (!response.ok) {
       throw new Error(`The WPFL history API returned HTTP ${response.status} for ${endpoint}.`);
     }
-    return (await response.json()) as T[];
+    const body: unknown = await response.json();
+    // Every one of these endpoints returns a list. Anything else is the API
+    // reporting a problem in a shape the agent would otherwise render as data.
+    if (!Array.isArray(body)) {
+      throw new Error(`The WPFL history API returned an unexpected shape for ${endpoint}.`);
+    }
+    return body as T[];
   } catch (error: unknown) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`The WPFL history API timed out on ${endpoint}.`);
