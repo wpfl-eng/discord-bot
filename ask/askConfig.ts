@@ -48,6 +48,12 @@ export const ASK = {
   HISTORY_MIN_SEASON: 2010,
   PLAYER_SCORES_MIN_SEASON: 2015,
 
+  // ---- SQL (design §4.3) ----
+  // The row cap keeps one broad query from spending the agent's whole context;
+  // the timeout keeps a runaway join from holding a semaphore slot.
+  SQL_ROW_LIMIT: 200,
+  SQL_TIMEOUT_MS: 20 * 1000,
+
   // ---- Discord surface (design §6.3) ----
   TICKER_EDIT_THROTTLE_MS: 1500, // Discord allows ~5 edits / 5 s per channel
   THREAD_AUTO_ARCHIVE: ThreadAutoArchiveDuration.OneDay,
