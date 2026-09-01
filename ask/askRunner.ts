@@ -172,7 +172,10 @@ function consume(
 }
 
 function buildOptions(request: AskRequest, signal: AbortSignal): Options {
-  return {
+  // Typed as Options rather than asserted into it. A blanket `as Options` on
+  // the whole object would let a renamed or removed SDK field typecheck clean
+  // forever, and this is the object where that matters most.
+  const options: Options = {
     model: ASK.MODEL,
     effort: ASK.EFFORT,
     thinking: { type: 'adaptive', display: ASK.THINKING_DISPLAY },
@@ -183,10 +186,20 @@ function buildOptions(request: AskRequest, signal: AbortSignal): Options {
     // An availability allowlist, not a denylist: every unlisted built-in is
     // removed from Claude's context rather than merely denied at call time.
     tools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'],
+    // `dontAsk` denies anything not pre-approved here, so every tool named in
+    // `tools` above must also appear in this list or it is dead on arrival.
     allowedTools: [
       // The `//` prefix anchors at the filesystem root. A single slash would
       // anchor at the session's working directory instead.
       `Read(//${ASK.DATA_DIR}/**)`,
+      // Bare, not path-qualified: `Grep(path)` and `Glob(path)` rules are
+      // documented as accepted but never consulted (§10.2), so qualifying them
+      // would pre-approve nothing and every grep would be denied -- which would
+      // strand the whole reason the two big collections are shredded to JSONL.
+      // The PreToolUse path guard is what confines them, and a hook deny holds
+      // even in bypassPermissions.
+      'Grep',
+      'Glob',
       'WebSearch',
       'WebFetch',
       'mcp__wpfl__*',
@@ -209,7 +222,8 @@ function buildOptions(request: AskRequest, signal: AbortSignal): Options {
     hooks: createHooks({ threadId: request.threadId, userId: request.userId }),
 
     ...(request.sessionId === undefined ? {} : { resume: request.sessionId }),
-  } as Options;
+  };
+  return options;
 }
 
 /** The SDK takes a controller; the deadline owns the signal. */

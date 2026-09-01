@@ -337,6 +337,33 @@ describe('askRunner', () => {
       expect(options.allowedTools).toContain('mcp__wpfl__*');
     });
 
+    /**
+     * `dontAsk` is "deny if not pre-approved", so a tool exposed through
+     * `tools` but absent from `allowedTools` is denied on every call. Grep and
+     * Glob have to appear here by bare name: design §10.2 records that
+     * `Grep(path)` and `Glob(path)` rules are accepted but never consulted, so
+     * a path-qualified rule would pre-approve nothing. Confinement is the
+     * PreToolUse path guard's job, and it holds regardless.
+     */
+    test('pre-approves every tool it exposes, or dontAsk denies the ones it missed', async () => {
+      const options = (await capture()).options;
+
+      for (const builtin of options.tools as string[]) {
+        expect(
+          (options.allowedTools as string[]).some(
+            (rule: string): boolean => rule === builtin || rule.startsWith(`${builtin}(`)
+          )
+        ).toBe(true);
+      }
+    });
+
+    test('pre-approves Grep and Glob by bare name, which is what the JSONL shred is for', async () => {
+      const options = (await capture()).options;
+
+      expect(options.allowedTools).toContain('Grep');
+      expect(options.allowedTools).toContain('Glob');
+    });
+
     test('asks for partial messages, without which there is no ticker', async () => {
       expect((await capture()).options.includePartialMessages).toBe(true);
     });
