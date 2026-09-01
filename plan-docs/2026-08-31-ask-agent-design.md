@@ -517,6 +517,9 @@ hooks: {
     { matcher: 'WebFetch',       hooks: [guardFetchDomain]  },  // §10.4
   ],
   PostToolUse: [{ hooks: [auditToolCall] }],                    // §10.3
+  // PostToolUse does not fire for a tool that *threw*; this event does, and
+  // carries the error string directly. Measured 2026-08-31.
+  PostToolUseFailure: [{ hooks: [auditToolCall] }],             // §10.3
 },
 ```
 
@@ -769,10 +772,13 @@ const options: Options = {
 
 Notes on specific choices:
 
-- **`systemPrompt` is a custom string, not `{ type: 'preset', preset:
+- **`systemPrompt` is a custom `string[]`, not `{ type: 'preset', preset:
   'claude_code' }`.** The Claude Code preset is written for a coding agent with a
   filesystem and a shell; almost none of it applies, and it is large. A purpose-
-  written prompt is both cheaper and better aimed.
+  written prompt is both cheaper and better aimed. It is passed as a three-element
+  array — static half, `SYSTEM_PROMPT_DYNAMIC_BOUNDARY`, per-request half. That
+  marker is the SDK's supported way to give the static prefix global cache scope,
+  so the cache boundary is enforced by the SDK rather than by our ordering.
 - **`effort: 'high'`.** The docs name `xhigh` as the best setting for most coding
   and agentic work and Claude Code's own default, but a league question is mostly
   retrieval and arithmetic over what the tools hand back, not deep reasoning.
@@ -1617,11 +1623,19 @@ DuckDB executes every statement it is handed — `SELECT 1; DELETE FROM t` delet
 — and dropping an in-memory table is not external access, so the lockdown does
 not cover it. The one-statement rule is the only control there. Log Stage 8.
 
-### 15.5 `Read` rule coverage of Grep and Glob
+### 15.5 `Read` rule coverage of Grep and Glob — OPEN, and not measurable here
 The docs describe it as "best-effort", which is why the `PreToolUse` path hook
-(§10.2) is the guarantee. Worth measuring in Phase 5 (`feat/ask-runner`) whether the allow rule alone
-also blocks an escape — if it does, the hook is defence in depth; if it doesn't,
-the hook is the only thing standing there.
+(§10.2) is the guarantee. Phase 5 was to measure whether the allow rule alone
+also blocks an escape. **It could not be**: answering it needs a live `query()`
+in which the model actually attempts a Grep outside the data directory, and
+there is no Claude credential on this box (§15.12).
+
+What is settled: the hook denies every escape vector — absolute path, `..`
+traversal, relative climb, `Grep` and `Glob` paths outside, and a symlink inside
+the directory pointing out of it — asserted in CI; and a `PreToolUse` deny is
+documented to hold even in `bypassPermissions`. So the hook is load-bearing
+either way. What is unknown is only whether the allow rule is additionally
+redundant. Blocked on the same credential as §15.12.
 
 ### 15.6 The SDK does not read `.env`
 Documented explicitly: *"The SDK reads the key from the environment of the process

@@ -29,7 +29,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 6 | 2 | `feat/ask-persistence` | Persistence — migration 009, `askDb`, caps | DONE |
 | 7 | 3 | `feat/ask-tools` | Tools (API) — 3 WPFL aggregates, 4 ESPN | DONE |
 | 8 | 4 | `feat/ask-sql` | SQL and MCP — DuckDB, statement guard, `mcpServer` | DONE |
-| 9 | 5 | `feat/ask-runner` | Runner — system prompt, `askRunner`, concurrency, hooks | NOT STARTED |
+| 9 | 5 | `feat/ask-runner` | Runner — system prompt, `askRunner`, concurrency, hooks | DONE |
 | 10 | 6 | `feat/ask-discord` | Discord surface — `/ask`, threads, ticker, continuation | NOT STARTED |
 | 11 | 7 | `feat/ask` | Integration and handoff — docs, full suite, conditional smoke test | NOT STARTED |
 
@@ -923,12 +923,109 @@ reading a nested struct field (`t.grade.letter`) straight out of the shred.
 
 ---
 
-## Stage 9 — Runner (Phase 5) — `feat/ask-runner` — NOT STARTED
+## Stage 9 — Runner (Phase 5) — `feat/ask-runner` — 2026-08-31 — DONE
 
-_Should record: **the Grep-escape measurement (§15.5)** — whether
-`Read(//DATA_DIR/**)` alone blocks it or the hook is the only control standing
-there; that a throwing generator still writes the ledger row; the ticker output
-for a scripted stream including `thinking_delta`._
+Merged to `feat/ask` as **`08ccdbc`** (`--no-ff`); branch deleted.
+
+### Changed
+- `ask/concurrency.ts` — **new.** Semaphore and wall-clock deadline.
+- `ask/hooks.ts` — **new.** Path guard, WebFetch allowlist, exception audit.
+- `ask/systemPrompt.ts` — **new.** Static/dynamic halves and the as-of reader.
+- `ask/askRunner.ts` — **new.** `query()` invocation and stream consumption.
+- Tests: `concurrency` (10), `hooks` (28), `systemPrompt` (15), `askRunner` (21).
+
+### The Grep-escape measurement — §15.5 NOT measured, and why
+
+§15.5 asked whether `Read(//DATA_DIR/**)` *alone* blocks a Grep escape, or
+whether the `PreToolUse` hook is the only control standing there. **This could
+not be measured.** Answering it requires a live `query()` in which the model
+actually attempts a Grep outside the data directory, and there is no Claude
+credential on this box (§15.12). The permission evaluation happens inside the
+Claude Code subprocess; there is no way to drive it without the model.
+
+Recorded rather than guessed. What *is* established:
+
+- The hook denies every escape vector, asserted in CI: an absolute path out, a
+  `..` traversal, a relative climb, a `Grep` path outside, a `Glob` path
+  outside, and a **symlink created inside the data directory pointing out of
+  it** — the case that motivated resolving with `realpath` instead of
+  normalising the string.
+- Per the SDK documentation, a `PreToolUse` deny holds even in
+  `bypassPermissions` and runs before every other permission step, so the hook
+  cannot be undone by a configuration mistake elsewhere.
+
+So the hook is load-bearing whatever the answer turns out to be; what remains
+unknown is only whether the allow rule is *additionally* redundant. §15.5 stays
+open, now bundled with §15.12 rather than with this phase.
+
+### Verified
+
+**The ledger survives every way a run can end.** query() is documented as
+throwing *after* yielding an error result, so the design's original loop would
+have taken down the handler and skipped the ledger write on precisely the runs
+that most need recording. Three cases asserted: a clean success; a throw after
+an `error_max_budget_usd` result, which keeps that result's cost (1.01) and
+subtype and returns the partial prose; and a throw before any result at all,
+which synthesises an `error_during_execution` row at cost 0 rather than losing
+the run. A failing ledger write logs and still returns the answer.
+
+**Cost comes from `total_cost_usd` and the model from `modelUsage`**, never from
+`usage` — the docs are explicit that `usage` excludes subagent tokens.
+
+**The security surface is pinned by test**, not by review: `permissionMode:
+'dontAsk'`, `settingSources: []`, `strictMcpConfig: true`, `cwd` on the data
+dir, the five-name `tools` allowlist, `Read(//DATA_DIR/**)` with its `//`
+anchor, `mcp__wpfl__*`, both PreToolUse matchers registered, and an `env` with
+no `DISCORD_TOKEN` and no `POSTGRES_URL` in it.
+
+**The system prompt's static half is byte-identical** for two different callers
+on two different dates, and carries none of the varying values.
+
+**Green gate on `feat/ask` after the merge:** typecheck 0 · lint 0 · `npm test`
+**698 passed / 30 suites** (was 624 / 26).
+
+### Findings
+
+1. **The SDK has a supported cache-boundary marker.**
+   `SYSTEM_PROMPT_DYNAMIC_BOUNDARY`, passed as a standalone element of a
+   `string[]` `systemPrompt`, gives blocks before it global cache scope. §5.1
+   showed `systemPrompt` as a plain string with the static part merely written
+   first. The marker is strictly better: the boundary is enforced by the SDK
+   rather than by our ordering.
+
+2. **`PostToolUse` does not fire for a tool that threw.** There is a separate
+   `PostToolUseFailure` event, and it carries the error string directly. §4.1
+   registered the audit on `PostToolUse` only, which would have recorded error
+   *results* but silently missed outright failures. Both are now registered.
+
+3. **A naive host suffix match would have let a lookalike through.**
+   `espn.com.evil.io` ends with nothing on the list, but `notespn.com` ends with
+   `espn.com` as a substring. The guard matches on a label boundary — `host ===
+   allowed || host.endsWith('.' + allowed)` — and both cases are asserted.
+
+4. **`typeof query` is not a usable seam.** The SDK's `Query` return type
+   carries control methods (`interrupt`, `setPermissionMode`, …), so a plain
+   async generator is not assignable to it and §5.3's "tests substitute a fake
+   async generator" would not typecheck. `QueryFn` is declared as what the
+   runner actually consumes: a function returning `AsyncIterable<SDKMessage>`.
+   The real `query` still satisfies it.
+
+5. **One test expectation was wrong and was corrected.** It asserted that 15
+   September 2026 is NFL week 2. Labor Day is the 7th, so the season opens
+   Thursday the 10th and the 15th is week 1. A second date was added so the test
+   proves the week is computed rather than printed.
+
+6. **The runner's tests need a credential in `process.env`.** `agentEnv()` runs
+   before `query()` can be called, so with no credential the runner records a
+   visible `error_during_execution` and writes the ledger — correct behaviour,
+   now asserted as its own test, with the rest of the suite supplying a dummy
+   key. Nothing in the suite reaches the network.
+
+### Open
+
+| # | Item | Resolves in |
+| --- | --- | --- |
+| 15 | §15.5 — whether the `Read` allow rule alone blocks a Grep escape. Needs a live `query()`, so it is blocked on the same missing credential as §15.12 | With a credential |
 
 ---
 
