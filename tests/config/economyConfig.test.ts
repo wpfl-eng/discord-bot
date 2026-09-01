@@ -25,8 +25,9 @@ describe('economyConfig', () => {
       expect(CONFIG.BANK_STARTING_CAPACITY).toBeDefined();
     });
 
-    test('WORK_MIN is less than WORK_MAX', () => {
-      expect(CONFIG.WORK_MIN).toBeLessThan(CONFIG.WORK_MAX);
+    test('WORK_MIN does not exceed WORK_MAX', () => {
+      // Work currently pays a flat amount, so MIN === MAX.
+      expect(CONFIG.WORK_MIN).toBeLessThanOrEqual(CONFIG.WORK_MAX);
     });
 
     test('GAMBLE_MIN is less than GAMBLE_MAX', () => {

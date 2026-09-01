@@ -26,8 +26,6 @@ const triviaDb = await import('../../trivia/triviaDb.js');
 
 // Cast mocks for easier use
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockGetActiveQuestion = triviaDb.getActiveQuestion as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetAnyActiveQuestion = triviaDb.getAnyActiveQuestion as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetCorrectAnswers = triviaDb.getCorrectAnswers as any;

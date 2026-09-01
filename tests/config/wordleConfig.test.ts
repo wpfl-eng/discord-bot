@@ -29,12 +29,12 @@ describe('wordleConfig', () => {
   // ============ REWARDS TESTS ============
 
   describe('REWARDS', () => {
-    test('has BASE_WIN of 300', () => {
-      expect(REWARDS.BASE_WIN).toBe(300);
+    test('has BASE_WIN of 2500', () => {
+      expect(REWARDS.BASE_WIN).toBe(2500);
     });
 
-    test('has FIRST_SOLVER_BONUS of 200', () => {
-      expect(REWARDS.FIRST_SOLVER_BONUS).toBe(200);
+    test('has FIRST_SOLVER_BONUS of 0 (first solver is rewarded with an item)', () => {
+      expect(REWARDS.FIRST_SOLVER_BONUS).toBe(0);
     });
 
     test('has FIRST_SOLVER_ITEM', () => {
@@ -108,11 +108,11 @@ describe('wordleConfig', () => {
 
   describe('calculateReward', () => {
     test('returns base reward for non-first solver', () => {
-      expect(calculateReward(false)).toBe(300);
+      expect(calculateReward(false)).toBe(REWARDS.BASE_WIN);
     });
 
-    test('returns base + bonus for first solver', () => {
-      expect(calculateReward(true)).toBe(500); // 300 + 200
+    test('adds the first-solver bonus on top of the base reward', () => {
+      expect(calculateReward(true) - calculateReward(false)).toBe(REWARDS.FIRST_SOLVER_BONUS);
     });
 
     test('total reward matches REWARDS config', () => {

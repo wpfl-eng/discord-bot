@@ -2,7 +2,6 @@
 // CRUD operations for user inventory items
 
 import { sql } from '@vercel/postgres';
-import * as economyDb from '../economy/economyDb.js';
 import { getItemDefinition, getItemBaseValue, isItemSellable } from './inventoryConfig.js';
 
 // ============ Type Definitions ============
