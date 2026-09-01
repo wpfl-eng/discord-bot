@@ -14,9 +14,19 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { formatInTimeZone } from 'date-fns-tz';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from './askConfig.js';
 import { getCurrentNFLWeek } from '../helpers/utils.js';
+
+/**
+ * The league's timezone, matching caps.ts and the trivia scheduler.
+ *
+ * This half of the prompt used toISOString() (UTC) and getFullYear() (the
+ * host's local zone). From 8pm ET onwards that told the agent tomorrow's date,
+ * which it then put in the source footer of a public answer.
+ */
+const LEAGUE_TZ = 'America/New_York';
 
 export interface AsOf {
   readonly generated: string | null;
@@ -109,7 +119,7 @@ function dynamicHalf(context: PromptContext): string {
     '',
     who,
     '',
-    `Today is ${now.toISOString().slice(0, 10)}. It is NFL week ${getCurrentNFLWeek(now)} of the ${now.getFullYear()} season.`,
+    `Today is ${formatInTimeZone(now, LEAGUE_TZ, 'yyyy-MM-dd')}. It is NFL week ${getCurrentNFLWeek(now)} of the ${formatInTimeZone(now, LEAGUE_TZ, 'yyyy')} season.`,
     '',
     'Your data is as of:',
     `- Draft artifact generated: ${orUnknown(asOf.generated)}`,

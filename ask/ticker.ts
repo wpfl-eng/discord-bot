@@ -18,7 +18,10 @@ import { ASK } from './askConfig.js';
 const DISCORD_LIMIT = 2000;
 
 export interface Ticker extends AskSink {
+  /** Capped to Discord's message limit; safe to push into an edit. */
   render(): string;
+  /** Uncapped, for the final post, which splitForDiscord continues instead. */
+  renderFull(): string;
   hasProse(): boolean;
   prose(): string;
 }
@@ -34,6 +37,14 @@ export function createTicker(): Ticker {
   let reasoning: string | null = null;
   let text = '';
   let queuedAt: number | null = null;
+
+  // A closure rather than `this.renderFull()`: ask.ts's wrap() spreads this
+  // object to add its change notifications, and a method that depends on its
+  // receiver would then depend on the spread having copied its sibling too.
+  const renderFull = (): string => {
+    if (text.trim() !== '') return `${trace(steps)}\n\n${text}`;
+    return working(steps, reasoning, queuedAt);
+  };
 
   return {
     onToolCall(name: string): void {
@@ -72,10 +83,30 @@ export function createTicker(): Ticker {
     },
 
     render(): string {
-      if (text.trim() !== '') return `${trace(steps)}\n\n${text}`;
-      return working(steps, reasoning, queuedAt);
+      return capped(renderFull());
     },
+
+    renderFull,
   };
+}
+
+/**
+ * Discord rejects an edit over DISCORD_LIMIT characters, and render() is pushed
+ * into message.edit() on every event. Unbounded, a streamed answer past that
+ * length made every remaining live edit throw, and the member watched a frozen
+ * ticker until the final post -- which is exactly when the ticker matters most,
+ * because the answer is arriving.
+ *
+ * The tail is what is kept: prose streams forwards, so the newest words are the
+ * ones worth showing. prose() still returns the whole answer, so the final
+ * post is complete and correctly split.
+ */
+function capped(rendered: string): string {
+  if (rendered.length <= DISCORD_LIMIT) return rendered;
+
+  const marker = '\n\n_… still writing_';
+  const room: number = DISCORD_LIMIT - marker.length;
+  return `${rendered.slice(rendered.length - room)}${marker}`;
 }
 
 function working(steps: Step[], reasoning: string | null, queuedAt: number | null): string {

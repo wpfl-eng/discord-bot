@@ -363,7 +363,10 @@ async function publish(
   }
   if (notice !== undefined) suffix.push(notice);
 
-  const full: string = [ticker.render(), ...suffix].join('\n\n').trim();
+  // renderFull, not render: render() is capped to one Discord message because
+  // it is edited in live, whereas the final answer is continued into follow-up
+  // messages rather than truncated (§6.3).
+  const full: string = [ticker.renderFull(), ...suffix].join('\n\n').trim();
   const parts: string[] = splitForDiscord(full);
 
   try {

@@ -126,6 +126,30 @@ describe('systemPrompt', () => {
       expect(later).toMatch(/week 2\b/i);
     });
 
+    /**
+     * Every other calendar boundary in the feature is America/New_York --
+     * caps.ts computes the daily and monthly windows there, matching the trivia
+     * scheduler. This half was using toISOString(), which is UTC, so from 8pm
+     * ET onwards the agent was told tomorrow's date and footed it into a public
+     * answer. getFullYear() was worse still: it is the host's local timezone,
+     * whatever that happens to be.
+     */
+    test('gives the date in the league timezone, not UTC', () => {
+      // 2026-09-15T02:00Z is still the evening of the 14th in New York.
+      const text: string = dynamic({ now: new Date('2026-09-15T02:00:00Z') });
+
+      expect(text).toContain('2026-09-14');
+      expect(text).not.toContain('2026-09-15');
+    });
+
+    test('names the season from the league timezone too', () => {
+      // 03:00Z on 1 January is still 31 December in New York.
+      const text: string = dynamic({ now: new Date('2027-01-01T03:00:00Z') });
+
+      expect(text).toContain('2026-12-31');
+      expect(text).toMatch(/2026 season/);
+    });
+
     test('carries every as-of date and the artifact etag', () => {
       const text: string = dynamic();
 

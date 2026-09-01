@@ -276,4 +276,74 @@ describe('ticker', () => {
       }
     });
   });
+  /**
+   * The ticker is pushed into message.edit() on every event. Discord rejects an
+   * edit over 2,000 characters, so once a streamed answer passed that length
+   * every remaining live edit threw and the member watched a frozen ticker
+   * until the final post. splitForDiscord was only ever applied at the end.
+   */
+  describe('the Discord length ceiling', () => {
+    test('render stays inside the limit while prose streams past it', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onToolCall('mcp__wpfl__sql');
+      ticker.onText('x'.repeat(5000));
+
+      expect(ticker.render().length).toBeLessThanOrEqual(2000);
+    });
+
+    test('it shows the newest prose rather than the oldest', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onText('a'.repeat(3000));
+      ticker.onText('THE-LATEST-WORDS');
+
+      expect(ticker.render()).toContain('THE-LATEST-WORDS');
+    });
+
+    test('it says the view is partial rather than looking finished', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onText('x'.repeat(5000));
+
+      expect(ticker.render()).toMatch(/still writing|…/);
+    });
+
+    test('a long working ticker is capped too', () => {
+      const ticker: Ticker = createTicker();
+      for (let i = 0; i < 400; i += 1) {
+        ticker.onToolCall(`mcp__wpfl__tool_number_${i}`);
+        ticker.onToolInput(JSON.stringify({ query: 'y'.repeat(50) }));
+      }
+
+      expect(ticker.render().length).toBeLessThanOrEqual(2000);
+    });
+
+    /**
+     * publish() posts renderFull() and hands it to splitForDiscord. If it used
+     * the capped render(), a long answer would be silently truncated to one
+     * message instead of continued -- the opposite of what §6.3 specifies.
+     */
+    test('renderFull is uncapped, which is what the final post is built from', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onText('x'.repeat(5000));
+
+      expect(ticker.renderFull().length).toBeGreaterThan(2000);
+      expect(ticker.renderFull()).not.toMatch(/still writing/);
+      expect(splitForDiscord(ticker.renderFull()).length).toBeGreaterThan(1);
+    });
+
+    test('prose() still returns everything, so the final post is complete', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onText('z'.repeat(5000));
+
+      expect(ticker.prose().length).toBe(5000);
+    });
+
+    test('a short answer is untouched', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onToolCall('Read');
+      ticker.onText('Jimmy paid $61 for Bijan.');
+
+      expect(ticker.render()).toContain('Jimmy paid $61 for Bijan.');
+      expect(ticker.render()).not.toMatch(/still writing/);
+    });
+  });
 });
