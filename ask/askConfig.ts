@@ -1,0 +1,66 @@
+// /ask Agent Configuration
+// All tuning for the ask agent lives here, in the spirit of economyConfig.ts.
+// Model, effort and thinking display are part of that tuning, not a separate
+// concern -- "what model does this run" should be one file to open.
+
+import { homedir } from 'node:os';
+import { ThreadAutoArchiveDuration } from 'discord.js';
+
+export const ASK = {
+  // ---- Limits and accounting (design §9) ----
+  // Deliberately generous. A new feature dies if the first week feels
+  // rationed, and the control that actually matters is MAX_BUDGET_USD --
+  // it stops one pathological loop.
+  DAILY_QUESTIONS_PER_USER: 20,
+  MONTHLY_QUERIES_TOTAL: 1500, // league-wide, ~50/day across 14 members
+  MAX_BUDGET_USD: 1.0, // per query; SDK-enforced
+  MAX_CONCURRENT_QUERIES: 2,
+  QUERY_TIMEOUT_MS: 4 * 60 * 1000,
+  SOFT_TURN_CAP: 15,
+  HARD_TURN_CAP: 20,
+  SESSION_RETENTION_DAYS: 7,
+
+  // ---- Model (design §5.1) ----
+  // A league question is mostly retrieval and arithmetic over what the tools
+  // hand back, not deep reasoning, and wall-clock matters while a member is
+  // watching a ticker. Raise EFFORT here if the audit log shows thin answers.
+  MODEL: 'claude-opus-5',
+  EFFORT: 'high',
+  // On Opus 5 the default is 'omitted' -- thinking blocks stream with empty
+  // text. The ticker exists to cover exactly the stretch where the user would
+  // otherwise see nothing, and thinking is billed identically either way.
+  THINKING_DISPLAY: 'summarized',
+
+  // ---- Data and freshness (design §3.5) ----
+  // Outside the bot's repo: cwd points here and the PreToolUse hook confines
+  // every file tool to it.
+  DATA_DIR: process.env.WPFL_DATA_DIR ?? `${homedir()}/wpfl-data`,
+  ARTIFACT_URL: 'https://wpfl-receipts-694ed0.pages.dev/postdraft.json',
+  STALE_AFTER_MS: 6 * 60 * 60 * 1000,
+
+  // ---- Discord surface (design §6.3) ----
+  TICKER_EDIT_THROTTLE_MS: 1500, // Discord allows ~5 edits / 5 s per channel
+  THREAD_AUTO_ARCHIVE: ThreadAutoArchiveDuration.OneDay,
+
+  // ---- WebFetch host allowlist (design §10.4) ----
+  // A pasted beat-writer link is among the most natural things anyone will do
+  // with this feature, so the guard is an allowlist rather than a blanket
+  // refusal. Denials are recorded with denied_by so this list grows from
+  // evidence about what people actually paste. Subdomains match.
+  WEBFETCH_ALLOWED_HOSTS: [
+    'espn.com',
+    'nfl.com',
+    'theathletic.com',
+    'rotowire.com',
+    'pff.com',
+    'fantasypros.com',
+    'nbcsports.com',
+    'cbssports.com',
+    'foxsports.com',
+    'si.com',
+    'bleacherreport.com',
+    'yahoo.com',
+    'wpflapi.azurewebsites.net',
+    'wpfl-receipts-694ed0.pages.dev',
+  ],
+} as const;
