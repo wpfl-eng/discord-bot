@@ -24,7 +24,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 1 | — | — | Adversarial review + decision revision | DONE |
 | 2 | — | `fix/espn-fork-pin` | ESPN fork fixed (`591ee59`), pinned, verified | DONE |
 | 3 | — | — | Build-readiness review: TDD, branches, conciseness, `prompt.md` | DONE |
-| 4 | 0 | `feat/ask` | Scaffolding — deps, `askConfig`, `askAuth`, `wpflMembers` | NOT STARTED |
+| 4 | 0 | `feat/ask` | Scaffolding — deps, `askConfig`, `askAuth`, `wpflMembers` | DONE |
 | 5 | 1 | `feat/ask-data` | Data layer — fixtures + generator, sync, shredder, INDEX.md, history cache | NOT STARTED |
 | 6 | 2 | `feat/ask-persistence` | Persistence — migration 009, `askDb`, caps | NOT STARTED |
 | 7 | 3 | `feat/ask-tools` | Tools (API) — 3 WPFL aggregates, 4 ESPN | NOT STARTED |
@@ -500,12 +500,72 @@ closed in Stage 2.
 
 ---
 
-## Stage 4 — Scaffolding (Phase 0) — `feat/ask` — NOT STARTED
+## Stage 4 — Scaffolding (Phase 0) — `feat/ask` — 2026-08-31 — DONE
 
-_Should record: dependency versions actually installed; whether
-`@anthropic-ai/claude-agent-sdk` and `@duckdb/node-api` both pulled their native
-binaries on this platform; that `agentEnv()` throws with no credential and leaks
-no other secret; typecheck/lint clean and the suite still at 450._
+Committed directly to `feat/ask` (no merge SHA — every later slice depends on all
+of it, so a branch here would only have added a merge).
+
+### Changed
+- `package.json` / `package-lock.json` — added `@anthropic-ai/claude-agent-sdk`,
+  `@duckdb/node-api`, `zod`.
+- `ask/askAuth.ts` — **new.** `agentEnv()`: credential precedence and the minimal
+  subprocess environment.
+- `ask/askConfig.ts` — **new.** Every tuning constant, model config folded in.
+- `constants/wpflMembers.ts` — **new.** Discord ↔ ESPN id ↔ canonical owner, 14 rows.
+- `tests/ask/askAuth.test.ts` — **new**, 8 tests, written first.
+
+### Verified
+
+**Dependencies resolved, and both native binaries are present and execute.** This
+was §15.3's risk — an install that drops optional dependencies produces a bot that
+fails at runtime — so it was checked by loading them, not by reading the lockfile:
+
+| Package | Resolved | Native artifact | Loads |
+| --- | --- | --- | --- |
+| `@anthropic-ai/claude-agent-sdk` | 0.3.252 | `claude-agent-sdk-linux-x64/claude`, 214,371,672 B | yes — `query`, `tool`, `createSdkMcpServer` all `function` |
+| `@duckdb/node-api` | 1.5.5-r.4 | `node-bindings-linux-x64/duckdb.node` 436 KB + `libduckdb.so` 68 MB | yes — `SELECT 42, version()` → `{"x":42,"v":"v1.5.5"}` |
+| `zod` | 4.5.4 | — | — |
+
+`npm install` emitted `EBADENGINE` (`package.json` requires Node 20.15.1, dev box
+runs v24.14.1). Pre-existing, unrelated to these packages, and not acted on.
+
+**TDD, red then green.** `tests/ask/askAuth.test.ts` was committed failing
+(`98bd79c`, module not found) before `ask/askAuth.ts` existed (`a195008`).
+
+**One test was wrong and was fixed in the open, not weakened** (`b95ad5e`). Two
+assertions required `BotError.userMessage` — the text a league member reads in
+Discord — to name `ANTHROPIC_API_KEY` and `PATH`. Telling a member which
+environment variable the host is missing is worse behaviour, not better. The
+names were moved to the assertion that fits them, `originalError.message`, which
+`BotError.toLogObject()` already surfaces to the operator, and the member-facing
+half is now asserted *negatively* as well: `userMessage` must not carry either
+variable name. Net coverage went up, not down.
+
+**`agentEnv()` leaks nothing.** With `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`,
+`POSTGRES_URL`, `POSTGRES_PASSWORD`, `ESPN_S2`, `SWID`, `OPEN_API_KEY` and
+`FINNHUB_API_KEY` all set in `process.env`, the returned object's key set is
+exactly `['ANTHROPIC_API_KEY', 'ENABLE_PROMPT_CACHING_1H', 'HOME', 'PATH']` —
+asserted as an exact sorted array, so a future leak fails rather than passes.
+
+**`wpflMembers` cross-checked at runtime:** 14 rows; `espnId`, `discordId` and
+`owner` each 14 unique values; and the ESPN id sequence is byte-equal to
+`constants/espnMembers.ts` (`1,3,4,5,6,7,8,9,10,11,12,13,14,15`).
+
+**`askConfig` resolves:** `DATA_DIR` → `/home/aboorde/wpfl-data`,
+`THREAD_AUTO_ARCHIVE` → `1440`, model `claude-opus-5` / `high` / `summarized`,
+14 WebFetch hosts.
+
+**Green gate:**
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `npm run typecheck` | 0 | clean |
+| `npm run lint` | 0 | clean |
+| `npm test` | 0 | **458 passed / 17 suites** (baseline 450 / 16) |
+
+### Open
+- Nothing new. §15.12 (no Claude credential) is unchanged and still resolves
+  conditionally at Stage 11; nothing in this stage needed one.
 
 ---
 
