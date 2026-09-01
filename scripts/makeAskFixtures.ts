@@ -171,24 +171,27 @@ if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) {
   // action carries the whole 13 KB team object, so three of everything is far
   // more than the shape needs.
   const KEEP_ESPN = 2;
+  // The fork's typings are interfaces, which do not structurally satisfy the
+  // recursive Json index signature. These payloads are plain JSON off the wire.
+  const asJson = (value: unknown): Json => value as Json;
   await write(
     'espn-teams.json',
-    trim(await client.getTeamsAtWeek({ seasonId, scoringPeriodId: 1 }), 0, KEEP_ESPN)
+    trim(asJson(await client.getTeamsAtWeek({ seasonId, scoringPeriodId: 1 })), 0, KEEP_ESPN)
   );
   await write(
     'espn-boxscores.json',
     trim(
-      await client.getBoxscoreForWeek({ seasonId, matchupPeriodId: 1, scoringPeriodId: 1 }),
+      asJson(await client.getBoxscoreForWeek({ seasonId, matchupPeriodId: 1, scoringPeriodId: 1 })),
       0,
       KEEP_ESPN
     )
   );
   await write(
     'espn-free-agents.json',
-    trim(await client.getFreeAgents({ seasonId, scoringPeriodId: 1 }), 0, KEEP_ESPN)
+    trim(asJson(await client.getFreeAgents({ seasonId, scoringPeriodId: 1 })), 0, KEEP_ESPN)
   );
   // One topic, one action. Every action embeds the *raw* ESPN team object --
   // 8.8 KB of roster the tool never reads past `team.id` -- so two of them cost
   // 90 KB to record one field layout.
-  await write('espn-transactions.json', trim(await client.getRecentActivity({ seasonId }), 0, 1));
+  await write('espn-transactions.json', trim(asJson(await client.getRecentActivity({ seasonId })), 0, 1));
 }

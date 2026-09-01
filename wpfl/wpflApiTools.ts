@@ -1,0 +1,193 @@
+/**
+ * The three WPFL history endpoints that are server-computed aggregates.
+ *
+ * The row-shaped endpoints are cached and reachable only through SQL (§3.7), so
+ * there is no second path that could disagree with the first. These three are
+ * different in kind: their answer depends on parameters a cache cannot
+ * enumerate, and `optimalPointsFor` in particular requires an optimal-lineup
+ * solve that cannot be reconstructed from raw scores at all.
+ *
+ * The system prompt carries a hard rule about them: never compute expected
+ * wins or optimal-coaching numbers by hand from cached rows. /ewins and
+ * /optimal publish these figures to the same channel, and a bot that
+ * contradicts itself in front of the league is worse than one that says "let
+ * me call that" (design §4.2).
+ */
+
+import { z } from 'zod';
+import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { ASK } from '../ask/askConfig.js';
+import type { FetchFn } from './historyCache.js';
+
+export interface ExpectedWinsRow {
+  readonly owner: string;
+  readonly expectedWins: number;
+  readonly actualWins: number;
+  readonly seasonMin: number;
+  readonly seasonMax: number;
+  readonly weekMin: number;
+  readonly weekMax: number;
+}
+
+export interface OptimalCoachingRow {
+  readonly owner: string;
+  readonly actualPointsFor: number;
+  readonly optimalPointsFor: number;
+  readonly season: number;
+  readonly week: number;
+}
+
+export interface DraftedPointsRow {
+  readonly owner: string;
+  readonly draftedPoints: number;
+  readonly rosteredOptimalPoints: number;
+  readonly actualPoints: number;
+}
+
+/** Every description says this, because the agent will otherwise retry 2026 until it gives up. */
+const HISTORY_ONLY =
+  'The WPFL history API is the archive and stops at 2025 — it returns an empty list for the current season on every endpoint. For anything in the season in progress, use the ESPN tools.';
+
+export async function fetchExpectedWins(
+  params: {
+    season: number;
+    weekMin?: number;
+    weekMax?: number;
+    includePlayoffs?: boolean;
+  },
+  fetchFn: FetchFn = fetch
+): Promise<ExpectedWinsRow[]> {
+  // The endpoint takes a range; a single season is that season on both bounds.
+  const query: Record<string, string> = {
+    seasonMin: String(params.season),
+    seasonMax: String(params.season),
+    includePlayoffs: String(params.includePlayoffs ?? false),
+  };
+  if (params.weekMin !== undefined) query.weekMin = String(params.weekMin);
+  if (params.weekMax !== undefined) query.weekMax = String(params.weekMax);
+
+  return getRows<ExpectedWinsRow>(`${ASK.WPFL_API_BASE}/expectedwins`, query, fetchFn);
+}
+
+export async function fetchOptimalCoaching(
+  params: { season: number; week?: number },
+  fetchFn: FetchFn = fetch
+): Promise<OptimalCoachingRow[]> {
+  const query: Record<string, string> = {};
+  if (params.week !== undefined) query.week = String(params.week);
+
+  return getRows<OptimalCoachingRow>(
+    `${ASK.WPFL_API_BASE}/optimalcoaching/pointsfor/${params.season}`,
+    query,
+    fetchFn
+  );
+}
+
+export async function fetchDraftedPoints(
+  params: { seasonMin: number; seasonMax: number; weekMax?: number },
+  fetchFn: FetchFn = fetch
+): Promise<DraftedPointsRow[]> {
+  const query: Record<string, string> = {
+    seasonMin: String(params.seasonMin),
+    seasonMax: String(params.seasonMax),
+  };
+  if (params.weekMax !== undefined) query.weekMax = String(params.weekMax);
+
+  return getRows<DraftedPointsRow>(`${ASK.WPFL_API_BASE}/draft/draftedpoints`, query, fetchFn);
+}
+
+/** Rows as indented JSON. An empty result says so, so it is not read as zeroes. */
+export function toToolResult(rows: readonly unknown[]): CallToolResult {
+  return {
+    content: [
+      {
+        type: 'text',
+        text: rows.length === 0 ? 'No rows for those parameters.' : JSON.stringify(rows, null, 1),
+      },
+    ],
+  };
+}
+
+async function getRows<T>(
+  endpoint: string,
+  query: Record<string, string>,
+  fetchFn: FetchFn
+): Promise<T[]> {
+  const url = new URL(endpoint);
+  for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ASK.WPFL_FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetchFn(url.toString(), { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`The WPFL history API returned HTTP ${response.status} for ${endpoint}.`);
+    }
+    return (await response.json()) as T[];
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`The WPFL history API timed out on ${endpoint}.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// A tool definition's handler is contravariant in its own schema, so a
+// heterogeneous array of them cannot be typed more precisely than the library
+// types its own collection -- CreateSdkMcpServerOptions.tools is
+// Array<SdkMcpToolDefinition<any>>.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const wpflApiTools: SdkMcpToolDefinition<any>[] = [
+  tool(
+    'expected_wins',
+    `Expected wins against actual wins for all 14 owners in one season, computed by the league's own history API from every weekly score. Expected wins is what an owner's scores would have won against an average schedule, so the gap to actual wins is schedule luck. Never compute this yourself from cached scores: /ewins publishes this exact figure to the league. ${HISTORY_ONLY}`,
+    {
+      season: z.number().int().describe('Season, e.g. 2024.'),
+      weekMin: z.number().int().optional().describe('First week to include. Omit for the whole season.'),
+      weekMax: z.number().int().optional().describe('Last week to include. Omit for the whole season.'),
+      includePlayoffs: z
+        .boolean()
+        .optional()
+        .describe('Include playoff weeks. Defaults to false, i.e. the regular season.'),
+    },
+    async (args): Promise<CallToolResult> => toToolResult(await fetchExpectedWins(args)),
+    { alwaysLoad: true }
+  ),
+
+  tool(
+    'optimal_coaching',
+    `Actual points scored against the best the roster could have scored, for all 14 owners in one season. The gap is lineup-setting skill. The optimal figure needs a lineup solve and cannot be reconstructed from raw scores, so always call this rather than working it out: /optimal publishes this exact figure. ${HISTORY_ONLY}`,
+    {
+      season: z.number().int().describe('Season, e.g. 2024.'),
+      week: z
+        .number()
+        .int()
+        .optional()
+        .describe(
+          'Cumulative through this week. The API aggregates weeks 1..week, so week 5 is the season to date, not week 5 alone. Omit for the full season.'
+        ),
+    },
+    async (args): Promise<CallToolResult> => toToolResult(await fetchOptimalCoaching(args)),
+    { alwaysLoad: false }
+  ),
+
+  tool(
+    'drafted_points',
+    `Total points scored by the players each owner drafted, across a season range. Answers "did the draft hold up?" Note the API populates only draftedPoints; rosteredOptimalPoints and actualPoints come back as 0 and mean nothing — do not cite them. ${HISTORY_ONLY}`,
+    {
+      seasonMin: z.number().int().describe('First season in the range.'),
+      seasonMax: z.number().int().describe('Last season in the range, inclusive.'),
+      weekMax: z
+        .number()
+        .int()
+        .optional()
+        .describe('Only count points through this week. Omit for the whole season.'),
+    },
+    async (args): Promise<CallToolResult> => toToolResult(await fetchDraftedPoints(args)),
+    { alwaysLoad: false }
+  ),
+];

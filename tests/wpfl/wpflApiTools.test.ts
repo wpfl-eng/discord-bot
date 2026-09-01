@@ -163,8 +163,12 @@ describe('wpflApiTools', () => {
       ]);
     });
 
+    // tool() does not expose alwaysLoad as a property -- it writes
+    // _meta['anthropic/alwaysLoad'], which is what the API actually reads.
     test('only expected_wins rides in the initial prompt', () => {
-      const always: string[] = wpflApiTools.filter((t) => t.alwaysLoad === true).map((t) => t.name);
+      const always: string[] = wpflApiTools
+        .filter((t) => t._meta?.['anthropic/alwaysLoad'] === true)
+        .map((t) => t.name);
 
       expect(always).toEqual(['expected_wins']);
     });
@@ -197,9 +201,10 @@ describe('wpflApiTools', () => {
     });
 
     test('an empty result says so in words rather than returning a bare []', () => {
-      const result = toToolResult([]);
+      const block = toToolResult([]).content[0];
 
-      expect(result.content[0].text).toMatch(/no rows/i);
+      expect(block.type).toBe('text');
+      expect(block.type === 'text' ? block.text : '').toMatch(/no rows/i);
     });
   });
 });
