@@ -112,6 +112,9 @@ interface TableSession {
    */
   betLog: crapsDb.LogBetData[];
 
+  /** What each player had down on the previous roll, for the Rebet button */
+  lastRoundBets: Map<string, { betType: BetType; amount: number }[]>;
+
   message: Message | null;
   channelId: string;
   client: Client | null;
@@ -155,6 +158,7 @@ function createSession(channelId: string, client: Client): TableSession {
     rollCount: 0,
     startedAt: new Date(),
     betLog: [],
+    lastRoundBets: new Map(),
     message: null,
     channelId,
     client,
@@ -436,6 +440,9 @@ async function runRoll(automatic: boolean): Promise<void> {
   }
 
   // ---- resolve ----
+  // Taken before anything resolves, so Rebet repeats what was down for THIS roll.
+  session.lastRoundBets = snapshotRebets(activeBets(session));
+
   const resolution: RollResolutionResult = resolveAllBets(activeBets(session), roll, pointBefore);
   const paid = await settleResolution(session, resolution);
 
@@ -696,6 +703,35 @@ export function getActiveSessionKey(): string | null {
 
 export function getShooter(): ShooterInfo | null {
   return table?.shooter ?? null;
+}
+
+/**
+ * What each player had down, keyed by player, for the Rebet button.
+ *
+ * Rebuilt from the table each roll rather than appended to. Craps previously
+ * accumulated this in the command module and never cleared it, so Rebet replayed every
+ * bet a player had made since the process started - growing without bound, and turning
+ * one click into dozens of escrow transactions. Roulette already did it this way.
+ *
+ * Exported as a pure function so the shape is testable without driving a roll.
+ */
+export function snapshotRebets(
+  bets: readonly CrapsBet[]
+): Map<string, { betType: BetType; amount: number }[]> {
+  const byUser = new Map<string, { betType: BetType; amount: number }[]>();
+
+  for (const bet of bets) {
+    const existing = byUser.get(bet.userId) ?? [];
+    existing.push({ betType: bet.betType, amount: bet.amount });
+    byUser.set(bet.userId, existing);
+  }
+
+  return byUser;
+}
+
+/** A player's bets from the previous roll, for Rebet. */
+export function getLastRoundBets(userId: string): { betType: BetType; amount: number }[] {
+  return table?.lastRoundBets.get(userId) ?? [];
 }
 
 export function getUserBets(userId: string): CrapsBet[] {

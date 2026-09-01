@@ -171,7 +171,11 @@ async function handleSitCommand(interaction: ChatInputCommandInteraction): Promi
     client: interaction.client,
   });
 
-  activeChip.set(interaction.user.id, stake);
+  // Only a stake the table accepted becomes the default for next time. A rejected one
+  // - over the maximum, or more than the wallet holds - would otherwise be waiting on
+  // the next Sit.
+  if (result.ok) activeChip.set(interaction.user.id, stake);
+
   await interaction.editReply({
     content: result.ok ? `✅ ${result.message}` : `❌ ${result.message}`,
   });
@@ -344,7 +348,7 @@ async function handleSitModal(interaction: RoutableInteraction): Promise<void> {
     client: interaction.client,
   });
 
-  activeChip.set(interaction.user.id, stake);
+  if (result.ok) activeChip.set(interaction.user.id, stake);
   await whisper(interaction, result.ok ? `✅ ${result.message}` : `❌ ${result.message}`);
   blackjackState.refresh();
 }

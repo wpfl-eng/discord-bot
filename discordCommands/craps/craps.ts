@@ -88,9 +88,6 @@ function chipFor(userId: string): number {
   return activeChip.get(userId) ?? DEFAULT_CHIP;
 }
 
-/** A player's bets from the last round, for Rebet. */
-const lastRound = new Map<string, { betType: BetType; amount: number }[]>();
-
 // ============ AUTOCOMPLETE ============
 
 /**
@@ -165,10 +162,6 @@ async function placeBet(
   });
 
   if (!result.success) return { ok: false, message: result.message };
-
-  const existing = lastRound.get(userId) ?? [];
-  existing.push({ betType, amount });
-  lastRound.set(userId, existing);
 
   return { ok: true, message: result.message };
 }
@@ -552,7 +545,7 @@ async function handleRebet(interaction: RoutableInteraction): Promise<void> {
   // Replaying a slip is one escrow transaction per bet.
   await ackPrivate(interaction);
 
-  const previous = lastRound.get(interaction.user.id) ?? [];
+  const previous = crapsState.getLastRoundBets(interaction.user.id);
   if (previous.length === 0) {
     await whisper(interaction, 'You have nothing to repeat yet.');
     return;

@@ -957,6 +957,27 @@ async function splitFor(
 // ============ INSURANCE ============
 
 /**
+ * Whether every seat has answered the insurance offer.
+ *
+ * A seat answers by taking it, which puts money up, or by declining it. The clock is a
+ * backstop for a seat that never answers - not a fixed fifteen seconds on every
+ * ace-upcard round.
+ *
+ * Exported as a plain predicate so the rule is testable without driving a round.
+ */
+export function everyoneAnsweredInsurance(
+  seats: readonly { readonly insuranceBet: number; readonly insuranceSettled: boolean }[]
+): boolean {
+  return seats.length > 0 && seats.every((s) => s.insuranceBet > 0 || s.insuranceSettled);
+}
+
+/** Move the round on as soon as nobody is left to answer. */
+function closeInsuranceIfAnswered(t: Table): void {
+  if (!everyoneAnsweredInsurance(t.seats)) return;
+  void guard.run('beginActing', beginActing);
+}
+
+/**
  * Take insurance.
  *
  * Taking insurance on a natural IS even money - the two settle identically - so the
@@ -999,15 +1020,26 @@ export async function takeInsurance(userId: string): Promise<ActionResult> {
 
   seat.escrowIds.push(escrow.escrowId);
   seat.insuranceBet = cost;
+  seat.insuranceSettled = true;
 
   painter.schedulePaint(t);
+  closeInsuranceIfAnswered(t);
+
   return { ok: true, message: `Insured for ${cost}.` };
 }
 
 export function declineInsurance(userId: string): ActionResult {
+  const t = table;
+  if (!t || t.phase !== 'insurance') {
+    return { ok: false, message: 'Insurance is not on offer right now.' };
+  }
+
   const seat = seatOf(userId);
   if (!seat) return { ok: false, message: 'You are not seated.' };
+
   seat.insuranceSettled = true;
+  closeInsuranceIfAnswered(t);
+
   return { ok: true, message: 'No insurance.' };
 }
 
