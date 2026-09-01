@@ -31,7 +31,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 8 | 4 | `feat/ask-sql` | SQL and MCP — DuckDB, statement guard, `mcpServer` | DONE |
 | 9 | 5 | `feat/ask-runner` | Runner — system prompt, `askRunner`, concurrency, hooks | DONE |
 | 10 | 6 | `feat/ask-discord` | Discord surface — `/ask`, threads, ticker, continuation | DONE |
-| 11 | 7 | `feat/ask` | Integration and handoff — docs, full suite, conditional smoke test | NOT STARTED |
+| 11 | 7 | `feat/ask` | Integration and handoff — docs, full suite, conditional smoke test | DONE |
 
 **AJ's, not the build's** (design §17.5): applying migration 009, merging to
 `main`, `git push`, `deploy-commands.ts`, and the pre-launch re-run of
@@ -1094,12 +1094,87 @@ guild; that remains AJ's, per §17.5.
 
 ---
 
-## Stage 11 — Integration and handoff (Phase 7) — `feat/ask` — NOT STARTED
+## Stage 11 — Integration and handoff (Phase 7) — `feat/ask` — 2026-09-01 — DONE
 
-_Should record: final test count against the 450 baseline; every §15 open item
-that closed and what closed it, and every one that did not; whether the live smoke
-test ran or was skipped for want of a credential, and if it ran, the **measured**
-per-question cost against the $0.13–0.16 estimate; the handoff command list._
+Committed directly to `feat/ask`.
+
+### Changed
+- `.env.sample` — the two Claude credentials and `WPFL_DATA_DIR`.
+- `README.md` — an `/ask` section, the new variables, `ask/` and `wpfl/` in the
+  structure listing, command count 47 → 48.
+- `CLAUDE.md` — `/ask` in the architecture summary, `ask/` and `wpfl/` in the
+  feature-module list, the three new dependencies, the new background
+  behaviour, command count 47 → 48.
+- Prettier run over the files this branch touched.
+
+### Final state
+
+| | |
+| --- | --- |
+| Branch | `feat/ask`, 46 commits ahead of `main`, unmerged |
+| Merges | six, all `--no-ff`; every slice branch deleted |
+| Source files added | **21** — the 17 the design specifies, plus `constants/wpflMembers.ts`, `discordCommands/ask/ask.ts`, `migrations/009_ask_agent.sql`, `scripts/makeAskFixtures.ts` |
+| `npm run typecheck` | **0** |
+| `npm run lint` | **0** |
+| `npm test` | **736 passed / 32 suites**, up from the 450 / 16 baseline |
+
+Twelve new test suites, 286 new tests. Every module in §13.3's mandatory table
+was committed red before green; the three carve-outs were written against
+recordings taken from live calls.
+
+`npm run format:check` still reports 76 files, exactly as it does on `main` —
+this branch added none.
+
+### The live smoke test — SKIPPED, no credential
+
+Checked at this stage: `.env` carries neither `ANTHROPIC_API_KEY` nor
+`CLAUDE_CODE_OAUTH_TOKEN`. Per §17.5's one conditional, the capped live
+`query()` calls were skipped and the build did not wait for one. **The Agent SDK
+integration has therefore never executed against a real model.** Everything
+around it has: the tools, the SQL, the shred, the hooks and the runner are
+covered by tests and by live calls to ESPN, the WPFL API and the artifact host.
+
+What was verified instead, without a model: the whole module graph imports in
+926 ms, all eight tools are reachable through the MCP server, and the options
+`runAsk` hands to `query()` build exactly as specified —
+
+```
+model claude-opus-5 · effort high · permissionMode dontAsk
+cwd /home/aboorde/wpfl-data · tools 5 · allowedTools 4
+systemPrompt 3 parts, 3,766 bytes · hooks PreToolUse, PostToolUse, PostToolUseFailure
+env exactly ANTHROPIC_API_KEY, ENABLE_PROMPT_CACHING_1H, HOME, PATH
+```
+
+**One thing to report plainly:** that dry run loaded the real `.env`, so
+`recordUsage` issued an `INSERT` against the production database. It failed at
+parse — `relation "ask_usage" does not exist` — so nothing was written, created
+or altered. It does independently confirm that migration 009 has **not** been
+applied. Unintended nonetheless; no further dry run was made with live
+credentials loaded.
+
+### Every open item in §15, reckoned
+
+| # | Item | Status |
+| --- | --- | --- |
+| 15.1 | The subscription-auth question | **Open — AJ's.** Code stays agnostic; one env var on the host decides it |
+| 15.2 | The ESPN fork's age | **Closed** in Stage 2. Fixed at `591ee59`, pinned, all four methods verified live |
+| 15.3 | `npm install` must keep optional deps | **Verified here, standing note for the host.** Plain `npm install` pulled both native binaries on this box and both execute. `scripts/deploy.sh` uses plain `npm install`, which is correct — do not add `--omit=optional` |
+| 15.4 | DuckDB lockdown semantics | **Closed** in Stage 8. Both settings real, both behave as assumed, verified including a refused read of `.env` |
+| 15.5 | Whether the `Read` rule alone blocks a Grep escape | **Open, and not measurable here.** Needs a live `query()`. The hook denies every escape vector in CI and a `PreToolUse` deny is documented to hold even in `bypassPermissions`, so the hook is load-bearing either way |
+| 15.6 | The SDK does not read `.env` | **Closed.** `index.ts:1` is `import 'dotenv/config'`, and `agentEnv()` reads `process.env`; confirmed in the dry run, where a key set in `process.env` appeared in the built subprocess env |
+| 15.7 | Session transcript growth | **Open.** Mitigated by `cleanupPeriodDays: 7`; actual size is unmeasurable before real use |
+| 15.8 | Discord thread permissions | **Open, but now degrades rather than breaks.** A failed `startThread` is caught and the answer posts in the channel instead |
+| 15.9 | ESPN tools written against a 0-0 preseason | **Open until week 1.** Every score in every recording is 0, so `espn_boxscores` is verified for shape and not for scoring |
+| 15.10 | The 2026 data gap | **Measured, no longer an assumption.** Every WPFL endpoint returns `[]` for 2026 and `draft_history` stops at 2025. Handled honestly: `INDEX.md`, the system prompt and the answer footer all state the as-of dates |
+| 15.11 | Per-question cost is estimated, never measured | **Open.** Blocked on the credential |
+| 15.12 | No Claude credential on the box | **Open — AJ's.** The build never waited on it |
+| 14 | Session row must precede the ledger row (Stage 6) | **Closed.** `ask.ts` writes the session first; the FK was proven enforced |
+
+### Open at handoff
+
+Three items need a Claude credential (15.1, 15.5, 15.11, 15.12), one needs week
+1 (15.9), one needs a week of real use (15.7), and one needs a guild check
+(15.8). None of them block merging.
 
 ---
 
