@@ -231,6 +231,39 @@ describe('artifactSync', () => {
       expect(fs.readFileSync(cacheFile, 'utf8')).toBe('{"kept":true}\n');
     });
 
+    test('a refreshed cache file wins over the previous one', async () => {
+      // The carry-across above only proves that a file the refresh did not
+      // write survives. This proves the other half: what the refresh *did*
+      // write is not then clobbered by the previous copy. The sync used to
+      // copy the whole ~9.3 MB cache in before refreshing and overwrite all of
+      // it; it now refreshes first and copies back only what is missing, so
+      // getting that order backwards is the regression to catch.
+      await ensureFresh(deps());
+      const cacheFile: string = path.join(dataDir, 'wpfl', 'player_scores.jsonl');
+      fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+      fs.writeFileSync(cacheFile, '{"stale":true}\n');
+
+      const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+      await ensureFresh(
+        deps({
+          now: () => stale,
+          fetchFn: (async () => respond('W/"etag-2"')) as FetchFn,
+          refreshCache: async (target: string): Promise<HistoryCacheResult> => {
+            fs.mkdirSync(target, { recursive: true });
+            fs.writeFileSync(path.join(target, 'player_scores.jsonl'), '{"fresh":true}\n');
+            return {
+              sources: [{ path: 'player_scores.jsonl', rows: 1, bytes: 16 }],
+              fetchedAt: new Date('2026-09-01T00:00:00Z'),
+              failedSeasons: [],
+              failedSources: [],
+            };
+          },
+        })
+      );
+
+      expect(fs.readFileSync(cacheFile, 'utf8')).toBe('{"fresh":true}\n');
+    });
+
     describe('a failure leaves the previous shred serving', () => {
       test('reports a fetch failure without throwing and keeps the old shred', async () => {
         const error = jest.spyOn(console, 'error').mockImplementation(() => {});

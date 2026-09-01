@@ -118,13 +118,25 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
   try {
     const result: ShredResult = shred(artifact, staging);
 
-    // Copy rather than move: the live directory must stay complete until the
-    // swap, and the cache refresh below can take ten seconds or more.
+    // Refresh first, then bring across only what the refresh did not write.
+    //
+    // This used to copy the whole previous cache into staging *before* the
+    // refresh and then overwrite every file in it -- ~9.3 MB read and written
+    // synchronously on the event loop (measured: player_scores.jsonl alone is
+    // 8.4 MB), of which the happy path discards 100%. The copy was only ever
+    // there to preserve a source whose fetch failed, and that is what this
+    // preserves, at zero bytes when nothing failed.
     const previousCache: string = path.join(dataDir, 'wpfl');
+    const stagedCache: string = path.join(staging, 'wpfl');
+    const cache: HistoryCacheResult = await refreshCache(stagedCache);
     if (fs.existsSync(previousCache)) {
-      fs.cpSync(previousCache, path.join(staging, 'wpfl'), { recursive: true });
+      for (const name of fs.readdirSync(previousCache)) {
+        const target: string = path.join(stagedCache, name);
+        if (!fs.existsSync(target)) {
+          fs.cpSync(path.join(previousCache, name), target, { recursive: true });
+        }
+      }
     }
-    const cache: HistoryCacheResult = await refreshCache(path.join(staging, 'wpfl'));
 
     fs.writeFileSync(
       path.join(staging, 'INDEX.md'),

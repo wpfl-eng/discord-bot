@@ -76,6 +76,35 @@ describe('historyCache', () => {
     });
   });
 
+  describe('concurrency', () => {
+    test('issues every request together rather than one after another', async () => {
+      // The whole point of the refresh being parallel. Sequentially these 13
+      // requests measured 26-70 s against the live API, and every second is
+      // paid inside the /ask that triggered the reshred, after deferReply.
+      let inFlight = 0;
+      let peak = 0;
+      const release: (() => void)[] = [];
+
+      const fetchFn: FetchFn = async (): Promise<HttpResponse> => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise<void>((resolve) => release.push(resolve));
+        inFlight -= 1;
+        return { ok: true, status: 200, json: async (): Promise<unknown> => [] };
+      };
+
+      const done = refreshWpflCache(dir, fetchFn, 2017);
+      // Let every fetch that is going to start, start.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const started: number = peak;
+      for (const resolve of release) resolve();
+      await done;
+
+      // draft history + matchups + one per season 2015-2017 = 5.
+      expect(started).toBe(5);
+    });
+  });
+
   describe('jsonl output', () => {
     test('writes one line per row, per source', async () => {
       const result: HistoryCacheResult = await refreshWpflCache(

@@ -57,6 +57,13 @@ const PLAYER_SCORES = 'player_scores.jsonl';
  *   which is cheaper than getting the boundary wrong -- but the boundary is the
  *   NFL season rather than the calendar year, so a January refresh still asks
  *   for the season actually being played.
+ *
+ * The thirteen requests go out together. Run one after another they took 26-70
+ * seconds against the live API (measured: ~5.5 s cold, ~2 s warm, x13), and
+ * every one of those seconds is paid inside the /ask that triggered the
+ * reshred, after deferReply, with nothing on screen. All thirteen at once
+ * returned 200 in 7.0 s wall-clock -- the host is latency-bound, not
+ * throughput-bound, so concurrency is what helps and it does not throttle.
  */
 export async function refreshWpflCache(
   targetDir: string,
@@ -65,50 +72,66 @@ export async function refreshWpflCache(
 ): Promise<HistoryCacheResult> {
   fs.mkdirSync(targetDir, { recursive: true });
 
+  const seasons: number[] = [];
+  for (let season: number = ASK.PLAYER_SCORES_MIN_SEASON; season <= seasonMax; season += 1) {
+    seasons.push(season);
+  }
+
+  const [draft, matchups, ...scores] = await Promise.all([
+    fetchChunk(
+      fetchFn,
+      `${ASK.WPFL_API_BASE}/draft/history`,
+      { seasonMin: ASK.HISTORY_MIN_SEASON, seasonMax },
+      DRAFT_HISTORY
+    ),
+    fetchChunk(
+      fetchFn,
+      `${ASK.WPFL_API_BASE}/fantasyMatchupWinners`,
+      { seasonMin: ASK.HISTORY_MIN_SEASON, seasonMax },
+      MATCHUPS
+    ),
+    ...seasons.map(
+      (season: number): Promise<Chunk | null> =>
+        fetchChunk(
+          fetchFn,
+          `${ASK.WPFL_API_BASE}/playerscores`,
+          { seasonMin: season, seasonMax: season },
+          `${PLAYER_SCORES} (${season})`
+        )
+    ),
+  ]);
+
   const sources: CachedSource[] = [];
-  const failedSeasons: number[] = [];
   const failedSources: string[] = [];
 
-  const write = (name: string, rows: Row[]): void => {
+  const write = (name: string, chunks: readonly Chunk[]): void => {
     const full: string = path.join(targetDir, name);
-    fs.writeFileSync(full, rows.map((row) => JSON.stringify(row)).join('\n') + '\n');
-    sources.push({ path: name, rows: rows.length, bytes: fs.statSync(full).size });
+    const body: string = chunks
+      .map((chunk: Chunk): string => chunk.text)
+      .filter((text: string): boolean => text !== '')
+      .join('\n');
+    fs.writeFileSync(full, `${body}\n`);
+    sources.push({
+      path: name,
+      rows: chunks.reduce((total: number, chunk: Chunk): number => total + chunk.rows, 0),
+      bytes: fs.statSync(full).size,
+    });
   };
 
   // Each source is written only if every fetch behind it succeeded. A partial
   // write would silently drop a decade of rows and the SQL tool would answer
   // from it without complaint.
-  const draft: Row[] | null = await fetchRows(
-    fetchFn,
-    `${ASK.WPFL_API_BASE}/draft/history`,
-    { seasonMin: ASK.HISTORY_MIN_SEASON, seasonMax },
-    DRAFT_HISTORY
-  );
   if (draft === null) failedSources.push(DRAFT_HISTORY);
-  else write(DRAFT_HISTORY, draft);
+  else write(DRAFT_HISTORY, [draft]);
 
-  const matchups: Row[] | null = await fetchRows(
-    fetchFn,
-    `${ASK.WPFL_API_BASE}/fantasyMatchupWinners`,
-    { seasonMin: ASK.HISTORY_MIN_SEASON, seasonMax },
-    MATCHUPS
-  );
   if (matchups === null) failedSources.push(MATCHUPS);
-  else write(MATCHUPS, matchups);
+  else write(MATCHUPS, [matchups]);
 
-  const scores: Row[] = [];
-  for (let season: number = ASK.PLAYER_SCORES_MIN_SEASON; season <= seasonMax; season += 1) {
-    const seasonRows: Row[] | null = await fetchRows(
-      fetchFn,
-      `${ASK.WPFL_API_BASE}/playerscores`,
-      { seasonMin: season, seasonMax: season },
-      `${PLAYER_SCORES} (${season})`
-    );
-    if (seasonRows === null) failedSeasons.push(season);
-    else scores.push(...seasonRows);
-  }
+  const failedSeasons: number[] = seasons.filter(
+    (_season: number, index: number): boolean => scores[index] === null
+  );
   if (failedSeasons.length > 0) failedSources.push(PLAYER_SCORES);
-  else write(PLAYER_SCORES, scores);
+  else write(PLAYER_SCORES, scores as Chunk[]);
 
   const fetchedAt = new Date();
   if (sources.length > 0) {
@@ -116,6 +139,29 @@ export async function refreshWpflCache(
   }
 
   return { sources, fetchedAt, failedSeasons, failedSources };
+}
+
+/** One source's rows, already serialised. */
+interface Chunk {
+  readonly text: string;
+  readonly rows: number;
+}
+
+/**
+ * Serialise as soon as the rows land, so the parsed objects for one season
+ * become garbage while the other twelve requests are still in flight rather
+ * than all being held live until the final join. Player scores alone are
+ * ~38,000 objects against ~8.4 MB of text.
+ */
+async function fetchChunk(
+  fetchFn: FetchFn,
+  endpoint: string,
+  params: Record<string, number>,
+  label: string
+): Promise<Chunk | null> {
+  const rows: Row[] | null = await fetchRows(fetchFn, endpoint, params, label);
+  if (rows === null) return null;
+  return { text: rows.map((row: Row): string => JSON.stringify(row)).join('\n'), rows: rows.length };
 }
 
 /** Returns null on any failure -- the caller keeps whatever is already on disk. */
