@@ -15,7 +15,7 @@
 // Painting is best effort throughout. A deleted message, a permissions change or a rate
 // limit must never stop a wheel, a shoe or a payout.
 
-import type { Message } from 'discord.js';
+import type { Message, TextChannel } from 'discord.js';
 import type { MessageComponentInteraction, ModalSubmitInteraction } from 'discord.js';
 import type { RenderedMessage } from '../interactions/renderedMessage.js';
 import { forEdit } from './casinoRender.js';
@@ -209,6 +209,41 @@ export async function paintViaInteraction(
     console.error(`[${label}] Failed to paint via interaction:`, error);
   }
   return false;
+}
+
+// ============ RESTORING A BOARD ============
+
+/**
+ * The message a restored table should carry on driving.
+ *
+ * A restart used to post a fresh board and leave the previous one sitting in the
+ * channel. That old board keeps working buttons - the custom ids are static - so it
+ * stays a live-looking control surface that nothing paints any more, which is exactly
+ * the board a player scrolling up will click.
+ *
+ * Editing the message the table was last painted on means there is only ever one.
+ *
+ * @param messageId - the board from the snapshot, if one was recorded
+ * @returns the reclaimed message, or a freshly posted one when it is gone
+ */
+export async function reclaimBoard(
+  channel: TextChannel,
+  messageId: string | undefined,
+  payload: RenderedMessage,
+  label: string
+): Promise<Message> {
+  if (messageId) {
+    try {
+      const existing: Message = await channel.messages.fetch(messageId);
+      await existing.edit(forEdit(payload));
+      return existing;
+    } catch {
+      // Deleted, or the bot lost sight of it. A new board is the only option left.
+      console.log(`[${label}] Previous board ${messageId} is gone; posting a new one`);
+    }
+  }
+
+  return channel.send(payload);
 }
 
 /**

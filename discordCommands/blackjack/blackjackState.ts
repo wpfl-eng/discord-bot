@@ -32,7 +32,7 @@ import * as escrowDb from '../../economy/escrowDb.js';
 import * as blackjackDb from '../../blackjack/blackjackDb.js';
 import { pacingFor, sleep } from '../../casino/casinoPacing.js';
 import { blackjackHeroSvg, renderHero, type Hero } from '../../casino/casinoHero.js';
-import { createPainter } from '../../casino/casinoPaint.js';
+import { createPainter, reclaimBoard } from '../../casino/casinoPaint.js';
 import { createAdvanceGuard, type RecoveryContext } from '../../casino/casinoRecovery.js';
 import {
   clearTableState,
@@ -1168,6 +1168,7 @@ export async function saveState(): Promise<void> {
   if (!t) return;
 
   await saveTableState<BlackjackSnapshot>('blackjack', t.channelId, {
+    messageId: t.message?.id,
     seats: t.seats.map((s) => ({
       userId: s.userId,
       username: s.username,
@@ -1219,7 +1220,12 @@ export async function restoreState(client: Client): Promise<boolean> {
     }));
 
     table = t;
-    t.message = await textChannel.send(buildBoard(viewOf(t)));
+    t.message = await reclaimBoard(
+      textChannel,
+      snapshot.state.messageId,
+      buildBoard(viewOf(t)),
+      'BLACKJACK'
+    );
     startBettingWindow(t, true);
     await painter.paintNow(t);
 

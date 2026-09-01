@@ -130,6 +130,13 @@ export interface SeatSnapshot {
 export interface BlackjackSnapshot {
   readonly seats: readonly SeatSnapshot[];
   /**
+   * The board this table was last painting.
+   *
+   * Optional because snapshots written before boards were reclaimed do not carry one;
+   * a restore without it simply posts a fresh board, as it always did.
+   */
+  readonly messageId?: string;
+  /**
    * The shoe as an ordered list of cards plus its shuffle flag.
    *
    * Worth persisting specifically because the table runs one shoe and counting it is
@@ -142,6 +149,13 @@ export interface BlackjackSnapshot {
 export interface CrapsSnapshot {
   /** The shooter rotation, in arrival order */
   readonly queue: readonly { readonly userId: string; readonly username: string }[];
+  /**
+   * The board this table was last painting.
+   *
+   * Optional because snapshots written before boards were reclaimed do not carry one;
+   * a restore without it simply posts a fresh board, as it always did.
+   */
+  readonly messageId?: string;
   readonly shooterUserId: string | null;
   /**
    * Roll totals only, for the strip. The point is deliberately NOT restored: it belongs

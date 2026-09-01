@@ -25,7 +25,7 @@ import * as escrowDb from '../../economy/escrowDb.js';
 import * as crapsDb from '../../craps/crapsDb.js';
 import { pacingFor, sleep, type Pacing } from '../../casino/casinoPacing.js';
 import { crapsHeroSvg, renderHero, type Hero } from '../../casino/casinoHero.js';
-import { createPainter } from '../../casino/casinoPaint.js';
+import { createPainter, reclaimBoard } from '../../casino/casinoPaint.js';
 import { createAdvanceGuard, type RecoveryContext } from '../../casino/casinoRecovery.js';
 import {
   clearTableState,
@@ -1010,6 +1010,7 @@ export async function saveState(): Promise<void> {
   if (!session) return;
 
   await saveTableState<CrapsSnapshot>('craps', session.channelId, {
+    messageId: session.message?.id,
     queue: session.queue.map((player) => ({
       userId: player.userId,
       username: player.username,
@@ -1042,7 +1043,12 @@ export async function restoreState(client: Client): Promise<boolean> {
       null;
 
     table = session;
-    session.message = await textChannel.send(buildBoard(viewOf(session)));
+    session.message = await reclaimBoard(
+      textChannel,
+      snapshot.state.messageId,
+      buildBoard(viewOf(session)),
+      'CRAPS'
+    );
     startBettingWindow(session);
     await painter.paintNow(session);
 
