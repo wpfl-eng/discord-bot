@@ -16,7 +16,6 @@ import {
 } from './interactions/componentRouter.js';
 import { loadApplicationEmojis } from './emoji/emojiRegistry.js';
 import { runStartupRefundSweep } from './economy/startupSweep.js';
-import { registeredGameCount, startHub } from './casino/casinoHub.js';
 import { restoreCasinoTables } from './casino/casinoBoot.js';
 
 // Create a new client instance
@@ -60,8 +59,9 @@ client.once('ready', async () => {
   // Seats, stakes and the blackjack shoe survive a restart; nothing mid-round does.
   await restoreCasinoTables(client);
 
-  console.log(`[HUB] ${registeredGameCount()} game(s) registered`);
-  await startHub(client);
+  // The casino hub board is intentionally not started: the tables announce themselves in
+  // their own channels, and the hub's standing summary was noise in the casino channel.
+  // To bring it back, import { startHub } from './casino/casinoHub.js' and call it here.
 });
 
 client.commands = new Collection();
