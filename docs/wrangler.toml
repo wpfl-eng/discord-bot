@@ -1,2 +1,6 @@
 name = "commishbot-docs"
 compatibility_date = "2024-12-01"
+
+# adapter-cloudflare v7 defaults to .svelte-kit/cloudflare; keep the
+# existing build/ convention that `wrangler pages deploy build` expects.
+pages_build_output_dir = "build"
