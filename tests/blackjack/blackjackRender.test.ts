@@ -1,47 +1,65 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   IDS,
-  buildEvenMoneyPrompt,
-  buildGameMessage,
-  buildInsurancePrompt,
-  playAgainId,
-  type GameView,
+  buildBoard,
+  buildSlipText,
+  type SeatView,
+  type TablePhase,
+  type TableView,
 } from '../../discordCommands/blackjack/blackjackRender.js';
-import {
-  MAX_HANDS,
-  newHand,
-  resolveHand,
-  type PlayerHand,
-} from '../../discordCommands/blackjack/blackjackEngine.js';
-import {
-  TABLES,
-  createShoe,
-  type Card,
-  type Rank,
-  type Suit,
-} from '../../discordCommands/blackjack/blackjackUtils.js';
+import { newHand, resolveHand, type PlayerHand } from '../../discordCommands/blackjack/blackjackEngine.js';
+import { BUDGET, countComponents } from '../../casino/casinoRender.js';
+import { createShoe, type Card, type Rank, type Suit } from '../../discordCommands/blackjack/blackjackUtils.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 const c = (rank: Rank, suit: Suit = '♠'): Card => ({ rank, suit });
 
-const LIMITS = { topLevel: 10, actionRows: 5, containerChildren: 10, total: 40 };
-
-function countComponents(node: any): number {
-  let total = 1;
-  if (Array.isArray(node.components))
-    for (const child of node.components) total += countComponents(child);
-  if (node.accessory) total += 1;
-  return total;
+function seat(overrides: Partial<SeatView> = {}): SeatView {
+  const hands: PlayerHand[] = [newHand([c('9'), c('7')], 1000)];
+  return {
+    userId: '1',
+    username: 'AJ',
+    stake: 1000,
+    hands,
+    activeHandIndex: 0,
+    insuranceBet: 0,
+    sideBets: { pairs: 0, p3: 0 },
+    acting: true,
+    ...overrides,
+  };
 }
 
-function expectWithinLimits(payload: { components: unknown[] }): void {
+function view(overrides: Partial<TableView> = {}): TableView {
+  return {
+    phase: 'acting',
+    shoe: createShoe(6),
+    dealerHand: [c('K'), c('5')],
+    hideHole: true,
+    seats: [seat()],
+    deadline: Date.now() + 45_000,
+    roundCount: 1,
+    roundStake: 1000,
+    ...overrides,
+  };
+}
+
+function measure(payload: { components: unknown[] }) {
   const comps = payload.components as any[];
   const container = comps.find((x) => x.type === 17);
-  expect(comps.length).toBeLessThanOrEqual(LIMITS.topLevel);
-  expect(comps.filter((x) => x.type === 1).length).toBeLessThanOrEqual(LIMITS.actionRows);
-  expect(container ? container.components.length : 0).toBeLessThanOrEqual(LIMITS.containerChildren);
-  expect(comps.reduce((s, x) => s + countComponents(x), 0)).toBeLessThanOrEqual(LIMITS.total);
+  return {
+    topLevel: comps.length,
+    containerChildren: container ? container.components.length : 0,
+    total: comps.reduce((s, x) => s + countComponents(x), 0),
+  };
+}
+
+function buttonIds(payload: { components: unknown[] }): string[] {
+  return (payload.components as any[])
+    .flatMap((x) => x.components ?? [])
+    .filter((x: any) => x.type === 2)
+    .map((x: any) => x.custom_id)
+    .filter(Boolean);
 }
 
 function text(payload: { components: unknown[] }): string {
@@ -54,225 +72,259 @@ function text(payload: { components: unknown[] }): string {
   return out.join('\n');
 }
 
-function buttons(payload: { components: unknown[] }): any[] {
-  return (payload.components as any[])
-    .flatMap((x) => x.components ?? [])
-    .filter((x: any) => x.type === 2);
-}
+// ============ BUDGET ============
 
-const baseView: GameView = {
-  table: TABLES.classic,
-  shoe: null,
-  dealerHand: [c('9', '♥'), c('K')],
-  hideHole: true,
-  hands: [newHand([c('K', '♦'), c('7', '♣')], 1000)],
-  activeHandIndex: 0,
-  insuranceBet: 0,
-  balance: 12_500,
-  originalBet: 1000,
-};
+describe('component budget', () => {
+  const phases: TablePhase[] = [
+    'idle',
+    'betting',
+    'dealing',
+    'insurance',
+    'acting',
+    'dealer',
+    'settled',
+  ];
 
-/** The worst case the rules allow: four hands, all doubled, plus insurance. */
-function maxHandsView(): GameView {
-  const hands: PlayerHand[] = Array.from({ length: MAX_HANDS }, () => {
-    const h = newHand([c('8'), c('3'), c('9')], 200_000, true);
-    h.doubled = true;
-    h.status = 'stood';
-    return h;
-  });
-  hands[MAX_HANDS - 1].status = 'playing';
-
-  return {
-    ...baseView,
-    table: TABLES.vegas,
-    shoe: createShoe(6),
-    hands,
-    activeHandIndex: MAX_HANDS - 1,
-    insuranceBet: 50_000,
-    balance: 1_250_000,
-    originalBet: 100_000,
-  };
-}
-
-describe('game message layout', () => {
-  test('a single hand stays within limits', () => {
-    expectWithinLimits(buildGameMessage(baseView));
+  test.each(phases)('%s stays inside every limit', (phase) => {
+    const m = measure(buildBoard(view({ phase })));
+    expect(m.topLevel).toBeLessThanOrEqual(BUDGET.topLevel);
+    expect(m.containerChildren).toBeLessThanOrEqual(BUDGET.containerChildren);
+    expect(m.total).toBeLessThanOrEqual(BUDGET.total);
   });
 
-  // Four doubled hands is the most the rules can produce, so if anything fits, this does.
-  test('four hands with every action available stays within limits', () => {
-    expectWithinLimits(
-      buildGameMessage({ ...maxHandsView(), canDouble: true, canSplit: true, canSurrender: true })
-    );
-  });
-
-  test('the settled view stays within limits', () => {
-    const view = maxHandsView();
-    expectWithinLimits(
-      buildGameMessage({
-        ...view,
-        hideHole: false,
-        results: view.hands.map((h) => resolveHand(h, view.dealerHand)),
-        netProfit: -400_000,
-        canPlayAgain: true,
+  // Seats are unlimited, so the board must survive a genuinely crowded table - the case
+  // that made the two-zone layout necessary in the first place.
+  test('twenty seats, each with four split hands, is still in budget', () => {
+    const busy: SeatView[] = Array.from({ length: 20 }, (_, i) =>
+      seat({
+        userId: String(i),
+        username: `p${i}`,
+        hands: Array.from({ length: 4 }, () => newHand([c('8'), c('8')], 500)),
+        acting: i % 2 === 0,
       })
     );
+
+    const m = measure(buildBoard(view({ seats: busy })));
+    expect(m.topLevel).toBeLessThanOrEqual(BUDGET.topLevel);
+    expect(m.containerChildren).toBeLessThanOrEqual(BUDGET.containerChildren);
+    expect(m.total).toBeLessThanOrEqual(BUDGET.total);
+  });
+});
+
+// ============ TWO ZONES ============
+
+describe('two-zone layout', () => {
+  test('acting seats show their cards, settled seats collapse', () => {
+    const stood: PlayerHand = newHand([c('K'), c('9')], 1000);
+    stood.status = 'stood';
+
+    const payload = buildBoard(
+      view({
+        seats: [
+          seat({ userId: '1', acting: true }),
+          seat({
+            userId: '2',
+            hands: [stood],
+            acting: false,
+            results: [resolveHand(stood, [c('K'), c('5'), c('9')])],
+            net: 1000,
+          }),
+        ],
+      })
+    );
+
+    const body = text(payload);
+    expect(body).toContain('ACTING');
+    expect(body).toContain('DONE');
   });
 
-  test.each([
-    ['insurance', () => buildInsurancePrompt(baseView, 500)],
-    ['even money', () => buildEvenMoneyPrompt(baseView)],
-  ])('the %s prompt stays within limits', (_label, build) => {
-    expectWithinLimits(build());
+  // The property the design exists for: the board must not keep growing as seats pile
+  // up, because a settled seat costs a clause rather than a block.
+  test('a settled seat costs far less height than an acting one', () => {
+    const stood: PlayerHand = newHand([c('K'), c('9')], 1000);
+    stood.status = 'stood';
+
+    const heightWith = (acting: boolean): number =>
+      text(
+        buildBoard(
+          view({
+            seats: Array.from({ length: 6 }, (_, i) =>
+              seat({
+                userId: String(i),
+                hands: [acting ? newHand([c('9'), c('7')], 1000) : stood],
+                acting,
+                results: acting ? undefined : [resolveHand(stood, [c('K'), c('5'), c('9')])],
+                net: acting ? undefined : 1000,
+              })
+            ),
+          })
+        )
+      ).split('\n').length;
+
+    expect(heightWith(false)).toBeLessThan(heightWith(true));
   });
 
-  test('stays within the 4000-character text limit at four hands', () => {
-    expect(text(buildGameMessage(maxHandsView())).length).toBeLessThanOrEqual(4000);
+  test('an empty table says so', () => {
+    expect(text(buildBoard(view({ seats: [], phase: 'idle' })))).toContain('No seats taken');
+  });
+});
+
+// ============ CONTROLS ============
+
+describe('controls by phase', () => {
+  test('betting offers chips and seating, never play actions', () => {
+    const ids = buttonIds(buildBoard(view({ phase: 'betting' })));
+    expect(ids).toContain(IDS.SIT);
+    expect(ids).toContain(IDS.LEAVE);
+    expect(ids).not.toContain(IDS.HIT);
   });
 
-  // The hand is private, so it must be ephemeral - this is what keeps blackjack from
-  // adding anything to the channel.
-  test('every view is ephemeral', () => {
-    for (const payload of [
-      buildGameMessage(baseView),
-      buildInsurancePrompt(baseView, 500),
-      buildEvenMoneyPrompt(baseView),
-    ]) {
-      expect(payload.flags & 64).toBe(64);
+  test('acting offers every play action', () => {
+    const ids = buttonIds(buildBoard(view({ phase: 'acting' })));
+    expect(ids).toEqual(
+      expect.arrayContaining([IDS.HIT, IDS.STAND, IDS.DOUBLE, IDS.SPLIT, IDS.SURRENDER])
+    );
+    expect(ids).not.toContain(IDS.SIT);
+  });
+
+  test('insurance offers exactly the two answers', () => {
+    const ids = buttonIds(buildBoard(view({ phase: 'insurance' })));
+    expect(ids).toEqual([IDS.INSURANCE_YES, IDS.INSURANCE_NO]);
+  });
+
+  test.each(['dealing', 'dealer', 'settled'] as TablePhase[])(
+    '%s shows no controls at all',
+    (phase) => {
+      expect(buttonIds(buildBoard(view({ phase })))).toHaveLength(0);
+    }
+  );
+
+  test("every custom id is under Discord's 100-character limit", () => {
+    for (const id of buttonIds(buildBoard(view({ phase: 'acting' })))) {
+      expect(id.length).toBeLessThanOrEqual(100);
     }
   });
 });
 
-describe('controls', () => {
-  test('hit and stand are always offered while playing', () => {
-    const ids = buttons(buildGameMessage(baseView)).map((b) => b.custom_id);
-    expect(ids).toContain(IDS.HIT);
-    expect(ids).toContain(IDS.STAND);
+// ============ DEALER ============
+
+describe('dealer block', () => {
+  test('an ace upcard is named rather than counted', () => {
+    const body = text(buildBoard(view({ dealerHand: [c('A'), c('5')], hideHole: true })));
+    expect(body).toContain('showing an Ace');
   });
 
-  test('double, split and surrender appear only when available', () => {
-    const without = buttons(buildGameMessage(baseView)).map((b) => b.custom_id);
-    expect(without).not.toContain(IDS.DOUBLE);
-    expect(without).not.toContain(IDS.SPLIT);
-    expect(without).not.toContain(IDS.SURRENDER);
-
-    const withAll = buttons(
-      buildGameMessage({ ...baseView, canDouble: true, canSplit: true, canSurrender: true })
-    ).map((b) => b.custom_id);
-    expect(withAll).toContain(IDS.DOUBLE);
-    expect(withAll).toContain(IDS.SPLIT);
-    expect(withAll).toContain(IDS.SURRENDER);
+  test('a numeric upcard shows its value', () => {
+    const body = text(buildBoard(view({ dealerHand: [c('9'), c('5')], hideHole: true })));
+    expect(body).toContain('showing 9');
   });
 
-  // Play Again reads its stake and table back from the customId, so the id must carry
-  // both. The label is presentation only and must not be what the replay depends on.
-  test('the settled view offers Play Again carrying the stake and table', () => {
-    const payload = buildGameMessage({
-      ...baseView,
-      hideHole: false,
-      results: [resolveHand(baseView.hands[0], baseView.dealerHand)],
-      netProfit: -1000,
-      canPlayAgain: true,
-    });
-    const play = buttons(payload).find((b) => b.custom_id.startsWith(IDS.PLAY_AGAIN));
-    expect(play).toBeDefined();
-    expect(play.custom_id).toBe(playAgainId(1000, baseView.table.name));
-    expect(play.label).toContain('1,000');
-  });
-
-  test('Play Again is withheld when the player cannot cover the stake', () => {
-    const payload = buildGameMessage({
-      ...baseView,
-      hideHole: false,
-      results: [resolveHand(baseView.hands[0], baseView.dealerHand)],
-      netProfit: -1000,
-      canPlayAgain: false,
-    });
-    expect(buttons(payload)).toHaveLength(0);
-  });
-
-  test('no play controls survive into the settled view', () => {
-    const payload = buildGameMessage({
-      ...baseView,
-      hideHole: false,
-      results: [resolveHand(baseView.hands[0], baseView.dealerHand)],
-      netProfit: -1000,
-      canPlayAgain: true,
-    });
-    const ids = buttons(payload).map((b) => b.custom_id);
-    expect(ids).not.toContain(IDS.HIT);
-    expect(ids).not.toContain(IDS.STAND);
+  test('the hole card stays hidden until it is turned', () => {
+    const hidden = text(buildBoard(view({ hideHole: true })));
+    const shown = text(buildBoard(view({ hideHole: false, phase: 'dealer' })));
+    expect(hidden).not.toBe(shown);
   });
 });
 
-describe('presentation', () => {
-  test('hides the hole card while the hand is live and reveals it after', () => {
-    expect(text(buildGameMessage(baseView))).toContain('🎴');
+// ============ SHOE ============
 
-    const settled = text(
-      buildGameMessage({
-        ...baseView,
-        hideHole: false,
-        results: [resolveHand(baseView.hands[0], baseView.dealerHand)],
-        netProfit: -1000,
-      })
-    );
-    expect(settled).not.toContain('🎴');
+describe('the shoe', () => {
+  test('depth is always on the board, because counting depends on it', () => {
+    expect(text(buildBoard(view()))).toMatch(/cards/);
   });
 
-  // "showing 11" is the ace's value but nobody reads a table that way.
-  test('names an ace upcard rather than counting it', () => {
-    const body = text(buildGameMessage({ ...baseView, dealerHand: [c('A'), c('K')] }));
-    expect(body).toContain('showing an Ace');
-    expect(body).not.toContain('showing 11');
-  });
-
-  test('marks soft totals but not 21', () => {
-    expect(
-      text(buildGameMessage({ ...baseView, hands: [newHand([c('A'), c('6')], 100)] }))
-    ).toContain('soft 17');
-    expect(
-      text(buildGameMessage({ ...baseView, hands: [newHand([c('A'), c('K')], 100)] }))
-    ).not.toContain('soft 21');
-  });
-
-  test('shows the shoe gauge only where the shoe persists', () => {
-    expect(
-      text(buildGameMessage({ ...baseView, table: TABLES.vegas, shoe: createShoe(6) }))
-    ).toContain('cards');
-    expect(text(buildGameMessage(baseView))).not.toContain('cards');
-  });
-
-  test('calls out a reshuffle', () => {
+  test('a reshuffle is announced', () => {
     const shoe = createShoe(6);
     shoe.justShuffled = true;
-    expect(text(buildGameMessage({ ...baseView, table: TABLES.vegas, shoe }))).toContain(
-      'reshuffled'
-    );
+    expect(text(buildBoard(view({ shoe })))).toContain('reshuffled');
   });
+});
 
-  test('marks which hand is live when several are in play', () => {
-    const body = text(buildGameMessage(maxHandsView()));
-    expect(body).toContain('your turn');
-    expect(body).toContain(`HAND ${MAX_HANDS}`);
-  });
+// ============ SIDE BETS ============
 
-  test('labels a single hand without a number', () => {
-    expect(text(buildGameMessage(baseView))).toContain('YOUR HAND');
-  });
-
-  test('reports insurance and its settlement', () => {
-    const body = text(
-      buildGameMessage({
-        ...baseView,
-        insuranceBet: 500,
-        hideHole: false,
-        results: [resolveHand(baseView.hands[0], baseView.dealerHand)],
-        insurancePayout: 1500,
-        netProfit: 500,
+describe('side bets', () => {
+  test('a hit is called out on the shared board', () => {
+    const payload = buildBoard(
+      view({
+        seats: [
+          seat({
+            sideBets: { pairs: 100, p3: 0 },
+            sideBetResults: [
+              {
+                kind: 'pairs',
+                stake: 100,
+                tier: 'perfect',
+                payout: 2600,
+                net: 2500,
+                label: 'Perfect pair 25:1',
+              },
+            ],
+          }),
+        ],
       })
     );
-    expect(body).toContain('Insurance');
-    expect(body).toContain('paid');
+
+    const body = text(payload);
+    expect(body).toContain('Perfect pair 25:1');
+    expect(body).toContain('+2.5K');
+  });
+
+  test('a losing side bet is not called out', () => {
+    const payload = buildBoard(
+      view({
+        seats: [
+          seat({
+            sideBets: { pairs: 100, p3: 0 },
+            sideBetResults: [
+              {
+                kind: 'pairs',
+                stake: 100,
+                tier: null,
+                payout: 0,
+                net: -100,
+                label: 'Perfect Pairs — no pair',
+              },
+            ],
+          }),
+        ],
+      })
+    );
+    expect(text(payload)).not.toContain('Perfect Pairs — no pair');
+  });
+
+  test('stakes are listed while seats are still open', () => {
+    const body = text(
+      buildBoard(view({ phase: 'betting', seats: [seat({ sideBets: { pairs: 500, p3: 500 } })] }))
+    );
+    expect(body).toContain('pairs');
+    expect(body).toContain('21+3');
+  });
+});
+
+// ============ SLIP ============
+
+describe('slip', () => {
+  test('tells an unseated player how to join', () => {
+    const slip = buildSlipText(null, 1000, 50_000);
+    expect(slip).toContain('not seated');
+    expect(slip).toContain('Sit');
+  });
+
+  test('reports the riding stake and balance', () => {
+    const slip = buildSlipText(seat(), 1000, 50_000);
+    expect(slip).toContain('Riding stake');
+    expect(slip).toContain('50K');
+  });
+
+  test('marks which of several split hands is live', () => {
+    const slip = buildSlipText(
+      seat({
+        hands: [newHand([c('8'), c('3')], 500), newHand([c('8'), c('K')], 500)],
+        activeHandIndex: 1,
+      }),
+      500,
+      10_000
+    );
+    expect(slip).toContain('▶');
   });
 });

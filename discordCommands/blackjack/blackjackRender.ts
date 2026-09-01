@@ -1,27 +1,38 @@
 // Blackjack Rendering
 //
-// Pure view builders. Nothing here reads state or talks to Discord, so every layout
-// can be measured in a test.
+// Pure view builders for the shared multi-seat table. Nothing here reads state or talks
+// to Discord, so every layout can be measured in a test.
 //
-// LAYOUT NOTE
+// TWO ZONES
 //
-// The plan called for an action row beneath each hand. A Section accepts only a single
-// button accessory, and four hands each needing Hit/Stand/Double would exceed both the
-// Container's 10-child budget and the conservative 5-action-row cap.
+// Seats are unlimited, so the board cannot simply list every hand in full for the whole
+// round. Instead it splits: seats still ACTING show their cards and totals, seats that
+// are DONE collapse to one result line each, packed several to a line. The board
+// therefore shrinks as the round resolves and attention stays on live action.
 //
-// So the container frames the dealer and every hand, and one action row sits below it.
-// That is still unambiguous - exactly one hand is ever live, and it is marked - and it
-// is a clear improvement on the previous shared row plus an arrow buried in the
-// description.
+// A shared message renders identically for every viewer, so there is no way to pin a
+// player's own seat to the top. That is what the ephemeral slip is for.
 //
-// Colours, formatting and the component builders come from casino/, so this table and
-// the other two stay visually identical as all three grow.
+// CONTROLS ON THE BOARD
+//
+// Hit / Stand / Double / Split / Surrender sit on the shared board rather than on a
+// private panel. Because every seat acts at once, a shared button is unambiguous: the
+// handler applies it to whoever clicked, and `activeHandIndex` picks which of their
+// split hands is live. This also sidesteps interaction-token lifetime entirely.
 
 import { ButtonStyle, type APIMessageTopLevelComponent } from 'discord.js';
 import type { RenderedMessage } from '../../interactions/renderedMessage.js';
-import { CASINO_COLORS, bar } from '../../casino/casinoTheme.js';
-import { formatCurrency } from '../../casino/casinoFormat.js';
-import { button, frame, rendered, row, separator, text } from '../../casino/casinoRender.js';
+import { CASINO_COLORS, bar, resultAccent } from '../../casino/casinoTheme.js';
+import { formatAmount, formatSigned, plural, relativeTime } from '../../casino/casinoFormat.js';
+import {
+  assertWithinBudget,
+  button,
+  frame,
+  rendered,
+  row,
+  separator,
+  text,
+} from '../../casino/casinoRender.js';
 import {
   calculateHandValue,
   getVisibleDealerValue,
@@ -31,15 +42,21 @@ import {
   shoeSize,
   type Hand,
   type Shoe,
-  type TableConfig,
 } from './blackjackUtils.js';
 import type { HandOutcome, HandResult, PlayerHand } from './blackjackEngine.js';
+import type { SideBetResult } from './blackjackSideBets.js';
 
 // ============ CUSTOM IDS ============
 
 export const ID_PREFIX = 'bj:';
 
 export const IDS = {
+  CHIP: 'bj:chip:',
+  CHIP_CUSTOM: 'bj:chip:custom',
+  SIT: 'bj:sit',
+  SIT_MODAL: 'bj:sitmodal',
+  LEAVE: 'bj:leave',
+  SLIP: 'bj:slip',
   HIT: 'bj:hit',
   STAND: 'bj:stand',
   DOUBLE: 'bj:double',
@@ -47,47 +64,74 @@ export const IDS = {
   SURRENDER: 'bj:surrender',
   INSURANCE_YES: 'bj:ins:yes',
   INSURANCE_NO: 'bj:ins:no',
-  EVEN_MONEY_YES: 'bj:em:yes',
-  EVEN_MONEY_NO: 'bj:em:no',
-  PLAY_AGAIN: 'bj:again',
 } as const;
 
-// ============ COLOURS ============
-
-// Blackjack's own mapping onto the shared palette. Note push is blue here and purple at
-// the craps table - preserved as-is; unifying that is a design change, not a refactor.
-const ACCENT = {
-  playing: CASINO_COLORS.gold,
-  win: CASINO_COLORS.green,
-  loss: CASINO_COLORS.red,
-  push: CASINO_COLORS.blue,
-  prompt: CASINO_COLORS.purple,
-} as const;
+/** Modal field ids for the Sit dialog. */
+export const SIT_STAKE_FIELD = 'stake';
+export const SIT_SIDEBETS_FIELD = 'sidebets';
 
 // ============ VIEW MODEL ============
 
-export interface GameView {
-  readonly table: TableConfig;
-  readonly shoe: Shoe | null;
-  readonly dealerHand: Hand;
-  readonly hideHole: boolean;
+export type TablePhase =
+  | 'idle'
+  | 'betting'
+  | 'dealing'
+  | 'insurance'
+  | 'acting'
+  | 'dealer'
+  | 'settled';
+
+export interface SeatView {
+  readonly userId: string;
+  readonly username: string;
+  /** The riding stake for this seat */
+  readonly stake: number;
   readonly hands: readonly PlayerHand[];
   readonly activeHandIndex: number;
   readonly insuranceBet: number;
-  readonly balance: number;
-  /** Present once the hand is settled */
+  readonly sideBets: { readonly pairs: number; readonly p3: number };
+  /** Present once the round settles */
   readonly results?: readonly HandResult[];
-  readonly insurancePayout?: number;
-  readonly netProfit?: number;
-  readonly canDouble?: boolean;
-  readonly canSplit?: boolean;
-  readonly canSurrender?: boolean;
-  readonly canPlayAgain?: boolean;
-  readonly originalBet: number;
-  readonly streakNote?: string;
+  readonly sideBetResults?: readonly SideBetResult[];
+  readonly net?: number;
+  /** True while the seat still has a hand to play */
+  readonly acting: boolean;
+}
+
+export interface TableView {
+  readonly phase: TablePhase;
+  readonly shoe: Shoe | null;
+  readonly dealerHand: Hand;
+  readonly hideHole: boolean;
+  readonly seats: readonly SeatView[];
+  /** Epoch ms the current window closes */
+  readonly deadline: number | null;
+  readonly roundCount: number;
+  /** Total staked this round across every seat */
+  readonly roundStake: number;
 }
 
 export type { RenderedMessage };
+
+// ============ COLOURS ============
+
+const ACCENT = {
+  idle: CASINO_COLORS.grey,
+  betting: CASINO_COLORS.blue,
+  live: CASINO_COLORS.gold,
+  prompt: CASINO_COLORS.purple,
+} as const;
+
+function accentFor(view: TableView): number {
+  if (view.phase === 'idle') return ACCENT.idle;
+  if (view.phase === 'betting') return ACCENT.betting;
+  if (view.phase === 'insurance') return ACCENT.prompt;
+  if (view.phase === 'settled') {
+    const net: number = view.seats.reduce((sum, s) => sum + (s.net ?? 0), 0);
+    return resultAccent(net);
+  }
+  return ACCENT.live;
+}
 
 // ============ TEXT ============
 
@@ -104,25 +148,59 @@ function valueLabel(cards: Hand): string {
   return isSoft(cards) ? `soft ${value}` : `${value}`;
 }
 
-function title(view: GameView): string {
-  const parts: string[] = [`## 🃏 Blackjack — ${view.table.displayName}`];
+function header(view: TableView): string {
+  const lines: string[] = ['## 🃏 BLACKJACK'];
 
-  // The shoe indicator only means anything where the shoe persists.
+  // One shoe for the whole table is what makes counting mean anything, so its depth is
+  // permanent furniture rather than a detail.
   if (view.shoe) {
     const remaining: number = shoeRemaining(view.shoe);
     const total: number = shoeSize(view.shoe);
     const strip: string = bar(remaining / total);
-    parts.push(
+    lines.push(
       view.shoe.justShuffled
         ? `🔄 Cut card reached — shoe reshuffled\n\`${strip}\` ${remaining} cards`
         : `\`${strip}\` ${remaining} cards`
     );
   }
 
-  return parts.join('\n');
+  switch (view.phase) {
+    case 'idle':
+      lines.push('_Table is closed. Take a seat to open it._');
+      break;
+    case 'betting':
+      lines.push(
+        view.deadline
+          ? `Seats close ${relativeTime(view.deadline)}`
+          : 'Take a seat to start the next round'
+      );
+      break;
+    case 'dealing':
+      lines.push('🎴 **Dealing…**');
+      break;
+    case 'insurance':
+      lines.push(
+        view.deadline
+          ? `🛡️ **Dealer shows an Ace** — insurance closes ${relativeTime(view.deadline)}`
+          : '🛡️ **Insurance?**'
+      );
+      break;
+    case 'acting':
+      lines.push(view.deadline ? `⏱️ Hands close ${relativeTime(view.deadline)}` : 'Your move');
+      break;
+    case 'dealer':
+      lines.push('🎩 **Dealer plays**');
+      break;
+    case 'settled':
+      break;
+  }
+
+  return lines.join('\n');
 }
 
-function dealerBlock(view: GameView): string {
+function dealerBlock(view: TableView): string {
+  if (view.dealerHand.length === 0) return '**DEALER**\n_waiting_';
+
   // An ace upcard is named rather than counted: "showing 11" is technically its value
   // but every player thinks of it as the dealer showing an Ace.
   const upcard = view.dealerHand[0];
@@ -142,188 +220,269 @@ const OUTCOME_LABEL: Record<HandOutcome, string> = {
   surrender: 'SURRENDERED',
 };
 
-function statusLabel(hand: PlayerHand, result: HandResult | undefined, isActive: boolean): string {
-  if (result) return `**${OUTCOME_LABEL[result.outcome]}**`;
-  if (hand.status === 'busted') return '**BUST**';
-  if (hand.status === 'surrendered') return '_surrendered_';
-  if (hand.status === 'stood') return '_stood_';
-  return isActive ? '▶ **your turn**' : '_waiting_';
-}
-
-function handBlock(
-  view: GameView,
-  hand: PlayerHand,
-  index: number,
-  result: HandResult | undefined
-): string {
-  const isActive: boolean = index === view.activeHandIndex && !view.results;
-  const label: string = view.hands.length > 1 ? `HAND ${index + 1}` : 'YOUR HAND';
-
-  const extras: string[] = [];
-  if (hand.doubled) extras.push('doubled');
-  if (hand.fromSplitAces) extras.push('split aces');
-  else if (hand.fromSplit) extras.push('split');
-
-  const meta: string = extras.length > 0 ? `  _(${extras.join(', ')})_` : '';
-
-  return (
-    `**${label}**  ·  ${formatCurrency(hand.bet)}${meta}  ·  ${statusLabel(hand, result, isActive)}\n` +
-    `${renderHand(hand.cards)}  ·  _${valueLabel(hand.cards)}_`
-  );
-}
-
-function footer(view: GameView): string {
+/** One line per hand for a seat that is still deciding. */
+function actingSeatBlock(seat: SeatView): string {
   const lines: string[] = [];
 
-  if (view.insuranceBet > 0) {
-    const settled: string =
-      view.insurancePayout !== undefined
-        ? view.insurancePayout > 0
-          ? ` — paid ${formatCurrency(view.insurancePayout)}`
-          : ' — lost'
-        : '';
-    lines.push(`🛡️ Insurance ${formatCurrency(view.insuranceBet)}${settled}`);
+  for (let i = 0; i < seat.hands.length; i++) {
+    const hand = seat.hands[i];
+    const isActive: boolean = i === seat.activeHandIndex && hand.status === 'playing';
+
+    const extras: string[] = [];
+    if (hand.doubled) extras.push('doubled');
+    if (hand.fromSplitAces) extras.push('split aces');
+    else if (hand.fromSplit) extras.push('split');
+
+    const meta: string = extras.length > 0 ? `  _(${extras.join(', ')})_` : '';
+    const which: string =
+      seat.hands.length > 1 ? `  _hand ${i + 1} of ${seat.hands.length}_` : '';
+
+    const status: string =
+      hand.status === 'busted'
+        ? '**BUST**'
+        : hand.status === 'surrendered'
+          ? '_surrendered_'
+          : hand.status === 'stood'
+            ? '_stood_'
+            : isActive
+              ? '▶ **deciding**'
+              : '_waiting_';
+
+    lines.push(
+      `  <@${seat.userId}>  ${formatAmount(hand.bet)}${meta}${which}\n` +
+        `  ${renderHand(hand.cards)}  ·  _${valueLabel(hand.cards)}_  ·  ${status}`
+    );
   }
 
-  if (view.results && view.netProfit !== undefined) {
-    const sign: string = view.netProfit > 0 ? '+' : view.netProfit < 0 ? '-' : '';
-    lines.push(
-      `**Net ${sign}${formatCurrency(Math.abs(view.netProfit))}**  ·  Balance ${formatCurrency(view.balance)}`
-    );
-    if (view.streakNote) lines.push(`_${view.streakNote}_`);
-  } else {
-    lines.push(`Balance ${formatCurrency(view.balance)}`);
+  if (seat.insuranceBet > 0) {
+    lines.push(`  🛡️ insurance ${formatAmount(seat.insuranceBet)}`);
   }
 
   return lines.join('\n');
 }
 
-function accentFor(view: GameView): number {
-  if (!view.results || view.netProfit === undefined) return ACCENT.playing;
-  if (view.netProfit > 0) return ACCENT.win;
-  if (view.netProfit < 0) return ACCENT.loss;
-  return ACCENT.push;
+/** A settled seat, compressed to a single clause so several fit on one line. */
+function doneSeatClause(seat: SeatView): string {
+  if (!seat.results || seat.results.length === 0) {
+    const hand = seat.hands[0];
+    if (!hand) return `<@${seat.userId}> out`;
+    return `<@${seat.userId}> ${valueLabel(hand.cards)} ${hand.status}`;
+  }
+
+  const outcomes: string = seat.results.map((r) => OUTCOME_LABEL[r.outcome]).join(' / ');
+  const net: string = seat.net !== undefined ? ` ${formatSigned(seat.net)}` : '';
+  return `<@${seat.userId}> ${outcomes}${net}`;
+}
+
+/**
+ * The two-zone body.
+ *
+ * ACTING keeps full cards; DONE collapses. With unlimited seats this is what keeps the
+ * board from growing without bound as a round progresses.
+ */
+function seatsBlock(view: TableView): string {
+  if (view.seats.length === 0) {
+    return '_No seats taken — take one to open the table._';
+  }
+
+  if (view.phase === 'betting') {
+    const lines: string[] = ['**SEATED**'];
+    for (const seat of view.seats) {
+      const sides: string[] = [];
+      if (seat.sideBets.pairs > 0) sides.push(`pairs ${formatAmount(seat.sideBets.pairs)}`);
+      if (seat.sideBets.p3 > 0) sides.push(`21+3 ${formatAmount(seat.sideBets.p3)}`);
+      const extra: string = sides.length > 0 ? `  _(${sides.join(', ')})_` : '';
+      lines.push(`  <@${seat.userId}>  **${formatAmount(seat.stake)}**${extra}`);
+    }
+    return lines.join('\n');
+  }
+
+  const acting = view.seats.filter((s) => s.acting);
+  const done = view.seats.filter((s) => !s.acting);
+
+  const blocks: string[] = [];
+
+  if (acting.length > 0) {
+    blocks.push(['**ACTING**', ...acting.map(actingSeatBlock)].join('\n'));
+  }
+
+  if (done.length > 0) {
+    // Several to a line: a settled seat needs a clause, not a paragraph.
+    const clauses: string[] = done.map(doneSeatClause);
+    const packed: string[] = [];
+    for (let i = 0; i < clauses.length; i += 3) {
+      packed.push(`  ${clauses.slice(i, i + 3).join('  ·  ')}`);
+    }
+    blocks.push(['**DONE**', ...packed].join('\n'));
+  }
+
+  return blocks.join('\n\n');
+}
+
+/** Side-bet hits, called out because 100:1 deserves more than a line in a slip. */
+function sideBetBlock(view: TableView): string {
+  const hits: string[] = [];
+
+  for (const seat of view.seats) {
+    for (const result of seat.sideBetResults ?? []) {
+      if (result.tier === null || result.stake <= 0) continue;
+      hits.push(`✨ <@${seat.userId}> **${result.label}** — ${formatSigned(result.net)}`);
+    }
+  }
+
+  return hits.join('\n');
+}
+
+function footer(view: TableView): string {
+  const parts: string[] = [];
+
+  if (view.roundStake > 0) parts.push(`💰 **${formatAmount(view.roundStake)}** in action`);
+  parts.push(plural(view.seats.length, 'seat'));
+  if (view.roundCount > 0) parts.push(`round ${view.roundCount}`);
+
+  return parts.join('  ·  ');
 }
 
 // ============ CONTROLS ============
 
-function actionRow(view: GameView) {
-  const buttons = [
-    button({ id: IDS.HIT, label: 'Hit', style: ButtonStyle.Primary }),
-    button({ id: IDS.STAND, label: 'Stand', style: ButtonStyle.Secondary }),
-  ];
+/** Chip denominations, shared with the other two tables. */
+const CHIPS: readonly number[] = [100, 1_000, 10_000, 50_000];
 
-  if (view.canDouble)
-    buttons.push(button({ id: IDS.DOUBLE, label: 'Double', style: ButtonStyle.Success }));
-  if (view.canSplit)
-    buttons.push(button({ id: IDS.SPLIT, label: 'Split', style: ButtonStyle.Primary }));
-  if (view.canSurrender)
-    buttons.push(button({ id: IDS.SURRENDER, label: 'Surrender', style: ButtonStyle.Danger }));
-
+function chipRow(disabled: boolean) {
+  const buttons = CHIPS.map((amount) =>
+    button({ id: `${IDS.CHIP}${amount}`, label: formatAmount(amount), disabled })
+  );
+  buttons.push(button({ id: IDS.CHIP_CUSTOM, label: 'Custom…', disabled }));
   return row(buttons);
 }
 
-/**
- * The stake and table ride in the customId rather than being read back out of the
- * label, so rewording the button cannot change what it deals.
- */
-export function playAgainId(originalBet: number, table: string): string {
-  return `${IDS.PLAY_AGAIN}:${originalBet}:${table}`;
-}
-
-function playAgainRow(originalBet: number, table: string) {
+function seatRow(disabled: boolean) {
   return row([
-    button({
-      id: playAgainId(originalBet, table),
-      label: `Play again (${formatCurrency(originalBet)})`,
-      style: ButtonStyle.Success,
-    }),
+    button({ id: IDS.SIT, label: 'Sit', style: ButtonStyle.Success, emoji: '🪑', disabled }),
+    button({ id: IDS.SLIP, label: 'My Seat' }),
+    button({ id: IDS.LEAVE, label: 'Stand Up', style: ButtonStyle.Danger }),
   ]);
 }
 
-// ============ GAME VIEW ============
+/**
+ * The shared action row.
+ *
+ * Every button is always present and always enabled during the acting phase: which of
+ * them are legal depends on WHO clicked, and the board cannot know that. The handler
+ * refuses an illegal action with an ephemeral note instead.
+ */
+function actionRow() {
+  return row([
+    button({ id: IDS.HIT, label: 'Hit', style: ButtonStyle.Primary }),
+    button({ id: IDS.STAND, label: 'Stand', style: ButtonStyle.Secondary }),
+    button({ id: IDS.DOUBLE, label: 'Double', style: ButtonStyle.Success }),
+    button({ id: IDS.SPLIT, label: 'Split', style: ButtonStyle.Primary }),
+    button({ id: IDS.SURRENDER, label: 'Surrender', style: ButtonStyle.Danger }),
+  ]);
+}
 
-function container(view: GameView) {
+/**
+ * Insurance.
+ *
+ * Taking insurance on a natural IS even money - the two settle identically - so one
+ * button covers both cases rather than the table asking twice.
+ */
+function insuranceRow() {
+  return row([
+    button({ id: IDS.INSURANCE_YES, label: 'Take insurance', style: ButtonStyle.Primary }),
+    button({ id: IDS.INSURANCE_NO, label: 'No insurance', style: ButtonStyle.Secondary }),
+  ]);
+}
+
+// ============ BOARD ============
+
+function container(view: TableView) {
   const builder = frame(accentFor(view))
-    .addTextDisplayComponents(text(title(view)))
+    .addTextDisplayComponents(text(header(view)))
     .addSeparatorComponents(separator())
     .addTextDisplayComponents(text(dealerBlock(view)))
-    .addSeparatorComponents(separator());
+    .addSeparatorComponents(separator())
+    .addTextDisplayComponents(text(seatsBlock(view)));
 
-  // Four hands is the maximum, so this stays within the container's 10-child budget:
-  // title, separator, dealer, separator, up to 4 hands, footer = 9.
-  const handText: string = view.hands
-    .map((hand, i) => handBlock(view, hand, i, view.results?.[i]))
-    .join('\n\n');
+  const sides: string = sideBetBlock(view);
+  if (sides) builder.addTextDisplayComponents(text(sides));
 
-  builder.addTextDisplayComponents(text(handText));
   builder.addTextDisplayComponents(text(footer(view)));
 
   return builder;
 }
 
-export function buildGameMessage(view: GameView): RenderedMessage {
+/**
+ * The shared table board.
+ *
+ * @param view - everything the board shows
+ */
+export function buildBoard(view: TableView): RenderedMessage {
   const components: APIMessageTopLevelComponent[] = [container(view).toJSON()];
 
-  if (view.results) {
-    if (view.canPlayAgain) components.push(playAgainRow(view.originalBet, view.table.name).toJSON());
-  } else {
-    components.push(actionRow(view).toJSON());
+  switch (view.phase) {
+    case 'idle':
+    case 'betting':
+      components.push(chipRow(view.phase !== 'betting').toJSON());
+      components.push(seatRow(view.phase !== 'betting').toJSON());
+      break;
+    case 'insurance':
+      components.push(insuranceRow().toJSON());
+      break;
+    case 'acting':
+      components.push(actionRow().toJSON());
+      break;
+    case 'dealing':
+    case 'dealer':
+    case 'settled':
+      // Nothing to click while the cards are moving or the round is being read out.
+      break;
   }
 
-  return rendered(components, { ephemeral: true });
+  const payload = rendered(components);
+  assertWithinBudget(payload, 'blackjack board');
+  return payload;
 }
 
-// ============ PROMPTS ============
+// ============ SLIP ============
 
 /**
- * Insurance and even money are the two moments the hand pauses on a question, so they
- * get their own two-button view rather than being folded into the action row.
+ * One player's own seat, for an ephemeral reply.
+ *
+ * The board is identical for every viewer, so this is the only surface that can speak
+ * to one player about their own position.
  */
-function promptMessage(
-  view: GameView,
-  heading: string,
-  explain: string,
-  buttons: ReturnType<typeof button>[]
-): RenderedMessage {
-  const builder = frame(ACCENT.prompt)
-    .addTextDisplayComponents(text(`${title(view)}\n### ${heading}`))
-    .addSeparatorComponents(separator())
-    .addTextDisplayComponents(text(dealerBlock(view)))
-    .addTextDisplayComponents(text(handBlock(view, view.hands[0], 0, undefined)))
-    .addSeparatorComponents(separator())
-    .addTextDisplayComponents(text(explain));
+export function buildSlipText(seat: SeatView | null, chip: number, balance: number): string {
+  const lines: string[] = [`### Your seat`, `Chip: **${formatAmount(chip)}**`];
 
-  return rendered([builder.toJSON(), row(buttons).toJSON()], { ephemeral: true });
-}
+  if (!seat) {
+    lines.push('', '_You are not seated. Press Sit to join the next round._');
+    lines.push('', `Balance ${formatAmount(balance)}`);
+    return lines.join('\n');
+  }
 
-export function buildInsurancePrompt(view: GameView, insuranceCost: number): RenderedMessage {
-  return promptMessage(
-    view,
-    'Insurance?',
-    `Dealer shows an Ace. Insurance costs ${formatCurrency(insuranceCost)} and pays 2:1 if the dealer has blackjack.`,
-    [
-      button({
-        id: IDS.INSURANCE_YES,
-        label: `Take insurance (${formatCurrency(insuranceCost)})`,
-        style: ButtonStyle.Primary,
-      }),
-      button({ id: IDS.INSURANCE_NO, label: 'No insurance', style: ButtonStyle.Secondary }),
-    ]
-  );
-}
+  lines.push(`Riding stake: **${formatAmount(seat.stake)}**`);
 
-export function buildEvenMoneyPrompt(view: GameView): RenderedMessage {
-  const bet: number = view.hands[0]?.bet ?? view.originalBet;
-  return promptMessage(
-    view,
-    'Even money?',
-    `You have blackjack and the dealer shows an Ace.\n` +
-      `Take a guaranteed ${formatCurrency(bet)}, or risk it for ${formatCurrency(Math.floor(bet * 1.5))} — ` +
-      `a push if the dealer also has blackjack.`,
-    [
-      button({ id: IDS.EVEN_MONEY_YES, label: 'Even money (1:1)', style: ButtonStyle.Success }),
-      button({ id: IDS.EVEN_MONEY_NO, label: 'Risk it (3:2)', style: ButtonStyle.Danger }),
-    ]
-  );
+  const sides: string[] = [];
+  if (seat.sideBets.pairs > 0) sides.push(`Perfect Pairs ${formatAmount(seat.sideBets.pairs)}`);
+  if (seat.sideBets.p3 > 0) sides.push(`21+3 ${formatAmount(seat.sideBets.p3)}`);
+  if (sides.length > 0) lines.push(`Side bets: ${sides.join(' · ')}`);
+
+  if (seat.hands.length > 0) {
+    lines.push('');
+    for (let i = 0; i < seat.hands.length; i++) {
+      const hand = seat.hands[i];
+      const marker: string = i === seat.activeHandIndex ? '▶ ' : '  ';
+      lines.push(
+        `${marker}${renderHand(hand.cards)}  ·  _${valueLabel(hand.cards)}_  ·  ${formatAmount(hand.bet)}`
+      );
+    }
+  }
+
+  if (seat.net !== undefined) {
+    lines.push('', `**Net ${formatSigned(seat.net)}**`);
+  }
+
+  lines.push('', `Balance ${formatAmount(balance)}`);
+  return lines.join('\n');
 }

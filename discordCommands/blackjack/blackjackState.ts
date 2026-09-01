@@ -1,47 +1,48 @@
-// Blackjack Game State
+// Blackjack Table State
 //
-// Owns live hands, the per-player shoe, and every button handler.
+// One shared multi-seat table per process, on one six-deck shoe.
 //
-// Interactions are routed rather than collected. Each click arrives with its own
-// token and drives update(), so a Play Again streak never expires - the previous
-// version replayed through a spoofed interaction that reused the ORIGINAL token and
-// silently died after 15 minutes, stacking a fresh collector on the message each time.
+// SIMULTANEOUS ACTION
+//
+// Every seat acts at once on a single shared clock, rather than in strict seat order. A
+// five-seat round played sequentially at 25 seconds a seat is over three minutes, and
+// any idle player stalls everyone behind them - which does not survive contact with how
+// people actually pay attention to Discord.
+//
+// The cost is that cards leave the shoe in click order rather than seat order. That
+// costs nothing statistically and counting still works, since every card becomes
+// visible by the end of the round, but it is not authentic seat-order play.
+//
+// RIDING STAKES
+//
+// A seat's stake stays in the circle round after round until the player changes it or
+// stands up. If a wallet cannot cover the next round the seat is stood up with a notice
+// rather than having its stake quietly reduced.
+//
+// MONEY
+//
+// Every stake is escrow-backed. Coins leave the wallet in the same transaction that
+// opens the escrow row, and anything left open when the process dies is refunded by the
+// startup sweep.
 
 import { randomUUID } from 'node:crypto';
-import {
-  ChatInputCommandInteraction,
-  TextChannel,
-  type ButtonInteraction,
-  type MessageComponentInteraction,
-} from 'discord.js';
-
-/**
- * Everything blackjack presents through. Discord's RepliableInteraction union does not
- * admit the abstract MessageComponentInteraction, and the game only ever uses buttons,
- * so this is the precise set rather than a cast.
- */
-type HandInteraction = ChatInputCommandInteraction | ButtonInteraction;
+import { Client, Message, TextChannel } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import * as escrowDb from '../../economy/escrowDb.js';
-import type { EconomyUser } from '../../types/database.js';
-import { CONFIG, CHANNELS, formatCurrency } from '../../economy/economyConfig.js';
 import * as blackjackDb from '../../blackjack/blackjackDb.js';
-import type { BlackjackStats } from '../../blackjack/blackjackDb.js';
-import { checkForAchievements } from '../../achievements/achievementService.js';
-import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
+import { pacingFor, sleep } from '../../casino/casinoPacing.js';
+import { createPainter } from '../../casino/casinoPaint.js';
 import {
-  TABLES,
   DEFAULT_TABLE,
   beginHand,
-  calculateInsuranceBet,
   createShoe,
   dealerShowsAce,
   drawFromShoe,
   isBlackjack,
-  shouldDealerPeek,
+  calculateInsuranceBet,
+  type Card,
   type Hand,
   type Shoe,
-  type TableConfig,
 } from './blackjackUtils.js';
 import {
   MAX_HANDS,
@@ -57,759 +58,971 @@ import {
   resolveHand,
   resolveInsurance,
   splitHand,
-  totalStaked,
   type HandResult,
   type PlayerHand,
 } from './blackjackEngine.js';
 import {
-  IDS,
-  buildEvenMoneyPrompt,
-  buildGameMessage,
-  buildInsurancePrompt,
-  type GameView,
-  type RenderedMessage,
-} from './blackjackRender.js';
+  resolvePerfectPairs,
+  resolveTwentyOnePlusThree,
+  type SideBetResult,
+} from './blackjackSideBets.js';
+import { buildBoard, type SeatView, type TablePhase, type TableView } from './blackjackRender.js';
+
+// ============ TIMING ============
+
+export const TIMING = {
+  /** How long seats stay open before the first deal of a session */
+  FIRST_WINDOW_SECONDS: 45,
+  /** Between rounds, once the table is running */
+  NEXT_WINDOW_SECONDS: 30,
+  /** How long the table waits on insurance decisions */
+  INSURANCE_SECONDS: 15,
+  /**
+   * The shared action clock. Bounded round length is the whole point of simultaneous
+   * play, so this does not scale with seat count.
+   */
+  ACTION_SECONDS: 45,
+  /** How long the settled frame stays up */
+  SETTLE_HOLD_MS: 4_000,
+  /** How long an empty table stays open before closing */
+  GRACE_SECONDS: 45,
+} as const;
+
+export const LIMITS = {
+  MIN_BET: 10,
+  MAX_BET: 100_000,
+  /** A side bet may not exceed the main stake, as at any real table */
+  MAX_SIDE_RATIO: 1,
+} as const;
 
 // ============ TYPES ============
 
-type Phase = 'insurance' | 'even_money' | 'playing' | 'finished';
+export interface SideBetStakes {
+  readonly pairs: number;
+  readonly p3: number;
+}
 
-interface GameState {
+interface Seat {
   readonly userId: string;
-  readonly username: string;
-  /** Groups every escrow row for this hand */
-  readonly sessionKey: string;
-  readonly table: TableConfig;
-  shoe: Shoe;
-  dealerHand: Hand;
+  username: string;
+  /** Riding stake, used again each round until changed */
+  stake: number;
+  sideBets: SideBetStakes;
+
   hands: PlayerHand[];
   activeHandIndex: number;
-  readonly originalBet: number;
   insuranceBet: number;
-  evenMoneyTaken: boolean;
-  phase: Phase;
-  /** Latest interaction, so the timeout can still edit the ephemeral message */
-  lastInteraction: HandInteraction;
-  timeoutTimer: NodeJS.Timeout | null;
-  /**
-   * The player's wallet after the most recent money movement, for the footer. Kept on
-   * the game so a repaint does not re-read the row on every button click; nothing else
-   * moves the wallet while a hand is live.
-   */
-  balance: number;
+  insuranceSettled: boolean;
+
+  /** Escrow rows holding this round's stakes */
+  escrowIds: number[];
+
+  results?: HandResult[];
+  sideBetResults?: SideBetResult[];
+  net?: number;
+
+  /** True once this seat has been dealt in for the current round */
+  inRound: boolean;
+}
+
+interface Table {
+  phase: TablePhase;
+  shoe: Shoe;
+  dealerHand: Hand;
+  hideHole: boolean;
+  seats: Seat[];
+
+  sessionKey: string;
+  roundCount: number;
+
+  message: Message | null;
+  channelId: string;
+  client: Client | null;
+
+  deadline: number | null;
+  windowTimer: NodeJS.Timeout | null;
+  graceTimer: NodeJS.Timeout | null;
 }
 
 // ============ STATE ============
 
-const activeGames = new Map<string, GameState>();
-const cooldowns = new Map<string, number>();
+let table: Table | null = null;
 
-/**
- * Persistent shoes, keyed by player and table.
- *
- * Only the multi-deck table keeps one. A deeply-dealt single deck is the configuration
- * where counting genuinely beats the house, so Classic re-shuffles every hand.
- */
-const shoes = new Map<string, Shoe>();
-
-function shoeKey(userId: string, table: TableConfig): string {
-  return `${userId}:${table.name}`;
-}
-
-function usesPersistentShoe(table: TableConfig): boolean {
-  return table.deckCount > 1;
-}
-
-/**
- * The shoe this hand will be dealt from, shuffling if the cut card has come out.
- */
-function acquireShoe(userId: string, table: TableConfig): Shoe {
-  if (!usesPersistentShoe(table)) {
-    const fresh: Shoe = createShoe(table.deckCount);
-    fresh.justShuffled = false;
-    return fresh;
-  }
-
-  const key: string = shoeKey(userId, table);
-  let shoe: Shoe | undefined = shoes.get(key);
-  if (!shoe) {
-    shoe = createShoe(table.deckCount);
-    shoes.set(key, shoe);
-  }
-  beginHand(shoe);
-  return shoe;
-}
-
-// ============ ACCESSORS ============
-
-export function hasActiveGame(userId: string): boolean {
-  return activeGames.has(userId);
-}
-
-/** Remaining cooldown in seconds, or 0 when the player may deal. */
-export function cooldownRemaining(userId: string): number {
-  const last: number | undefined = cooldowns.get(userId);
-  if (last === undefined) return 0;
-
-  const elapsed: number = Date.now() - last;
-  const cooldownMs: number = CONFIG.BLACKJACK_COOLDOWN_SECONDS * 1000;
-  return elapsed >= cooldownMs ? 0 : Math.ceil((cooldownMs - elapsed) / 1000);
-}
-
-/** Test seam: drop all state without touching Discord or the database. */
-export function __resetForTesting(): void {
-  for (const game of activeGames.values()) {
-    if (game.timeoutTimer) clearTimeout(game.timeoutTimer);
-  }
-  activeGames.clear();
-  cooldowns.clear();
-  shoes.clear();
-}
-
-// ============ VIEW ============
-
-function viewOf(game: GameState, balance: number, extra: Partial<GameView> = {}): GameView {
-  const active: PlayerHand | undefined = game.hands[game.activeHandIndex];
-  const finished: boolean = game.phase === 'finished';
-
+function createTable(channelId: string, client: Client): Table {
   return {
-    table: game.table,
-    shoe: usesPersistentShoe(game.table) ? game.shoe : null,
-    dealerHand: game.dealerHand,
-    hideHole: !finished,
-    hands: game.hands,
-    activeHandIndex: game.activeHandIndex,
-    insuranceBet: game.insuranceBet,
-    balance,
-    originalBet: game.originalBet,
-    canDouble: !finished && active ? canDoubleHand(active) : false,
-    canSplit: !finished && active ? canSplitHand(active, game.hands.length) : false,
-    canSurrender: !finished && active ? canSurrenderHand(active, game.hands.length) : false,
-    ...extra,
+    phase: 'idle',
+    // One persistent shoe for the whole table. This is what makes counting mean
+    // anything, and why the single-deck table was dropped.
+    shoe: createShoe(DEFAULT_TABLE.deckCount),
+    dealerHand: [],
+    hideHole: true,
+    seats: [],
+    sessionKey: randomUUID(),
+    roundCount: 0,
+    message: null,
+    channelId,
+    client,
+    deadline: null,
+    windowTimer: null,
+    graceTimer: null,
   };
 }
 
-/**
- * Push a view to the player's ephemeral message.
- *
- * A component interaction updates the message it came from; anything else edits the
- * original reply. Both keep the hand on a single message rather than accumulating one
- * per action.
- */
-async function present(interaction: HandInteraction, message: RenderedMessage): Promise<void> {
-  try {
-    if (interaction.isMessageComponent() && !interaction.deferred && !interaction.replied) {
-      await interaction.update(message);
-    } else {
-      await interaction.editReply(message);
+// ============ RENDERING ============
+
+function seatView(seat: Seat, phase: TablePhase): SeatView {
+  const stillPlaying: boolean = seat.hands.some((h) => h.status === 'playing');
+  const acting: boolean =
+    phase === 'acting' || phase === 'insurance' ? stillPlaying : phase === 'dealing';
+
+  return {
+    userId: seat.userId,
+    username: seat.username,
+    stake: seat.stake,
+    hands: seat.hands,
+    activeHandIndex: seat.activeHandIndex,
+    insuranceBet: seat.insuranceBet,
+    sideBets: seat.sideBets,
+    results: seat.results,
+    sideBetResults: seat.sideBetResults,
+    net: seat.net,
+    acting,
+  };
+}
+
+function viewOf(t: Table): TableView {
+  return {
+    phase: t.phase,
+    shoe: t.shoe,
+    dealerHand: t.dealerHand,
+    hideHole: t.hideHole,
+    seats: t.seats.map((s) => seatView(s, t.phase)),
+    deadline: t.deadline,
+    roundCount: t.roundCount,
+    roundStake: t.seats.reduce(
+      (sum, s) => sum + s.hands.reduce((h, hand) => h + hand.bet, 0) + s.insuranceBet,
+      0
+    ),
+  };
+}
+
+const painter = createPainter<Table>({
+  label: 'BLACKJACK',
+  getMessage: (t) => t.message,
+  build: (t) => buildBoard(viewOf(t)),
+  isCurrent: (t) => table === t,
+});
+
+/** Current board payload, for a handler acknowledging a click with update(). */
+export function currentBoard(): ReturnType<typeof buildBoard> | null {
+  return table ? buildBoard(viewOf(table)) : null;
+}
+
+export function refresh(): void {
+  if (table) painter.schedulePaint(table);
+}
+
+// ============ TIMERS ============
+
+function clearTimers(t: Table): void {
+  for (const key of ['windowTimer', 'graceTimer'] as const) {
+    const timer = t[key];
+    if (timer) {
+      clearTimeout(timer);
+      t[key] = null;
     }
-  } catch (err) {
-    console.error('[BLACKJACK] Failed to present hand:', err);
+  }
+  painter.cancelPending();
+}
+
+function armWindow(t: Table, seconds: number, next: () => Promise<void>): void {
+  if (t.windowTimer) clearTimeout(t.windowTimer);
+  t.deadline = Date.now() + seconds * 1000;
+  t.windowTimer = setTimeout(() => void next(), seconds * 1000);
+}
+
+// ============ LOOKUP ============
+
+function seatOf(userId: string): Seat | undefined {
+  return table?.seats.find((s) => s.userId === userId);
+}
+
+export function getSeatView(userId: string): SeatView | null {
+  const seat = seatOf(userId);
+  if (!seat || !table) return null;
+  return seatView(seat, table.phase);
+}
+
+export function isTableOpen(): boolean {
+  return table !== null;
+}
+
+export function getPhase(): TablePhase {
+  return table?.phase ?? 'idle';
+}
+
+export function isSeatingOpen(): boolean {
+  return table?.phase === 'betting' || table?.phase === 'idle';
+}
+
+export function getBlackjackChannelId(): string | undefined {
+  return process.env.BLACKJACK_CHANNEL_ID;
+}
+
+// ============ TABLE LIFECYCLE ============
+
+export async function ensureTable(channel: TextChannel, client: Client): Promise<void> {
+  if (table) {
+    if (table.phase === 'idle' && table.graceTimer) {
+      clearTimers(table);
+      startBettingWindow(table, false);
+      await painter.paintNow(table);
+    }
+    return;
+  }
+
+  const t = createTable(channel.id, client);
+  table = t;
+
+  t.message = await channel.send(buildBoard(viewOf(t)));
+  startBettingWindow(t, true);
+  await painter.paintNow(t);
+}
+
+function startBettingWindow(t: Table, firstOfSession: boolean): void {
+  clearTimers(t);
+
+  t.phase = 'betting';
+  t.dealerHand = [];
+  t.hideHole = true;
+  t.sessionKey = randomUUID();
+
+  for (const seat of t.seats) {
+    seat.hands = [];
+    seat.activeHandIndex = 0;
+    seat.insuranceBet = 0;
+    seat.insuranceSettled = false;
+    seat.escrowIds = [];
+    seat.results = undefined;
+    seat.sideBetResults = undefined;
+    seat.net = undefined;
+    seat.inRound = false;
+  }
+
+  armWindow(
+    t,
+    firstOfSession ? TIMING.FIRST_WINDOW_SECONDS : TIMING.NEXT_WINDOW_SECONDS,
+    () => closeSeating()
+  );
+}
+
+function startGrace(t: Table): void {
+  clearTimers(t);
+  t.phase = 'idle';
+  t.deadline = null;
+  t.graceTimer = setTimeout(() => void closeTable(), TIMING.GRACE_SECONDS * 1000);
+  void painter.paintNow(t);
+}
+
+export async function closeTable(): Promise<void> {
+  const t = table;
+  if (!t) return;
+
+  clearTimers(t);
+  table = null;
+
+  try {
+    await escrowDb.voidSession('blackjack', t.sessionKey);
+  } catch (error: unknown) {
+    console.error('[BLACKJACK] Failed to void escrow on close:', error);
+  }
+
+  t.phase = 'idle';
+  t.seats = [];
+
+  try {
+    if (t.message) await t.message.edit(buildBoard(viewOf(t)));
+  } catch {
+    // Board deleted or permissions changed. Nothing to recover.
   }
 }
 
-// ============ TIMEOUT ============
+// ============ SEATING ============
 
-/**
- * Auto-stand an abandoned hand.
- *
- * Routed buttons have no collector to expire, so the timer lives on the game. It fires
- * well inside the interaction token's 15-minute life, so the message can still be
- * updated when it does.
- */
-function armTimeout(game: GameState): void {
-  if (game.timeoutTimer) clearTimeout(game.timeoutTimer);
-
-  game.timeoutTimer = setTimeout(() => {
-    void (async () => {
-      const current: GameState | undefined = activeGames.get(game.userId);
-      if (!current || current !== game || current.phase === 'finished') return;
-
-      for (const hand of current.hands) {
-        if (hand.status === 'playing') hand.status = 'stood';
-      }
-      await finishGame(current, current.lastInteraction, 'Timed out — standing on every hand.');
-    })();
-  }, CONFIG.BLACKJACK_TIMEOUT_SECONDS * 1000);
+export interface SitRequest {
+  readonly userId: string;
+  readonly username: string;
+  readonly stake: number;
+  readonly sideBets: SideBetStakes;
+  readonly channel: TextChannel;
+  readonly client: Client;
 }
 
-function disarmTimeout(game: GameState): void {
-  if (game.timeoutTimer) {
-    clearTimeout(game.timeoutTimer);
-    game.timeoutTimer = null;
+export interface SitResult {
+  readonly ok: boolean;
+  readonly message: string;
+}
+
+/**
+ * Take a seat, or change the stake on one already held.
+ *
+ * No money moves here. Stakes are only charged when the round is dealt, which is what
+ * lets a seat ride from round to round without the player clicking.
+ */
+export async function sit(request: SitRequest): Promise<SitResult> {
+  const { userId, username, stake, sideBets, channel, client } = request;
+
+  if (!Number.isInteger(stake) || stake < LIMITS.MIN_BET || stake > LIMITS.MAX_BET) {
+    return {
+      ok: false,
+      message: `Stakes run from ${LIMITS.MIN_BET} to ${LIMITS.MAX_BET}.`,
+    };
   }
-}
 
-// ============ STAKES ============
+  const sideTotal: number = sideBets.pairs + sideBets.p3;
+  if (sideBets.pairs < 0 || sideBets.p3 < 0) {
+    return { ok: false, message: 'Side bets cannot be negative.' };
+  }
+  if (sideBets.pairs > stake || sideBets.p3 > stake) {
+    return { ok: false, message: 'A side bet cannot exceed your main stake.' };
+  }
 
-/**
- * Take coins and record them as at-risk, in one transaction.
- *
- * Every blackjack debit goes through here so a hand interrupted by a restart leaves
- * rows the startup sweep can refund.
- */
-async function takeStake(
-  game: GameState,
-  amount: number,
-  purpose: escrowDb.EscrowPurpose
-): Promise<EconomyUser | null> {
-  const result: escrowDb.OpenEscrowResult = await escrowDb.openEscrow({
-    userId: game.userId,
-    username: game.username,
-    game: 'blackjack',
-    sessionKey: game.sessionKey,
-    amount,
-    purpose,
+  const user = await economyDb.getOrCreateUser(userId, username);
+  if (user.wallet < stake + sideTotal) {
+    return {
+      ok: false,
+      message: `You need ${stake + sideTotal} in your wallet to sit for that.`,
+    };
+  }
+
+  await ensureTable(channel, client);
+
+  const t = table;
+  if (!t) return { ok: false, message: 'The table just closed. Try again in a moment.' };
+
+  if (t.phase !== 'betting') {
+    return { ok: false, message: 'Seats are closed for this round — you are in for the next.' };
+  }
+
+  const existing = seatOf(userId);
+  if (existing) {
+    existing.stake = stake;
+    existing.sideBets = sideBets;
+    existing.username = username;
+    painter.schedulePaint(t);
+    return { ok: true, message: `Stake changed to ${stake}.` };
+  }
+
+  t.seats.push({
+    userId,
+    username,
+    stake,
+    sideBets,
+    hands: [],
+    activeHandIndex: 0,
+    insuranceBet: 0,
+    insuranceSettled: false,
+    escrowIds: [],
+    inRound: false,
   });
 
-  if (!result.ok) return null;
+  painter.schedulePaint(t);
+  return { ok: true, message: `Seated for ${stake}.` };
+}
 
-  // openEscrow returns the debited row, so the cached balance stays current without
-  // another read.
-  if (result.user) game.balance = result.user.wallet;
-  return result.user;
+/**
+ * Leave the table.
+ *
+ * Only legal between rounds: once cards are out the stake is committed and the hand has
+ * to play through.
+ */
+export function standUp(userId: string): SitResult {
+  const t = table;
+  if (!t) return { ok: false, message: 'There is no table right now.' };
+
+  const seat = seatOf(userId);
+  if (!seat) return { ok: false, message: 'You are not seated.' };
+
+  if (seat.inRound && t.phase !== 'settled') {
+    return { ok: false, message: 'Your hand is live — you can stand up once it settles.' };
+  }
+
+  t.seats = t.seats.filter((s) => s.userId !== userId);
+  painter.schedulePaint(t);
+  return { ok: true, message: 'You have stood up. Your chips are yours.' };
+}
+
+/** Change only the riding stake, leaving side bets alone. */
+export function setStake(userId: string, stake: number): SitResult {
+  const seat = seatOf(userId);
+  if (!seat || !table) return { ok: false, message: 'You are not seated.' };
+
+  if (!Number.isInteger(stake) || stake < LIMITS.MIN_BET || stake > LIMITS.MAX_BET) {
+    return { ok: false, message: `Stakes run from ${LIMITS.MIN_BET} to ${LIMITS.MAX_BET}.` };
+  }
+
+  seat.stake = stake;
+  if (seat.sideBets.pairs > stake || seat.sideBets.p3 > stake) {
+    seat.sideBets = {
+      pairs: Math.min(seat.sideBets.pairs, stake),
+      p3: Math.min(seat.sideBets.p3, stake),
+    };
+  }
+
+  painter.schedulePaint(table);
+  return { ok: true, message: `Riding stake is now ${stake}.` };
 }
 
 // ============ DEALING ============
 
-export interface StartGameOptions {
-  readonly interaction: ChatInputCommandInteraction;
-  readonly amount: number;
-  readonly table: TableConfig;
-}
-
 /**
- * Deal a new hand. The bet must already have been validated against the wallet.
- */
-export async function startGame(options: StartGameOptions): Promise<void> {
-  const { interaction, amount, table } = options;
-  await dealHand(interaction, interaction.user.id, interaction.user.username, amount, table);
-}
-
-async function dealHand(
-  interaction: HandInteraction,
-  userId: string,
-  username: string,
-  amount: number,
-  table: TableConfig
-): Promise<void> {
-  const sessionKey: string = randomUUID();
-  const shoe: Shoe = acquireShoe(userId, table);
-
-  const game: GameState = {
-    userId,
-    username,
-    sessionKey,
-    table,
-    shoe,
-    dealerHand: [],
-    hands: [],
-    activeHandIndex: 0,
-    originalBet: amount,
-    insuranceBet: 0,
-    evenMoneyTaken: false,
-    phase: 'playing',
-    lastInteraction: interaction,
-    timeoutTimer: null,
-    balance: 0,
-  };
-
-  const staked: EconomyUser | null = await takeStake(game, amount, 'bet');
-  if (!staked) {
-    const cleared: RenderedMessage = {
-      flags: 64,
-      components: [],
-      allowedMentions: { parse: [] },
-    };
-    await present(interaction, cleared);
-    await interaction.editReply({ content: 'Could not place that bet. Please try again.' });
-    return;
-  }
-
-  cooldowns.set(userId, Date.now());
-
-  game.hands = [newHand([drawFromShoe(shoe), drawFromShoe(shoe)], amount)];
-  game.dealerHand = [drawFromShoe(shoe), drawFromShoe(shoe)];
-
-  activeGames.set(userId, game);
-
-  const playerNatural: boolean = isBlackjack(game.hands[0].cards);
-
-  // Dealer peek. Offering insurance or even money first is what stops a player
-  // committing a double or split against a hole card the dealer has already seen.
-  if (shouldDealerPeek(game.dealerHand)) {
-    if (dealerShowsAce(game.dealerHand)) {
-      if (playerNatural) {
-        game.phase = 'even_money';
-        armTimeout(game);
-        await present(interaction, buildEvenMoneyPrompt(viewOf(game, staked.wallet)));
-        return;
-      }
-
-      const insuranceCost: number = calculateInsuranceBet(amount);
-      if (staked.wallet >= insuranceCost && insuranceCost > 0) {
-        game.phase = 'insurance';
-        armTimeout(game);
-        await present(
-          interaction,
-          buildInsurancePrompt(viewOf(game, staked.wallet), insuranceCost)
-        );
-        return;
-      }
-    }
-
-    // Showing a ten: peek silently, and settle immediately either way if it matters.
-    if (isBlackjack(game.dealerHand) || playerNatural) {
-      await finishGame(game, interaction);
-      return;
-    }
-  } else if (playerNatural) {
-    await finishGame(game, interaction);
-    return;
-  }
-
-  armTimeout(game);
-  await present(interaction, buildGameMessage(viewOf(game, staked.wallet)));
-}
-
-// ============ RESOLUTION ============
-
-/**
- * Play out the dealer, settle every hand, and present the result.
+ * Charge every seat and deal the round.
  *
- * @param note optional line explaining an automatic resolution, such as a timeout
+ * A seat whose wallet will not cover its riding stake is stood up with a notice rather
+ * than being quietly dealt in for less.
  */
-async function finishGame(
-  game: GameState,
-  interaction: HandInteraction,
-  note?: string
-): Promise<void> {
-  disarmTimeout(game);
-  game.phase = 'finished';
+async function closeSeating(): Promise<void> {
+  const t = table;
+  if (!t || t.phase !== 'betting') return;
 
-  if (dealerMustPlay(game.hands)) {
-    playDealerTurn(game.dealerHand, game.shoe, game.table);
+  clearTimers(t);
+  t.phase = 'dealing';
+  t.deadline = null;
+
+  const evicted: Seat[] = [];
+
+  for (const seat of t.seats) {
+    const charged: boolean = await chargeSeat(t, seat);
+    if (!charged) evicted.push(seat);
   }
 
-  const results: HandResult[] = game.hands.map((hand) =>
-    resolveHand(hand, game.dealerHand, { evenMoney: game.evenMoneyTaken })
-  );
-
-  const insurancePayout: number = resolveInsurance(game.insuranceBet, game.dealerHand);
-  const handPayout: number = results.reduce((sum, r) => sum + r.payout, 0);
-  const totalPayout: number = handPayout + insurancePayout;
-  const totalStake: number = totalStaked(game.hands, game.insuranceBet);
-  const netProfit: number = totalPayout - totalStake;
-
-  let updatedUser: EconomyUser | null;
-  if (totalPayout > 0) {
-    updatedUser = await economyDb.gambleWin(game.userId, totalPayout);
-  } else {
-    updatedUser = await economyDb.getUser(game.userId);
+  if (evicted.length > 0) {
+    t.seats = t.seats.filter((s) => !evicted.includes(s));
+    void notifyEvicted(t, evicted);
   }
 
-  // Settle only once the payout has landed. A credit that failed leaves the rows open
-  // so the startup sweep returns the stakes, rather than recording a hand as settled
-  // that the player was never paid for.
-  if (totalPayout > 0 && !updatedUser) {
-    console.error(
-      `[BLACKJACK] Payout of ${totalPayout} to ${game.userId} failed; ` +
-        `leaving escrow session ${game.sessionKey} open for refund`
-    );
-  } else {
+  if (t.seats.length === 0) {
+    startGrace(t);
+    return;
+  }
+
+  t.roundCount += 1;
+  beginHand(t.shoe);
+
+  // Two rounds of cards, dealer last, exactly as at a real table.
+  for (const seat of t.seats) {
+    seat.hands = [newHand([drawFromShoe(t.shoe)], seat.stake)];
+  }
+  t.dealerHand = [drawFromShoe(t.shoe)];
+
+  for (const seat of t.seats) {
+    seat.hands[0].cards.push(drawFromShoe(t.shoe));
+  }
+  t.dealerHand.push(drawFromShoe(t.shoe));
+
+  t.hideHole = true;
+  await painter.paintNow(t);
+
+  await settleSideBets(t);
+
+  // Insurance is offered before anyone acts, only when the upcard is an ace.
+  if (dealerShowsAce(t.dealerHand)) {
+    t.phase = 'insurance';
+    armWindow(t, TIMING.INSURANCE_SECONDS, () => beginActing());
+    await painter.paintNow(t);
+    return;
+  }
+
+  await beginActing();
+}
+
+/**
+ * Take a seat's stakes into escrow.
+ *
+ * @returns false when the wallet could not cover it, meaning the seat is stood up
+ */
+async function chargeSeat(t: Table, seat: Seat): Promise<boolean> {
+  const charges: {
+    amount: number;
+    purpose: escrowDb.EscrowPurpose;
+    detail: Record<string, unknown>;
+  }[] = [
+    { amount: seat.stake, purpose: 'bet', detail: { kind: 'main' } },
+  ];
+  if (seat.sideBets.pairs > 0) {
+    charges.push({ amount: seat.sideBets.pairs, purpose: 'sidebet', detail: { kind: 'pairs' } });
+  }
+  if (seat.sideBets.p3 > 0) {
+    charges.push({ amount: seat.sideBets.p3, purpose: 'sidebet', detail: { kind: 'p3' } });
+  }
+
+  const opened: number[] = [];
+
+  for (const charge of charges) {
+    const escrow = await escrowDb.openEscrow({
+      userId: seat.userId,
+      username: seat.username,
+      game: 'blackjack',
+      sessionKey: t.sessionKey,
+      amount: charge.amount,
+      purpose: charge.purpose,
+      detail: charge.detail,
+    });
+
+    if (!escrow.ok || escrow.escrowId === null) {
+      // Partially charged. Give back what was taken rather than dealing a half-funded
+      // seat in.
+      for (const id of opened) {
+        try {
+          await escrowDb.voidEscrow(id, seat.userId);
+        } catch {
+          // The sweep will catch it.
+        }
+      }
+      return false;
+    }
+
+    opened.push(escrow.escrowId);
+  }
+
+  seat.escrowIds = opened;
+  seat.inRound = true;
+  return true;
+}
+
+async function notifyEvicted(t: Table, evicted: readonly Seat[]): Promise<void> {
+  if (!t.client) return;
+
+  for (const seat of evicted) {
     try {
-      await escrowDb.settleSession('blackjack', game.sessionKey);
-    } catch (err) {
-      console.error('[BLACKJACK] Failed to settle escrow:', err);
+      const user = await t.client.users.fetch(seat.userId);
+      await user.send(
+        `Your blackjack seat could not be funded for ${seat.stake} this round, ` +
+          'so you have been stood up. Top up and sit back in whenever you like.'
+      );
+    } catch {
+      // DMs closed. The board already shows the seat is gone.
+    }
+  }
+}
+
+/**
+ * Side bets settle the instant the cards are out, before anyone acts, which is exactly
+ * why they cost nothing in turn logic.
+ */
+async function settleSideBets(t: Table): Promise<void> {
+  const upcard: Card | undefined = t.dealerHand[0];
+
+  for (const seat of t.seats) {
+    if (seat.sideBets.pairs <= 0 && seat.sideBets.p3 <= 0) continue;
+
+    const results: SideBetResult[] = [
+      resolvePerfectPairs(seat.sideBets.pairs, seat.hands[0]?.cards ?? []),
+      resolveTwentyOnePlusThree(seat.sideBets.p3, seat.hands[0]?.cards ?? [], upcard),
+    ].filter((r) => r.stake > 0);
+
+    seat.sideBetResults = results;
+
+    for (const result of results) {
+      if (result.payout <= 0) continue;
+      try {
+        await economyDb.addToWallet(seat.userId, result.payout);
+      } catch (error: unknown) {
+        console.error(`[BLACKJACK] Side bet payout to ${seat.userId} failed:`, error);
+      }
     }
   }
 
-  const stats: BlackjackStats | null = await recordStats(game, results);
-
-  activeGames.delete(game.userId);
-  cooldowns.set(game.userId, Date.now());
-
-  const balance: number = updatedUser?.wallet ?? 0;
-
-  await present(
-    interaction,
-    buildGameMessage(
-      viewOf(game, balance, {
-        hideHole: false,
-        results,
-        insurancePayout: game.insuranceBet > 0 ? insurancePayout : undefined,
-        netProfit,
-        canPlayAgain: balance >= game.originalBet,
-        streakNote: note ?? streakNote(stats),
-      })
-    )
-  );
-
-  void announceNatural(game, results, interaction);
-  void fireAchievements(game, netProfit, totalPayout);
+  if (t.seats.some((s) => s.sideBetResults?.length)) {
+    await painter.paintNow(t);
+  }
 }
 
-function streakNote(stats: BlackjackStats | null): string | undefined {
-  if (!stats) return undefined;
-  if (stats.current_streak > 1) return `${stats.current_streak} win streak`;
-  if (stats.current_streak < -1) return `${Math.abs(stats.current_streak)} loss streak`;
-  return undefined;
+// ============ ACTING ============
+
+async function beginActing(): Promise<void> {
+  const t = table;
+  if (!t || (t.phase !== 'dealing' && t.phase !== 'insurance')) return;
+
+  clearTimers(t);
+
+  // The dealer peeks on an ace. A natural ends the round before anyone acts.
+  if (isBlackjack(t.dealerHand)) {
+    await finishRound(t);
+    return;
+  }
+
+  // A seat dealt 21 has nothing to decide.
+  for (const seat of t.seats) {
+    for (const hand of seat.hands) {
+      if (hand.cards.length === 2 && isBlackjack(hand.cards)) hand.status = 'stood';
+    }
+    seat.activeHandIndex = Math.max(0, nextPlayableHand(seat.hands));
+  }
+
+  if (everyoneDone(t)) {
+    await finishRound(t);
+    return;
+  }
+
+  t.phase = 'acting';
+  armWindow(t, TIMING.ACTION_SECONDS, () => timeOutActing());
+  await painter.paintNow(t);
 }
 
-/** Record one row per hand, so a four-hand split reads as four results. */
-async function recordStats(
-  game: GameState,
-  results: readonly HandResult[]
-): Promise<BlackjackStats | null> {
-  let last: BlackjackStats | null = null;
+function everyoneDone(t: Table): boolean {
+  return t.seats.every((seat) => seat.hands.every((h) => h.status !== 'playing'));
+}
 
-  for (let i = 0; i < game.hands.length; i++) {
-    const hand: PlayerHand = game.hands[i];
-    const result: HandResult = results[i];
+/**
+ * The shared clock expired. Anyone still deciding is stood, which is the safe default -
+ * it never spends more of their money.
+ */
+async function timeOutActing(): Promise<void> {
+  const t = table;
+  if (!t || t.phase !== 'acting') return;
 
-    const outcome: 'win' | 'loss' | 'push' =
-      result.outcome === 'push'
-        ? 'push'
-        : result.outcome === 'win' || result.outcome === 'blackjack'
-          ? 'win'
-          : 'loss';
+  for (const seat of t.seats) {
+    for (const hand of seat.hands) {
+      if (hand.status === 'playing') hand.status = 'stood';
+    }
+  }
+
+  await finishRound(t);
+}
+
+export type PlayerAction = 'hit' | 'stand' | 'double' | 'split' | 'surrender';
+
+export interface ActionResult {
+  readonly ok: boolean;
+  readonly message: string;
+}
+
+/**
+ * Apply an action to whoever clicked.
+ *
+ * Every button is shown to everyone because the board cannot know which are legal for
+ * a given viewer, so this is where an illegal action is turned into an explanation.
+ */
+export async function act(userId: string, action: PlayerAction): Promise<ActionResult> {
+  const t = table;
+  if (!t) return { ok: false, message: 'There is no table right now.' };
+  if (t.phase !== 'acting') {
+    return { ok: false, message: 'It is not time to act.' };
+  }
+
+  const seat = seatOf(userId);
+  if (!seat) return { ok: false, message: 'You are not seated. Sit in for the next round.' };
+
+  const index: number = nextPlayableHand(seat.hands);
+  if (index === -1) return { ok: false, message: 'Your hands are all done for this round.' };
+
+  seat.activeHandIndex = index;
+  const hand: PlayerHand = seat.hands[index];
+
+  let result: ActionResult;
+
+  switch (action) {
+    case 'hit':
+      hitHand(hand, t.shoe);
+      result = { ok: true, message: 'Hit.' };
+      break;
+
+    case 'stand':
+      hand.status = 'stood';
+      result = { ok: true, message: 'Stood.' };
+      break;
+
+    case 'double':
+      result = await doubleFor(t, seat, hand);
+      break;
+
+    case 'split':
+      result = await splitFor(t, seat, hand, index);
+      break;
+
+    case 'surrender':
+      if (!canSurrenderHand(hand, seat.hands.length)) {
+        result = { ok: false, message: 'Surrender is only available on your opening hand.' };
+      } else {
+        hand.status = 'surrendered';
+        result = { ok: true, message: 'Surrendered — half your stake comes back.' };
+      }
+      break;
+  }
+
+  if (result.ok) {
+    seat.activeHandIndex = Math.max(0, nextPlayableHand(seat.hands));
+
+    // Not waiting for the clock when nobody is left to act is most of what makes the
+    // table feel quick.
+    if (everyoneDone(t)) {
+      void finishRound(t);
+    } else {
+      painter.schedulePaint(t);
+    }
+  }
+
+  return result;
+}
+
+async function doubleFor(t: Table, seat: Seat, hand: PlayerHand): Promise<ActionResult> {
+  if (!canDoubleHand(hand)) {
+    return { ok: false, message: 'You can only double on your first two cards.' };
+  }
+
+  const escrow = await escrowDb.openEscrow({
+    userId: seat.userId,
+    username: seat.username,
+    game: 'blackjack',
+    sessionKey: t.sessionKey,
+    amount: hand.bet,
+    purpose: 'double',
+    detail: { kind: 'double' },
+  });
+
+  if (!escrow.ok || escrow.escrowId === null) {
+    return { ok: false, message: `You need another ${hand.bet} in your wallet to double.` };
+  }
+
+  // The debit was an await; re-check the hand is still doubleable before spending it.
+  if (t.phase !== 'acting' || !canDoubleHand(hand)) {
+    try {
+      await escrowDb.voidEscrow(escrow.escrowId, seat.userId);
+    } catch {
+      // Sweep will catch it.
+    }
+    return { ok: false, message: 'That hand moved on before the double landed.' };
+  }
+
+  seat.escrowIds.push(escrow.escrowId);
+  doubleHand(hand, t.shoe, hand.bet);
+  return { ok: true, message: 'Doubled.' };
+}
+
+async function splitFor(
+  t: Table,
+  seat: Seat,
+  hand: PlayerHand,
+  index: number
+): Promise<ActionResult> {
+  if (!canSplitHand(hand, seat.hands.length)) {
+    return {
+      ok: false,
+      message:
+        seat.hands.length >= MAX_HANDS
+          ? `You can play at most ${MAX_HANDS} hands.`
+          : 'That hand is not a matching pair.',
+    };
+  }
+
+  const escrow = await escrowDb.openEscrow({
+    userId: seat.userId,
+    username: seat.username,
+    game: 'blackjack',
+    sessionKey: t.sessionKey,
+    amount: hand.bet,
+    purpose: 'split',
+    detail: { kind: 'split' },
+  });
+
+  if (!escrow.ok || escrow.escrowId === null) {
+    return { ok: false, message: `You need another ${hand.bet} in your wallet to split.` };
+  }
+
+  if (t.phase !== 'acting' || !canSplitHand(hand, seat.hands.length)) {
+    try {
+      await escrowDb.voidEscrow(escrow.escrowId, seat.userId);
+    } catch {
+      // Sweep will catch it.
+    }
+    return { ok: false, message: 'That hand moved on before the split landed.' };
+  }
+
+  seat.escrowIds.push(escrow.escrowId);
+  const created: PlayerHand = splitHand(hand, t.shoe, hand.bet);
+  seat.hands.splice(index + 1, 0, created);
+
+  return { ok: true, message: 'Split.' };
+}
+
+// ============ INSURANCE ============
+
+/**
+ * Take insurance.
+ *
+ * Taking insurance on a natural IS even money - the two settle identically - so the
+ * table asks once rather than twice.
+ */
+export async function takeInsurance(userId: string): Promise<ActionResult> {
+  const t = table;
+  if (!t || t.phase !== 'insurance') {
+    return { ok: false, message: 'Insurance is not on offer right now.' };
+  }
+
+  const seat = seatOf(userId);
+  if (!seat) return { ok: false, message: 'You are not seated.' };
+  if (seat.insuranceBet > 0) return { ok: false, message: 'You already took insurance.' };
+
+  const cost: number = calculateInsuranceBet(seat.hands[0]?.bet ?? seat.stake);
+
+  const escrow = await escrowDb.openEscrow({
+    userId: seat.userId,
+    username: seat.username,
+    game: 'blackjack',
+    sessionKey: t.sessionKey,
+    amount: cost,
+    purpose: 'insurance',
+    detail: { kind: 'insurance' },
+  });
+
+  if (!escrow.ok || escrow.escrowId === null) {
+    return { ok: false, message: `You need ${cost} in your wallet for insurance.` };
+  }
+
+  if (t.phase !== 'insurance') {
+    try {
+      await escrowDb.voidEscrow(escrow.escrowId, seat.userId);
+    } catch {
+      // Sweep will catch it.
+    }
+    return { ok: false, message: 'Insurance closed before that went through.' };
+  }
+
+  seat.escrowIds.push(escrow.escrowId);
+  seat.insuranceBet = cost;
+
+  painter.schedulePaint(t);
+  return { ok: true, message: `Insured for ${cost}.` };
+}
+
+export function declineInsurance(userId: string): ActionResult {
+  const seat = seatOf(userId);
+  if (!seat) return { ok: false, message: 'You are not seated.' };
+  seat.insuranceSettled = true;
+  return { ok: true, message: 'No insurance.' };
+}
+
+// ============ SETTLEMENT ============
+
+async function finishRound(t: Table): Promise<void> {
+  if (t.phase === 'dealer' || t.phase === 'settled') return;
+
+  clearTimers(t);
+  t.phase = 'dealer';
+  t.hideHole = false;
+  t.deadline = null;
+
+  await painter.paintNow(t);
+
+  const anyoneStanding: boolean = t.seats.some((s) => dealerMustPlay(s.hands));
+  if (anyoneStanding) {
+    playDealerTurn(t.dealerHand, t.shoe, DEFAULT_TABLE);
+    await painter.paintNow(t);
+  }
+
+  const settledEscrowIds: number[] = [];
+
+  for (const seat of t.seats) {
+    if (!seat.inRound) continue;
+
+    seat.results = seat.hands.map((hand) => resolveHand(hand, t.dealerHand));
+
+    const insurancePayout: number = resolveInsurance(seat.insuranceBet, t.dealerHand);
+    const handPayout: number = seat.results.reduce((sum, r) => sum + r.payout, 0);
+    const totalPayout: number = handPayout + insurancePayout;
+
+    const staked: number =
+      seat.hands.reduce((sum, h) => sum + h.bet, 0) + seat.insuranceBet;
+
+    // Side bets already settled at the deal; fold their net into the round total so the
+    // board reports what the seat actually did.
+    const sideNet: number = (seat.sideBetResults ?? []).reduce((sum, r) => sum + r.net, 0);
+    seat.net = totalPayout - staked + sideNet;
+
+    if (totalPayout > 0) {
+      try {
+        const credited = await economyDb.addToWallet(seat.userId, totalPayout);
+        if (!credited) throw new Error('addToWallet returned null - user row missing?');
+        settledEscrowIds.push(...seat.escrowIds);
+      } catch (error: unknown) {
+        // Leaving the rows open means the sweep returns the stakes, rather than the
+        // database claiming a payout the wallet never received.
+        console.error(
+          `[BLACKJACK] Payout of ${totalPayout} to ${seat.userId} FAILED; ` +
+            'escrow left open for refund:',
+          error
+        );
+      }
+    } else {
+      settledEscrowIds.push(...seat.escrowIds);
+    }
+
+    void recordSeatStats(seat);
+  }
+
+  if (settledEscrowIds.length > 0) {
+    try {
+      await escrowDb.settleEscrowIds(settledEscrowIds);
+    } catch (error: unknown) {
+      console.error('[BLACKJACK] Failed to settle escrow rows:', error);
+    }
+  }
+
+  t.phase = 'settled';
+  await painter.paintNow(t);
+
+  const pacing = pacingFor(t.seats.reduce((sum, s) => sum + Math.abs(s.net ?? 0), 0));
+  await sleep(Math.max(TIMING.SETTLE_HOLD_MS, pacing.holdMs));
+
+  if (table !== t) return;
+
+  if (t.seats.length > 0) {
+    startBettingWindow(t, false);
+    await painter.paintNow(t);
+  } else {
+    startGrace(t);
+  }
+}
+
+/** Roll a seat's round into its lifetime stats. Decoration; never blocks the table. */
+async function recordSeatStats(seat: Seat): Promise<void> {
+  if (!seat.results) return;
+
+  for (let i = 0; i < seat.results.length; i++) {
+    const result = seat.results[i];
+    const hand = seat.hands[i];
+    if (!hand) continue;
 
     try {
-      last = await blackjackDb.recordGameResult({
-        userId: game.userId,
-        username: game.username,
-        outcome,
+      await blackjackDb.recordGameResult({
+        userId: seat.userId,
+        username: seat.username,
+        outcome:
+          result.outcome === 'blackjack'
+            ? 'win'
+            : result.outcome === 'surrender'
+              ? 'loss'
+              : result.outcome,
         bet: hand.bet,
         payout: result.payout,
         wasBlackjack: result.outcome === 'blackjack',
         wasBust: result.isBust,
         wasDouble: hand.doubled,
         wasSplit: hand.fromSplit,
-        // Insurance is one side bet on the hand, so it belongs to the first row only.
-        wasInsurance: i === 0 && game.insuranceBet > 0,
+        wasInsurance: seat.insuranceBet > 0,
         wasSurrender: result.outcome === 'surrender',
       });
-    } catch (err) {
-      console.error('[BLACKJACK] Failed to record stats:', err);
+    } catch (error: unknown) {
+      console.error(`[BLACKJACK] Failed to record stats for ${seat.userId}:`, error);
     }
   }
-
-  return last;
 }
 
-async function fireAchievements(
-  game: GameState,
-  netProfit: number,
-  totalPayout: number
-): Promise<void> {
-  if (netProfit === 0) return;
+// ============ TEST SEAM ============
 
-  try {
-    await checkForAchievements({
-      actionType: netProfit > 0 ? ACTION_TYPES.BLACKJACK_WIN : ACTION_TYPES.BLACKJACK_LOSE,
-      userId: game.userId,
-      username: game.username,
-      client: game.lastInteraction.client,
-      amount: netProfit > 0 ? totalPayout : Math.abs(netProfit),
-    });
-  } catch (err) {
-    console.error('[BLACKJACK] Failed to check achievements:', err);
-  }
-}
-
-/** Announce a natural to the casino channel, as the other games do for big wins. */
-async function announceNatural(
-  game: GameState,
-  results: readonly HandResult[],
-  interaction: HandInteraction
-): Promise<void> {
-  const natural: HandResult | undefined = results.find((r) => r.outcome === 'blackjack');
-  if (!natural || !CHANNELS.CASINO) return;
-
-  try {
-    const channel = await interaction.client.channels.fetch(CHANNELS.CASINO);
-    if (!channel || !('send' in channel)) return;
-
-    await (channel as TextChannel).send({
-      content:
-        `🃏 **BLACKJACK!** <@${game.userId}> hit a natural for ` +
-        `${formatCurrency(natural.payout)} on a ${formatCurrency(game.originalBet)} bet.`,
-      allowedMentions: { parse: [] },
-    });
-  } catch (err) {
-    console.error('[BLACKJACK] Failed to announce natural:', err);
-  }
-}
-
-// ============ TURN ADVANCEMENT ============
-
-/**
- * Move to the next hand still in play, or settle if the player is done.
- */
-async function advance(game: GameState, interaction: HandInteraction): Promise<void> {
-  const next: number = nextPlayableHand(game.hands);
-
-  if (next === -1) {
-    await finishGame(game, interaction);
-    return;
-  }
-
-  game.activeHandIndex = next;
-  game.lastInteraction = interaction;
-  armTimeout(game);
-
-  await present(interaction, buildGameMessage(viewOf(game, game.balance)));
-}
-
-// ============ BUTTON HANDLERS ============
-
-/**
- * Entry point for every blackjack component interaction.
- */
-export async function handleComponent(interaction: MessageComponentInteraction): Promise<void> {
-  // The game is button-only; anything else on this prefix is not ours to handle.
-  if (!interaction.isButton()) return;
-
-  const userId: string = interaction.user.id;
-
-  if (interaction.customId.startsWith(IDS.PLAY_AGAIN)) {
-    await handlePlayAgain(interaction);
-    return;
-  }
-
-  const game: GameState | undefined = activeGames.get(userId);
-  if (!game) {
-    await interaction.reply({
-      content: 'That hand is no longer active. Start a new one with `/blackjack`.',
-      ephemeral: true,
-    });
-    return;
-  }
-
-  game.lastInteraction = interaction;
-
-  switch (interaction.customId) {
-    case IDS.INSURANCE_YES:
-    case IDS.INSURANCE_NO:
-      await handleInsurance(game, interaction, interaction.customId === IDS.INSURANCE_YES);
-      return;
-    case IDS.EVEN_MONEY_YES:
-    case IDS.EVEN_MONEY_NO:
-      await handleEvenMoney(game, interaction, interaction.customId === IDS.EVEN_MONEY_YES);
-      return;
-    case IDS.HIT:
-      await handleHit(game, interaction);
-      return;
-    case IDS.STAND:
-      await handleStand(game, interaction);
-      return;
-    case IDS.DOUBLE:
-      await handleDouble(game, interaction);
-      return;
-    case IDS.SPLIT:
-      await handleSplit(game, interaction);
-      return;
-    case IDS.SURRENDER:
-      await handleSurrender(game, interaction);
-      return;
-    default:
-      await interaction.reply({ content: 'That control is no longer active.', ephemeral: true });
-  }
-}
-
-async function handleInsurance(
-  game: GameState,
-  interaction: ButtonInteraction,
-  take: boolean
-): Promise<void> {
-  if (game.phase !== 'insurance') {
-    await interaction.deferUpdate();
-    return;
-  }
-
-  if (take) {
-    const cost: number = calculateInsuranceBet(game.originalBet);
-    const staked: EconomyUser | null = await takeStake(game, cost, 'insurance');
-
-    // The wallet can move between the offer and the confirm. Treating a failed debit
-    // as declined is what stops free insurance being granted.
-    if (staked) game.insuranceBet = cost;
-  }
-
-  game.phase = 'playing';
-
-  // Now the peek matters: a dealer natural ends the hand immediately.
-  if (isBlackjack(game.dealerHand)) {
-    await finishGame(game, interaction);
-    return;
-  }
-
-  await advance(game, interaction);
-}
-
-async function handleEvenMoney(
-  game: GameState,
-  interaction: ButtonInteraction,
-  take: boolean
-): Promise<void> {
-  if (game.phase !== 'even_money') {
-    await interaction.deferUpdate();
-    return;
-  }
-
-  game.evenMoneyTaken = take;
-  game.phase = 'playing';
-  await finishGame(game, interaction);
-}
-
-async function handleHit(game: GameState, interaction: ButtonInteraction): Promise<void> {
-  const hand: PlayerHand | undefined = game.hands[game.activeHandIndex];
-  if (!hand || hand.status !== 'playing') {
-    await interaction.deferUpdate();
-    return;
-  }
-
-  hitHand(hand, game.shoe);
-  await advance(game, interaction);
-}
-
-async function handleStand(game: GameState, interaction: ButtonInteraction): Promise<void> {
-  const hand: PlayerHand | undefined = game.hands[game.activeHandIndex];
-  if (!hand || hand.status !== 'playing') {
-    await interaction.deferUpdate();
-    return;
-  }
-
-  hand.status = 'stood';
-  await advance(game, interaction);
-}
-
-async function handleDouble(game: GameState, interaction: ButtonInteraction): Promise<void> {
-  const hand: PlayerHand | undefined = game.hands[game.activeHandIndex];
-  if (!hand || !canDoubleHand(hand)) {
-    await interaction.reply({
-      content: 'You can only double on the first two cards of a hand.',
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const staked: EconomyUser | null = await takeStake(game, game.originalBet, 'double');
-  if (!staked) {
-    await interaction.reply({
-      content: `You need ${formatCurrency(game.originalBet)} to double.`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  doubleHand(hand, game.shoe, game.originalBet);
-  await advance(game, interaction);
-}
-
-async function handleSplit(game: GameState, interaction: ButtonInteraction): Promise<void> {
-  const hand: PlayerHand | undefined = game.hands[game.activeHandIndex];
-  if (!hand || !canSplitHand(hand, game.hands.length)) {
-    await interaction.reply({
-      content:
-        game.hands.length >= MAX_HANDS
-          ? `You can play at most ${MAX_HANDS} hands.`
-          : 'That hand cannot be split.',
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const staked: EconomyUser | null = await takeStake(game, game.originalBet, 'split');
-  if (!staked) {
-    await interaction.reply({
-      content: `You need ${formatCurrency(game.originalBet)} to split.`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const created: PlayerHand = splitHand(hand, game.shoe, game.originalBet);
-  // Insert directly after its parent so hands read left to right in dealing order.
-  game.hands.splice(game.activeHandIndex + 1, 0, created);
-
-  await advance(game, interaction);
-}
-
-async function handleSurrender(game: GameState, interaction: ButtonInteraction): Promise<void> {
-  const hand: PlayerHand | undefined = game.hands[game.activeHandIndex];
-  if (!hand || !canSurrenderHand(hand, game.hands.length)) {
-    await interaction.reply({
-      content: 'You can only surrender before taking any other action.',
-      ephemeral: true,
-    });
-    return;
-  }
-
-  hand.status = 'surrendered';
-  await finishGame(game, interaction);
-}
-
-/**
- * Deal another hand at the same stake, on the same message.
- *
- * This is the path that used to break: it replayed through a spoofed interaction that
- * reused the original token. Here the click's own token drives the new hand, so the
- * chain never expires.
- */
-async function handlePlayAgain(interaction: ButtonInteraction): Promise<void> {
-  const userId: string = interaction.user.id;
-
-  if (activeGames.has(userId)) {
-    await interaction.reply({ content: 'You already have a hand in progress.', ephemeral: true });
-    return;
-  }
-
-  const remaining: number = cooldownRemaining(userId);
-  if (remaining > 0) {
-    await interaction.reply({
-      content: `Slow down — you can deal again in ${remaining}s.`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  // The stake and table come from the button's own message, so a stale click cannot
-  // resurrect a table the player has since left.
-  const parsed = parseReplayContext(interaction);
-  const user: EconomyUser | null = await economyDb.getUser(userId);
-
-  if (!user || user.wallet < parsed.amount) {
-    await interaction.reply({
-      content: `You need ${formatCurrency(parsed.amount)} to play again.`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  await interaction.deferUpdate();
-  await dealHand(interaction, userId, interaction.user.username, parsed.amount, parsed.table);
-}
-
-/**
- * Recover the stake and table from the button's own customId.
- *
- * Carrying them in the id keeps Play Again working across a restart, where an
- * in-memory record of the last hand would be gone, without coupling the deal to how
- * the label happens to be worded.
- */
-function parseReplayContext(interaction: ButtonInteraction): {
-  amount: number;
-  table: TableConfig;
-} {
-  // `bj:again:<amount>:<table>`
-  const [, , rawAmount, rawTable] = interaction.customId.split(':');
-
-  const parsed: number = Number(rawAmount);
-  const amount: number = Number.isFinite(parsed) ? parsed : CONFIG.BLACKJACK_MIN;
-
-  return {
-    amount: Math.max(amount, CONFIG.BLACKJACK_MIN),
-    table: TABLES[rawTable] ?? DEFAULT_TABLE,
-  };
+export function __resetTableForTesting(): void {
+  if (table) clearTimers(table);
+  table = null;
+  painter.reset();
 }

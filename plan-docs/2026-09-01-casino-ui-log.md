@@ -253,7 +253,49 @@ clean.
 
 ## Phase 3 — Blackjack multi-seat
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
+
+Blackjack was reworked, not restyled: from a solo, fully-ephemeral game with two tables
+and a per-hand shuffle, to one shared multi-seat table on a persistent six-deck shoe.
+
+**Created**
+
+| File | Purpose |
+|---|---|
+| `discordCommands/blackjack/blackjackSideBets.ts` | 21+3 and Perfect Pairs grading and settlement |
+| `migrations/012_blackjack_multiseat_sidebets.sql` | side-bet stats, rounds_seated |
+| `tests/blackjack/blackjackSideBets.test.ts` | 32 tests, written before the module |
+
+**Rewritten**
+
+- `blackjackState.ts` — the whole table: seating, riding stakes, escrow per round,
+  simultaneous action on a shared clock, insurance window, dealer turn, settlement,
+  auto-eviction of an unfundable seat.
+- `blackjackRender.ts` — two-zone board (D9), shared action row (D7), shoe depth,
+  side-bet callouts, ephemeral slip.
+- `blackjack.ts` — `/blackjack sit | leave | rules`; Sit modal collecting stake and both
+  side bets in one submit via `Label` + `CheckboxGroup`.
+- `blackjackUtils.ts` — `TABLES` collapsed from two to one (6 deck, S17); added
+  `cardColor` for Perfect Pairs.
+
+**Design decisions worth recording**
+
+- Insurance and even money were merged into one button. Taking insurance on a natural
+  settles identically to even money, so asking twice was never meaningful.
+- Every action button is shown to everyone during the acting phase. The board cannot
+  know which are legal for a given viewer, so an illegal action becomes an ephemeral
+  explanation rather than a greyed-out button.
+- The round ends as soon as the last seat finishes, rather than waiting out the clock.
+- A seat whose wallet cannot cover its riding stake is stood up **and DM'd**, never
+  dealt in for a quietly reduced amount.
+
+**One existing test failed and was right to.** `blackjackEngine.test.ts` referenced
+`TABLES.classic` / `TABLES.vegas`, which D6 collapsed. The soft-17 rule logic still
+exists in the engine, so rather than deleting the coverage the configs are now built
+inline, plus a new test pinning that the house offers exactly one table.
+
+**Verification:** `npm test` 874 passed / 33 suites; typecheck clean; `npx eslint .`
+clean. Migration 012 written, not applied.
 
 ---
 

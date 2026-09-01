@@ -10,7 +10,7 @@ export type Suit = '♠' | '♥' | '♦' | '♣';
 export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
 
 export interface TableConfig {
-  readonly name: 'classic' | 'vegas';
+  readonly name: 'main';
   readonly displayName: string;
   readonly deckCount: number;
   readonly dealerHitsSoft17: boolean;
@@ -18,26 +18,37 @@ export interface TableConfig {
 
 // ============ TABLE CONFIGURATIONS ============
 
+/**
+ * The house rules.
+ *
+ * There is one table now, not two. A shared multi-seat game only works on one shoe, and
+ * a single-deck game reshuffled every hand makes the shoe indicator - and any counting
+ * it enables - meaningless.
+ *
+ * This takes the six-deck persistent shoe from the old Vegas Strip table and the
+ * player-friendly stand-on-soft-17 rule from the old Classic table. With 3:2 blackjack,
+ * double after split, late surrender and re-splits to four hands, the house edge is
+ * roughly 0.35%.
+ */
 export const TABLES: Readonly<Record<string, TableConfig>> = {
-  classic: {
-    name: 'classic',
-    displayName: 'Classic',
-    deckCount: 1,
-    dealerHitsSoft17: false, // S17 - stands on soft 17
-  },
-  vegas: {
-    name: 'vegas',
-    displayName: 'Vegas Strip',
+  main: {
+    name: 'main',
+    displayName: 'Blackjack',
     deckCount: 6,
-    dealerHitsSoft17: true, // H17 - hits on soft 17
+    dealerHitsSoft17: false, // S17 - stands on soft 17
   },
 } as const;
 
-export const DEFAULT_TABLE: TableConfig = TABLES.classic;
+export const DEFAULT_TABLE: TableConfig = TABLES.main;
 
 export interface Card {
   readonly suit: Suit;
   readonly rank: Rank;
+}
+
+/** A card's colour group. Spades and clubs are black; hearts and diamonds are red. */
+export function cardColor(card: Card): 'red' | 'black' {
+  return card.suit === '♥' || card.suit === '♦' ? 'red' : 'black';
 }
 
 export type Hand = Card[];

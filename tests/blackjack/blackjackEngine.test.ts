@@ -19,6 +19,7 @@ import {
 } from '../../discordCommands/blackjack/blackjackEngine.js';
 import {
   TABLES,
+  type TableConfig,
   createShoe,
   type Card,
   type Hand,
@@ -281,25 +282,37 @@ describe('turn order', () => {
 describe('dealer play', () => {
   test('stands on hard 17', () => {
     const dealer: Hand = [card('K'), card('7')];
-    playDealerTurn(dealer, stackedShoe([card('5')]), TABLES.classic);
+    playDealerTurn(dealer, stackedShoe([card('5')]), TABLES.main);
     expect(dealer).toHaveLength(2);
   });
 
   test('draws below 17', () => {
     const dealer: Hand = [card('K'), card('6')];
-    playDealerTurn(dealer, stackedShoe([card('4')]), TABLES.classic);
+    playDealerTurn(dealer, stackedShoe([card('4')]), TABLES.main);
     expect(dealer).toHaveLength(3);
   });
 
-  // The one rule that actually separates the two tables.
-  test('classic stands on soft 17, vegas hits it', () => {
+  // The house now runs one table, but the engine still implements both soft-17 rules,
+  // so both stay covered. The configs are built inline rather than pulled from TABLES,
+  // which deliberately offers only the one the house actually deals.
+  test('S17 stands on soft 17, H17 hits it', () => {
+    const s17Table: TableConfig = { ...TABLES.main, dealerHitsSoft17: false };
+    const h17Table: TableConfig = { ...TABLES.main, dealerHitsSoft17: true };
+
     const s17: Hand = [card('A'), card('6')];
-    playDealerTurn(s17, stackedShoe([card('2')]), TABLES.classic);
+    playDealerTurn(s17, stackedShoe([card('2')]), s17Table);
     expect(s17).toHaveLength(2);
 
     const h17: Hand = [card('A'), card('6')];
-    playDealerTurn(h17, stackedShoe([card('2')]), TABLES.vegas);
+    playDealerTurn(h17, stackedShoe([card('2')]), h17Table);
     expect(h17).toHaveLength(3);
+  });
+
+  // D6: the two tables collapsed into one six-deck, stand-on-soft-17 game.
+  test('the house table is 6 decks and stands on soft 17', () => {
+    expect(Object.keys(TABLES)).toEqual(['main']);
+    expect(TABLES.main.deckCount).toBe(6);
+    expect(TABLES.main.dealerHitsSoft17).toBe(false);
   });
 });
 

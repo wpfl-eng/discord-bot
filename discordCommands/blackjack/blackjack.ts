@@ -1,133 +1,417 @@
 // Blackjack Command
 //
-// Entry point only: option parsing, wallet validation, and registering the button
-// router. Rules live in blackjackEngine, live hands and handlers in blackjackState,
-// and every view in blackjackRender - the same layout roulette and craps already use.
+// One shared multi-seat table against one dealer on one six-deck shoe.
+//
+// The old game was solo and entirely ephemeral: nobody could see anyone else play, and
+// the shoe reset every hand. Seats now play simultaneously on a shared clock, with the
+// action controls on the public board - which works precisely because every seat is
+// live at once, so a shared button is unambiguous per clicker.
+//
+// The slash command stays as a power-user path for taking a seat with an exact stake.
 
-import { SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
+import {
+  SlashCommandBuilder,
+  ChannelType,
+  type ChatInputCommandInteraction,
+  type TextChannel,
+} from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
-import type { EconomyUser } from '../../types/database.js';
-import { CONFIG, formatCurrency } from '../../economy/economyConfig.js';
-import { registerComponentHandler } from '../../interactions/componentRouter.js';
-import { TABLES, DEFAULT_TABLE, type TableConfig } from './blackjackUtils.js';
-import { ID_PREFIX } from './blackjackRender.js';
-import { cooldownRemaining, handleComponent, hasActiveGame, startGame } from './blackjackState.js';
+import {
+  registerComponentHandler,
+  type RoutableInteraction,
+} from '../../interactions/componentRouter.js';
+import { paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
+import { amountWithTogglesModal, parseStake } from '../../casino/casinoModal.js';
+import { CASINO_COLORS } from '../../casino/casinoTheme.js';
+import { formatCurrency } from '../../casino/casinoFormat.js';
+import { frame, rendered, text } from '../../casino/casinoRender.js';
+import {
+  IDS,
+  ID_PREFIX,
+  SIT_SIDEBETS_FIELD,
+  SIT_STAKE_FIELD,
+  buildSlipText,
+} from './blackjackRender.js';
+import * as blackjackState from './blackjackState.js';
+import {
+  PERFECT_PAIRS_PAYOUT,
+  TWENTY_ONE_PLUS_THREE_PAYOUT,
+} from './blackjackSideBets.js';
 
 // ============ COMMAND DEFINITION ============
 
 export const data = new SlashCommandBuilder()
   .setName('blackjack')
-  .setDescription('Play a game of blackjack!')
-  .addStringOption((option) =>
-    option.setName('amount').setDescription("Amount to bet (number or 'all')").setRequired(true)
-  )
-  .addStringOption((option) =>
-    option
-      .setName('table')
-      .setDescription('Table rules (default: classic)')
-      .setRequired(false)
-      .addChoices(
-        { name: 'Classic (1 deck, S17) - best odds, fresh shuffle each hand', value: 'classic' },
-        { name: 'Vegas Strip (6 deck, H17) - persistent shoe', value: 'vegas' }
+  .setDescription('Take a seat at the blackjack table')
+  .addSubcommand((sub) =>
+    sub
+      .setName('sit')
+      .setDescription('Take a seat for the next round')
+      .addStringOption((option) =>
+        option.setName('amount').setDescription("Stake per round (number or 'all')").setRequired(true)
       )
-  );
+      .addIntegerOption((option) =>
+        option
+          .setName('pairs')
+          .setDescription('Optional Perfect Pairs side bet')
+          .setMinValue(0)
+      )
+      .addIntegerOption((option) =>
+        option.setName('plus3').setDescription('Optional 21+3 side bet').setMinValue(0)
+      )
+  )
+  .addSubcommand((sub) => sub.setName('leave').setDescription('Stand up from the table'))
+  .addSubcommand((sub) => sub.setName('rules').setDescription('House rules and paytables'));
+
+// ============ PER-PLAYER CHIP ============
+
+/** The stake a player's next Sit will default to. In memory only. */
+const activeChip = new Map<string, number>();
+
+function chipFor(userId: string): number {
+  return activeChip.get(userId) ?? 1_000;
+}
+
+// ============ CHANNEL ============
+
+async function requireTableChannel(
+  interaction: RoutableInteraction | ChatInputCommandInteraction
+): Promise<TextChannel | null> {
+  const channelId: string | undefined = blackjackState.getBlackjackChannelId();
+
+  if (!channelId) {
+    await whisper(
+      interaction as RoutableInteraction,
+      'Blackjack is not configured. Set BLACKJACK_CHANNEL_ID in the environment.'
+    );
+    return null;
+  }
+
+  if (interaction.channelId !== channelId) {
+    await whisper(interaction as RoutableInteraction, `Head to <#${channelId}> to play blackjack!`);
+    return null;
+  }
+
+  if (!interaction.channel || interaction.channel.type !== ChannelType.GuildText) {
+    await whisper(interaction as RoutableInteraction, 'Blackjack must be played in a text channel.');
+    return null;
+  }
+
+  return interaction.channel;
+}
 
 // ============ EXECUTE ============
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  const subcommand: string = interaction.options.getSubcommand();
 
   try {
-    const userId: string = interaction.user.id;
-    const username: string = interaction.user.username;
-
-    const remaining: number = cooldownRemaining(userId);
-    if (remaining > 0) {
-      await interaction.editReply({
-        content: `Slow down — you can deal again in ${remaining}s.`,
-      });
-      return;
-    }
-
-    if (hasActiveGame(userId)) {
-      await interaction.editReply({
-        content: 'You already have a hand in progress. Finish it first.',
-      });
-      return;
-    }
-
-    const tableChoice: string = interaction.options.getString('table') ?? 'classic';
-    const table: TableConfig = TABLES[tableChoice] ?? DEFAULT_TABLE;
-
-    const userData: EconomyUser = await economyDb.getOrCreateUser(userId, username);
-
-    const amount: number | null = parseAmount(
-      interaction.options.getString('amount') ?? '',
-      userData.wallet
-    );
-
-    if (amount === null) {
-      await interaction.editReply({
-        content: "Enter a valid amount — a positive number, or 'all'.",
-      });
-      return;
-    }
-
-    if (amount < CONFIG.BLACKJACK_MIN) {
-      await interaction.editReply({
-        content: `Minimum bet is ${formatCurrency(CONFIG.BLACKJACK_MIN)}.`,
-      });
-      return;
-    }
-
-    if (amount > CONFIG.BLACKJACK_MAX) {
-      await interaction.editReply({
-        content: `Maximum bet is ${formatCurrency(CONFIG.BLACKJACK_MAX)}.`,
-      });
-      return;
-    }
-
-    // Advisory: the escrow debit re-checks atomically, which is what actually prevents
-    // an overdraw.
-    if (userData.wallet < amount) {
-      await interaction.editReply({
-        content:
-          `You do not have ${formatCurrency(amount)} in your wallet ` +
-          `(you have ${formatCurrency(userData.wallet)}).\n` +
-          '_Tip: `/withdraw` moves coins out of your bank._',
-      });
-      return;
-    }
-
-    await startGame({ interaction, amount, table });
+    if (subcommand === 'sit') await handleSitCommand(interaction);
+    else if (subcommand === 'leave') await handleLeaveCommand(interaction);
+    else if (subcommand === 'rules') await handleRules(interaction);
   } catch (error: unknown) {
     console.error('[BLACKJACK] Command error:', error);
     const message: string = error instanceof Error ? error.message : 'Unknown error';
-    await interaction.editReply({ content: `An error occurred: ${message}` });
+
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: `An error occurred: ${message}`, ephemeral: true });
+    } else {
+      await interaction.editReply({ content: `An error occurred: ${message}` });
+    }
+  }
+}
+
+async function handleSitCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  const channelId: string | undefined = blackjackState.getBlackjackChannelId();
+  if (!channelId) {
+    await interaction.reply({
+      content: 'Blackjack is not configured. Set BLACKJACK_CHANNEL_ID in the environment.',
+      ephemeral: true,
+    });
+    return;
+  }
+  if (interaction.channelId !== channelId) {
+    await interaction.reply({
+      content: `Head to <#${channelId}> to play blackjack!`,
+      ephemeral: true,
+    });
+    return;
+  }
+  if (!interaction.channel || interaction.channel.type !== ChannelType.GuildText) {
+    await interaction.reply({
+      content: 'Blackjack must be played in a text channel.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const user = await economyDb.getOrCreateUser(interaction.user.id, interaction.user.username);
+  const stake: number | null = parseStake(
+    interaction.options.getString('amount') ?? '',
+    user.wallet
+  );
+
+  if (stake === null) {
+    await interaction.editReply({ content: "Enter a valid stake — a positive number, or 'all'." });
+    return;
+  }
+
+  const result = await blackjackState.sit({
+    userId: interaction.user.id,
+    username: interaction.user.username,
+    stake,
+    sideBets: {
+      pairs: interaction.options.getInteger('pairs') ?? 0,
+      p3: interaction.options.getInteger('plus3') ?? 0,
+    },
+    channel: interaction.channel,
+    client: interaction.client,
+  });
+
+  activeChip.set(interaction.user.id, stake);
+  await interaction.editReply({ content: result.ok ? `✅ ${result.message}` : `❌ ${result.message}` });
+}
+
+async function handleLeaveCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  const result = blackjackState.standUp(interaction.user.id);
+  await interaction.reply({
+    content: result.ok ? `✅ ${result.message}` : `❌ ${result.message}`,
+    ephemeral: true,
+  });
+  blackjackState.refresh();
+}
+
+async function handleRules(interaction: ChatInputCommandInteraction): Promise<void> {
+  const pairs = PERFECT_PAIRS_PAYOUT;
+  const p3 = TWENTY_ONE_PLUS_THREE_PAYOUT;
+
+  const body: string = [
+    '## 🃏 House rules',
+    '',
+    '**6 decks**, persistent shoe, cut card at 75%',
+    '**Dealer stands on soft 17**',
+    '**Blackjack pays 3:2**',
+    'Double after split · Late surrender · Re-split to 4 hands',
+    'Insurance pays 2:1 — taking it on a natural is even money',
+    '',
+    '_House edge about 0.35%._',
+    '',
+    '### Perfect Pairs',
+    `Perfect pair **${pairs.perfect}:1** · Coloured **${pairs.colored}:1** · Mixed **${pairs.mixed}:1**`,
+    '',
+    '### 21+3',
+    `Suited trips **${p3.suited_trips}:1** · Straight flush **${p3.straight_flush}:1** · ` +
+      `Trips **${p3.trips}:1** · Straight **${p3.straight}:1** · Flush **${p3.flush}:1**`,
+    '',
+    '### The round',
+    'Seats close, cards go out, then **every seat acts at once** on one shared clock. ' +
+      'Anyone still deciding when it runs out is stood automatically.',
+    'Your stake rides from round to round until you change it or stand up.',
+  ].join('\n');
+
+  await interaction.reply(
+    rendered([frame(CASINO_COLORS.blue).addTextDisplayComponents(text(body)).toJSON()], {
+      ephemeral: true,
+    })
+  );
+}
+
+// ============ COMPONENT HANDLERS ============
+
+async function handleChip(interaction: RoutableInteraction, rest: string): Promise<void> {
+  if (rest === 'custom') {
+    await openSitModal(interaction);
+    return;
+  }
+
+  const amount: number = Number.parseInt(rest, 10);
+  if (!Number.isInteger(amount)) return;
+
+  activeChip.set(interaction.user.id, amount);
+
+  // A seated player changing their chip is changing their riding stake, which is what
+  // they almost certainly meant.
+  const seat = blackjackState.getSeatView(interaction.user.id);
+  if (seat) {
+    const result = blackjackState.setStake(interaction.user.id, amount);
+    await whisper(interaction, result.message);
+    blackjackState.refresh();
+    return;
+  }
+
+  await whisper(interaction, `Chip set to ${formatCurrency(amount)}. Press Sit to join.`);
+}
+
+/**
+ * The Sit dialog collects the stake and both side bets in one submit.
+ *
+ * Three clicks collapse into one interaction, which is the whole reason the modal earns
+ * its extra step here when every other control on the table is a single click.
+ */
+async function openSitModal(interaction: RoutableInteraction): Promise<void> {
+  if (!interaction.isButton()) return;
+
+  await interaction.showModal(
+    amountWithTogglesModal({
+      id: IDS.SIT_MODAL,
+      title: 'Take a seat',
+      label: 'Stake per round',
+      description: "Rides every round until you change it or stand up. 'all' works too.",
+      fieldId: SIT_STAKE_FIELD,
+      placeholder: String(chipFor(interaction.user.id)),
+      toggleLabel: 'Side bets',
+      toggleDescription: 'Each matches your stake and settles the moment cards are dealt.',
+      toggleFieldId: SIT_SIDEBETS_FIELD,
+      toggles: [
+        {
+          label: '21+3',
+          value: 'p3',
+          description: 'Your two cards + dealer upcard · up to 100:1',
+        },
+        {
+          label: 'Perfect Pairs',
+          value: 'pairs',
+          description: 'Your first two cards · up to 25:1',
+        },
+      ],
+    })
+  );
+}
+
+async function handleSitModal(interaction: RoutableInteraction): Promise<void> {
+  if (!interaction.isModalSubmit()) return;
+
+  const channel = await requireTableChannel(interaction);
+  if (!channel) return;
+
+  const user = await economyDb.getOrCreateUser(interaction.user.id, interaction.user.username);
+  const stake: number | null = parseStake(
+    interaction.fields.getTextInputValue(SIT_STAKE_FIELD),
+    user.wallet
+  );
+
+  if (stake === null) {
+    await whisper(interaction, "Enter a valid stake — a positive number, or 'all'.");
+    return;
+  }
+
+  const chosen: readonly string[] = interaction.fields.getCheckboxGroup(SIT_SIDEBETS_FIELD);
+
+  // A side bet matches the main stake. Offering a third amount field for each would
+  // undo the point of collecting everything in one dialog.
+  const result = await blackjackState.sit({
+    userId: interaction.user.id,
+    username: interaction.user.username,
+    stake,
+    sideBets: {
+      pairs: chosen.includes('pairs') ? stake : 0,
+      p3: chosen.includes('p3') ? stake : 0,
+    },
+    channel,
+    client: interaction.client,
+  });
+
+  activeChip.set(interaction.user.id, stake);
+  await whisper(interaction, result.ok ? `✅ ${result.message}` : `❌ ${result.message}`);
+  blackjackState.refresh();
+}
+
+async function handleSit(interaction: RoutableInteraction): Promise<void> {
+  const channel = await requireTableChannel(interaction);
+  if (!channel) return;
+  await openSitModal(interaction);
+}
+
+async function handleLeave(interaction: RoutableInteraction): Promise<void> {
+  const result = blackjackState.standUp(interaction.user.id);
+
+  if (!result.ok) {
+    await whisper(interaction, result.message);
+    return;
+  }
+
+  const board = blackjackState.currentBoard();
+  if (board) await paintViaInteraction(interaction, board, 'BLACKJACK');
+  else await whisper(interaction, result.message);
+}
+
+async function handleSlip(interaction: RoutableInteraction): Promise<void> {
+  const user = await economyDb.getOrCreateUser(interaction.user.id, interaction.user.username);
+  const seat = blackjackState.getSeatView(interaction.user.id);
+
+  const payload = rendered(
+    [
+      frame(CASINO_COLORS.blue)
+        .addTextDisplayComponents(
+          text(buildSlipText(seat, chipFor(interaction.user.id), user.wallet))
+        )
+        .toJSON(),
+    ],
+    { ephemeral: true }
+  );
+
+  if (interaction.isMessageComponent() || interaction.isModalSubmit()) {
+    await interaction.reply(payload);
   }
 }
 
 /**
- * Parse the amount option.
+ * A play action from the shared board.
  *
- * @returns the stake, or null when the input is not a usable amount
+ * The clicker's own interaction repaints the board, which both acknowledges the click
+ * inside Discord's three-second deadline and shows the new card to everyone at once.
  */
-function parseAmount(raw: string, wallet: number): number | null {
-  const normalised: string = raw.trim().toLowerCase().replace(/[, ]/g, '');
+async function handleAction(
+  interaction: RoutableInteraction,
+  action: blackjackState.PlayerAction
+): Promise<void> {
+  const result = await blackjackState.act(interaction.user.id, action);
 
-  if (normalised === 'all' || normalised === 'max') {
-    return wallet > 0 ? wallet : null;
+  if (!result.ok) {
+    await whisper(interaction, result.message);
+    return;
   }
 
-  const parsed: number = Number.parseInt(normalised, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) return null;
-
-  return parsed;
+  const board = blackjackState.currentBoard();
+  if (board) await paintViaInteraction(interaction, board, 'BLACKJACK');
 }
 
-// ============ REGISTRATION ============
+async function handleInsurance(interaction: RoutableInteraction, take: boolean): Promise<void> {
+  const result = take
+    ? await blackjackState.takeInsurance(interaction.user.id)
+    : blackjackState.declineInsurance(interaction.user.id);
 
-registerComponentHandler(ID_PREFIX, async (interaction) => {
-  if (interaction.isModalSubmit()) return;
-  await handleComponent(interaction);
+  if (!result.ok) {
+    await whisper(interaction, result.message);
+    return;
+  }
+
+  await whisper(interaction, result.message);
+  blackjackState.refresh();
+}
+
+// ============ ROUTING ============
+
+registerComponentHandler(ID_PREFIX, async (interaction: RoutableInteraction) => {
+  const id: string = interaction.customId;
+
+  if (id === IDS.SIT_MODAL) return handleSitModal(interaction);
+  if (id === IDS.SIT) return handleSit(interaction);
+  if (id === IDS.LEAVE) return handleLeave(interaction);
+  if (id === IDS.SLIP) return handleSlip(interaction);
+
+  if (id === IDS.HIT) return handleAction(interaction, 'hit');
+  if (id === IDS.STAND) return handleAction(interaction, 'stand');
+  if (id === IDS.DOUBLE) return handleAction(interaction, 'double');
+  if (id === IDS.SPLIT) return handleAction(interaction, 'split');
+  if (id === IDS.SURRENDER) return handleAction(interaction, 'surrender');
+
+  if (id === IDS.INSURANCE_YES) return handleInsurance(interaction, true);
+  if (id === IDS.INSURANCE_NO) return handleInsurance(interaction, false);
+
+  if (id.startsWith(IDS.CHIP)) return handleChip(interaction, id.slice(IDS.CHIP.length));
+
+  console.warn(`[BLACKJACK] Unhandled component "${id}"`);
 });
