@@ -20,6 +20,8 @@ import { ASK } from '../ask/askConfig.js';
 export interface HttpResponse {
   readonly ok: boolean;
   readonly status: number;
+  /** Present on a real Response; only artifactSync reads it (for the etag). */
+  readonly headers?: { get(name: string): string | null };
   json(): Promise<unknown>;
 }
 
