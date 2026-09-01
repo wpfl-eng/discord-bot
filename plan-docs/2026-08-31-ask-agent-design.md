@@ -697,7 +697,9 @@ wpfl_matchups         1,449 rows   2010-2025
 wpfl_player_scores   35,682 rows  2015-2025
 ```
 
-**Statement guard**, belt-and-braces on top of that:
+**Statement guard.** Not belt-and-braces: measured, DuckDB executes *every*
+statement it is handed, and dropping an in-memory table is not external access,
+so the lockdown does not cover it. This is the control:
 
 - Exactly one statement; a single trailing `;` tolerated.
 - Must match `/^\s*(SELECT|WITH)\b/i`.
@@ -705,11 +707,11 @@ wpfl_player_scores   35,682 rows  2015-2025
   `CREATE`, `INSERT`, `UPDATE`, `DELETE`, `DROP`, `CALL`.
 - Row cap and a wall-clock timeout, with an explicit truncation notice.
 
-*Confidence: the materialize-then-lock approach is sound in principle; the exact
-DuckDB setting names and whether `lock_configuration` behaves as expected are
-**unverified** and must be confirmed against the installed version during
-implementation. The statement guard stands on its own if a setting turns out not
-to exist.*
+*Confirmed 2026-08-31 against DuckDB 1.5.5-r.4: both setting names are real, both
+apply at runtime, and the lockdown holds across connections (§15.4). Results are
+read with `getRowObjectsJson()` — DuckDB hands JS a `BigInt` for every BIGINT,
+which `JSON.stringify` throws on, and `{entries: …}` for every struct. Integers
+therefore reach the agent as strings, which the tool description states.*
 
 **Packaging risk resolved.** `@duckdb/node-api` 1.5.5-r.4 gets its binary from
 `@duckdb/node-bindings`, which ships per-platform prebuilt packages
@@ -1602,10 +1604,18 @@ a note not to change it. This absorbed the original §15.2 (DuckDB prebuilds on
 Node 20.15.1), which dissolved: the bindings are Node-API and ABI-stable across
 Node majors.
 
-### 15.4 DuckDB lockdown semantics
-The exact setting names for disabling external access and locking configuration
-are unverified against the installed version (§4.3). The statement guard is the
-independent fallback. Resolves in Phase 4 (`feat/ask-sql`).
+### 15.4 DuckDB lockdown semantics — RESOLVED 2026-08-31
+Both settings exist in 1.5.5-r.4, both can be set at runtime after materializing,
+and both behave as §4.3 assumed. With `enable_external_access=false` and
+`lock_configuration=true`, agent SQL cannot read a file, glob, `COPY`, `ATTACH`,
+`INSTALL`, `LOAD`, or turn either setting back on, and the lockdown covers every
+connection on the instance — verified including a refused read of the bot's own
+`.env`.
+
+One correction: the statement guard is **not** "belt-and-braces on top of" this.
+DuckDB executes every statement it is handed — `SELECT 1; DELETE FROM t` deletes
+— and dropping an in-memory table is not external access, so the lockdown does
+not cover it. The one-statement rule is the only control there. Log Stage 8.
 
 ### 15.5 `Read` rule coverage of Grep and Glob
 The docs describe it as "best-effort", which is why the `PreToolUse` path hook

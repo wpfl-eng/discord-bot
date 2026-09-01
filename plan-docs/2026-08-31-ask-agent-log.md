@@ -28,7 +28,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 5 | 1 | `feat/ask-data` | Data layer — fixtures + generator, sync, shredder, INDEX.md, history cache | DONE |
 | 6 | 2 | `feat/ask-persistence` | Persistence — migration 009, `askDb`, caps | DONE |
 | 7 | 3 | `feat/ask-tools` | Tools (API) — 3 WPFL aggregates, 4 ESPN | DONE |
-| 8 | 4 | `feat/ask-sql` | SQL and MCP — DuckDB, statement guard, `mcpServer` | NOT STARTED |
+| 8 | 4 | `feat/ask-sql` | SQL and MCP — DuckDB, statement guard, `mcpServer` | DONE |
 | 9 | 5 | `feat/ask-runner` | Runner — system prompt, `askRunner`, concurrency, hooks | NOT STARTED |
 | 10 | 6 | `feat/ask-discord` | Discord surface — `/ask`, threads, ticker, continuation | NOT STARTED |
 | 11 | 7 | `feat/ask` | Integration and handoff — docs, full suite, conditional smoke test | NOT STARTED |
@@ -829,12 +829,97 @@ could not honestly be designed before the payload was known.
 
 ---
 
-## Stage 8 — SQL and MCP (Phase 4) — `feat/ask-sql` — NOT STARTED
+## Stage 8 — SQL and MCP (Phase 4) — `feat/ask-sql` — 2026-08-31 — DONE
 
-_Should record: **the DuckDB lockdown finding (§15.4)** — the actual setting names
-in the installed version and whether they behave as §4.3 assumed, or plainly that
-they do not; the rejected-statement table; a real cross-source join and its rows;
-that eight tools register with three `alwaysLoad`._
+Merged to `feat/ask` as **`618b220`** (`--no-ff`); branch deleted.
+
+### Changed
+- `wpfl/sqlTool.ts` — **new.** In-memory DuckDB, statement guard, row cap.
+- `wpfl/mcpServer.ts` — **new.** `createSdkMcpServer` wiring all eight tools.
+- `ask/askConfig.ts` — `SQL_ROW_LIMIT`, `SQL_TIMEOUT_MS`.
+- Tests: `sqlTool` (41), `mcpServer` (6).
+
+### The DuckDB lockdown finding — §15.4 CLOSED
+
+Both setting names the design guessed are real in the installed version
+(1.5.5-r.4), both can be set at runtime after materializing, and both behave as
+§4.3 assumed. Probed directly:
+
+| After `SET enable_external_access=false` + `SET lock_configuration=true` | |
+| --- | --- |
+| `SELECT` from a materialized table | **works** |
+| `read_json_auto('/etc/passwd')` | Permission Error — file system operations disabled |
+| `read_csv`, `read_text`, `glob('/etc/*')` | Permission Error |
+| `COPY … TO` | Permission Error |
+| `ATTACH`, `INSTALL`, `LOAD` | Permission Error |
+| `SET enable_external_access=true` | Invalid Input Error — configuration is locked |
+| `SET lock_configuration=false` | Invalid Input Error — configuration is locked |
+| `SET allowed_directories=['/etc']` | Invalid Input Error — configuration is locked |
+| A **new connection** on the same instance | inherits the lockdown; cannot read files |
+
+Confirmed again against the real database: an attempt to read the bot's own
+`.env` through `read_json_auto` is refused by DuckDB.
+
+### The statement guard is the control, not a second layer
+
+The design called it "belt-and-braces on top of" the lockdown. Measured, it is
+load-bearing on its own: **DuckDB executes every statement it is handed.**
+Running `SELECT 1; DELETE FROM probe` against a seeded table emptied it. So the
+one-statement rule is what stops `SELECT 1; DROP TABLE wpfl_player_scores` from
+destroying the agent's own dataset mid-session — lockdown does not touch that,
+because dropping an in-memory table is not external access.
+
+The guard strips string literals, quoted identifiers, and both comment styles
+before matching, so it rejects statements rather than text: `WHERE owner = 'Drop
+Table Guy'`, `SELECT 'copy that'`, and a column named `dropped_players` all pass,
+while every keyword in the §4.3 list is rejected as a whole word.
+
+### Verified
+
+**Materialization against the real shred:** 43 tables in **272 ms** — 39 from
+the artifact, `teams` from the 14 owner files, and the three `wpfl_*` files.
+
+**The cross-source join the tool exists for.** Design §3.7's motivating question
+— *"has anyone ever paid up for a WR the way I did and had it work?"* — over
+3,130 draft rows joined to 35,682 player-score rows, in **9 ms**:
+
+```
+2023  Doug Black      Tyreek Hill       $64  299.2 pts  4.68 per $
+2024  Nixon Ball      Ja'Marr Chase     $69  318.9 pts  4.62 per $
+2021  Rick Kocher     Davante Adams     $62  274.3 pts  4.42 per $
+```
+
+An artifact-to-decade join also works: 2026 draft grade against career picks,
+reading a nested struct field (`t.grade.letter`) straight out of the shred.
+
+**Eight tools register, three always loaded** — `sql`, `espn_teams`,
+`expected_wins` — matching §4.2.
+
+**Green gate on `feat/ask` after the merge:** typecheck 0 · lint 0 · `npm test`
+**624 passed / 26 suites** (was 577 / 24).
+
+### Findings that changed the implementation
+
+1. **DuckDB's JS values are not JSON-serializable.** A `COUNT(*)` comes back as
+   a JS `BigInt`, which `JSON.stringify` throws on outright, and a STRUCT comes
+   back as `{entries: {...}}`. The library ships `getRowObjectsJson()`, which
+   converts BIGINT, DECIMAL, DATE, TIMESTAMP, STRUCT and LIST to plain JSON;
+   the tool uses it. The consequence the agent sees: **integers arrive as
+   strings**, to keep full precision. The tool description says so.
+
+2. **Table naming is generated, not the design's list.** §4.3's list mixed
+   prefixed with unprefixed names (`board`, `standings`, but `news_players`) and
+   would have collided — `news/teams.json` against the `teams` collection. Every
+   file is now `<directory>_<file>`, plus `teams` and `wpfl_*`. Uniform, cannot
+   collide, and needs no code change when the artifact grows a body. The tool
+   description tells the agent to list the tables rather than guess.
+
+3. **There is no statement-timeout setting in DuckDB 1.5.5**, but
+   `connection.interrupt()` exists, so the wall-clock timeout actually cancels
+   the query rather than abandoning it.
+
+### Open
+- Nothing new. §15.4 is closed.
 
 ---
 
