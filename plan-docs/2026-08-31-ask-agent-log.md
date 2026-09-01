@@ -30,7 +30,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 7 | 3 | `feat/ask-tools` | Tools (API) — 3 WPFL aggregates, 4 ESPN | DONE |
 | 8 | 4 | `feat/ask-sql` | SQL and MCP — DuckDB, statement guard, `mcpServer` | DONE |
 | 9 | 5 | `feat/ask-runner` | Runner — system prompt, `askRunner`, concurrency, hooks | DONE |
-| 10 | 6 | `feat/ask-discord` | Discord surface — `/ask`, threads, ticker, continuation | NOT STARTED |
+| 10 | 6 | `feat/ask-discord` | Discord surface — `/ask`, threads, ticker, continuation | DONE |
 | 11 | 7 | `feat/ask` | Integration and handoff — docs, full suite, conditional smoke test | NOT STARTED |
 
 **AJ's, not the build's** (design §17.5): applying migration 009, merging to
@@ -1029,11 +1029,68 @@ on two different dates, and carries none of the varying values.
 
 ---
 
-## Stage 10 — Discord surface (Phase 6) — `feat/ask-discord` — NOT STARTED
+## Stage 10 — Discord surface (Phase 6) — `feat/ask-discord` — 2026-09-01 — DONE
 
-_Should record: each branch of design §6.1's routing table exercised against
-stubs; the startup identity check's behaviour on an unresolvable snowflake;
-confirmation that `deploy-commands.ts` was **not** run._
+Merged to `feat/ask` as **`e9f301f`** (`--no-ff`); branch deleted.
+
+### Changed
+- `ask/ticker.ts` — **new.** Ticker, edit throttle, Discord length splitting.
+- `discordCommands/ask/ask.ts` — **new.** The command, routing, continuation,
+  identity check.
+- `index.ts` — `messageCreate` gains the continuation branch; `ready` gains the
+  identity check and the first artifact sync.
+- Tests: `ticker` (20), `askCommand` (18).
+
+### Verified
+
+**Every row of §6.1's routing table**, against hand-built stubs:
+
+| Channel | Session | Result |
+| --- | --- | --- |
+| `GuildText`, `GuildAnnouncement` | — | new thread |
+| `PublicThread` / `PrivateThread` / `AnnouncementThread` | live | in place, resuming it |
+| thread | none | in place, fresh |
+| thread | **closed** | in place, **fresh** — not resumed |
+| `GuildVoice`, `GuildStageVoice`, `GuildForum`, `GuildMedia`, `DM` | — | in place |
+
+The last row is the one that matters operationally: `startThread` throws
+`MessageThreadParent` outside `GuildText` and `GuildAnnouncement`
+(`node_modules/discord.js/src/structures/Message.js:1035`, read directly), so
+anything else must never reach it.
+
+**The command registers correctly through the repo's own loader rule.**
+`discordCommands/ask/` contains exactly `ask.ts`, so `index.ts:78` selects it;
+`isValidCommandModule` returns true; the built option is
+`{type: 3, name: 'question', required: true, max_length: 1000}`.
+
+**The identity check** resolves all 14 snowflakes, returns the canonical names
+of any that fail, and warns loudly. Asserted that it checks 14 distinct ids.
+
+**The ticker's throttle** sends the first update immediately, coalesces
+everything inside the 1.5 s window down to the newest state, always flushes the
+final state, and survives a failed edit — a rate limit must not stop the next
+one.
+
+**Green gate on `feat/ask` after the merge:** typecheck 0 · lint 0 · `npm test`
+**736 passed / 32 suites** (was 698 / 30).
+
+**`deploy-commands.ts` was NOT run.** `/ask` is not registered on the live
+guild; that remains AJ's, per §17.5.
+
+### Notes
+
+- `answer()` takes a `User` rather than a `ChatInputCommandInteraction`, because
+  the same path serves both `/ask` and a plain message continuing a thread.
+- The session row is written before the ledger row, since `ask_usage` carries a
+  foreign key onto `ask_sessions` — the constraint Stage 6 proved is enforced.
+- `isAskThreadMessage` is a pure predicate so the `messageCreate` handler, which
+  runs on every guild message, reaches the database only once the cheap checks
+  pass.
+
+### Open
+- Nothing new. §15.8 (Discord thread permissions) is still unconfirmed on the
+  live guild, but now degrades rather than breaks: a failed `startThread` is
+  caught and the answer is posted in the channel instead.
 
 ---
 
