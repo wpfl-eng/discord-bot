@@ -25,7 +25,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 2 | — | `fix/espn-fork-pin` | ESPN fork fixed (`591ee59`), pinned, verified | DONE |
 | 3 | — | — | Build-readiness review: TDD, branches, conciseness, `prompt.md` | DONE |
 | 4 | 0 | `feat/ask` | Scaffolding — deps, `askConfig`, `askAuth`, `wpflMembers` | DONE |
-| 5 | 1 | `feat/ask-data` | Data layer — fixtures + generator, sync, shredder, INDEX.md, history cache | NOT STARTED |
+| 5 | 1 | `feat/ask-data` | Data layer — fixtures + generator, sync, shredder, INDEX.md, history cache | DONE |
 | 6 | 2 | `feat/ask-persistence` | Persistence — migration 009, `askDb`, caps | NOT STARTED |
 | 7 | 3 | `feat/ask-tools` | Tools (API) — 3 WPFL aggregates, 4 ESPN | NOT STARTED |
 | 8 | 4 | `feat/ask-sql` | SQL and MCP — DuckDB, statement guard, `mcpServer` | NOT STARTED |
@@ -569,12 +569,101 @@ asserted as an exact sorted array, so a future leak fails rather than passes.
 
 ---
 
-## Stage 5 — Data layer (Phase 1) — `feat/ask-data` — NOT STARTED
+## Stage 5 — Data layer (Phase 1) — `feat/ask-data` — 2026-08-31 — DONE
 
-_Should record: fixture sizes and how they were generated; that both shred; that a
-missing required body throws and an unknown body does not; the layout produced by
-a **real** fetch against the published artifact, with its etag; row counts and
-wall-clock for the real WPFL cache build._
+Merged to `feat/ask` as **`c43a225`** (`--no-ff`); branch deleted.
+
+### Changed
+- `scripts/makeAskFixtures.ts` — **new.** Generates both fixtures from the two
+  real builds.
+- `tests/fixtures/postdraft-published.json` (76 KB), `postdraft-next.json` (86 KB)
+  — **new**, generated.
+- `wpfl/shredder.ts` — **new.** `BODY_PLANS`, `DEAD_KEYS`, tolerant-and-loud shred.
+- `wpfl/indexGenerator.ts` — **new.** `INDEX.md` including the glossary constants.
+- `wpfl/historyCache.ts` — **new.** The cached WPFL decade.
+- `wpfl/artifactSync.ts` — **new.** Fetch, etag check, atomic swap.
+- `ask/askConfig.ts` — WPFL API base, timeout and season floors added.
+- Tests: `shredder` (25), `indexGenerator` (14), `historyCache` (9),
+  `artifactSync` (11).
+
+### Verified
+
+**Fixtures are faithful, not hand-written.** The published fixture's key set is
+identical to the live artifact's at every level; the next fixture's is identical
+to draft-2026's local build plus the `available` wrapper `deploy.sh` adds. Dead
+keys present in one and absent in the other; `market` and `night.acts` only in
+next; `news.teams` (14 keys) preserved whole while `dossiers` (196),
+`news.players` (182) and `news.reads` (57) truncate.
+
+**The real 935 KB artifact shreds to exactly the §3.3 layout**, not only the
+fixture: 53 files, 844,151 B, **5 ms**. 14 team files with correct owner slugs
+(8,029–9,362 B each), `league/dossiers.jsonl` 196 lines, `news/players.jsonl`
+182 lines, `available` ignored, four dead keys skipped, nothing undocumented.
+
+The design's central claim holds: `grep "Bijan Robinson" league/dossiers.jsonl`
+returns a **1,079 byte line** rather than the 935 KB single line the unshredded
+artifact would match.
+
+**The real WPFL cache builds.** Against the live API: **40,261 rows,
+9,325,799 B, 12.0 s** — `draft_history` 3,130 (2010–2025), `matchups` 1,449,
+`player_scores` 35,682 across 2015–2025. Every 2026 request returned `[]`,
+confirming §15.10 and confirming that an unplayed season is data, not failure.
+
+**End-to-end sync against the live artifact:** cold `ensureFresh()` produced the
+full tree in **8.0 s** — 53 shred files, three cache files, `INDEX.md`, `.etag`
+— and the second call short-circuited to `fresh`. Forced stale (mtime pushed
+back 7 h), it returned `unchanged` in **0.16 s**.
+
+**Green gate on `feat/ask` after the merge:**
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `npm run typecheck` | 0 | clean |
+| `npm run lint` | 0 | clean |
+| `npm test` | 0 | **517 passed / 21 suites** (was 458 / 17) |
+
+### Findings that corrected the design
+
+1. **Cloudflare returns a weak etag on a compressed response and a strong one
+   otherwise.** `curl -sI` sends no `Accept-Encoding` and gets
+   `"75c67b38…"`; Node's `fetch` always negotiates gzip and gets
+   `W/"75c67b38…"` on both HEAD and GET, for the same build. §3.5 compared the
+   raw strings, so the unchanged short-circuit would never have fired: every
+   stale window would have paid a full re-shred plus a cache rebuild, forever,
+   and nothing would have looked broken. `normalizeEtag` strips the prefix and
+   quotes at the boundary. Now in design §3.5 and §16.
+
+2. **The glossary term `mkt` does not exist.** §3.4 listed it. Counting keys
+   across both builds: `mkt` 0 occurrences, `market` 4 and 5. The glossary
+   defines `market`. Design corrected.
+
+3. **`seasonMax` cannot be hardcoded to 2025.** §3.7's own prose says the
+   refresh "matters in season" because the API populates the current year as
+   weeks complete — which a 2025 cap makes impossible. It is now the current
+   year; an unplayed season costs one request and returns `[]`. Design
+   corrected, with the reasoning.
+
+4. **Three size estimates were wrong** and are corrected in place: `INDEX.md`
+   11,196 B not ~2 KB (it describes all 53 files individually, so the §3.2
+   worked example is ~5K tokens not ~3K); `player_scores` 35,682 rows not
+   ~38,000; a cold cache build 8–12 s not ~15 s. The fixtures came out at 76/86
+   KB against an estimated ~30 KB, because they are formatted rather than
+   minified so a shape change is legible in a diff.
+
+### TDD notes
+
+Every module was committed red before green. One test was corrected rather than
+weakened, in Stage 4 (`b95ad5e`); none were in this stage.
+
+`tests/wpfl/artifactSync.test.ts` is **not** in the design's mandatory table —
+§13.3 treats `artifactSync` as I/O orchestration. It was tested anyway, and
+narrowly: etag normalization and swap atomicity, the two parts that measurably
+can break. The weak-etag bug was found by writing that test. Design §11's test
+list updated to match.
+
+### Open
+- Nothing new. §15.10 (the 2026 data gap) is now measured rather than assumed:
+  every WPFL endpoint returns `[]` for 2026 today.
 
 ---
 
