@@ -1,0 +1,367 @@
+[
+  [
+    {
+      "team": {
+        "abbrev": "JMBO",
+        "currentProjectedRank": 8,
+        "currentSimulationResults": {
+          "divisionWinPct": 0.0665,
+          "modeRecord": {
+            "gamesBack": 0,
+            "losses": 7,
+            "percentage": 0,
+            "pointsAgainst": 0,
+            "pointsFor": 0,
+            "streakLength": 0,
+            "streakType": "NONE",
+            "ties": 0,
+            "wins": 7
+          },
+          "playoffClinchType": "UNKNOWN",
+          "playoffPct": 0.4235,
+          "rank": 8
+        },
+        "divisionId": 0,
+        "draftDayProjectedRank": 8,
+        "draftStrategy": { "keeperPlayerIds": [] },
+        "eliminated": false,
+        "eliminationMatchupPeriod": 0,
+        "id": 5,
+        "isActive": false,
+        "isTransactionLocked": false,
+        "logo": "https://mystique-api.fantasy.espn.com/apis/v1/domains/lm/images/20a84590-9c0e-11f1-9b94-67d561221a90",
+        "logoType": "CUSTOM_UPLOAD",
+        "name": "WPFL Youth Academy ",
+        "owners": ["{00000000-0000-0000-0000-000000000000}"],
+        "playoffClinchType": "UNKNOWN",
+        "playoffSeed": 11,
+        "points": 0,
+        "pointsAdjusted": 0,
+        "pointsDelta": 0,
+        "primaryOwner": "{00000000-0000-0000-0000-000000000000}",
+        "rankCalculatedFinal": 0,
+        "rankFinal": 0,
+        "record": {
+          "away": {
+            "gamesBack": 0,
+            "losses": 0,
+            "percentage": 0,
+            "pointsAgainst": 0,
+            "pointsFor": 0,
+            "streakLength": 0,
+            "streakType": "NONE",
+            "ties": 0,
+            "wins": 0
+          },
+          "division": {
+            "gamesBack": 0,
+            "losses": 0,
+            "percentage": 0,
+            "pointsAgainst": 0,
+            "pointsFor": 0,
+            "streakLength": 0,
+            "streakType": "NONE",
+            "ties": 0,
+            "wins": 0
+          },
+          "home": {
+            "gamesBack": 0,
+            "losses": 0,
+            "percentage": 0,
+            "pointsAgainst": 0,
+            "pointsFor": 0,
+            "streakLength": 0,
+            "streakType": "NONE",
+            "ties": 0,
+            "wins": 0
+          },
+          "overall": {
+            "gamesBack": 0,
+            "losses": 0,
+            "percentage": 0,
+            "pointsAgainst": 0,
+            "pointsFor": 0,
+            "streakLength": 0,
+            "streakType": "NONE",
+            "ties": 0,
+            "wins": 0
+          }
+        },
+        "roster": {
+          "appliedStatTotal": 0,
+          "entries": [
+            {
+              "acquisitionDate": 1787892100378,
+              "acquisitionType": "DRAFT",
+              "injuryStatus": "NORMAL",
+              "lineupSlotId": 2,
+              "pendingTransactionIds": null,
+              "playerId": 4430807,
+              "playerPoolEntry": {
+                "appliedStatTotal": 0,
+                "id": 4430807,
+                "keeperValue": 74,
+                "keeperValueFuture": 73,
+                "lineupLocked": false,
+                "onTeamId": 5,
+                "player": {
+                  "active": true,
+                  "defaultPositionId": 2,
+                  "draftRanksByRankType": {
+                    "STANDARD": {
+                      "auctionValue": 56,
+                      "published": false,
+                      "rank": 2,
+                      "rankSourceId": 0,
+                      "rankType": "STANDARD",
+                      "slotId": 0
+                    },
+                    "PPR": {
+                      "auctionValue": 56,
+                      "published": false,
+                      "rank": 2,
+                      "rankSourceId": 0,
+                      "rankType": "PPR",
+                      "slotId": 0
+                    },
+                    "ELIMINATION": {
+                      "auctionValue": 42,
+                      "published": false,
+                      "rank": 1,
+                      "rankSourceId": 0,
+                      "rankType": "ELIMINATION",
+                      "slotId": 0
+                    },
+                    "SUPERFLEX": {
+                      "auctionValue": 57,
+                      "published": false,
+                      "rank": 8,
+                      "rankSourceId": 0,
+                      "rankType": "SUPERFLEX",
+                      "slotId": 0
+                    }
+                  },
+                  "droppable": false,
+                  "eligibleSlots": [2],
+                  "firstName": "Bijan",
+                  "fullName": "Bijan Robinson",
+                  "id": 4430807,
+                  "injured": false,
+                  "injuryStatus": "ACTIVE",
+                  "lastName": "Robinson",
+                  "lastNewsDate": 1786802965000,
+                  "lastVideoDate": 1787614482000,
+                  "ownership": {
+                    "auctionValueAverage": 68.17,
+                    "averageDraftPosition": 2.39,
+                    "percentChange": 0.02,
+                    "percentOwned": 99.9,
+                    "percentStarted": 99.7
+                  },
+                  "proTeamId": 1,
+                  "rankings": {
+                    "0": [
+                      {
+                        "auctionValue": 0,
+                        "published": true,
+                        "rank": 2,
+                        "rankSourceId": 7,
+                        "rankType": "STANDARD",
+                        "slotId": 2
+                      }
+                    ],
+                    "1": [
+                      {
+                        "auctionValue": 0,
+                        "published": false,
+                        "rank": 5,
+                        "rankSourceId": 7,
+                        "rankType": "STANDARD",
+                        "slotId": 2
+                      }
+                    ]
+                  },
+                  "seasonOutlook": "Robinson enters his fourth season having finished in the top five among running backs in carries, rushing yards, touches, yards and fantasy points in each of the past two seasons. Also a big factor as a receiver, he has ranked no lower than fifth at the position in routes, targets, receptions and receiving yards in his three pro seasons. In 2025, PFF tracked him with 86 forced missed tackles, which was easily the most among backs. The 24-year-old is in his prime and, though he has a new coach in Kevin Stefanski, his path to a massive offensive role remains clear. He's on the short list of players who should be considered with the first pick of your fantasy draft.",
+                  "stats": [
+                    {
+                      "appliedStats": {
+                        "24": 7.568172312000001,
+                        "25": 2.302069446,
+                        "26": 0.041001698,
+                        "42": 4.011586197,
+                        "43": 1.016271672,
+                        "44": 0.020360834,
+                        "53": 2.2601550505,
+                        "63": 0.005058,
+                        "72": -0.184561192
+                      },
+                      "appliedTotal": 17.04011402,
+                      "externalId": "20261",
+                      "id": "1120261",
+                      "proTeamId": 0,
+                      "scoringPeriodId": 1,
+                      "seasonId": 2026,
+                      "statSourceId": 1,
+                      "statSplitTypeId": 1,
+                      "stats": { "23": 16.40747939 }
+                    }
+                  ],
+                  "universeId": 2
+                },
+                "rosterLocked": false,
+                "status": "ONTEAM",
+                "tradeLocked": false
+              },
+              "status": "NORMAL"
+            }
+          ],
+          "tradeReservedEntries": 0
+        },
+        "tradeBlock": {},
+        "transactionCounter": {
+          "acquisitionBudgetSpent": 0,
+          "acquisitions": 0,
+          "drops": 2,
+          "matchupAcquisitionTotals": {},
+          "misc": 0,
+          "moveToActive": 1,
+          "moveToIR": 0,
+          "paid": 0,
+          "teamCharges": 0,
+          "trades": 0
+        },
+        "valuesByStat": { "3": 0 },
+        "waiverRank": 3
+      },
+      "action": "FA ADDED",
+      "player": {
+        "acquisitionDate": 1788201276044,
+        "acquisitionType": "ADD",
+        "injuryStatus": "NORMAL",
+        "lineupSlotId": 20,
+        "pendingTransactionIds": null,
+        "playerId": 4682745,
+        "playerPoolEntry": {
+          "appliedStatTotal": 0,
+          "id": 4682745,
+          "keeperValue": 0,
+          "keeperValueFuture": 0,
+          "lineupLocked": false,
+          "onTeamId": 5,
+          "player": {
+            "active": true,
+            "defaultPositionId": 2,
+            "draftRanksByRankType": {
+              "STANDARD": {
+                "auctionValue": 0,
+                "published": false,
+                "rank": 308,
+                "rankSourceId": 0,
+                "rankType": "STANDARD",
+                "slotId": 0
+              },
+              "PPR": {
+                "auctionValue": 0,
+                "published": false,
+                "rank": 308,
+                "rankSourceId": 0,
+                "rankType": "PPR",
+                "slotId": 0
+              },
+              "ELIMINATION": {
+                "auctionValue": 1,
+                "published": false,
+                "rank": 1062,
+                "rankSourceId": 0,
+                "rankType": "ELIMINATION",
+                "slotId": 0
+              },
+              "SUPERFLEX": {
+                "auctionValue": 0,
+                "published": false,
+                "rank": 318,
+                "rankSourceId": 0,
+                "rankType": "SUPERFLEX",
+                "slotId": 0
+              }
+            },
+            "droppable": true,
+            "eligibleSlots": [2],
+            "firstName": "Jaylen",
+            "fullName": "Jaylen Wright",
+            "id": 4682745,
+            "injured": false,
+            "injuryStatus": "ACTIVE",
+            "lastName": "Wright",
+            "lastNewsDate": 1786766513000,
+            "ownership": {
+              "auctionValueAverage": 0.04,
+              "averageDraftPosition": 170.59,
+              "percentChange": 0.07,
+              "percentOwned": 2.39,
+              "percentStarted": 0.12
+            },
+            "proTeamId": 15,
+            "rankings": {
+              "0": [
+                {
+                  "auctionValue": 0,
+                  "published": false,
+                  "rank": 65,
+                  "rankSourceId": 7,
+                  "rankType": "STANDARD",
+                  "slotId": 2
+                }
+              ],
+              "1": [
+                {
+                  "auctionValue": 0,
+                  "published": false,
+                  "rank": 65,
+                  "rankSourceId": 7,
+                  "rankType": "STANDARD",
+                  "slotId": 2
+                }
+              ]
+            },
+            "seasonOutlook": "Wright will once again compete with second-year Ollie Gordon II for backup reps behind feature back De'Von Achane. Wright has barely cleared 70 touches during each of his first two NFL seasons, but he has shined at times, including a 24-107-1 rushing line in Week 14 last season. The 2024 fourth-round pick has been effective as a rusher, but hasn't been involved in the passing game (15 targets in 25 games). The 23-year-old would be worth adding only in the event of an Achane injury and even then, it's possible he would split (or be on the short end of a committee) with Gordon in a rebuilding offense that may not score very often.",
+            "stats": [
+              {
+                "appliedStats": {
+                  "24": 1.6070737890000002,
+                  "25": 0.47637675,
+                  "26": 0.00596,
+                  "42": 0.3399509894,
+                  "43": 0.072655416,
+                  "44": 0.001255714,
+                  "53": 0.2182120325,
+                  "63": 0.001722,
+                  "72": -0.061436696,
+                  "101": 0.006730656
+                },
+                "appliedTotal": 2.66850065,
+                "externalId": "20261",
+                "id": "1120261",
+                "proTeamId": 0,
+                "scoringPeriodId": 1,
+                "seasonId": 2026,
+                "statSourceId": 1,
+                "statSplitTypeId": 1,
+                "stats": { "23": 3.701678236 }
+              }
+            ],
+            "universeId": 1
+          },
+          "rosterLocked": false,
+          "status": "ONTEAM",
+          "tradeLocked": false
+        },
+        "status": "NORMAL"
+      },
+      "bidAmount": 0,
+      "date": 1788201276058,
+      "targetId": 4682745,
+      "ids": { "to": 5 }
+    }
+  ]
+]

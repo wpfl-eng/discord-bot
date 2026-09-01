@@ -1,7 +1,12 @@
-// Regenerate the two /ask artifact fixtures.
+// Regenerate the /ask fixtures: the two artifact shapes, plus one recorded
+// response per WPFL aggregate endpoint and per ESPN client method.
 //
 // Usage:
 //   npx tsx scripts/makeAskFixtures.ts
+//
+// Each source is independent. A source whose prerequisite is missing --
+// draft-2026 not checked out, no ESPN credentials in .env -- is skipped with a
+// message rather than failing the run, so this is usable on any box.
 //
 // The shredder cannot be written test-first without a fixture, and a
 // hand-written fixture encodes what the design document *claims* the artifact
@@ -23,13 +28,18 @@
 // of shapes already covered, and committing it would make these the two
 // largest files in the repo by a wide margin (design §13.2).
 
+import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import prettier from 'prettier';
+import pkg from 'espn-fantasy-football-api/node.js';
+
+const { Client } = pkg;
 
 const ARTIFACT_URL = 'https://wpfl-receipts-694ed0.pages.dev/postdraft.json';
 const LOCAL_ARTIFACT = '../draft-2026/data/cache/postdraft_2026.json';
 const OUT_DIR = 'tests/fixtures';
+const ASK_API = 'https://wpflapi.azurewebsites.net/api';
 
 /** Entries kept from any list, and from any dict judged to be a collection. */
 const KEEP = 3;
@@ -50,19 +60,19 @@ type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
  *   at depth 1 they are the files the shredder writes, and dropping either
  *   would produce a fixture that no longer exercises the shredder.
  */
-function trim(value: Json, depth: number): Json {
+function trim(value: Json, depth: number, keep: number = KEEP): Json {
   if (Array.isArray(value)) {
-    return value.slice(0, KEEP).map((entry: Json): Json => trim(entry, depth + 1));
+    return value.slice(0, keep).map((entry: Json): Json => trim(entry, depth + 1, keep));
   }
 
   if (value !== null && typeof value === 'object') {
     const keys: string[] = Object.keys(value);
     const kept: string[] =
-      depth >= 2 && keys.length > DICT_IS_COLLECTION_ABOVE ? keys.slice(0, KEEP) : keys;
+      depth >= 2 && keys.length > DICT_IS_COLLECTION_ABOVE ? keys.slice(0, keep) : keys;
 
     const out: { [key: string]: Json } = {};
     for (const key of kept) {
-      out[key] = trim(value[key], depth + 1);
+      out[key] = trim(value[key], depth + 1, keep);
     }
     return out;
   }
@@ -115,3 +125,70 @@ await write('postdraft-next.json', {
   available: true,
   ...(trim(local, 0) as { [k: string]: Json }),
 });
+
+// ---------------------------------------------------------------------------
+// Recorded tool responses (design §13.3's carve-outs)
+//
+// The WPFL aggregates and the ESPN methods get their interfaces designed
+// against a real payload rather than against a guess: the aggregates' row shape
+// is the API's, not ours, and the ESPN fork's return shapes are documented
+// nowhere -- the blank-team-name finding came only from reading one.
+// ---------------------------------------------------------------------------
+
+const WPFL_RECORDINGS: readonly (readonly [string, string])[] = [
+  [
+    'wpfl-expected-wins.json',
+    `${ASK_API}/expectedwins?seasonMin=2024&seasonMax=2024&weekMin=1&weekMax=17&includePlayoffs=false`,
+  ],
+  ['wpfl-optimal-coaching.json', `${ASK_API}/optimalcoaching/pointsfor/2024?week=16`],
+  [
+    'wpfl-drafted-points.json',
+    `${ASK_API}/draft/draftedpoints?seasonMin=2024&seasonMax=2024&weekMax=15`,
+  ],
+];
+
+for (const [name, url] of WPFL_RECORDINGS) {
+  const response: Response = await fetch(url);
+  if (!response.ok) {
+    console.log(`skipped ${name}: ${url} returned ${response.status}`);
+    continue;
+  }
+  // One row per owner, so these are small enough to keep whole.
+  await write(name, (await response.json()) as Json);
+}
+
+const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
+if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) {
+  console.log('skipped the ESPN recordings: LEAGUE_ID, ESPN_S2 or SWID is not set');
+} else {
+  const client = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
+  client.setCookies({ espnS2: ESPN_S2, SWID });
+  const seasonId: number = new Date().getFullYear();
+
+  // Trimmed to a few entries each: 837 free agents and 14 full rosters are the
+  // same shape repeated, and the interface is what these are recorded for.
+  // Two entries each. Enough to show that a field is a list; a transaction
+  // action carries the whole 13 KB team object, so three of everything is far
+  // more than the shape needs.
+  const KEEP_ESPN = 2;
+  await write(
+    'espn-teams.json',
+    trim(await client.getTeamsAtWeek({ seasonId, scoringPeriodId: 1 }), 0, KEEP_ESPN)
+  );
+  await write(
+    'espn-boxscores.json',
+    trim(
+      await client.getBoxscoreForWeek({ seasonId, matchupPeriodId: 1, scoringPeriodId: 1 }),
+      0,
+      KEEP_ESPN
+    )
+  );
+  await write(
+    'espn-free-agents.json',
+    trim(await client.getFreeAgents({ seasonId, scoringPeriodId: 1 }), 0, KEEP_ESPN)
+  );
+  // One topic, one action. Every action embeds the *raw* ESPN team object --
+  // 8.8 KB of roster the tool never reads past `team.id` -- so two of them cost
+  // 90 KB to record one field layout.
+  await write('espn-transactions.json', trim(await client.getRecentActivity({ seasonId }), 0, 1));
+}
