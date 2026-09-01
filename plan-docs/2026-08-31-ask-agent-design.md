@@ -507,6 +507,8 @@ settingSources: [],               // never load the repo's .claude/ config
 cwd: ASK.DATA_DIR,                // not the repo
 allowedTools: [                   // permission
   `Read(//${ASK.DATA_DIR}/**)`,   // PATH-SCOPED, with the // absolute anchor
+  'Grep',                         // BARE. See the correction below.
+  'Glob',
   'WebSearch',
   'WebFetch',
   'mcp__wpfl__*',
@@ -522,6 +524,24 @@ hooks: {
   PostToolUseFailure: [{ hooks: [auditToolCall] }],             // §10.3
 },
 ```
+
+> **Correction, 2026-09-01 (log Stage 12).** This block originally listed only
+> `Read`, `WebSearch`, `WebFetch` and the MCP prefix — omitting `Grep` and
+> `Glob` out of the caution two paragraphs above, that a bare `Grep` allow
+> auto-approves grepping any file on disk. But omitting a tool from
+> `allowedTools` under `dontAsk` does not *confine* it, it **disables** it: the
+> mode is documented as "deny if not pre-approved", so every Grep and Glob the
+> agent attempted was denied outright. That strands §3.2's whole reason for
+> shredding `league/dossiers` and `news/players` to JSONL, and contradicts the
+> two INDEX.md descriptions that say "Grep this by player name".
+>
+> The caution was right about the risk and wrong about the remedy. `allowedTools`
+> was never going to confine Grep — §10.2 already says so, and already makes the
+> `PreToolUse` path hook the guarantee precisely because a `Grep(path)` rule is
+> accepted but never consulted. Both are now pre-approved by bare name, and the
+> hook is what keeps them inside `ASK.DATA_DIR`. A hook deny holds even in
+> `bypassPermissions`, so nothing about the confinement got weaker; what changed
+> is that the search half of the data design now runs at all.
 
 - **`tools` is an availability allowlist, not a denylist.** The custom-tools doc
   is explicit that `tools: [...]` removes every unlisted built-in from Claude's
@@ -1088,7 +1108,7 @@ CREATE TABLE ask_sessions (
 CREATE TABLE ask_usage (
   id           SERIAL PRIMARY KEY,
   user_id      TEXT NOT NULL,
-  thread_id    TEXT REFERENCES ask_sessions(thread_id),
+  thread_id    TEXT,                          -- correlation only; NO foreign key (see below)
   prompt       TEXT NOT NULL,
   model        TEXT,
   num_turns    INTEGER,
@@ -1099,6 +1119,7 @@ CREATE TABLE ask_usage (
 );
 CREATE INDEX idx_ask_usage_user_day ON ask_usage (user_id, created_at DESC);
 CREATE INDEX idx_ask_usage_created  ON ask_usage (created_at DESC);
+CREATE INDEX idx_ask_usage_thread   ON ask_usage (thread_id, created_at);
 
 -- One row per DENIED or FAILED tool call. The happy path is deliberately not
 -- written here -- see the note below.
@@ -1114,6 +1135,17 @@ CREATE TABLE ask_tool_calls (
 );
 CREATE INDEX idx_ask_tool_calls_thread ON ask_tool_calls (thread_id, created_at);
 ```
+
+**`thread_id` carries no foreign key onto `ask_sessions`, deliberately.** The
+first draft of this section gave it one. `runAsk` writes the ledger row from
+inside the run, on every terminal result, before the Discord layer has written
+the session row — and on a run that died before the SDK emitted a session id
+there is no session row to write at all. Verified against Postgres 16: the two
+inserts in the order the code issues them fail with `violates foreign key
+constraint "ask_usage_thread_id_fkey"`, `writeLedger` swallows it, and the caps
+— which count rows in this table — count nothing. An append-only accounting
+ledger does not depend on a mutable, prunable session table for its right to
+exist. Log Stage 12.
 
 The caps count rows in `ask_usage`, never sum `cost_usd`. Both cost columns are
 labelled as estimates in the DDL so nobody downstream mistakes them for billing

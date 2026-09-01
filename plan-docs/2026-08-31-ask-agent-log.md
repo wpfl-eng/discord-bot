@@ -1176,6 +1176,167 @@ Three items need a Claude credential (15.1, 15.5, 15.11, 15.12), one needs week
 1 (15.9), one needs a week of real use (15.7), and one needs a guild check
 (15.8). None of them block merging.
 
+## Stage 12 — Adversarial review of `feat/ask` — `feat/ask` — 2026-09-01 — DONE
+
+Not a build stage. A staff-level adversarial read of everything Stages 4–11
+produced, against the design, the log, and ordinary practice — then the fixes,
+each with tests. Eight commits, no merge: this ran directly on `feat/ask`.
+
+The finding that matters most is structural rather than any single bug. **Every
+defect worth the name sat where nothing could execute.** The suite was 736 green
+against mocks, the typechecker was clean, and the feature would not have worked
+on first contact — because the three things it depends on (the SDK's permission
+model, a real Postgres, a real DuckDB parser) were all stubbed. Three of the
+fixes below were found by reading a `.d.ts`, running one container, and running
+one five-line script.
+
+### Changed
+
+- `ask/askRunner.ts` — `Grep` and `Glob` added to `allowedTools`; blanket
+  `as Options` assertion dropped
+- `migrations/009_ask_agent.sql` — `ask_usage.thread_id` foreign key removed,
+  `idx_ask_usage_thread` added
+- `wpfl/artifactSync.ts` — single-flight map, fetch deadline, existence check on
+  the unchanged short-circuit
+- `wpfl/sqlTool.ts` — newline-delimited row-cap wrapper, `DESCRIBE`/`SUMMARIZE`
+  accepted, DuckDB connections closed on rebuild
+- `wpfl/shredder.ts` — `safeName()` on every artifact-derived path component,
+  plus a resolve-and-refuse check in the writer
+- `wpfl/indexGenerator.ts` — a section for the cached WPFL decade
+- `wpfl/espnTools.ts`, `wpfl/historyCache.ts` — `getCurrentNFLSeason()`
+- `wpfl/wpflApiTools.ts` — response body shape check
+- `ask/systemPrompt.ts` — `America/New_York` for the date and season
+- `ask/ticker.ts` — `render()` capped to Discord's limit, `renderFull()` added
+- `discordCommands/ask/ask.ts` — `onThreadArchived()`; `publish()` takes
+  `renderFull()`
+- `index.ts` — `Events.ThreadUpdate` wired
+- `helpers/utils.ts` — `getCurrentNFLSeason()`, beside `getCurrentNFLWeek`
+- `tests/ask/migration009.test.ts` — new; 49 tests added across nine suites
+
+### Verified
+
+**Grep and Glob were denied on every call.** `permissionMode: 'dontAsk'` is
+documented in the SDK's own types as *"Don't prompt for permissions, deny if not
+pre-approved"* (`node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts:1826`).
+`tools` exposed five built-ins; `allowedTools` pre-approved three of them. So
+every Grep and Glob the agent attempted was denied — and the JSONL shredding of
+`league/dossiers` and `news/players` exists for no other purpose, INDEX.md says
+"Grep this by player name" for both, and §10.2 built a path guard whose matcher
+is `Read|Grep|Glob`. Four independent parts of the design pointed at a capability
+the runner had switched off. Fixed by bare name, not path-qualified, because
+§10.2 already records that `Grep(path)` rules are accepted but never consulted.
+The regression test is general: every tool in `tools` must be pre-approved.
+
+**The caps counted nothing.** `ask_usage.thread_id` carried a foreign key onto
+`ask_sessions` (design §8, line 1091), but `runAsk` writes the ledger before the
+Discord layer writes the session row. Reproduced on Postgres 16 in a throwaway
+container, issuing the two inserts in the order the code issues them:
+
+```
+ERROR:  insert or update on table "ask_usage" violates foreign key constraint
+        "ask_usage_thread_id_fkey"
+DETAIL:  Key (thread_id)=(1410000000000000001) is not present in table "ask_sessions".
+--- rows now in ask_usage ---
+0
+```
+
+`writeLedger` catches and logs, so nothing surfaced. `checkCaps` counts rows in
+that table, so the daily per-user and monthly league-wide limits both counted
+zero — for every `/ask` from a text channel, which is all of them, since
+`resolveTarget` always opens a fresh thread there. The design's `MAX_BUDGET_USD`
+still capped a single runaway, but the two limits meant to bound the month did
+nothing at all.
+
+The fix is not to reorder. The ledger has to record a run that died before the
+SDK emitted a session id, and there is no parent row to point at in that case.
+**Design §8 is corrected**: an append-only accounting ledger does not take a
+foreign key onto a mutable, prunable session table. Re-verified after the change
+— both inserts land in the code's order, a crashed run with no session lands,
+`checkCaps`' own daily query returns 1, and the migration still re-runs clean.
+
+**`ensureFresh` could wedge permanently.** The unchanged branch touched INDEX.md
+to restart the staleness window, but is only reached when INDEX.md is missing or
+stale. Missing file plus matching `.etag` → `ENOENT` → the outer catch → `failed`
+— and the etag still matched next time, forever. The bot would have answered
+from a shred it could never replace, with nothing in the logs but a recurring
+sync failure.
+
+**DuckDB, measured rather than assumed** (`@duckdb/node-api` 1.5.5-r.4):
+
+| Probe | Result |
+| --- | --- |
+| `SELECT * FROM (SELECT 1 AS a -- note) LIMIT 5` | `Parser Error: syntax error at end of input` |
+| same, with newlines around the statement | `[{"a":1}]` |
+| `SELECT * FROM (DESCRIBE t) LIMIT 5` | OK — returns `column_name`, `column_type`, … |
+| `SELECT * FROM (SUMMARIZE t) LIMIT 5` | OK |
+
+The row cap wraps the agent's statement in `SELECT * FROM (…) LIMIT n` on one
+line, so any query ending in a `--` comment lost its closing paren and its
+LIMIT. And the `sql` tool's own description told the agent to run `DESCRIBE
+<table>` while `MUST_START_WITH` refused it — the documented move for "I don't
+know this table's shape" was the one that always failed.
+
+**The shredder wrote wherever the artifact told it to.** Body and key names went
+from a network-fetched JSON document straight into `path.join`. Owner names were
+slugged; nothing else was. The first draft of the escape tests *passed against
+the unfixed code*, because keys are written as `<body>/<key>.json` and the body
+directory absorbs the first `../`. Rewritten to bury the shred root several
+levels deep and assert on every file anywhere under the sandbox: five tests, all
+confirmed red against the previous shredder and green against this one.
+
+**§6.2's session lifecycle did not exist.** `closeSession()` was written,
+exported, and mocked in the tests — with no caller anywhere in the repo. Threads
+auto-archive after a day and the SDK prunes transcripts after seven, so a
+message in a week-old thread passed `resume: <deleted session>`; the run failed
+rather than starting fresh, and the "context has aged out" line the design
+specifies could never fire, because the flag driving it was never set. Both
+`resolveTarget` and `continueThread` already handled `closed` correctly. Only the
+event was missing.
+
+**Two more that only a member would have seen.** The dynamic prompt built its
+date with `toISOString()` (UTC) and its season with `getFullYear()` (host-local),
+while `caps.ts` uses `America/New_York` — so after 8pm ET the agent was told
+tomorrow's date and put it in a public source footer. And `render()` was
+unbounded while being pushed into `message.edit()` on every stream event, so past
+2,000 characters every remaining edit threw and the ticker froze for the rest of
+the run. Capping it turned out to need care: `publish()` calls the same method
+and continues long answers into follow-up messages, so a naive cap would have
+truncated the final answer — hence `renderFull()`, with a test asserting a
+5,000-character answer still splits into more than one message.
+
+**Gates.** Read directly, never through a pager:
+
+| | Before | After |
+| --- | --- | --- |
+| `npm run typecheck` | 0 | 0 |
+| `npm run lint` | 0 (2 warnings) | 0 (0 warnings) |
+| `npm test` | 736 passed / 32 suites | 785 passed / 33 suites |
+
+`main` untouched at `61c2229`. Nothing pushed to any remote by this stage; the
+branch push at the end of it was explicitly requested.
+
+### Open
+
+- **Still unmeasurable without a credential.** §15.1, §15.5, §15.11 and §15.12
+  are unchanged — including whether the `Read` allow rule redundantly covers a
+  Grep escape. Note that this stage found the allow rule was not merely
+  redundant but *absent* for Grep, which makes the PreToolUse hook the only
+  control that was ever protecting that path. It held.
+- **An abandoned queue waiter would hold a slot forever.** `requestSlot()`
+  increments `held` when a waiter is granted, whether or not anyone is still
+  awaiting the promise. No caller abandons one today — `runAsk` always awaits —
+  so this is latent, not live. Left alone rather than fixed speculatively.
+- **`getCurrentNFLWeek` still returns 1 in January**, so the prompt will name the
+  right season and the wrong week during the playoffs. Fixing it changes shared
+  behaviour for `/median` and four other commands and is outside this branch.
+- **Five commands still compute the season inline** as `getFullYear()`. The
+  helper now exists next to `getCurrentNFLWeek` for them; they were not touched.
+- Nothing here was executed against a live model. Every fix above is verified
+  against the SDK's types, a real Postgres, a real DuckDB, or the test suite —
+  none of it against a real `query()`.
+
+---
+
 ---
 
 <!--
