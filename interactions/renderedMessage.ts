@@ -11,10 +11,18 @@
 // payloads go straight to update(), editReply() and channel.send() with no cast, so the
 // checker still sees a malformed components array at the send site.
 
-import type { APIMessageTopLevelComponent } from 'discord.js';
+import type { APIMessageTopLevelComponent, AttachmentBuilder } from 'discord.js';
 
 export interface RenderedMessage {
   readonly flags: number;
   readonly components: APIMessageTopLevelComponent[];
   readonly allowedMentions: { parse: never[] };
+  /**
+   * Attachments referenced by a MediaGallery in `components`, via `attachment://name`.
+   *
+   * Only the once-a-round hero frames carry these. A live board that repainted with an
+   * upload on every click would put a render and a file transfer in the path of every
+   * button press.
+   */
+  readonly files?: AttachmentBuilder[];
 }

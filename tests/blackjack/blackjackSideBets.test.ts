@@ -7,7 +7,13 @@ import {
   resolvePerfectPairs,
   resolveTwentyOnePlusThree,
 } from '../../discordCommands/blackjack/blackjackSideBets.js';
-import { RANKS, SUITS, type Card, type Rank, type Suit } from '../../discordCommands/blackjack/blackjackUtils.js';
+import {
+  RANKS,
+  SUITS,
+  type Card,
+  type Rank,
+  type Suit,
+} from '../../discordCommands/blackjack/blackjackUtils.js';
 
 const c = (rank: Rank, suit: Suit): Card => ({ rank, suit });
 
@@ -76,15 +82,11 @@ describe('perfect pairs payouts', () => {
 
 describe('21+3 grading', () => {
   test('three of the same rank and suit is suited trips', () => {
-    expect(gradeTwentyOnePlusThree([c('7', '♠'), c('7', '♠')], c('7', '♠'))).toBe(
-      'suited_trips'
-    );
+    expect(gradeTwentyOnePlusThree([c('7', '♠'), c('7', '♠')], c('7', '♠'))).toBe('suited_trips');
   });
 
   test('three suited in sequence is a straight flush', () => {
-    expect(gradeTwentyOnePlusThree([c('5', '♥'), c('6', '♥')], c('7', '♥'))).toBe(
-      'straight_flush'
-    );
+    expect(gradeTwentyOnePlusThree([c('5', '♥'), c('6', '♥')], c('7', '♥'))).toBe('straight_flush');
   });
 
   test('three of the same rank across suits is trips', () => {
@@ -118,12 +120,8 @@ describe('21+3 grading', () => {
   });
 
   test('order of the three cards never matters', () => {
-    expect(gradeTwentyOnePlusThree([c('7', '♥'), c('5', '♥')], c('6', '♥'))).toBe(
-      'straight_flush'
-    );
-    expect(gradeTwentyOnePlusThree([c('6', '♥'), c('7', '♥')], c('5', '♥'))).toBe(
-      'straight_flush'
-    );
+    expect(gradeTwentyOnePlusThree([c('7', '♥'), c('5', '♥')], c('6', '♥'))).toBe('straight_flush');
+    expect(gradeTwentyOnePlusThree([c('6', '♥'), c('7', '♥')], c('5', '♥'))).toBe('straight_flush');
   });
 
   test('needs a dealer upcard', () => {

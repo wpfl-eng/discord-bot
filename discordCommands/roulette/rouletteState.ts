@@ -23,6 +23,9 @@ import {
   LIMITS,
   type RouletteColor,
 } from './rouletteConfig.js';
+import { pacingFor, type Pacing } from '../../casino/casinoPacing.js';
+import { renderHero, rouletteHeroSvg, type Hero } from '../../casino/casinoHero.js';
+import { formatAmount } from '../../casino/casinoFormat.js';
 import {
   buildTableMessage,
   type RenderBet,
@@ -121,11 +124,15 @@ function viewOf(session: TableSession, overrides: Partial<TableView> = {}): Tabl
  * Rendering is best effort throughout: a deleted message, a permissions change or a
  * rate limit must never stop the wheel or the payouts.
  */
-async function paint(session: TableSession, overrides: Partial<TableView> = {}): Promise<void> {
+async function paint(
+  session: TableSession,
+  overrides: Partial<TableView> = {},
+  hero: Hero | null = null
+): Promise<void> {
   if (!session.message) return;
   lastPaintAt = Date.now();
   try {
-    await session.message.edit(buildTableMessage(viewOf(session, overrides)));
+    await session.message.edit(buildTableMessage(viewOf(session, overrides), hero));
   } catch (err) {
     console.error('[ROULETTE] Failed to paint table:', err);
   }
@@ -348,17 +355,21 @@ async function runSpin(): Promise<void> {
   const resultNumber: string = WHEEL_POSITIONS[Math.floor(Math.random() * WHEEL_POSITIONS.length)];
   const resultColor: RouletteColor = getColor(resultNumber);
 
-  // Frame 1: locked.
+  const totalAtRisk: number = bets.reduce((sum, b) => sum + b.amount, 0);
+  const pacing: Pacing = pacingFor(totalAtRisk);
+
+  // The build-up is scaled to what is riding on it. A routine spin resolves almost
+  // immediately so a grinding session stays quick; a big-money spin gets the full
+  // tumble and a rendered result.
   await paint(session);
-  await sleep(TIMING.SPIN_FRAME_MS);
+  await sleep(pacing.frameMs);
 
-  // Frame 2: ball tumbling wide.
-  await paint(session, { tumbling: tumbleFrame(5) });
-  await sleep(TIMING.SPIN_FRAME_MS);
-
-  // Frame 3: slowing.
-  await paint(session, { tumbling: tumbleFrame(3) });
-  await sleep(TIMING.SPIN_FRAME_MS);
+  // Ball tumbling, narrowing as it slows.
+  for (let frame = 1; frame < pacing.frames; frame++) {
+    const width: number = Math.max(2, 6 - frame);
+    await paint(session, { tumbling: tumbleFrame(width) });
+    await sleep(pacing.frameMs);
+  }
 
   // THE ONLY PAYOUT PASS.
   const results: PayoutResult[] = await processPayouts(bets, resultNumber, resultColor);
@@ -378,22 +389,40 @@ async function runSpin(): Promise<void> {
   }
 
   session.phase = 'result';
-  await paint(session, {
-    result: { position: resultNumber, color: resultColor },
-    payouts: results.map((r) => ({
-      userId: r.userId,
-      betType: r.betType,
-      amount: r.amount,
-      profit: r.profit,
-      won: r.won,
-      paid: r.paid,
-    })),
-    bets: [],
-  });
+
+  // A big spin earns a rendered result. renderHero returns null whenever sharp is
+  // unavailable or the render fails, and the text frame below is complete on its own.
+  const hero = pacing.hero
+    ? await renderHero(
+        rouletteHeroSvg(
+          resultNumber,
+          resultColor,
+          `${formatAmount(totalWagered)} wagered · ${results.filter((r) => r.won).length} winners`
+        ),
+        `Roulette result: ${resultNumber} ${resultColor}`
+      )
+    : null;
+
+  await paint(
+    session,
+    {
+      result: { position: resultNumber, color: resultColor },
+      payouts: results.map((r) => ({
+        userId: r.userId,
+        betType: r.betType,
+        amount: r.amount,
+        profit: r.profit,
+        won: r.won,
+        paid: r.paid,
+      })),
+      bets: [],
+    },
+    hero
+  );
 
   void logSpin(resultNumber, resultColor, results, totalWagered, bets.length);
 
-  await sleep(TIMING.RESULT_HOLD_MS);
+  await sleep(pacing.holdMs);
 
   // The table may have been closed while the result was up.
   if (table !== session) return;
@@ -617,6 +646,20 @@ export async function refresh(): Promise<void> {
 /**
  * Test seam: drop the table without touching Discord or the database.
  */
+// ============ PERSISTENCE ============
+//
+// Roulette deliberately has NO state snapshot, unlike blackjack and craps.
+//
+// There is nothing durable to hold. No player carries a standing commitment between
+// spins - no seat, no riding stake, no shoe - so a restart costs a table that reopens on
+// the next bet, which is how it already behaved. And the one thing players do reference
+// across rounds, the recent-spins strip, is already durable: openTable seeds it from
+// `roulette_rounds`, which is a better record than a snapshot because it survives
+// indefinitely rather than for an hour.
+//
+// Adding a snapshot here would mean two stores for the same history and a second way for
+// them to disagree.
+
 export function __resetTableForTesting(): void {
   if (table) clearTimers(table);
   cancelPendingPaint();

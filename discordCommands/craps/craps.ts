@@ -19,6 +19,7 @@ import {
   registerComponentHandler,
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
+import { registerGameStatus } from '../../casino/casinoHub.js';
 import { paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
 import { amountModal, choiceModal, parseStake } from '../../casino/casinoModal.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
@@ -274,9 +275,16 @@ async function handleStatus(interaction: ChatInputCommandInteraction): Promise<v
   }
 
   await interaction.reply({
-    ...rendered([frame(CASINO_COLORS.blue).addTextDisplayComponents(text(lines.join('\n'))).toJSON()], {
-      ephemeral: true,
-    }),
+    ...rendered(
+      [
+        frame(CASINO_COLORS.blue)
+          .addTextDisplayComponents(text(lines.join('\n')))
+          .toJSON(),
+      ],
+      {
+        ephemeral: true,
+      }
+    ),
   });
 }
 
@@ -309,7 +317,10 @@ async function handleChipModal(interaction: RoutableInteraction): Promise<void> 
   if (!interaction.isModalSubmit()) return;
 
   const user = await economyDb.getOrCreateUser(interaction.user.id, interaction.user.username);
-  const parsed: number | null = parseStake(interaction.fields.getTextInputValue('amount'), user.wallet);
+  const parsed: number | null = parseStake(
+    interaction.fields.getTextInputValue('amount'),
+    user.wallet
+  );
 
   if (parsed === null || parsed < LIMITS.MIN_BET || parsed > LIMITS.MAX_BET) {
     await whisper(
@@ -598,4 +609,26 @@ registerComponentHandler(ID_PREFIX, async (interaction: RoutableInteraction) => 
   if (id.startsWith(IDS.BET)) return handleBoardBet(interaction, id.slice(IDS.BET.length));
 
   console.warn(`[CRAPS] Unhandled component "${id}"`);
+});
+
+// ============ HUB ============
+
+registerGameStatus(() => {
+  const info = crapsState.getTableInfo();
+  const open: boolean = crapsState.isTableOpen();
+
+  const parts: string[] = [];
+  if (info.point === null) parts.push('come-out');
+  else parts.push(`point is ${info.point}`);
+  if (info.shooter) parts.push(`${info.shooter.username} shooting`);
+  if (info.rollCount > 0) parts.push(plural(info.rollCount, 'roll'));
+
+  return {
+    key: 'craps',
+    label: 'CRAPS',
+    emoji: '🎲',
+    channelId: crapsState.getCrapsChannelId(),
+    live: open,
+    summary: open ? parts.join(' · ') : 'Table cold — place a bet to open it',
+  };
 });

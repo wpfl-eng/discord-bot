@@ -122,7 +122,9 @@ first-solver Lucky Letter, the only item with a live source. Tuning constants li
 | --- | --- | --- |
 | `/gamble` | `amount` (required, number or `all`) | Coin flip |
 | `/slots` | `amount` (required, number or `all`) | Football-themed slot machine |
-| `/blackjack` | `amount` (required), `table` (`classic` 1-deck S17 / `vegas` 6-deck H17) | Hit/stand/double/split via buttons |
+| `/blackjack sit` | `amount` (required), `pairs`, `plus3` | Take a seat at the shared multi-seat table |
+| `/blackjack leave` | | Stand up between rounds |
+| `/blackjack rules` | | House rules and side-bet paytables |
 | `/blackjackstats` | `user` | Personal blackjack stats |
 | `/blackjackleaderboard` | `category` (games, wins, winrate, blackjacks, profit, streak, biggest_win) | |
 | `/videopoker` | `amount` (required, number or `all`) | Jacks or Better |

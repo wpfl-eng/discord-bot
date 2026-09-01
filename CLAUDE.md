@@ -80,7 +80,7 @@ prediction markets, stock trading, trivia, and Wordle. 47 slash commands are reg
 - **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, routes button/autocomplete/DM interactions, runs Express health check server
 - **Commands**: Located in `/discordCommands/[commandname]/[commandname].ts`
 - **External APIs**: ESPN Fantasy Football (custom fork), WPFL history API, Polymarket Gamma API, Finnhub, Sleeper API, OpenAI
-- **Database**: PostgreSQL via @vercel/postgres (~25 tables; schemas in `/sql`, numbered migrations in `/migrations`, no automated runner). `migrations/008_remove_nflmon_rob_training.sql` is written but deliberately NOT applied - it drops retired NFLmon/rob/training tables and columns
+- **Database**: PostgreSQL via @vercel/postgres (~25 tables; schemas in `/sql`, numbered migrations in `/migrations`, no automated runner). `migrations/008_remove_nflmon_rob_training.sql` is written but deliberately NOT applied - it drops retired NFLmon/rob/training tables and columns. Migrations 010-013 (casino) are written but must be applied by hand; every game plays correctly without them, they only add stats columns and table persistence
 - **Misc Data**: `/data`
 
 ### Feature Modules
@@ -93,8 +93,15 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `blackjack/`, `craps/`, `redzone/`, `videopoker/` - per-game stats DB modules
 - `errors/`, `helpers/`, `constants/`, `types/` - shared support code
 
-Some features keep their config next to the command instead: `discordCommands/roulette/` and
-`discordCommands/craps/` each hold their own `*Config.ts`, `*State.ts` and engine files.
+Some features keep their config next to the command instead: `discordCommands/roulette/`,
+`discordCommands/craps/` and `discordCommands/blackjack/` each hold their own `*Config.ts`
+or `*Utils.ts`, `*State.ts`, `*Render.ts` and engine files.
+
+`casino/` holds what all three table games share: one palette (`casinoTheme`), one
+currency formatter (`casinoFormat`), the Components V2 builders and budget guards
+(`casinoRender`), board painting (`casinoPaint`), modals (`casinoModal`), result-frame
+pacing (`casinoPacing`), rendered hero images (`casinoHero`), the cross-game hub
+(`casinoHub`), and between-round persistence (`casinoPersistence`, `casinoBoot`).
 
 ### Command Loading
 Both `index.ts` and `deploy-commands.ts` scan `discordCommands/` and, for each folder, import **only**
@@ -111,6 +118,11 @@ and `mypredictions/` registers `/my-predictions`.
 - **Trivia scheduler** (`trivia/triviaService.ts:150`) - cron in `America/New_York`; posts at 9/11/13/15/17/19/21, auto-closes each 2h later, season rollover at midnight on the 1st
 - **Trivia DMs** - `messageCreate` handler accepts answers sent to the bot directly
 - **Roulette auto-spin** - rounds spin on a timer in `discordCommands/roulette/rouletteState.ts`
+- **Craps shooter** - the shooter throws with a ROLL button; the table rolls for them
+  after a grace period, and the dice pass on a seven-out only
+- **Blackjack table** - one shared multi-seat table; every seat acts at once on a shared
+  clock, and stakes ride between rounds until changed
+- **Casino hub** - a summary of all three tables refreshed in `ECONOMY_CASINO_CHANNEL_ID`
 - **Autocomplete** - `/craps`, `/roulette`, `/inventory`, `/triviaquestion` export an `autocomplete` handler dispatched by `index.ts`
 
 ### Command Pattern
@@ -137,7 +149,8 @@ Required environment variables (create `.env` from `.env.sample`):
 - Database: PostgreSQL connection variables (`POSTGRES_*`)
 - Stock: `FINNHUB_API_KEY`
 - Trivia: `TRIVIA_CHANNEL_ID`, `TRIVIA_ADMIN_USER_IDS` (comma-separated; gates `/triviaquestion`)
-- Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID`, `ROULETTE_CHANNEL_ID`, `CRAPS_CHANNEL_ID`
+- Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID` (casino hub),
+  `ROULETTE_CHANNEL_ID`, `CRAPS_CHANNEL_ID`, `BLACKJACK_CHANNEL_ID`
 - Other: `OPEN_API_KEY`, `PORT`, `API_KEY`, `BOT_ID`
 
 ### Key Dependencies

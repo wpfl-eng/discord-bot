@@ -22,6 +22,7 @@
 
 import { ButtonStyle, type APIMessageTopLevelComponent } from 'discord.js';
 import type { RenderedMessage } from '../../interactions/renderedMessage.js';
+import type { Hero } from '../../casino/casinoHero.js';
 import { CASINO_COLORS, bar, resultAccent } from '../../casino/casinoTheme.js';
 import { formatAmount, formatSigned, plural, relativeTime } from '../../casino/casinoFormat.js';
 import {
@@ -109,6 +110,11 @@ export interface TableView {
   readonly roundCount: number;
   /** Total staked this round across every seat */
   readonly roundStake: number;
+  /**
+   * A rendered settle image, present only on a big round. Null everywhere else, and the
+   * text frame is complete without it.
+   */
+  readonly hero?: Hero | null;
 }
 
 export type { RenderedMessage };
@@ -234,8 +240,7 @@ function actingSeatBlock(seat: SeatView): string {
     else if (hand.fromSplit) extras.push('split');
 
     const meta: string = extras.length > 0 ? `  _(${extras.join(', ')})_` : '';
-    const which: string =
-      seat.hands.length > 1 ? `  _hand ${i + 1} of ${seat.hands.length}_` : '';
+    const which: string = seat.hands.length > 1 ? `  _hand ${i + 1} of ${seat.hands.length}_` : '';
 
     const status: string =
       hand.status === 'busted'
@@ -401,8 +406,11 @@ function container(view: TableView) {
     .addTextDisplayComponents(text(header(view)))
     .addSeparatorComponents(separator())
     .addTextDisplayComponents(text(dealerBlock(view)))
-    .addSeparatorComponents(separator())
-    .addTextDisplayComponents(text(seatsBlock(view)));
+    .addSeparatorComponents(separator());
+
+  if (view.hero) builder.addMediaGalleryComponents(view.hero.gallery);
+
+  builder.addTextDisplayComponents(text(seatsBlock(view)));
 
   const sides: string = sideBetBlock(view);
   if (sides) builder.addTextDisplayComponents(text(sides));
@@ -439,7 +447,7 @@ export function buildBoard(view: TableView): RenderedMessage {
       break;
   }
 
-  const payload = rendered(components);
+  const payload = rendered(components, view.hero ? { files: [view.hero.file] } : {});
   assertWithinBudget(payload, 'blackjack board');
   return payload;
 }

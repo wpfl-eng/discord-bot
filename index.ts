@@ -16,6 +16,8 @@ import {
 } from './interactions/componentRouter.js';
 import { loadApplicationEmojis } from './emoji/emojiRegistry.js';
 import { runStartupRefundSweep } from './economy/startupSweep.js';
+import { registeredGameCount, startHub } from './casino/casinoHub.js';
+import { restoreCasinoTables } from './casino/casinoBoot.js';
 
 // Create a new client instance
 const client = new Client({
@@ -51,7 +53,15 @@ client.once('ready', async () => {
   await loadApplicationEmojis(client);
 
   // Any wager still held in escrow belongs to a round or hand a restart ended early.
+  // This MUST run before any table is restored: a restored table starts a fresh round,
+  // and the sweep is what returns the stakes the previous round was holding.
   await runStartupRefundSweep(client);
+
+  // Seats, stakes and the blackjack shoe survive a restart; nothing mid-round does.
+  await restoreCasinoTables(client);
+
+  console.log(`[HUB] ${registeredGameCount()} game(s) registered`);
+  await startHub(client);
 });
 
 client.commands = new Collection();

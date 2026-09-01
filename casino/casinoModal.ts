@@ -36,16 +36,14 @@ export interface AmountModalSpec {
  * @param spec - identifiers and captions
  */
 export function amountModal(spec: AmountModalSpec): ModalBuilder {
-  const label = new LabelBuilder()
-    .setLabel(spec.label)
-    .setTextInputComponent(
-      new TextInputBuilder()
-        .setCustomId(spec.fieldId)
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMaxLength(9)
-        .setPlaceholder(spec.placeholder ?? '')
-    );
+  const label = new LabelBuilder().setLabel(spec.label).setTextInputComponent(
+    new TextInputBuilder()
+      .setCustomId(spec.fieldId)
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(9)
+      .setPlaceholder(spec.placeholder ?? '')
+  );
 
   if (spec.description) label.setDescription(spec.description);
 
@@ -131,9 +129,7 @@ export function amountWithTogglesModal(spec: AmountWithTogglesSpec): ModalBuilde
       }))
     );
 
-  const label = new LabelBuilder()
-    .setLabel(spec.toggleLabel)
-    .setCheckboxGroupComponent(group);
+  const label = new LabelBuilder().setLabel(spec.toggleLabel).setCheckboxGroupComponent(group);
   if (spec.toggleDescription) label.setDescription(spec.toggleDescription);
 
   return modal.addLabelComponents(label);

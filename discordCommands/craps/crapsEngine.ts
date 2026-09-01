@@ -469,12 +469,14 @@ export function aggregateUserResults(betResults: BetResolutionResult[]): UserSes
     });
   }
 
-  return Array.from(userMap.values()).map((builder): UserSessionResult => ({
-    userId: builder.userId,
-    username: builder.username,
-    netResult: builder.netResult,
-    breakdown: builder.breakdown,
-  }));
+  return Array.from(userMap.values()).map(
+    (builder): UserSessionResult => ({
+      userId: builder.userId,
+      username: builder.username,
+      netResult: builder.netResult,
+      breakdown: builder.breakdown,
+    })
+  );
 }
 
 // ============ VALIDATION ============

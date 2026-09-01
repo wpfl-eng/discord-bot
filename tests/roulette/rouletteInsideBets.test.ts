@@ -173,7 +173,9 @@ describe('coverage', () => {
   });
 
   test('17 is covered by exactly the bets a felt would offer', () => {
-    const keys = insideBetsCovering('17').map((b) => b.key).sort();
+    const keys = insideBetsCovering('17')
+      .map((b) => b.key)
+      .sort();
     expect(keys).toEqual(
       [
         '17',

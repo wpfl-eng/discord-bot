@@ -16,12 +16,9 @@
 // 10 top-level / 40 total caps. Place numbers and the prop list ride in selects because
 // six and nine options respectively will not fit in five-button rows.
 
-import {
-  ButtonStyle,
-  StringSelectMenuBuilder,
-  type APIMessageTopLevelComponent,
-} from 'discord.js';
+import { ButtonStyle, StringSelectMenuBuilder, type APIMessageTopLevelComponent } from 'discord.js';
 import type { RenderedMessage } from '../../interactions/renderedMessage.js';
+import type { Hero } from '../../casino/casinoHero.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
 import { formatAmount, formatSigned, plural, relativeTime } from '../../casino/casinoFormat.js';
 import {
@@ -110,6 +107,11 @@ export interface BoardView {
   /** True when the session just ended and the dice are passing on */
   readonly sevenOut?: boolean;
   readonly nextShooter?: string | null;
+  /**
+   * A rendered result image, present only on a big roll. Null everywhere else, and the
+   * text frame is complete without it.
+   */
+  readonly hero?: Hero | null;
 }
 
 // ============ COLOURS ============
@@ -379,6 +381,8 @@ function container(view: BoardView) {
 
   builder.addSeparatorComponents(separator());
 
+  if (view.hero) builder.addMediaGalleryComponents(view.hero.gallery);
+
   const body: string = view.phase === 'resolved' ? resultBoard(view) : betBoard(view.bets);
   builder.addTextDisplayComponents(text(`${body}\n\n${footer(view)}`));
 
@@ -415,7 +419,7 @@ export function buildBoard(view: BoardView): RenderedMessage {
   // 'rolling' and 'resolved' show the board alone - no controls while dice are in the
   // air or results are on screen.
 
-  const payload = rendered(components);
+  const payload = rendered(components, view.hero ? { files: [view.hero.file] } : {});
   assertWithinBudget(payload, 'craps board');
   return payload;
 }

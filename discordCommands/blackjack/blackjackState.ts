@@ -26,15 +26,24 @@
 // startup sweep.
 
 import { randomUUID } from 'node:crypto';
-import { Client, Message, TextChannel } from 'discord.js';
+import { ChannelType, Client, Message, TextChannel } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import * as escrowDb from '../../economy/escrowDb.js';
 import * as blackjackDb from '../../blackjack/blackjackDb.js';
 import { pacingFor, sleep } from '../../casino/casinoPacing.js';
+import { blackjackHeroSvg, renderHero, type Hero } from '../../casino/casinoHero.js';
 import { createPainter } from '../../casino/casinoPaint.js';
+import {
+  clearTableState,
+  loadTableState,
+  saveTableState,
+  type BlackjackSnapshot,
+} from '../../casino/casinoPersistence.js';
+import { formatSigned, plural } from '../../casino/casinoFormat.js';
 import {
   DEFAULT_TABLE,
   beginHand,
+  calculateHandValue,
   createShoe,
   dealerShowsAce,
   drawFromShoe,
@@ -142,6 +151,9 @@ interface Table {
   deadline: number | null;
   windowTimer: NodeJS.Timeout | null;
   graceTimer: NodeJS.Timeout | null;
+
+  /** Rendered settle image, set only for a big round */
+  hero: Hero | null;
 }
 
 // ============ STATE ============
@@ -165,6 +177,7 @@ function createTable(channelId: string, client: Client): Table {
     deadline: null,
     windowTimer: null,
     graceTimer: null,
+    hero: null,
   };
 }
 
@@ -203,6 +216,7 @@ function viewOf(t: Table): TableView {
       (sum, s) => sum + s.hands.reduce((h, hand) => h + hand.bet, 0) + s.insuranceBet,
       0
     ),
+    hero: t.hero,
   };
 }
 
@@ -295,6 +309,7 @@ function startBettingWindow(t: Table, firstOfSession: boolean): void {
   t.phase = 'betting';
   t.dealerHand = [];
   t.hideHole = true;
+  t.hero = null;
   t.sessionKey = randomUUID();
 
   for (const seat of t.seats) {
@@ -309,11 +324,12 @@ function startBettingWindow(t: Table, firstOfSession: boolean): void {
     seat.inRound = false;
   }
 
-  armWindow(
-    t,
-    firstOfSession ? TIMING.FIRST_WINDOW_SECONDS : TIMING.NEXT_WINDOW_SECONDS,
-    () => closeSeating()
+  armWindow(t, firstOfSession ? TIMING.FIRST_WINDOW_SECONDS : TIMING.NEXT_WINDOW_SECONDS, () =>
+    closeSeating()
   );
+
+  // Seats are stable between rounds, which is exactly what is worth persisting.
+  void saveState();
 }
 
 function startGrace(t: Table): void {
@@ -339,6 +355,9 @@ export async function closeTable(): Promise<void> {
 
   t.phase = 'idle';
   t.seats = [];
+
+  // A closed table must not reopen itself on the next boot.
+  await clearTableState('blackjack');
 
   try {
     if (t.message) await t.message.edit(buildBoard(viewOf(t)));
@@ -546,9 +565,7 @@ async function chargeSeat(t: Table, seat: Seat): Promise<boolean> {
     amount: number;
     purpose: escrowDb.EscrowPurpose;
     detail: Record<string, unknown>;
-  }[] = [
-    { amount: seat.stake, purpose: 'bet', detail: { kind: 'main' } },
-  ];
+  }[] = [{ amount: seat.stake, purpose: 'bet', detail: { kind: 'main' } }];
   if (seat.sideBets.pairs > 0) {
     charges.push({ amount: seat.sideBets.pairs, purpose: 'sidebet', detail: { kind: 'pairs' } });
   }
@@ -932,8 +949,7 @@ async function finishRound(t: Table): Promise<void> {
     const handPayout: number = seat.results.reduce((sum, r) => sum + r.payout, 0);
     const totalPayout: number = handPayout + insurancePayout;
 
-    const staked: number =
-      seat.hands.reduce((sum, h) => sum + h.bet, 0) + seat.insuranceBet;
+    const staked: number = seat.hands.reduce((sum, h) => sum + h.bet, 0) + seat.insuranceBet;
 
     // Side bets already settled at the deal; fold their net into the round total so the
     // board reports what the seat actually did.
@@ -970,9 +986,15 @@ async function finishRound(t: Table): Promise<void> {
   }
 
   t.phase = 'settled';
-  await painter.paintNow(t);
 
-  const pacing = pacingFor(t.seats.reduce((sum, s) => sum + Math.abs(s.net ?? 0), 0));
+  const swing: number = t.seats.reduce((sum, s) => sum + Math.abs(s.net ?? 0), 0);
+  const pacing = pacingFor(swing);
+
+  // A big round earns a rendered settle. Null whenever sharp is unavailable, in which
+  // case the board simply reads as text.
+  t.hero = pacing.hero ? await buildSettleHero(t) : null;
+
+  await painter.paintNow(t);
   await sleep(Math.max(TIMING.SETTLE_HOLD_MS, pacing.holdMs));
 
   if (table !== t) return;
@@ -983,6 +1005,24 @@ async function finishRound(t: Table): Promise<void> {
   } else {
     startGrace(t);
   }
+}
+
+/** The settle image: the dealer's final total against how the table did. */
+async function buildSettleHero(t: Table): Promise<Hero | null> {
+  const dealerTotal: number = calculateHandValue(t.dealerHand);
+  const dealerLabel: string = dealerTotal > 21 ? 'BUST' : String(dealerTotal);
+
+  const winners: number = t.seats.filter((s) => (s.net ?? 0) > 0).length;
+  const headline: string =
+    dealerTotal > 21 ? 'DEALER BUSTS' : winners > 0 ? `${winners} PAID` : 'HOUSE TAKES IT';
+
+  const swing: number = t.seats.reduce((sum, s) => sum + (s.net ?? 0), 0);
+  const caption: string = `${plural(t.seats.length, 'seat')} · table ${formatSigned(swing)}`;
+
+  return renderHero(
+    blackjackHeroSvg(dealerLabel, headline, caption),
+    `Blackjack settle: dealer ${dealerLabel}, ${headline}`
+  );
 }
 
 /** Roll a seat's round into its lifetime stats. Decoration; never blocks the table. */
@@ -1016,6 +1056,83 @@ async function recordSeatStats(seat: Seat): Promise<void> {
     } catch (error: unknown) {
       console.error(`[BLACKJACK] Failed to record stats for ${seat.userId}:`, error);
     }
+  }
+}
+
+// ============ PERSISTENCE ============
+
+/**
+ * Save the table's between-round state.
+ *
+ * Called whenever seats settle into a stable shape: a new betting window, a player
+ * sitting or standing. Never called mid-round, because mid-round state is deliberately
+ * not persisted.
+ */
+export async function saveState(): Promise<void> {
+  const t = table;
+  if (!t) return;
+
+  await saveTableState<BlackjackSnapshot>('blackjack', t.channelId, {
+    seats: t.seats.map((s) => ({
+      userId: s.userId,
+      username: s.username,
+      stake: s.stake,
+      sideBets: s.sideBets,
+    })),
+    shoe: { cards: t.shoe.cards },
+    roundCount: t.roundCount,
+  });
+}
+
+/**
+ * Bring a table back after a restart.
+ *
+ * Seats and the shoe are restored; every hand that was live has already been refunded by
+ * the startup escrow sweep, so the table simply reopens for a fresh round.
+ *
+ * @returns true when a table was restored
+ */
+export async function restoreState(client: Client): Promise<boolean> {
+  const snapshot = await loadTableState<BlackjackSnapshot>('blackjack');
+  if (!snapshot || snapshot.state.seats.length === 0) return false;
+
+  try {
+    const channel = await client.channels.fetch(snapshot.channelId);
+    if (!channel || channel.type !== ChannelType.GuildText) return false;
+
+    const textChannel = channel as TextChannel;
+    const t = createTable(textChannel.id, client);
+
+    // The shoe carries on from where it was. A count that survived the restart is still
+    // a valid count.
+    if (snapshot.state.shoe.cards.length > 0) {
+      t.shoe.cards = snapshot.state.shoe.cards as Card[];
+    }
+    t.roundCount = snapshot.state.roundCount;
+
+    t.seats = snapshot.state.seats.map((s) => ({
+      userId: s.userId,
+      username: s.username,
+      stake: s.stake,
+      sideBets: s.sideBets,
+      hands: [],
+      activeHandIndex: 0,
+      insuranceBet: 0,
+      insuranceSettled: false,
+      escrowIds: [],
+      inRound: false,
+    }));
+
+    table = t;
+    t.message = await textChannel.send(buildBoard(viewOf(t)));
+    startBettingWindow(t, true);
+    await painter.paintNow(t);
+
+    console.log(`[BLACKJACK] Restored ${t.seats.length} seat(s) after restart`);
+    return true;
+  } catch (error: unknown) {
+    console.error('[BLACKJACK] Failed to restore table:', error);
+    return false;
   }
 }
 

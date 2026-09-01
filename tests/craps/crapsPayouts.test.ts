@@ -10,11 +10,7 @@ import {
   type BetType,
   type Roll,
 } from '../../discordCommands/craps/crapsConfig.js';
-import {
-  canTakeDown,
-  resolveBet,
-  type CrapsBet,
-} from '../../discordCommands/craps/crapsEngine.js';
+import { canTakeDown, resolveBet, type CrapsBet } from '../../discordCommands/craps/crapsEngine.js';
 
 // ============ FIXTURES ============
 

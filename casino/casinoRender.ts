@@ -10,6 +10,7 @@
 
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   ContainerBuilder,
@@ -111,6 +112,11 @@ export function section(
 export interface RenderOptions {
   /** Only this player sees it. Shared boards must leave this false. */
   readonly ephemeral?: boolean;
+  /**
+   * Attachments a MediaGallery in `components` refers to via `attachment://name`.
+   * Only the once-a-round hero frames use this.
+   */
+  readonly files?: readonly AttachmentBuilder[];
 }
 
 /**
@@ -132,6 +138,7 @@ export function rendered(
     flags,
     components: [...components],
     allowedMentions: { parse: [] },
+    ...(options.files && options.files.length > 0 ? { files: [...options.files] } : {}),
   };
 }
 
@@ -176,7 +183,9 @@ export function assertWithinBudget(payload: RenderedMessage, label: string): voi
   const total: number = comps.reduce((sum, c) => sum + countComponents(c), 0);
 
   if (comps.length > BUDGET.topLevel) {
-    throw new Error(`[CASINO] ${label}: ${comps.length} top-level components, max ${BUDGET.topLevel}`);
+    throw new Error(
+      `[CASINO] ${label}: ${comps.length} top-level components, max ${BUDGET.topLevel}`
+    );
   }
   if (total > BUDGET.total) {
     throw new Error(`[CASINO] ${label}: ${total} components total, max ${BUDGET.total}`);

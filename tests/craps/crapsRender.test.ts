@@ -1,5 +1,11 @@
 import { describe, test, expect } from '@jest/globals';
-import { buildBoard, buildSlipText, IDS, type BoardView, type RenderBet } from '../../discordCommands/craps/crapsRender.js';
+import {
+  buildBoard,
+  buildSlipText,
+  IDS,
+  type BoardView,
+  type RenderBet,
+} from '../../discordCommands/craps/crapsRender.js';
 import { CHIPS, type Roll } from '../../discordCommands/craps/crapsConfig.js';
 import { BUDGET, countComponents } from '../../casino/casinoRender.js';
 
@@ -253,9 +259,9 @@ describe('bet board', () => {
     const bet = (userId: string): RenderBet => ({ userId, betType: 'place_6', amount: 100 });
 
     const one = text(buildBoard(view({ point: 6, bets: [bet('1')] }))).split('\n').length;
-    const three = text(
-      buildBoard(view({ point: 6, bets: [bet('1'), bet('2'), bet('3')] }))
-    ).split('\n').length;
+    const three = text(buildBoard(view({ point: 6, bets: [bet('1'), bet('2'), bet('3')] }))).split(
+      '\n'
+    ).length;
 
     // Two extra players add two "ON THE TABLE" lines and two "BIGGEST ACTION" lines,
     // since biggest action caps at three.

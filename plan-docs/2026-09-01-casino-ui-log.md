@@ -299,9 +299,47 @@ clean. Migration 012 written, not applied.
 
 ---
 
-## Phase 4 — Hub, hero images, polish
+## Phase 4 — Hub, hero images, persistence, pacing
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
+
+**Created**
+
+| File | Purpose |
+|---|---|
+| `casino/casinoHero.ts` | sharp-rendered result images, lazily loaded, degrading to null |
+| `casino/casinoHub.ts` | cross-game hub board with per-game status providers |
+| `casino/casinoPersistence.ts` | between-round snapshots for craps and blackjack |
+| `casino/casinoBoot.ts` | restore sequencing, ordered after the escrow sweep |
+| `migrations/013_casino_table_state.sql` | one snapshot row per game |
+| `tests/casino/casinoPacing.test.ts`, `casinoHub.test.ts`, `casinoHero.test.ts` | 30 tests |
+
+**Wired**
+
+- Adaptive pacing (D21) into all three games. Roulette's fixed 3-frame spin now scales
+  its tumble with the money at risk.
+- Hero frames into all three result frames via `MediaGallery`.
+- `sharp` moved from devDependencies to dependencies, imported lazily, cached failure.
+- The hub into `index.ts`, after the escrow sweep and table restore.
+- `BLACKJACK_CHANNEL_ID` into `.env.sample`; docs updated in `README.md` and `CLAUDE.md`.
+
+**Deviations from the plan, and why**
+
+1. **Adaptive pacing was built in Phase 1, not Phase 4.** `casinoPacing` was needed the
+   moment craps got an animation loop, and retrofitting it later would have meant
+   writing that loop twice. Roulette was the only game still on fixed timing by Phase 4.
+2. **`casinoModal` was built in Phase 1** for the same reason — craps needed the odds
+   `RadioGroup` immediately.
+3. **Roulette gets no persistence snapshot.** The plan said all three. On inspection it
+   holds nothing durable between spins — no seat, no riding stake, no shoe — and its
+   recent-spins strip is *already* durable via `roulette_rounds`, which `openTable`
+   seeds from (`rouletteState.ts:581`). A snapshot would have been a second store for
+   the same history and a second way for them to disagree. `CasinoGame` is therefore
+   `'craps' | 'blackjack'`, and the omission is documented in the module.
+
+**Verification:** `npm test` 904 passed / 36 suites; typecheck clean; `npx eslint .`
+clean; all 47 command modules import and validate through a replica of `index.ts`'s
+loader. Migration 013 written, not applied.
 
 ---
 

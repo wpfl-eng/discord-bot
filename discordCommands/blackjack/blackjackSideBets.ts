@@ -49,9 +49,7 @@ export type TwentyOnePlusThreeTier =
   | 'flush';
 
 /** Profit multiplier per tier. House edge is roughly 3.2% on six decks. */
-export const TWENTY_ONE_PLUS_THREE_PAYOUT: Readonly<
-  Record<TwentyOnePlusThreeTier, number>
-> = {
+export const TWENTY_ONE_PLUS_THREE_PAYOUT: Readonly<Record<TwentyOnePlusThreeTier, number>> = {
   suited_trips: 100,
   straight_flush: 40,
   trips: 30,
@@ -75,8 +73,7 @@ function rankIndex(rank: Rank): number {
 function isStraight(ranks: readonly Rank[]): boolean {
   const indices: number[] = ranks.map(rankIndex).sort((a, b) => a - b);
 
-  const consecutive: boolean =
-    indices[1] === indices[0] + 1 && indices[2] === indices[1] + 1;
+  const consecutive: boolean = indices[1] === indices[0] + 1 && indices[2] === indices[1] + 1;
   if (consecutive) return true;
 
   // Q-K-A wraps: with A at index 0, that sorts to [0, 11, 12].
@@ -139,7 +136,12 @@ const TIER_LABEL: Readonly<Record<string, string>> = {
   flush: 'Flush',
 } as const;
 
-function settle(kind: SideBetKind, stake: number, tier: string | null, multiplier: number): SideBetResult {
+function settle(
+  kind: SideBetKind,
+  stake: number,
+  tier: string | null,
+  multiplier: number
+): SideBetResult {
   if (stake <= 0 || tier === null) {
     return {
       kind,

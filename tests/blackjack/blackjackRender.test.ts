@@ -7,9 +7,18 @@ import {
   type TablePhase,
   type TableView,
 } from '../../discordCommands/blackjack/blackjackRender.js';
-import { newHand, resolveHand, type PlayerHand } from '../../discordCommands/blackjack/blackjackEngine.js';
+import {
+  newHand,
+  resolveHand,
+  type PlayerHand,
+} from '../../discordCommands/blackjack/blackjackEngine.js';
 import { BUDGET, countComponents } from '../../casino/casinoRender.js';
-import { createShoe, type Card, type Rank, type Suit } from '../../discordCommands/blackjack/blackjackUtils.js';
+import {
+  createShoe,
+  type Card,
+  type Rank,
+  type Suit,
+} from '../../discordCommands/blackjack/blackjackUtils.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

@@ -1,10 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import {
-  formatAmount,
-  formatSigned,
-  plural,
-  relativeTime,
-} from '../../casino/casinoFormat.js';
+import { formatAmount, formatSigned, plural, relativeTime } from '../../casino/casinoFormat.js';
 import { formatAmount as rouletteFormatAmount } from '../../discordCommands/roulette/rouletteConfig.js';
 import { formatAmount as crapsFormatAmount } from '../../discordCommands/craps/crapsConfig.js';
 

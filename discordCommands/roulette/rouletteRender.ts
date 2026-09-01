@@ -23,12 +23,9 @@
 // re-render on every interaction - resetting a select on a shared message would yank it
 // out from under everyone else.
 
-import {
-  ButtonStyle,
-  StringSelectMenuBuilder,
-  type APIMessageTopLevelComponent,
-} from 'discord.js';
+import { ButtonStyle, StringSelectMenuBuilder, type APIMessageTopLevelComponent } from 'discord.js';
 import type { RenderedMessage } from '../../interactions/renderedMessage.js';
+import type { Hero } from '../../casino/casinoHero.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
 import { formatAmount, plural, relativeTime } from '../../casino/casinoFormat.js';
 import {
@@ -327,24 +324,32 @@ export type { RenderedMessage };
  * Controls are disabled outside the betting phase so a click during the spin cannot
  * land a bet the wheel has already passed.
  */
-export function buildTableMessage(view: TableView): RenderedMessage {
+export function buildTableMessage(view: TableView, hero: Hero | null = null): RenderedMessage {
   const locked: boolean = view.phase !== 'betting';
 
   const container = frame(accentFor(view))
     .addTextDisplayComponents(text(header(view)))
     .addSeparatorComponents(separator())
     .addTextDisplayComponents(text(`**Last spins**\n${recentStrip(view.recentSpins)}`))
-    .addSeparatorComponents(separator())
-    .addTextDisplayComponents(text(`${body(view)}\n\n${footer(view)}`));
+    .addSeparatorComponents(separator());
 
-  const payload = rendered([
-    container.toJSON(),
-    chipRow(locked).toJSON(),
-    betRow(TABLE_BET_ROW_1, locked).toJSON(),
-    betRow(TABLE_BET_ROW_2, locked).toJSON(),
-    betRow(TABLE_BET_ROW_3, locked).toJSON(),
-    actionRow(locked).toJSON(),
-  ]);
+  // The rendered pocket sits above the winner list on a big spin, and is simply absent
+  // otherwise - the text frame is complete on its own.
+  if (hero) container.addMediaGalleryComponents(hero.gallery);
+
+  container.addTextDisplayComponents(text(`${body(view)}\n\n${footer(view)}`));
+
+  const payload = rendered(
+    [
+      container.toJSON(),
+      chipRow(locked).toJSON(),
+      betRow(TABLE_BET_ROW_1, locked).toJSON(),
+      betRow(TABLE_BET_ROW_2, locked).toJSON(),
+      betRow(TABLE_BET_ROW_3, locked).toJSON(),
+      actionRow(locked).toJSON(),
+    ],
+    hero ? { files: [hero.file] } : {}
+  );
 
   assertWithinBudget(payload, 'roulette board');
   return payload;
@@ -427,9 +432,7 @@ export function buildBetPanel(
     : '### Numbers\nPick a number to see every bet that covers it.';
 
   const container = frame(ACCENT.betting).addTextDisplayComponents(
-    text(
-      `${heading}\n\nChip: **${formatAmount(chip)}** — change it on the table.\n\n${slipText}`
-    )
+    text(`${heading}\n\nChip: **${formatAmount(chip)}** — change it on the table.\n\n${slipText}`)
   );
 
   const components: APIMessageTopLevelComponent[] = [container.toJSON()];

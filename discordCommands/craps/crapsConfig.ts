@@ -454,10 +454,7 @@ export const DONT_ODDS_PAYOUT: Readonly<Record<number, readonly [number, number]
  * @param point - the point the odds were placed behind
  * @returns [win, wager], or null if the bet type is not an odds bet or the point is invalid
  */
-export function oddsPayout(
-  betType: BetType,
-  point: number
-): readonly [number, number] | null {
+export function oddsPayout(betType: BetType, point: number): readonly [number, number] | null {
   if (betType === 'pass_odds') return PASS_ODDS_PAYOUT[point] ?? null;
   if (betType === 'dont_pass_odds') return DONT_ODDS_PAYOUT[point] ?? null;
   return null;
@@ -742,8 +739,7 @@ export const HOT_STREAK_THRESHOLDS = {
 export function getHotStreakMessage(rollCount: number): string | null {
   if (rollCount >= HOT_STREAK_THRESHOLDS.LEGENDARY) return `LEGENDARY! ${rollCount} rolls!`;
   if (rollCount >= HOT_STREAK_THRESHOLDS.MONSTER) return `MONSTER ROLL! ${rollCount} rolls!`;
-  if (rollCount >= HOT_STREAK_THRESHOLDS.HOT)
-    return `HOT TABLE! ${rollCount} rolls and counting!`;
+  if (rollCount >= HOT_STREAK_THRESHOLDS.HOT) return `HOT TABLE! ${rollCount} rolls and counting!`;
   if (rollCount >= HOT_STREAK_THRESHOLDS.WARM) return `Table is heating up! ${rollCount} rolls!`;
   return null;
 }

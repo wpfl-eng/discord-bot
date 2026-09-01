@@ -19,12 +19,19 @@
 // process dies is refunded by the startup sweep.
 
 import { randomUUID } from 'node:crypto';
-import { Client, TextChannel, Message } from 'discord.js';
+import { ChannelType, Client, TextChannel, Message } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import * as escrowDb from '../../economy/escrowDb.js';
 import * as crapsDb from '../../craps/crapsDb.js';
 import { pacingFor, sleep, type Pacing } from '../../casino/casinoPacing.js';
+import { crapsHeroSvg, renderHero, type Hero } from '../../casino/casinoHero.js';
 import { createPainter } from '../../casino/casinoPaint.js';
+import {
+  clearTableState,
+  loadTableState,
+  saveTableState,
+  type CrapsSnapshot,
+} from '../../casino/casinoPersistence.js';
 import {
   type Roll,
   type BetType,
@@ -79,6 +86,8 @@ interface TableSession {
   sevenOut: boolean;
   nextShooter: string | null;
   tumbling: Roll[] | undefined;
+  /** Rendered result image, set only for a big roll */
+  hero: Hero | null;
 
   /** Groups every escrow row for this shooter's turn */
   sessionKey: string;
@@ -129,6 +138,7 @@ function createSession(channelId: string, client: Client): TableSession {
     sevenOut: false,
     nextShooter: null,
     tumbling: undefined,
+    hero: null,
     sessionKey: randomUUID(),
     sessionWagered: 0,
     sessionPaid: 0,
@@ -174,6 +184,7 @@ function viewOf(session: TableSession): BoardView {
     tumbling: session.tumbling,
     sevenOut: session.sevenOut,
     nextShooter: session.nextShooter,
+    hero: session.hero,
   };
 }
 
@@ -219,6 +230,7 @@ function startBettingWindow(session: TableSession): void {
   session.phase = 'betting';
   session.results = undefined;
   session.tumbling = undefined;
+  session.hero = null;
   session.sevenOut = false;
   session.nextShooter = null;
 
@@ -227,6 +239,9 @@ function startBettingWindow(session: TableSession): void {
 
   session.deadline = Date.now() + seconds * 1000;
   session.windowTimer = setTimeout(() => void closeBetting(), seconds * 1000);
+
+  // The rotation is stable between rolls, which is what is worth persisting.
+  void saveState();
 }
 
 /** Push the window out when a bet lands, capped so a busy table still rolls. */
@@ -234,10 +249,7 @@ function extendWindow(session: TableSession): void {
   if (session.phase !== 'betting' || !session.deadline) return;
 
   const ceiling: number = Date.now() + TIMING.MAX_BETTING_SECONDS * 1000;
-  const extended: number = Math.min(
-    session.deadline + TIMING.BET_EXTENDS_TIMER_BY * 1000,
-    ceiling
-  );
+  const extended: number = Math.min(session.deadline + TIMING.BET_EXTENDS_TIMER_BY * 1000, ceiling);
   if (extended <= session.deadline) return;
 
   session.deadline = extended;
@@ -265,7 +277,10 @@ async function closeBetting(): Promise<void> {
 
   session.phase = 'awaiting_roll';
   session.deadline = Date.now() + TIMING.SHOOTER_GRACE_SECONDS * 1000;
-  session.shooterTimer = setTimeout(() => void executeRoll(true), TIMING.SHOOTER_GRACE_SECONDS * 1000);
+  session.shooterTimer = setTimeout(
+    () => void executeRoll(true),
+    TIMING.SHOOTER_GRACE_SECONDS * 1000
+  );
 
   await painter.paintNow(session);
 }
@@ -334,6 +349,15 @@ export async function executeRoll(automatic: boolean = false): Promise<void> {
   session.results = paid;
   session.phase = 'resolved';
   session.sevenOut = resolution.sessionEnded;
+
+  // A big roll earns a rendered result. Null whenever sharp is unavailable, in which
+  // case the board simply reads as text.
+  session.hero = pacing.hero
+    ? await renderHero(
+        crapsHeroSvg(roll.die1, roll.die2, session.rollName ?? String(roll.total)),
+        `Craps roll: ${roll.die1} and ${roll.die2}, total ${roll.total}`
+      )
+    : null;
 
   // Bets that resolved leave the table; multi-roll bets that are still pending ride on.
   session.bets = session.bets.filter((b) => b.status === 'active');
@@ -645,6 +669,9 @@ export async function closeTable(): Promise<void> {
   session.bets = [];
   session.deadline = null;
 
+  // A closed table must not reopen itself on the next boot.
+  await clearTableState('craps');
+
   try {
     if (session.message) await session.message.edit(buildBoard(viewOf(session)));
   } catch {
@@ -747,7 +774,10 @@ export async function placeBet(request: BetRequest): Promise<PlaceBetResult> {
   // and still taking bets, before attaching anything to it.
   if (table !== session || session.phase !== 'betting') {
     await refundEscrow(escrow.escrowId, userId);
-    return { success: false, message: 'Bets closed while that was going through — stake returned.' };
+    return {
+      success: false,
+      message: 'Bets closed while that was going through — stake returned.',
+    };
   }
 
   const existing = duplicate.aggregate
@@ -867,6 +897,64 @@ export function isShooter(userId: string): boolean {
 /** Whether the table is waiting on a throw right now. */
 export function isAwaitingRoll(): boolean {
   return table?.phase === 'awaiting_roll';
+}
+
+// ============ PERSISTENCE ============
+
+/**
+ * Save the shooter rotation and the recent roll strip.
+ *
+ * The POINT is deliberately not saved. It belongs to a shooter's turn whose bets have
+ * just been refunded by the escrow sweep, so that turn is void and restoring its point
+ * would leave the table mid-hand with nothing on it.
+ */
+export async function saveState(): Promise<void> {
+  const session = table;
+  if (!session) return;
+
+  await saveTableState<CrapsSnapshot>('craps', session.channelId, {
+    queue: session.queue.map((player) => ({
+      userId: player.userId,
+      username: player.username,
+    })),
+    shooterUserId: session.shooter?.userId ?? null,
+    recentRolls: session.rollHistory.map((r) => r.total).slice(-12),
+  });
+}
+
+/**
+ * Bring the table back after a restart, with the same people in the same order.
+ *
+ * @returns true when a table was restored
+ */
+export async function restoreState(client: Client): Promise<boolean> {
+  const snapshot = await loadTableState<CrapsSnapshot>('craps');
+  if (!snapshot || snapshot.state.queue.length === 0) return false;
+
+  try {
+    const channel = await client.channels.fetch(snapshot.channelId);
+    if (!channel || channel.type !== ChannelType.GuildText) return false;
+
+    const textChannel = channel as TextChannel;
+    const session = createSession(textChannel.id, client);
+
+    session.queue = snapshot.state.queue.map((player) => ({ ...player }));
+    session.shooter =
+      session.queue.find((p) => p.userId === snapshot.state.shooterUserId) ??
+      session.queue[0] ??
+      null;
+
+    table = session;
+    session.message = await textChannel.send(buildBoard(viewOf(session)));
+    startBettingWindow(session);
+    await painter.paintNow(session);
+
+    console.log(`[CRAPS] Restored table with ${session.queue.length} player(s)`);
+    return true;
+  } catch (error: unknown) {
+    console.error('[CRAPS] Failed to restore table:', error);
+    return false;
+  }
 }
 
 // ============ TEST SEAM ============

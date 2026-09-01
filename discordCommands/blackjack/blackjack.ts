@@ -20,6 +20,7 @@ import {
   registerComponentHandler,
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
+import { registerGameStatus } from '../../casino/casinoHub.js';
 import { paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
 import { amountWithTogglesModal, parseStake } from '../../casino/casinoModal.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
@@ -33,10 +34,7 @@ import {
   buildSlipText,
 } from './blackjackRender.js';
 import * as blackjackState from './blackjackState.js';
-import {
-  PERFECT_PAIRS_PAYOUT,
-  TWENTY_ONE_PLUS_THREE_PAYOUT,
-} from './blackjackSideBets.js';
+import { PERFECT_PAIRS_PAYOUT, TWENTY_ONE_PLUS_THREE_PAYOUT } from './blackjackSideBets.js';
 
 // ============ COMMAND DEFINITION ============
 
@@ -48,13 +46,13 @@ export const data = new SlashCommandBuilder()
       .setName('sit')
       .setDescription('Take a seat for the next round')
       .addStringOption((option) =>
-        option.setName('amount').setDescription("Stake per round (number or 'all')").setRequired(true)
+        option
+          .setName('amount')
+          .setDescription("Stake per round (number or 'all')")
+          .setRequired(true)
       )
       .addIntegerOption((option) =>
-        option
-          .setName('pairs')
-          .setDescription('Optional Perfect Pairs side bet')
-          .setMinValue(0)
+        option.setName('pairs').setDescription('Optional Perfect Pairs side bet').setMinValue(0)
       )
       .addIntegerOption((option) =>
         option.setName('plus3').setDescription('Optional 21+3 side bet').setMinValue(0)
@@ -93,7 +91,10 @@ async function requireTableChannel(
   }
 
   if (!interaction.channel || interaction.channel.type !== ChannelType.GuildText) {
-    await whisper(interaction as RoutableInteraction, 'Blackjack must be played in a text channel.');
+    await whisper(
+      interaction as RoutableInteraction,
+      'Blackjack must be played in a text channel.'
+    );
     return null;
   }
 
@@ -171,7 +172,9 @@ async function handleSitCommand(interaction: ChatInputCommandInteraction): Promi
   });
 
   activeChip.set(interaction.user.id, stake);
-  await interaction.editReply({ content: result.ok ? `✅ ${result.message}` : `❌ ${result.message}` });
+  await interaction.editReply({
+    content: result.ok ? `✅ ${result.message}` : `❌ ${result.message}`,
+  });
 }
 
 async function handleLeaveCommand(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -414,4 +417,30 @@ registerComponentHandler(ID_PREFIX, async (interaction: RoutableInteraction) => 
   if (id.startsWith(IDS.CHIP)) return handleChip(interaction, id.slice(IDS.CHIP.length));
 
   console.warn(`[BLACKJACK] Unhandled component "${id}"`);
+});
+
+// ============ HUB ============
+
+registerGameStatus(() => {
+  const open: boolean = blackjackState.isTableOpen();
+  const phase = blackjackState.getPhase();
+
+  const PHASE_TEXT: Record<string, string> = {
+    idle: 'Table closed — take a seat to open it',
+    betting: 'Seats open',
+    dealing: 'Dealing',
+    insurance: 'Insurance offered',
+    acting: 'Hands in play',
+    dealer: 'Dealer playing',
+    settled: 'Settling',
+  };
+
+  return {
+    key: 'blackjack',
+    label: 'BLACKJACK',
+    emoji: '🃏',
+    channelId: blackjackState.getBlackjackChannelId(),
+    live: open && phase !== 'idle',
+    summary: PHASE_TEXT[phase] ?? 'Unknown',
+  };
 });

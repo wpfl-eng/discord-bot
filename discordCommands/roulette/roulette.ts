@@ -24,6 +24,7 @@ import {
   registerComponentHandler,
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
+import { registerGameStatus } from '../../casino/casinoHub.js';
 import { amountModal } from '../../casino/casinoModal.js';
 import {
   ALL_BET_TYPES,
@@ -688,4 +689,24 @@ registerComponentHandler(ID_PREFIX, async (interaction) => {
     return;
   }
   await handleComponent(interaction as MessageComponentInteraction);
+});
+
+// ============ HUB ============
+
+registerGameStatus(() => {
+  const open: boolean = rouletteState.isTableOpen();
+  const betting: boolean = rouletteState.isBettingOpen();
+
+  return {
+    key: 'roulette',
+    label: 'ROULETTE',
+    emoji: '🎰',
+    channelId: rouletteState.getRouletteChannelId(),
+    live: open,
+    summary: !open
+      ? 'Table closed — place a bet to open it'
+      : betting
+        ? 'Betting open'
+        : 'Wheel is spinning',
+  };
 });
