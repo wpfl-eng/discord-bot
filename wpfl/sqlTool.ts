@@ -38,7 +38,7 @@ export interface SqlResult {
  * literals and comments removed, so a keyword inside quoted text or an
  * identifier like `dropped_players` is left alone.
  */
-const FORBIDDEN: readonly string[] = [
+const FORBIDDEN_WORDS: readonly string[] = [
   'ATTACH',
   'DETACH',
   'COPY',
@@ -60,6 +60,11 @@ const FORBIDDEN: readonly string[] = [
   'GRANT',
   'REVOKE',
 ];
+
+/** Compiled once, not twenty times per query. */
+const FORBIDDEN: readonly (readonly [string, RegExp])[] = FORBIDDEN_WORDS.map(
+  (keyword: string): readonly [string, RegExp] => [keyword, new RegExp(`\\b${keyword}\\b`, 'i')]
+);
 
 /**
  * DESCRIBE and SUMMARIZE are here because the tool's own description tells the
@@ -84,10 +89,9 @@ export function guardStatement(sql: string): string | null {
   // the allowed trailing semicolon; anything else is a second statement.
   const pieces: string[] = bare.split(';');
   const nonEmpty: string[] = pieces.filter((piece) => piece.trim() !== '');
-  if (nonEmpty.length > 1) {
-    return 'Send one statement at a time. Multiple statements separated by `;` are not allowed.';
-  }
-  if (pieces.length > 2) {
+  // Both are reachable and neither implies the other: `SELECT 1; SELECT 2`
+  // trips the first, `SELECT 1;;` only the second.
+  if (nonEmpty.length > 1 || pieces.length > 2) {
     return 'Send one statement at a time. Multiple statements separated by `;` are not allowed.';
   }
 
@@ -95,8 +99,8 @@ export function guardStatement(sql: string): string | null {
     return 'Only read-only queries are allowed. Start with SELECT, WITH, DESCRIBE or SUMMARIZE.';
   }
 
-  for (const keyword of FORBIDDEN) {
-    if (new RegExp(`\\b${keyword}\\b`, 'i').test(bare)) {
+  for (const [keyword, pattern] of FORBIDDEN) {
+    if (pattern.test(bare)) {
       return `\`${keyword}\` is not allowed. This database is read-only — use SELECT or WITH.`;
     }
   }

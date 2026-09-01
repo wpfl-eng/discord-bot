@@ -37,19 +37,26 @@ client.once('ready', async () => {
 
   // /ask setup. Both are non-fatal: a stale shred still answers, and an
   // unresolved snowflake only costs that member their implicit "my team".
+  // They share nothing, and the sync can take seconds, so they run together
+  // rather than holding boot one behind the other.
   const guildId: string | undefined = process.env.DISCORD_GUILD_ID;
-  if (guildId !== undefined) {
-    try {
-      await checkIdentityMapping(await client.guilds.fetch(guildId));
-    } catch (error) {
-      logError('ask', 'Could not verify the league identity mapping', error);
-    }
-  }
-  try {
-    console.log('[ASK] Artifact sync:', JSON.stringify(await ensureFresh()));
-  } catch (error) {
-    logError('ask', 'Artifact sync failed at startup', error);
-  }
+  await Promise.all([
+    (async (): Promise<void> => {
+      if (guildId === undefined) return;
+      try {
+        await checkIdentityMapping(await client.guilds.fetch(guildId));
+      } catch (error) {
+        logError('ask', 'Could not verify the league identity mapping', error);
+      }
+    })(),
+    (async (): Promise<void> => {
+      try {
+        console.log('[ASK] Artifact sync:', JSON.stringify(await ensureFresh()));
+      } catch (error) {
+        logError('ask', 'Artifact sync failed at startup', error);
+      }
+    })(),
+  ]);
 });
 
 client.commands = new Collection();

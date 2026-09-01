@@ -50,13 +50,6 @@ export const formatNumber = (floatNumber: number): number => {
 };
 
 /**
- * Calculate the current NFL week dynamically.
- * NFL season starts on the Thursday after Labor Day (first Monday of September).
- *
- * @param referenceDate - Date to calculate week for (defaults to now)
- * @returns Current NFL week (1-18)
- */
-/**
  * The season an NFL date belongs to, which is what ESPN's `seasonId` wants.
  *
  * A season is named for the calendar year it starts in and runs into February
@@ -70,6 +63,13 @@ export const getCurrentNFLSeason = (referenceDate: Date = new Date()): number =>
   return referenceDate.getMonth() < 2 ? year - 1 : year;
 };
 
+/**
+ * Calculate the current NFL week dynamically.
+ * NFL season starts on the Thursday after Labor Day (first Monday of September).
+ *
+ * @param referenceDate - Date to calculate week for (defaults to now)
+ * @returns Current NFL week (1-18)
+ */
 export const getCurrentNFLWeek = (referenceDate: Date = new Date()): NFLWeek => {
   const year = referenceDate.getFullYear();
 

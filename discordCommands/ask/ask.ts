@@ -15,7 +15,6 @@ import {
   type Guild,
   type Message,
   type SendableChannels,
-  type TextChannel,
   type User,
 } from 'discord.js';
 import { ASK } from '../../ask/askConfig.js';
@@ -78,9 +77,15 @@ export function resolveTarget(channelType: ChannelType, session: AskSession | nu
 
   // A closed session's transcript has been pruned by the SDK, so resuming it
   // would fail. Start fresh in the same thread and say so.
-  const resumable: boolean =
-    session !== null && !session.closed && THREAD_TYPES.includes(channelType);
-  return { kind: 'in-place', resume: resumable ? (session as AskSession).session_id : null };
+  //
+  // A guard clause rather than a derived boolean: narrowing `session` inside
+  // the condition is what lets `session.session_id` be read without a cast, and
+  // the cast is what would let a future `AskSession | X` put undefined into
+  // `resume` without a word from the typechecker.
+  if (session !== null && !session.closed && THREAD_TYPES.includes(channelType)) {
+    return { kind: 'in-place', resume: session.session_id };
+  }
+  return { kind: 'in-place', resume: null };
 }
 
 /** Discord caps a thread name at 100 characters. */
@@ -264,7 +269,7 @@ async function openDestination(
   } catch (error: unknown) {
     // Missing "Create Public Threads" degrades to answering in the channel.
     logError('ask', 'Could not open a thread; answering in the channel instead', error);
-    return channel as TextChannel;
+    return channel;
   }
 }
 

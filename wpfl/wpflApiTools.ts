@@ -52,27 +52,26 @@ export async function fetchExpectedWins(
   fetchFn: FetchFn = fetch
 ): Promise<ExpectedWinsRow[]> {
   // The endpoint takes a range; a single season is that season on both bounds.
-  const query: Record<string, string> = {
-    seasonMin: String(params.season),
-    seasonMax: String(params.season),
-    includePlayoffs: String(params.includePlayoffs ?? false),
-  };
-  if (params.weekMin !== undefined) query.weekMin = String(params.weekMin);
-  if (params.weekMax !== undefined) query.weekMax = String(params.weekMax);
-
-  return getRows<ExpectedWinsRow>(`${ASK.WPFL_API_BASE}/expectedwins`, query, fetchFn);
+  return getRows<ExpectedWinsRow>(
+    `${ASK.WPFL_API_BASE}/expectedwins`,
+    {
+      seasonMin: params.season,
+      seasonMax: params.season,
+      includePlayoffs: params.includePlayoffs ?? false,
+      weekMin: params.weekMin,
+      weekMax: params.weekMax,
+    },
+    fetchFn
+  );
 }
 
 export async function fetchOptimalCoaching(
   params: { season: number; week?: number },
   fetchFn: FetchFn = fetch
 ): Promise<OptimalCoachingRow[]> {
-  const query: Record<string, string> = {};
-  if (params.week !== undefined) query.week = String(params.week);
-
   return getRows<OptimalCoachingRow>(
     `${ASK.WPFL_API_BASE}/optimalcoaching/pointsfor/${params.season}`,
-    query,
+    { week: params.week },
     fetchFn
   );
 }
@@ -81,13 +80,11 @@ export async function fetchDraftedPoints(
   params: { seasonMin: number; seasonMax: number; weekMax?: number },
   fetchFn: FetchFn = fetch
 ): Promise<DraftedPointsRow[]> {
-  const query: Record<string, string> = {
-    seasonMin: String(params.seasonMin),
-    seasonMax: String(params.seasonMax),
-  };
-  if (params.weekMax !== undefined) query.weekMax = String(params.weekMax);
-
-  return getRows<DraftedPointsRow>(`${ASK.WPFL_API_BASE}/draft/draftedpoints`, query, fetchFn);
+  return getRows<DraftedPointsRow>(
+    `${ASK.WPFL_API_BASE}/draft/draftedpoints`,
+    { seasonMin: params.seasonMin, seasonMax: params.seasonMax, weekMax: params.weekMax },
+    fetchFn
+  );
 }
 
 /** Rows as indented JSON. An empty result says so, so it is not read as zeroes. */
@@ -102,13 +99,21 @@ export function toToolResult(rows: readonly unknown[]): CallToolResult {
   };
 }
 
+/**
+ * Omitting a parameter is expressed by leaving it undefined, and skipping it is
+ * this function's job. The three callers each hand over one literal describing
+ * the whole query, rather than building a dict through an `if` per optional
+ * parameter -- six near-identical conditionals for one rule.
+ */
 async function getRows<T>(
   endpoint: string,
-  query: Record<string, string>,
+  query: Record<string, string | number | boolean | undefined>,
   fetchFn: FetchFn
 ): Promise<T[]> {
   const url = new URL(endpoint);
-  for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ASK.WPFL_FETCH_TIMEOUT_MS);

@@ -30,6 +30,11 @@ import type {
   FreeAgentEntry,
 } from 'espn-fantasy-football-api/node.js';
 import { getWpflMemberByEspnId } from '../constants/wpflMembers.js';
+// getCurrentNFLSeason, not getFullYear(): the latter would name the wrong season
+// for all of January and February -- the weeks that carry the fantasy playoffs
+// and the championship. ESPN would return nothing for the season that has not
+// started, and the agent would tell the league in public that it has no data for
+// the game they just played.
 import { getCurrentNFLWeek, getCurrentNFLSeason } from '../helpers/utils.js';
 import { toToolResult } from './wpflApiTools.js';
 
@@ -189,14 +194,6 @@ function espnClient(): EspnClient {
   return client;
 }
 
-/**
- * `getFullYear()` would name the wrong season for all of January and February
- * -- the weeks that carry the fantasy playoffs and the championship. ESPN would
- * return nothing for the season that has not started, and the agent would tell
- * the league in public that it has no data for the game they just played.
- */
-const currentSeason = getCurrentNFLSeason;
-
 const CURRENT_SEASON_ONLY =
   'This is the live ESPN league and the only source of truth for the season in progress — the WPFL history API returns nothing for it and the draft artifact froze on draft night.';
 
@@ -218,7 +215,7 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
       toToolResult(
         toTeams(
           await espnClient().getTeamsAtWeek({
-            seasonId: currentSeason(),
+            seasonId: getCurrentNFLSeason(),
             scoringPeriodId: args.week ?? getCurrentNFLWeek(),
           })
         )
@@ -237,7 +234,7 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
       return toToolResult(
         toBoxscores(
           await espnClient().getBoxscoreForWeek({
-            seasonId: currentSeason(),
+            seasonId: getCurrentNFLSeason(),
             matchupPeriodId: week,
             scoringPeriodId: week,
           })
@@ -265,7 +262,7 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
       toToolResult(
         toFreeAgents(
           await espnClient().getFreeAgents({
-            seasonId: currentSeason(),
+            seasonId: getCurrentNFLSeason(),
             scoringPeriodId: args.week ?? getCurrentNFLWeek(),
           }),
           args.position
@@ -280,7 +277,7 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
     {},
     async (): Promise<CallToolResult> =>
       toToolResult(
-        toTransactions(await espnClient().getRecentActivity({ seasonId: currentSeason() }))
+        toTransactions(await espnClient().getRecentActivity({ seasonId: getCurrentNFLSeason() }))
       ),
     { alwaysLoad: false }
   ),

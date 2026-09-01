@@ -43,7 +43,17 @@ export async function checkCaps(
     };
   }
 
-  const asked: number = await countUserQuestionsSince(userId, startOfDay(now));
+  // Issued together, not one after the other. Both are separate network round
+  // trips against a serverless Postgres, and they sit in front of deferReply(),
+  // which Discord will not wait more than three seconds for. The daily limit is
+  // still evaluated first, so the refusal a member reads is unchanged; the only
+  // difference is that the league-wide count is also asked for on the rare day
+  // someone is already capped.
+  const [asked, leagueTotal]: [number, number] = await Promise.all([
+    countUserQuestionsSince(userId, startOfDay(now)),
+    countAllQuestionsSince(startOfMonth(now)),
+  ]);
+
   if (asked >= ASK.DAILY_QUESTIONS_PER_USER) {
     return {
       allowed: false,
@@ -51,7 +61,6 @@ export async function checkCaps(
     };
   }
 
-  const leagueTotal: number = await countAllQuestionsSince(startOfMonth(now));
   if (leagueTotal >= ASK.MONTHLY_QUERIES_TOTAL) {
     return {
       allowed: false,
