@@ -92,10 +92,20 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
   const ignored: string[] = [];
 
   const root: string = path.resolve(targetDir);
-  const write = (relative: string, contents: string): void => {
+
+  /**
+   * The one place a path is built, so it is the one place sanitising happens.
+   *
+   * Callers hand over path *components* and never a path, because a component
+   * cannot contain a separator once safeName has run. Sanitising at the call
+   * sites instead meant six independent places had to remember -- and one of
+   * them, the owner slug, never did.
+   */
+  const write = (components: readonly string[], extension: string, contents: string): void => {
+    const relative = `${components.map(safeName).join('/')}.${extension}`;
     const full: string = path.resolve(root, relative);
-    // Belt to safeName's braces: nothing is written outside the shred root,
-    // whatever the artifact called its keys.
+    // Now genuinely an assertion rather than the only thing standing behind
+    // six remembered calls: if this ever fires, safeName has a hole in it.
     if (full !== root && !full.startsWith(`${root}${path.sep}`)) {
       throw new ShredAbort(`Refusing to write \`${relative}\` outside the shred directory.`);
     }
@@ -123,7 +133,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
     switch (plan.kind) {
       case 'single':
         requireDict(body, value);
-        write(`${safeName(body)}.json`, JSON.stringify(value));
+        write([body], 'json', JSON.stringify(value));
         break;
 
       case 'list-by-owner':
@@ -135,7 +145,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
               `A \`${body}\` entry has no string \`owner\` to name its file after.`
             );
           }
-          write(`${safeName(body)}/${slug(owner)}.json`, JSON.stringify(entry));
+          write([body, slug(owner)], 'json', JSON.stringify(entry));
         }
         break;
 
@@ -148,9 +158,9 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
             continue;
           }
           if (asJsonl.has(key) && isDict(member)) {
-            write(`${safeName(body)}/${safeName(key)}.jsonl`, toJsonl(member));
+            write([body, key], 'jsonl', toJsonl(member));
           } else {
-            write(`${safeName(body)}/${safeName(key)}.json`, JSON.stringify(member));
+            write([body, key], 'json', JSON.stringify(member));
           }
         }
         break;
@@ -165,15 +175,15 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
 function shredGenerically(
   body: string,
   value: Json,
-  write: (relative: string, contents: string) => void
+  write: (components: readonly string[], extension: string, contents: string) => void
 ): void {
   if (isDict(value)) {
     for (const [key, member] of Object.entries(value)) {
-      write(`${safeName(body)}/${safeName(key)}.json`, JSON.stringify(member));
+      write([body, key], 'json', JSON.stringify(member));
     }
     return;
   }
-  write(`${safeName(body)}.json`, JSON.stringify(value));
+  write([body], 'json', JSON.stringify(value));
 }
 
 /**
@@ -193,9 +203,10 @@ function toJsonl(collection: JsonDict): string {
  *
  * Body and key names come out of a JSON document fetched over the network and
  * were being handed straight to path.join, so a key of `../../authorized_keys`
- * wrote outside the shred root. Owner names were already slugged; nothing else
- * was. Every real key -- `spend_race`, `hall_of_fame`, `board_intro` -- is
- * unchanged by this, so no existing filename moves.
+ * wrote outside the shred root. Every real key -- `spend_race`,
+ * `hall_of_fame`, `board_intro` -- is unchanged by this, so no existing
+ * filename moves. Applied by write(), to every component, so a new call site
+ * cannot skip it.
  */
 function safeName(name: string): string {
   const cleaned: string = name.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^\.+/, '');

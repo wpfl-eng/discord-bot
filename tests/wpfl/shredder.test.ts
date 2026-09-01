@@ -292,6 +292,28 @@ describe('shredder', () => {
       }
     };
 
+    test('an owner name that slugs to nothing still gets a real filename', () => {
+      // The owner slug was the one path component that never went through
+      // safeName -- sanitising was remembered at each call site, and this call
+      // site did not. slug('!!!') is the empty string, so the file was written
+      // as `teams/.json`: a dotfile, invisible to the agent's Glob and to
+      // anyone looking at the directory. Building the path in one place fixes
+      // it by construction.
+      const result: ShredResult = shred(
+        {
+          meta: { generated: '2026-08-31' },
+          teams: [{ owner: '!!!' }],
+          league: {},
+          news: {},
+          history: {},
+        },
+        target
+      );
+
+      expect(result.files.map((f) => f.path)).toContain('teams/_.json');
+      expectNothingEscaped();
+    });
+
     const withKey = (key: string): Record<string, unknown> => ({
       meta: { generated: '2026-08-31' },
       teams: [{ owner: 'AJ Boorde' }],
