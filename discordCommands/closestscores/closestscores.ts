@@ -3,7 +3,7 @@ import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
 import type { BoxscoreMatchup } from 'espn-fantasy-football-api/node.js';
 import { espnMembers } from '../../constants/espnMembers.js';
-import { getCurrentNFLWeek } from '../../helpers/utils.js';
+import { getCurrentNFLWeek, getCurrentNFLSeason } from '../../helpers/utils.js';
 
 export const data = new SlashCommandBuilder()
   .setName('closestscores')
@@ -22,7 +22,7 @@ export const data = new SlashCommandBuilder()
       .setDescription('The year')
       .setRequired(false)
       .setMinValue(2018)
-      .setMaxValue(new Date().getFullYear())
+      .setMaxValue(getCurrentNFLSeason())
   );
 
 async function getMatchups(matchupWeek: number, matchupYear: number): Promise<string> {
@@ -74,7 +74,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply();
 
   let matchupWeek = interaction.options.getInteger('week');
-  const matchupYear = interaction.options.getInteger('year') ?? new Date().getFullYear();
+  const matchupYear: number = interaction.options.getInteger('year') ?? getCurrentNFLSeason();
 
   if (!matchupWeek) {
     matchupWeek = getCurrentNFLWeek();

@@ -2,6 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { Client } from '../../espnClient.cjs';
 import type { EspnTeam } from 'espn-fantasy-football-api/node.js';
 import { espnMembers } from '../../constants/espnMembers.js';
+import { getCurrentNFLSeason } from '../../helpers/utils.js';
 
 export const data = new SlashCommandBuilder()
   .setName('standings')
@@ -20,7 +21,7 @@ export const data = new SlashCommandBuilder()
       .setDescription('Input year of standings')
       .setRequired(true)
       .setMinValue(2018)
-      .setMaxValue(new Date().getFullYear())
+      .setMaxValue(getCurrentNFLSeason())
   );
 
 export const getStandings = async (

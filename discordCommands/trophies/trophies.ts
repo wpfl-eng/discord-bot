@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { formatNumber } from '../../helpers/utils.js';
+import { formatNumber, getCurrentNFLSeason } from '../../helpers/utils.js';
 import { espnMembers } from '../../constants/espnMembers.js';
 import { Client } from '../../espnClient.cjs';
 import type { BoxscoreMatchup } from 'espn-fantasy-football-api/node.js';
@@ -43,7 +43,7 @@ export const data = new SlashCommandBuilder()
       .setDescription('Input year of matchup')
       .setRequired(true)
       .setMinValue(2018)
-      .setMaxValue(new Date().getFullYear())
+      .setMaxValue(getCurrentNFLSeason())
   );
 
 export const execute = async (interaction: ChatInputCommandInteraction): Promise<void> => {
