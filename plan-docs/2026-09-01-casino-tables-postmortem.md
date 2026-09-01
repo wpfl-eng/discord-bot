@@ -61,9 +61,8 @@ The obvious recovery — void the round's escrow — is wrong in one window. Bot
 wallets *before* calling `settleEscrowIds`. A throw in between leaves rows that are paid
 but still `open`; voiding one returns a stake that has already been paid out.
 
-Each game therefore tracks `settlementStarted` and exposes the rule as a predicate
-(`canVoidRound`, `canVoidTurn`, `canVoidSpin`). Recovery returns stakes only before
-settlement begins.
+Each game therefore tracks `settlementStarted`, documented on the field itself, and
+recovery returns stakes only while it is false.
 
 ### 3. Recovery has to be able to give up
 
@@ -80,9 +79,10 @@ painting; Rebet looped an escrow transaction per bet. Those now acknowledge firs
 
 Two acknowledgement modes exist and are **not** interchangeable — a private defer creates
 an empty reply that must be filled with `editReply`, while a board defer creates no reply
-at all — so they are named (`ackPrivate`, `ackBoard`) rather than inferred, and `whisper`
-reads which was used. Neither may be used by a handler that opens a modal, since
-`showModal` is itself the acknowledgement.
+at all — so they are named (`ackPrivate`, `ackBoard`) rather than inferred. `whisper` tells
+them apart by reading `interaction.ephemeral`, which discord.js sets on `deferReply` and
+leaves null on `deferUpdate`. Neither mode may be used by a handler that opens a modal,
+since `showModal` is itself the acknowledgement.
 
 ### 5. Clicks painted whatever message they came from
 
@@ -91,8 +91,9 @@ board left behind by an earlier run still works — and `restoreState` posted a 
 on every boot, accumulating them. A click on an old board painted live state onto it while
 the painter kept editing the real one: two boards, both looking live, disagreeing.
 
-Now it paints only when the click came from the live board, and `restoreState` reclaims
-the previous board message rather than posting beside it.
+Now it paints only when the click came from the live board — that policy lives in one
+place, `repaintVia` in `casinoPaint.ts` — and `restoreState` reclaims the previous board
+message rather than posting beside it.
 
 ---
 
@@ -127,8 +128,8 @@ aggregated bet. `CrapsBet` now carries `escrowIds`.
 
 - **Craps Rebet replayed everything.** The per-player list in `craps.ts` was appended to
   on every bet and cleared nowhere, so Rebet repeated every bet since process start and
-  the map grew without bound. Now rebuilt from the table each roll, as roulette already
-  did per spin.
+  the map grew without bound. Now rebuilt from the table each roll, through the same
+  `groupRebets` roulette uses per spin.
 - **Declining insurance did nothing.** `insuranceSettled` was written in four places and
   read in none. The round now moves on once every seat has answered; the clock is a
   backstop again rather than a fixed 15 seconds.
@@ -152,8 +153,8 @@ one per pass. Not changed.
 ## Verification
 
 - `npx tsc --noEmit` clean; `npm run lint` clean; Prettier clean.
-- 964 tests across 40 suites, all passing (was 925 across 37).
-- 39 new tests. The guard is covered directly. Everything else is covered as a pure
+- 959 tests across 41 suites, all passing (was 925 across 37).
+- 34 new tests. The guard is covered directly. Everything else is covered as a pure
   predicate, because driving a real round means fake timers, animation sleeps and a
   Discord client — which is why `blackjackState` and `crapsState` had no suites at all.
 - **Not covered by tests:** the acknowledgement and paint-routing changes. Neither is

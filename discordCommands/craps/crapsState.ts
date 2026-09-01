@@ -26,6 +26,7 @@ import * as crapsDb from '../../craps/crapsDb.js';
 import { pacingFor, sleep, type Pacing } from '../../casino/casinoPacing.js';
 import { crapsHeroSvg, renderHero, type Hero } from '../../casino/casinoHero.js';
 import { createPainter, reclaimBoard } from '../../casino/casinoPaint.js';
+import { groupRebets } from '../../casino/casinoRebets.js';
 import { createAdvanceGuard, type RecoveryContext } from '../../casino/casinoRecovery.js';
 import {
   clearTableState,
@@ -214,13 +215,7 @@ export function currentBoard(): ReturnType<typeof buildBoard> | null {
   return table ? buildBoard(viewOf(table)) : null;
 }
 
-/**
- * Id of the board the table is actually driving, or null when there is none.
- *
- * A click carries the message it came from, and a board left behind by an earlier run
- * still has working buttons. Comparing against this is how a handler tells a live click
- * apart from one on a board nobody is painting any more.
- */
+/** Id of the board this table is driving, or null when there is none. See `repaintVia`. */
 export function getBoardMessageId(): string | null {
   return table?.message?.id ?? null;
 }
@@ -292,19 +287,6 @@ function extendWindow(session: TableSession): void {
 // ============ RECOVERY ============
 
 /**
- * Whether this turn's stakes can still be handed back.
- *
- * False from the moment `settleResolution` starts crediting wallets: between a credit
- * and its escrow row being marked settled the row is paid but still 'open', so voiding
- * it would return a stake the player has already been paid.
- *
- * Exported as a plain predicate so the rule is testable without driving a whole roll.
- */
-export function canVoidTurn(settlementStarted: boolean): boolean {
-  return !settlementStarted;
-}
-
-/**
  * Put the table back together after an advance threw.
  *
  * A voided turn takes the point with it. The point belongs to a shooter's turn whose
@@ -316,7 +298,7 @@ async function recoverTable(context: RecoveryContext): Promise<void> {
 
   clearTimers(session);
 
-  if (canVoidTurn(session.settlementStarted)) {
+  if (!session.settlementStarted) {
     try {
       await escrowDb.voidSession('craps', session.sessionKey);
     } catch (error: unknown) {
@@ -441,7 +423,7 @@ async function runRoll(automatic: boolean): Promise<void> {
 
   // ---- resolve ----
   // Taken before anything resolves, so Rebet repeats what was down for THIS roll.
-  session.lastRoundBets = snapshotRebets(activeBets(session));
+  session.lastRoundBets = groupRebets(activeBets(session));
 
   const resolution: RollResolutionResult = resolveAllBets(activeBets(session), roll, pointBefore);
   const paid = await settleResolution(session, resolution);
@@ -703,30 +685,6 @@ export function getActiveSessionKey(): string | null {
 
 export function getShooter(): ShooterInfo | null {
   return table?.shooter ?? null;
-}
-
-/**
- * What each player had down, keyed by player, for the Rebet button.
- *
- * Rebuilt from the table each roll rather than appended to. Craps previously
- * accumulated this in the command module and never cleared it, so Rebet replayed every
- * bet a player had made since the process started - growing without bound, and turning
- * one click into dozens of escrow transactions. Roulette already did it this way.
- *
- * Exported as a pure function so the shape is testable without driving a roll.
- */
-export function snapshotRebets(
-  bets: readonly CrapsBet[]
-): Map<string, { betType: BetType; amount: number }[]> {
-  const byUser = new Map<string, { betType: BetType; amount: number }[]>();
-
-  for (const bet of bets) {
-    const existing = byUser.get(bet.userId) ?? [];
-    existing.push({ betType: bet.betType, amount: bet.amount });
-    byUser.set(bet.userId, existing);
-  }
-
-  return byUser;
 }
 
 /** A player's bets from the previous roll, for Rebet. */

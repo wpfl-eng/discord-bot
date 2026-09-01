@@ -21,7 +21,7 @@ import {
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
 import { registerGameStatus } from '../../casino/casinoHub.js';
-import { ackBoard, ackPrivate, paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
+import { ackBoard, ackPrivate, repaintVia, whisper } from '../../casino/casinoPaint.js';
 import { amountWithTogglesModal, parseStake } from '../../casino/casinoModal.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
 import { formatCurrency } from '../../casino/casinoFormat.js';
@@ -227,30 +227,6 @@ async function handleRules(interaction: ChatInputCommandInteraction): Promise<vo
 
 // ============ COMPONENT HANDLERS ============
 
-/**
- * Repaint the table after a click changed it.
- *
- * Through the click itself when it came from the live board, which keeps the edit on the
- * interaction's rate limit and shows the new card immediately. From anywhere else - a
- * board left behind by an earlier run - the painter repaints the real board instead.
- *
- * @returns false when there is no table to paint
- */
-async function repaintTable(interaction: RoutableInteraction): Promise<boolean> {
-  const board = blackjackState.currentBoard();
-  if (!board) return false;
-
-  const painted: boolean = await paintViaInteraction(
-    interaction,
-    board,
-    'BLACKJACK',
-    blackjackState.getBoardMessageId()
-  );
-  if (!painted) blackjackState.refresh();
-
-  return true;
-}
-
 async function handleChip(interaction: RoutableInteraction, rest: string): Promise<void> {
   if (rest === 'custom') {
     await openSitModal(interaction);
@@ -368,7 +344,8 @@ async function handleLeave(interaction: RoutableInteraction): Promise<void> {
   }
 
   await ackBoard(interaction);
-  if (!(await repaintTable(interaction))) await whisper(interaction, result.message);
+  if (!(await repaintVia(interaction, blackjackState, 'BLACKJACK')))
+    await whisper(interaction, result.message);
 }
 
 async function handleSlip(interaction: RoutableInteraction): Promise<void> {
@@ -416,7 +393,7 @@ async function handleAction(
   // from here would only race it.
   if (result.roundEnded) return;
 
-  await repaintTable(interaction);
+  await repaintVia(interaction, blackjackState, 'BLACKJACK');
 }
 
 async function handleInsurance(interaction: RoutableInteraction, take: boolean): Promise<void> {

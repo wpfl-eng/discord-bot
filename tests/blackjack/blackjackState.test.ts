@@ -39,20 +39,6 @@ afterEach(() => {
   state.__resetTableForTesting();
 });
 
-// ============ RECOVERY ============
-
-describe('canVoidRound', () => {
-  test('a round that has not started paying can be handed back', () => {
-    expect(state.canVoidRound(false)).toBe(true);
-  });
-
-  // Between crediting a wallet and marking the escrow row settled, the row is paid but
-  // still 'open'. Voiding one there pays the stake a second time.
-  test('a round that has started paying cannot', () => {
-    expect(state.canVoidRound(true)).toBe(false);
-  });
-});
-
 // ============ INSURANCE ============
 
 describe('everyoneAnsweredInsurance', () => {

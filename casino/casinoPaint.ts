@@ -131,9 +131,6 @@ export function createPainter<S>(options: PainterOptions<S>): Painter<S> {
 
 type Routable = MessageComponentInteraction | ModalSubmitInteraction;
 
-/** Interactions acknowledged by ackPrivate, whose empty reply whisper must fill. */
-const privateAcks = new WeakSet<Routable>();
-
 /**
  * Acknowledge a click that will be answered only to the player who made it.
  *
@@ -144,7 +141,6 @@ export async function ackPrivate(interaction: Routable): Promise<void> {
 
   try {
     await interaction.deferReply({ ephemeral: true });
-    privateAcks.add(interaction);
   } catch (error: unknown) {
     // Already expired or answered elsewhere. whisper() will find its own way.
     console.error('[CASINO] Could not acknowledge an interaction privately:', error);
@@ -187,7 +183,7 @@ export async function ackBoard(interaction: Routable): Promise<void> {
  * @param liveMessageId - id of the board the game is actually driving, or null if none
  * @returns true if the board was repainted through this interaction
  */
-export async function paintViaInteraction(
+async function paintViaInteraction(
   interaction: Routable,
   payload: RenderedMessage,
   label: string,
@@ -211,6 +207,51 @@ export async function paintViaInteraction(
   return false;
 }
 
+/**
+ * What repaintVia needs from a game's state module to put a click on the board.
+ *
+ * Both blackjack and craps export exactly these three, so `import * as gameState`
+ * satisfies it structurally with nothing to wire up.
+ */
+export interface BoardOwner {
+  /** The board as it stands now, or null when no table is open. */
+  currentBoard(): RenderedMessage | null;
+  /** Id of the message the game is actually driving, or null when there is none. */
+  getBoardMessageId(): string | null;
+  /** Request a coalesced repaint of that message. */
+  refresh(): void;
+}
+
+/**
+ * Repaint a game's board after a click changed it.
+ *
+ * Through the click itself when it came from the live board, which keeps the edit on the
+ * interaction's rate limit rather than the channel's and shows the change immediately.
+ * From anywhere else - a board left behind by an earlier run, whose buttons still work
+ * because custom ids are static - the painter repaints the real board instead, so the
+ * stale one is never brought back to life.
+ *
+ * @returns false when there is no table to paint
+ */
+export async function repaintVia(
+  interaction: Routable,
+  game: BoardOwner,
+  label: string
+): Promise<boolean> {
+  const board: RenderedMessage | null = game.currentBoard();
+  if (!board) return false;
+
+  const painted: boolean = await paintViaInteraction(
+    interaction,
+    board,
+    label,
+    game.getBoardMessageId()
+  );
+  if (!painted) game.refresh();
+
+  return true;
+}
+
 // ============ RESTORING A BOARD ============
 
 /**
@@ -223,6 +264,10 @@ export async function paintViaInteraction(
  *
  * Editing the message the table was last painted on means there is only ever one.
  *
+ * One PATCH does it: editing through the manager needs no fetch first, and still rejects
+ * when the message is gone or unwritable - which is what tells us to post a fresh board
+ * rather than hand back one nothing can paint.
+ *
  * @param messageId - the board from the snapshot, if one was recorded
  * @returns the reclaimed message, or a freshly posted one when it is gone
  */
@@ -234,9 +279,7 @@ export async function reclaimBoard(
 ): Promise<Message> {
   if (messageId) {
     try {
-      const existing: Message = await channel.messages.fetch(messageId);
-      await existing.edit(forEdit(payload));
-      return existing;
+      return await channel.messages.edit(messageId, forEdit(payload));
     } catch {
       // Deleted, or the bot lost sight of it. A new board is the only option left.
       console.log(`[${label}] Previous board ${messageId} is gone; posting a new one`);
@@ -254,7 +297,10 @@ export async function reclaimBoard(
  */
 export async function whisper(interaction: Routable, content: string): Promise<void> {
   try {
-    if (privateAcks.has(interaction) && !interaction.replied) {
+    // deferReply records ephemeral on the interaction; deferUpdate leaves it null. That
+    // is the difference between an empty private reply waiting to be filled and no reply
+    // at all - and answering the former with followUp strands a "thinking..." beside it.
+    if (interaction.deferred && interaction.ephemeral === true && !interaction.replied) {
       await interaction.editReply({ content });
     } else if (interaction.replied || interaction.deferred) {
       await interaction.followUp({ content, ephemeral: true });

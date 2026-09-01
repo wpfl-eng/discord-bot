@@ -243,13 +243,7 @@ export function currentBoard(): ReturnType<typeof buildBoard> | null {
   return table ? buildBoard(viewOf(table)) : null;
 }
 
-/**
- * Id of the board the table is actually driving, or null when there is none.
- *
- * A click carries the message it came from, and a board left behind by an earlier run
- * still has working buttons. Comparing against this is how a handler tells a live click
- * apart from one on a board nobody is painting any more.
- */
+/** Id of the board this table is driving, or null when there is none. See `repaintVia`. */
 export function getBoardMessageId(): string | null {
   return table?.message?.id ?? null;
 }
@@ -280,19 +274,6 @@ function armWindow(t: Table, seconds: number, next: () => Promise<void>): void {
 // ============ RECOVERY ============
 
 /**
- * Whether this round's stakes can still be handed back.
- *
- * False from the moment `finishRound` starts crediting wallets: between a credit and
- * its escrow row being marked settled the row is paid but still 'open', so voiding it
- * would return a stake the player has already been paid.
- *
- * Exported as a plain predicate so the rule is testable without driving a whole round.
- */
-export function canVoidRound(settlementStarted: boolean): boolean {
-  return !settlementStarted;
-}
-
-/**
  * Put the table back together after an advance threw.
  *
  * Order matters: the stakes are returned against the session key the failed round was
@@ -304,7 +285,7 @@ async function recoverTable(context: RecoveryContext): Promise<void> {
 
   clearTimers(t);
 
-  if (canVoidRound(t.settlementStarted)) {
+  if (!t.settlementStarted) {
     try {
       await escrowDb.voidSession('blackjack', t.sessionKey);
     } catch (error: unknown) {
@@ -323,6 +304,16 @@ async function recoverTable(context: RecoveryContext): Promise<void> {
     return;
   }
 
+  await armNextRound(t);
+}
+
+/**
+ * Put the table into whatever comes after a round leaves the felt.
+ *
+ * Seats still down means another betting window; an empty table waits on the grace
+ * timer instead. Both the end of a round and a recovered failure land here.
+ */
+async function armNextRound(t: Table): Promise<void> {
   if (t.seats.length > 0) {
     startBettingWindow(t, false);
     await painter.paintNow(t);
@@ -959,16 +950,16 @@ async function splitFor(
 /**
  * Whether every seat has answered the insurance offer.
  *
- * A seat answers by taking it, which puts money up, or by declining it. The clock is a
- * backstop for a seat that never answers - not a fixed fifteen seconds on every
- * ace-upcard round.
+ * A seat answers by taking it, which puts money up, or by declining it. Both set
+ * `insuranceSettled`, so that flag alone is the answer. The clock is a backstop for a
+ * seat that never answers - not a fixed fifteen seconds on every ace-upcard round.
  *
  * Exported as a plain predicate so the rule is testable without driving a round.
  */
 export function everyoneAnsweredInsurance(
-  seats: readonly { readonly insuranceBet: number; readonly insuranceSettled: boolean }[]
+  seats: readonly { readonly insuranceSettled: boolean }[]
 ): boolean {
-  return seats.length > 0 && seats.every((s) => s.insuranceBet > 0 || s.insuranceSettled);
+  return seats.length > 0 && seats.every((s) => s.insuranceSettled);
 }
 
 /** Move the round on as soon as nobody is left to answer. */
@@ -1126,12 +1117,7 @@ async function finishRound(t: Table): Promise<void> {
 
   if (table !== t) return;
 
-  if (t.seats.length > 0) {
-    startBettingWindow(t, false);
-    await painter.paintNow(t);
-  } else {
-    startGrace(t);
-  }
+  await armNextRound(t);
 }
 
 /** The settle image: the dealer's final total against how the table did. */

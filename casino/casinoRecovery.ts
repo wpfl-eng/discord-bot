@@ -45,7 +45,7 @@ export interface RecoveryContext {
 export interface AdvanceGuard {
   /** Run one phase advance. Never throws. */
   run(step: string, body: () => Promise<void>): Promise<void>;
-  /** Consecutive failures so far. Exposed for tests and boot logging. */
+  /** Consecutive failures so far. Exposed as a test seam. */
   readonly failures: number;
   /** Forget the failure streak. Called when a table closes or a test resets. */
   reset(): void;

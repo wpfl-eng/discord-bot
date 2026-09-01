@@ -25,6 +25,7 @@ import {
 } from './rouletteConfig.js';
 import { pacingFor, type Pacing } from '../../casino/casinoPacing.js';
 import { createAdvanceGuard, type RecoveryContext } from '../../casino/casinoRecovery.js';
+import { groupRebets } from '../../casino/casinoRebets.js';
 import { renderHero, rouletteHeroSvg, type Hero } from '../../casino/casinoHero.js';
 import { formatAmount } from '../../casino/casinoFormat.js';
 import {
@@ -233,19 +234,6 @@ function extendWindow(session: TableSession): void {
 // ============ RECOVERY ============
 
 /**
- * Whether this spin's stakes can still be handed back.
- *
- * False from the moment `processPayouts` is entered: between a credit and its escrow
- * row being marked settled the row is paid but still 'open', so voiding it would return
- * a stake the player has already been paid.
- *
- * Exported as a plain predicate so the rule is testable without driving a whole spin.
- */
-export function canVoidSpin(settlementStarted: boolean): boolean {
-  return !settlementStarted;
-}
-
-/**
  * Put the table back together after an advance threw.
  *
  * The stakes are returned against the session key the failed spin was using, and only
@@ -258,7 +246,7 @@ async function recoverTable(context: RecoveryContext): Promise<void> {
   clearTimers(session);
   cancelPendingPaint();
 
-  if (canVoidSpin(session.settlementStarted)) {
+  if (!session.settlementStarted) {
     try {
       await escrowDb.voidSession('roulette', session.sessionKey);
     } catch (err) {
@@ -442,12 +430,7 @@ async function runSpin(): Promise<void> {
   session.recentSpins = session.recentSpins.slice(0, LIMITS.HISTORY_LENGTH);
 
   // Remember this round's bets so Rebet can replay them.
-  session.lastRoundBets = new Map();
-  for (const bet of bets) {
-    const existing = session.lastRoundBets.get(bet.userId) ?? [];
-    existing.push({ betType: bet.betType, amount: bet.amount });
-    session.lastRoundBets.set(bet.userId, existing);
-  }
+  session.lastRoundBets = groupRebets(bets);
 
   session.phase = 'result';
 

@@ -268,15 +268,3 @@ describe('shouldRevive', () => {
     expect(state.shouldRevive('betting', null, true, 1)).toBe(false);
   });
 });
-
-describe('canVoidSpin', () => {
-  test('a spin that has not started paying can be handed back', () => {
-    expect(state.canVoidSpin(false)).toBe(true);
-  });
-
-  // Between crediting a wallet and marking the escrow row settled, the row is paid but
-  // still 'open'. Voiding one there pays the stake a second time.
-  test('a spin that has started paying cannot', () => {
-    expect(state.canVoidSpin(true)).toBe(false);
-  });
-});

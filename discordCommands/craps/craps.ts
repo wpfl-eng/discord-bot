@@ -20,7 +20,7 @@ import {
   type RoutableInteraction,
 } from '../../interactions/componentRouter.js';
 import { registerGameStatus } from '../../casino/casinoHub.js';
-import { ackBoard, ackPrivate, paintViaInteraction, whisper } from '../../casino/casinoPaint.js';
+import { ackBoard, ackPrivate, repaintVia, whisper } from '../../casino/casinoPaint.js';
 import { amountModal, choiceModal, parseStake } from '../../casino/casinoModal.js';
 import { CASINO_COLORS } from '../../casino/casinoTheme.js';
 import { formatAmount, formatCurrency, plural } from '../../casino/casinoFormat.js';
@@ -283,26 +283,6 @@ async function handleStatus(interaction: ChatInputCommandInteraction): Promise<v
 
 // ============ COMPONENT HANDLERS ============
 
-/**
- * Repaint the board after a click changed it.
- *
- * Through the click itself when it came from the live board, which keeps the edit on the
- * interaction's rate limit rather than the channel's. From anywhere else - a board left
- * behind by an earlier run - the painter repaints the real board instead.
- */
-async function repaintBoard(interaction: RoutableInteraction): Promise<void> {
-  const board = crapsState.currentBoard();
-  if (!board) return;
-
-  const painted: boolean = await paintViaInteraction(
-    interaction,
-    board,
-    'CRAPS',
-    crapsState.getBoardMessageId()
-  );
-  if (!painted) crapsState.refresh();
-}
-
 async function handleChip(interaction: RoutableInteraction, rest: string): Promise<void> {
   if (rest === 'custom') {
     if (!interaction.isButton()) return;
@@ -379,7 +359,7 @@ async function handleBoardBet(interaction: RoutableInteraction, betType: string)
     return;
   }
 
-  await repaintBoard(interaction);
+  await repaintVia(interaction, crapsState, 'CRAPS');
 }
 
 /**
