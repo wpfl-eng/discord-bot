@@ -2,9 +2,10 @@ import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from '
 import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
 import { espnMembers } from '../../constants/espnMembers.js';
-import { getCurrentNFLWeek, getCurrentNFLSeason } from '../../helpers/utils.js';
+import { getCurrentNFLSeason } from '../../helpers/utils.js';
+import { getCurrentPeriod, type NFLPeriod } from '../../helpers/espnPeriod.js';
 
-import type { BoxscoreMatchup } from 'espn-fantasy-football-api/node.js';
+import type { Boxscore } from 'espn-fantasy-football-api/node.js';
 
 interface Score {
   name: string;
@@ -45,7 +46,7 @@ async function getRankedScores(week: number, year: number): Promise<Score[]> {
     SWID,
   });
 
-  const matchups: BoxscoreMatchup[] = await myClient.getBoxscoreForWeek({
+  const matchups: Boxscore[] = await myClient.getBoxscoreForWeek({
     seasonId: year,
     matchupPeriodId: week,
     scoringPeriodId: week,
@@ -53,7 +54,7 @@ async function getRankedScores(week: number, year: number): Promise<Score[]> {
 
   const scores: Score[] = [];
 
-  matchups.forEach((matchup: BoxscoreMatchup) => {
+  matchups.forEach((matchup: Boxscore) => {
     const homeMember = espnMembers.find((member) => member.id === matchup.homeTeamId);
     if (homeMember) {
       scores.push({ name: homeMember.name, score: matchup.homeScore });
@@ -106,9 +107,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   // Both used to be frozen literals -- week 13 of 2025 -- so the command
   // answered about a season that had finished, and setMaxValue(2025) meant the
-  // current one could not even be asked for.
-  const week: number = interaction.options.getInteger('week') ?? getCurrentNFLWeek();
-  const year: number = interaction.options.getInteger('year') ?? getCurrentNFLSeason();
+  // current one could not even be asked for. The defaults now come from ESPN,
+  // which publishes the current week directly, falling back to the calendar
+  // arithmetic that got the January rollover wrong twice.
+  const period: NFLPeriod = await getCurrentPeriod();
+  const week: number = interaction.options.getInteger('week') ?? period.scoringPeriodId;
+  const year: number = interaction.options.getInteger('year') ?? period.seasonId;
 
   try {
     const scores: Score[] = await getRankedScores(week, year);

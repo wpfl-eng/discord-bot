@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { formatNumber, getCurrentNFLSeason } from '../../helpers/utils.js';
 import { espnMembers } from '../../constants/espnMembers.js';
 import { Client } from '../../espnClient.cjs';
-import type { BoxscoreMatchup } from 'espn-fantasy-football-api/node.js';
+import type { Boxscore } from 'espn-fantasy-football-api/node.js';
 
 interface TeamScore {
   score: number;
@@ -73,7 +73,7 @@ export const execute = async (interaction: ChatInputCommandInteraction): Promise
     const espnClient = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
     espnClient.setCookies({ espnS2: ESPN_S2, SWID });
 
-    const boxscores: BoxscoreMatchup[] = await espnClient.getBoxscoreForWeek({
+    const boxscores: Boxscore[] = await espnClient.getBoxscoreForWeek({
       seasonId: matchupYear,
       matchupPeriodId: matchupWeek,
       scoringPeriodId: matchupWeek,
@@ -91,7 +91,7 @@ export const execute = async (interaction: ChatInputCommandInteraction): Promise
   }
 };
 
-const analyzeScores = (boxscores: BoxscoreMatchup[]): TrophyScores => {
+const analyzeScores = (boxscores: Boxscore[]): TrophyScores => {
   const initialScores: TrophyScores = {
     lowScore: Infinity,
     lowScoreTeam: '',

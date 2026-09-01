@@ -1,0 +1,103 @@
+/**
+ * The current NFL week and season, from ESPN where possible.
+ *
+ * `getCurrentNFLWeek` in ./utils.ts derives the week from Labor Day arithmetic. That has been wrong
+ * twice recently -- once for the January rollover, once for the 2026 season boundary -- because the
+ * schedule it models is a convention, not a rule: bye structures, international games and the
+ * 18-week expansion all move it. ESPN publishes the answer directly as
+ * `League#currentScoringPeriodId`, and the fork now exposes it.
+ *
+ * So this asks ESPN, and falls back to the arithmetic when it cannot: no credentials configured, a
+ * network failure, an ESPN outage. A Discord command that reports an approximately-right week is
+ * much better than one that fails outright, and every caller here already had a sync default.
+ *
+ * The lookup is one HTTP request, cached for the whole process on a short TTL, rather than one per
+ * command invocation. Commands are invoked far more often than the week changes.
+ *
+ * NOTE: `seasonId` still comes from the calendar. ESPN cannot tell you which season it is without
+ * being asked about one, so that call has to be made before the request. The season rule --
+ * January and February belong to the previous season -- is a fixed NFL league-year fact rather than
+ * a schedule convention, which is why it is the half that has not gone wrong.
+ */
+
+import pkg from 'espn-fantasy-football-api/node.js';
+import type { League } from 'espn-fantasy-football-api/node.js';
+import { logError } from '../errors/index.js';
+import { getCurrentNFLSeason, getCurrentNFLWeek } from './utils.js';
+
+const { Client } = pkg;
+
+export interface NFLPeriod {
+  readonly seasonId: number;
+  /** ESPN's scoring period: the NFL week. */
+  readonly scoringPeriodId: number;
+  /** ESPN's matchup period. Equal to the scoring period in a league with one-week matchups. */
+  readonly matchupPeriodId: number;
+  /** Where the week came from, so a caller can tell an authoritative answer from a guess. */
+  readonly source: 'espn' | 'calendar';
+}
+
+/** Long enough that commands share one lookup, short enough to pick up a Tuesday rollover. */
+const TTL_MS = 15 * 60 * 1000;
+
+let cached: { readonly at: number; readonly period: NFLPeriod } | null = null;
+
+function fromCalendar(): NFLPeriod {
+  const week: number = getCurrentNFLWeek();
+  return {
+    seasonId: getCurrentNFLSeason(),
+    scoringPeriodId: week,
+    matchupPeriodId: week,
+    source: 'calendar',
+  };
+}
+
+/**
+ * Clears the cached period. Exported for tests; nothing in the bot should need it.
+ */
+export function resetPeriodCache(): void {
+  cached = null;
+}
+
+/**
+ * The current period, from ESPN when it can be reached and from the calendar otherwise.
+ */
+export async function getCurrentPeriod(): Promise<NFLPeriod> {
+  if (cached !== null && Date.now() - cached.at < TTL_MS) {
+    return cached.period;
+  }
+
+  const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
+  if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) {
+    return fromCalendar();
+  }
+
+  const seasonId: number = getCurrentNFLSeason();
+
+  try {
+    const client = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
+    client.setCookies({ espnS2: ESPN_S2, SWID });
+    const league: League = await client.getLeagueInfo({ seasonId });
+
+    // A league mid-creation, or a season ESPN has not opened yet, reports no current period. That
+    // is not an error, but it is not an answer either.
+    if (
+      typeof league.currentScoringPeriodId !== 'number' ||
+      typeof league.currentMatchupPeriodId !== 'number'
+    ) {
+      return fromCalendar();
+    }
+
+    const period: NFLPeriod = {
+      seasonId,
+      scoringPeriodId: league.currentScoringPeriodId,
+      matchupPeriodId: league.currentMatchupPeriodId,
+      source: 'espn',
+    };
+    cached = { at: Date.now(), period };
+    return period;
+  } catch (error: unknown) {
+    logError('espnPeriod', 'Falling back to calendar arithmetic for the current NFL week', error);
+    return fromCalendar();
+  }
+}

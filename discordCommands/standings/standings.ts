@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { Client } from '../../espnClient.cjs';
-import type { EspnTeam } from 'espn-fantasy-football-api/node.js';
+import type { Team } from 'espn-fantasy-football-api/node.js';
 import { espnMembers } from '../../constants/espnMembers.js';
 import { getCurrentNFLSeason } from '../../helpers/utils.js';
 
@@ -29,18 +29,18 @@ export const getStandings = async (
   matchupYear: number,
   matchupWeek: number
 ): Promise<string> => {
-  const teams: EspnTeam[] = await espnClient.getTeamsAtWeek({
+  const teams: Team[] = await espnClient.getTeamsAtWeek({
     seasonId: matchupYear,
     scoringPeriodId: matchupWeek,
   });
 
   const sortedTeams = teams.sort(
-    (a: EspnTeam, b: EspnTeam) =>
+    (a: Team, b: Team) =>
       (a.finalStandingsPosition ?? a.playoffSeed) - (b.finalStandingsPosition ?? b.playoffSeed)
   );
 
   return sortedTeams
-    .map((team: EspnTeam, index: number) => {
+    .map((team: Team, index: number) => {
       const member = espnMembers.find((m) => m.id === team.id);
       const memberName = member?.name ?? 'Unknown';
       const position = index + 1;
