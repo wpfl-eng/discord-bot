@@ -65,16 +65,22 @@ describe('utils', () => {
     });
 
     test('returns week 17 in late December', () => {
-      // Dec 28, 2024 is ~114 days from Sept 5 = week 17
-      // Week 18 games are in Jan 2025, which calculates for 2025 season
+      // Dec 28, 2024 is ~114 days from Sept 5 = week 17. Week 18 falls in
+      // January 2025 and still belongs to the 2024 season.
       const lateDecember = new Date(2024, 11, 28, 12, 0, 0); // Dec 28, 2024
       expect(getCurrentNFLWeek(lateDecember)).toBe(17);
     });
 
-    test('returns 1 before season starts (next year)', () => {
-      // Feb 2025 is before the 2025 season starts
-      const preseason2025 = new Date(2025, 1, 1, 12, 0, 0); // Feb 1, 2025
-      expect(getCurrentNFLWeek(preseason2025)).toBe(1);
+    /**
+     * This case used to assert week 1, on the reasoning -- written into its own
+     * comment -- that "Feb 2025 is before the 2025 season starts". True, and
+     * beside the point: February 2025 is the tail of the *2024* season, whose
+     * Super Bowl was played on the 9th. Asserting week 1 there was asserting
+     * the defect. It reads 18 now, the end of the season actually in progress.
+     */
+    test('February belongs to the season ending, not the one to come', () => {
+      const february = new Date(2025, 1, 1, 12, 0, 0); // Feb 1, 2025
+      expect(getCurrentNFLWeek(february)).toBe(18);
     });
 
     test('handles different years correctly', () => {
@@ -143,6 +149,34 @@ describe('utils', () => {
 
     test('defaults to now', () => {
       expect(typeof getCurrentNFLSeason()).toBe('number');
+    });
+  });
+
+  /**
+   * getCurrentNFLWeek measures from the Thursday after Labor Day. It used to
+   * take that Labor Day from the calendar year, so from January 1st it was
+   * measuring against a season start eight months in the future -- and every
+   * date before the start returns week 1. The fantasy playoffs and the
+   * championship are exactly the weeks that fell into that hole.
+   *
+   * The 2026 season starts Thursday 10 September 2026 (Labor Day is the 7th),
+   * so week 18 ends 14 January 2027.
+   */
+  describe('getCurrentNFLWeek across the new year', () => {
+    test('early January is late in the season, not week 1', () => {
+      expect(getCurrentNFLWeek(new Date('2027-01-05T12:00:00-05:00'))).toBe(17);
+    });
+
+    test('the last day of week 18 is still week 18', () => {
+      expect(getCurrentNFLWeek(new Date('2027-01-13T12:00:00-05:00'))).toBe(18);
+    });
+
+    test('February, past the end of the regular season, clamps to 18', () => {
+      expect(getCurrentNFLWeek(new Date('2027-02-08T12:00:00-05:00'))).toBe(18);
+    });
+
+    test('December of the same calendar year is unaffected', () => {
+      expect(getCurrentNFLWeek(new Date('2026-12-15T12:00:00-05:00'))).toBe(14);
     });
   });
 });

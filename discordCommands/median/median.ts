@@ -2,6 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from '
 import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
 import { espnMembers } from '../../constants/espnMembers.js';
+import { getCurrentNFLWeek, getCurrentNFLSeason } from '../../helpers/utils.js';
 
 import type { BoxscoreMatchup } from 'espn-fantasy-football-api/node.js';
 
@@ -24,10 +25,10 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption((option) =>
     option
       .setName('year')
-      .setDescription('The year (default: 2025)')
+      .setDescription('The season (defaults to the current one)')
       .setRequired(false)
       .setMinValue(2018)
-      .setMaxValue(2025)
+      .setMaxValue(getCurrentNFLSeason())
   );
 
 async function getRankedScores(week: number, year: number): Promise<Score[]> {
@@ -103,8 +104,11 @@ function createEmbed(scores: Score[], week: number, year: number): EmbedBuilder 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  const week: number = interaction.options.getInteger('week') || 13;
-  const year: number = interaction.options.getInteger('year') || 2025;
+  // Both used to be frozen literals -- week 13 of 2025 -- so the command
+  // answered about a season that had finished, and setMaxValue(2025) meant the
+  // current one could not even be asked for.
+  const week: number = interaction.options.getInteger('week') ?? getCurrentNFLWeek();
+  const year: number = interaction.options.getInteger('year') ?? getCurrentNFLSeason();
 
   try {
     const scores: Score[] = await getRankedScores(week, year);

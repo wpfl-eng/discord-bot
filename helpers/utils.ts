@@ -67,11 +67,17 @@ export const getCurrentNFLSeason = (referenceDate: Date = new Date()): number =>
  * Calculate the current NFL week dynamically.
  * NFL season starts on the Thursday after Labor Day (first Monday of September).
  *
+ * The season, not the calendar year: in January the calendar year has already
+ * turned over, so measuring from *that* year's Labor Day put the season start
+ * eight months in the future and every date before it collapsed to week 1 --
+ * through the fantasy playoffs and the championship, when the week matters
+ * most.
+ *
  * @param referenceDate - Date to calculate week for (defaults to now)
  * @returns Current NFL week (1-18)
  */
 export const getCurrentNFLWeek = (referenceDate: Date = new Date()): NFLWeek => {
-  const year = referenceDate.getFullYear();
+  const year: number = getCurrentNFLSeason(referenceDate);
 
   // Find first Monday of September (Labor Day)
   const september = new Date(year, 8, 1); // September 1
