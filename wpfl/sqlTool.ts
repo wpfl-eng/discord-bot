@@ -61,7 +61,14 @@ const FORBIDDEN: readonly string[] = [
   'REVOKE',
 ];
 
-const MUST_START_WITH = /^\s*(SELECT|WITH)\b/i;
+/**
+ * DESCRIBE and SUMMARIZE are here because the tool's own description tells the
+ * agent to reach for DESCRIBE when it does not know a table's shape. Both are
+ * read-only, both survive the `SELECT * FROM (...)` wrapper the row cap uses
+ * (verified on DuckDB 1.5.5), and both still have to clear the one-statement
+ * rule and the forbidden-keyword list below.
+ */
+const MUST_START_WITH = /^\s*(SELECT|WITH|DESCRIBE|SUMMARIZE)\b/i;
 
 /**
  * @returns a member-facing reason to refuse, or null if the statement may run.
@@ -85,7 +92,7 @@ export function guardStatement(sql: string): string | null {
   }
 
   if (!MUST_START_WITH.test(bare)) {
-    return 'Only read-only queries are allowed. Start with SELECT or WITH.';
+    return 'Only read-only queries are allowed. Start with SELECT, WITH, DESCRIBE or SUMMARIZE.';
   }
 
   for (const keyword of FORBIDDEN) {
@@ -118,9 +125,26 @@ interface Materialized {
 
 let current: Materialized | null = null;
 
-/** Drop the in-memory database, so the next query rebuilds it. */
+/**
+ * Drop the in-memory database, so the next query rebuilds it.
+ *
+ * Closing matters: the connection owns a native DuckDB instance holding the
+ * whole materialized dataset, and the bot process is long-lived. Simply
+ * reassigning `current` leaked one of those on every rebuild -- once per shred
+ * change, for as long as the bot runs.
+ */
 export function resetSqlDatabase(): void {
+  close(current);
   current = null;
+}
+
+function close(materialized: Materialized | null): void {
+  if (materialized === null) return;
+  try {
+    materialized.connection.closeSync();
+  } catch (error: unknown) {
+    console.warn('[ASK] sql: could not close the previous connection:', error);
+  }
 }
 
 export async function tableNames(dataDir: string = ASK.DATA_DIR): Promise<string[]> {
@@ -134,7 +158,10 @@ export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promi
   const { connection } = await database(dataDir);
 
   // One row past the cap, so truncation is detected rather than guessed at.
-  const limited = `SELECT * FROM (${sql.replace(/;\s*$/, '')}) LIMIT ${ASK.SQL_ROW_LIMIT + 1}`;
+  // The newlines are load-bearing: a statement ending in a `--` comment would
+  // otherwise swallow the closing paren and the LIMIT onto the same line, and
+  // DuckDB reports `syntax error at end of input`.
+  const limited = `SELECT * FROM (\n${sql.replace(/;\s*$/, '')}\n) LIMIT ${ASK.SQL_ROW_LIMIT + 1}`;
 
   const timer = setTimeout(() => connection.interrupt(), ASK.SQL_TIMEOUT_MS);
   try {
@@ -177,6 +204,7 @@ async function database(dataDir: string): Promise<Materialized> {
   await connection.run('SET enable_external_access=false');
   await connection.run('SET lock_configuration=true');
 
+  close(current);
   current = { connection, tables: tables.sort(), dataDir, builtFrom: stamp };
   return current;
 }
@@ -221,7 +249,7 @@ function shredStamp(dataDir: string): number {
 
 export const sqlTool: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(
   'sql',
-  `Read-only SQL (DuckDB) over every WPFL dataset. This is the only way to reach ten years of rows: wpfl_draft_history (every auction pick 2010-2025), wpfl_matchups (every head-to-head result), and wpfl_player_scores (~36,000 weekly player scores 2015-2025). Join those to the 2026 draft artifact, whose bodies are tables too — teams, league_board, league_dossiers, league_standings, history_seasons, history_skill_luck, night_spend_race, news_players and the rest, one table per shredded file named <directory>_<file>. Run \`SELECT table_name FROM information_schema.tables\` to see them all, or DESCRIBE <table> for its columns. One statement, SELECT or WITH only; integers come back as strings to keep full precision. Results are capped at ${ASK.SQL_ROW_LIMIT} rows — aggregate rather than asking for everything.`,
+  `Read-only SQL (DuckDB) over every WPFL dataset. This is the only way to reach ten years of rows: wpfl_draft_history (every auction pick 2010-2025), wpfl_matchups (every head-to-head result), and wpfl_player_scores (~36,000 weekly player scores 2015-2025). Join those to the 2026 draft artifact, whose bodies are tables too — teams, league_board, league_dossiers, league_standings, history_seasons, history_skill_luck, night_spend_race, news_players and the rest, one table per shredded file named <directory>_<file>. Run \`SELECT table_name FROM information_schema.tables\` to see them all, or DESCRIBE <table> for its columns. One statement, and it must start with SELECT, WITH, DESCRIBE or SUMMARIZE; integers come back as strings to keep full precision. Results are capped at ${ASK.SQL_ROW_LIMIT} rows — aggregate rather than asking for everything.`,
   { query: z.string().describe('A single read-only SELECT or WITH statement.') },
   async (args): Promise<CallToolResult> => {
     const result: SqlResult = await runSql(args.query);

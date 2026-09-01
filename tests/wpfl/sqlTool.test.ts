@@ -25,6 +25,10 @@ describe('sqlTool', () => {
       '-- a comment first\nSELECT 1',
       '/* block comment */ SELECT 1',
       "SELECT * FROM wpfl_draft_history WHERE owner = 'AJ Boorde'",
+      // The tool's own description tells the agent to run these.
+      'DESCRIBE teams',
+      'describe wpfl_player_scores',
+      'SUMMARIZE teams',
     ];
 
     for (const statement of allowed) {
@@ -139,6 +143,52 @@ describe('sqlTool', () => {
       expect(names).toContain('history_seasons');
       expect(names).toContain('wpfl_draft_history');
       expect(names).toContain('wpfl_player_scores');
+    });
+
+    /**
+     * The row cap is applied by wrapping the agent's statement in
+     * `SELECT * FROM (...) LIMIT n`. Joined on one line, a statement ending in
+     * a line comment swallowed the closing paren and the LIMIT:
+     * `SELECT * FROM (SELECT 1 -- note) LIMIT 201` is
+     * `Parser Error: syntax error at end of input` on DuckDB 1.5.5. Models end
+     * SQL with a trailing comment all the time.
+     */
+    test('runs a statement that ends in a line comment', async () => {
+      const result: SqlResult = await runSql(
+        'SELECT owner FROM teams ORDER BY owner -- alphabetical',
+        dataDir
+      );
+
+      expect(result.rows.length).toBeGreaterThan(0);
+    });
+
+    test('runs a statement whose last line is a comment after a newline', async () => {
+      const result: SqlResult = await runSql('SELECT owner FROM teams\n-- trailing', dataDir);
+
+      expect(result.rows.length).toBeGreaterThan(0);
+    });
+
+    /**
+     * The sql tool's description says "or DESCRIBE <table> for its columns".
+     * The guard accepted only SELECT and WITH, so it refused the one thing the
+     * description told the agent to reach for when it did not know a shape.
+     */
+    test('describes a table, which is what its own description promises', async () => {
+      const result: SqlResult = await runSql('DESCRIBE teams', dataDir);
+
+      expect(result.rows.length).toBeGreaterThan(0);
+      expect(Object.keys(result.rows[0])).toContain('column_name');
+    });
+
+    test('summarizes a table', async () => {
+      const result: SqlResult = await runSql('SUMMARIZE teams', dataDir);
+
+      expect(result.rows.length).toBeGreaterThan(0);
+    });
+
+    test('still refuses to write, even spelled as a DESCRIBE-shaped statement', () => {
+      expect(guardStatement('DESCRIBE teams; DROP TABLE teams')).not.toBeNull();
+      expect(guardStatement('DELETE FROM teams')).not.toBeNull();
     });
 
     test('answers a plain query over the artifact', async () => {
