@@ -80,7 +80,32 @@ prediction markets, stock trading, trivia, and Wordle. 47 slash commands are reg
 - **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, routes button/autocomplete/DM interactions, runs Express health check server
 - **Commands**: Located in `/discordCommands/[commandname]/[commandname].ts`
 - **External APIs**: ESPN Fantasy Football (custom fork), WPFL history API, Polymarket Gamma API, Finnhub, Sleeper API, OpenAI
-- **Database**: PostgreSQL via @vercel/postgres (~25 tables; schemas in `/sql`, numbered migrations in `/migrations`, no automated runner). `migrations/008_remove_nflmon_rob_training.sql` is written but deliberately NOT applied - it drops retired NFLmon/rob/training tables and columns. Migrations 010-013 (casino) are written but must be applied by hand; every game plays correctly without them, they only add stats columns and table persistence
+- **Database**: PostgreSQL via @vercel/postgres (~25 tables; schemas in `/sql`, numbered
+  migrations in `/migrations`). **There is no migration runner and no tracking table** -
+  nothing anywhere records which migrations have been applied.
+
+  That means applied-state is only knowable by inspecting the schema for a migration's
+  effects: 008 is applied iff the `nflmon_*` tables are gone, 009 iff
+  `economy_users.wallet` is `bigint` rather than `integer`, 013 iff `casino_table_state`
+  exists. Check before assuming - **do not record applied-state in this file.** This
+  bullet previously asserted 008 was "deliberately NOT applied" long after it had in fact
+  been applied, and that claim was repeated downstream as fact.
+
+  Apply one with `npx tsx scripts/runMigration.ts <file>` (`--dry-run` prints the SQL
+  without executing). Files are written to be idempotent (`IF EXISTS` / `IF NOT EXISTS`).
+
+  Two carry traps:
+  - `008_remove_nflmon_rob_training.sql` is **irreversible** - it drops NFLmon
+    collections, stats and trade history. `scripts/backupMigration008.ts` dumps the data
+    first. The bot runs correctly either way; no code references those tables.
+  - `009_widen_economy_money_columns.sql` must ship **with** `db/pgTypes.ts`.
+    node-postgres returns BIGINT as a *string*, so applying 009 without that module
+    silently turns `EconomyUser.wallet` into a string while TypeScript still declares it
+    a number, and `wallet + amount` concatenates instead of adding. `pgTypes` is
+    side-effect imported at the top of `index.ts`.
+
+  `010`-`013` (casino) carry no such trap - they only add stats columns and the
+  table-persistence table, and every game plays correctly without them.
 - **Misc Data**: `/data`
 
 ### Feature Modules
