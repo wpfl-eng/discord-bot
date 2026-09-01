@@ -41,6 +41,7 @@ function bet(betType: BetType, amount: number, extra: Partial<CrapsBet> = {}): C
     amount,
     placedAt: new Date(),
     status: 'active',
+    escrowIds: [1],
     ...extra,
   };
 }

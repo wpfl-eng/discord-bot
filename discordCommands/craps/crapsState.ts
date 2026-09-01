@@ -508,7 +508,7 @@ async function settleResolution(
 
     if (outcome === 'lose') {
       // The stake was taken when escrow opened; a loss only resolves the row.
-      if (bet.escrowId !== undefined) settledEscrowIds.push(bet.escrowId);
+      settledEscrowIds.push(...bet.escrowIds);
       addNet(bet.userId, -bet.amount);
       session.betLog.push({
         userId: bet.userId,
@@ -528,8 +528,8 @@ async function settleResolution(
 
       // A place bet that paid and stayed keeps its stake at risk, so its escrow row
       // must stay open. Everything else is done.
-      if (outcome !== 'win_and_stay' && bet.escrowId !== undefined) {
-        settledEscrowIds.push(bet.escrowId);
+      if (outcome !== 'win_and_stay') {
+        settledEscrowIds.push(...bet.escrowIds);
       }
 
       addNet(bet.userId, outcome === 'win' ? payout - bet.amount : outcome === 'push' ? 0 : payout);
@@ -545,7 +545,7 @@ async function settleResolution(
     } catch (error: unknown) {
       console.error(
         `[CRAPS] Payout of ${payout} to ${bet.userId} FAILED; ` +
-          `escrow ${bet.escrowId} left open for refund:`,
+          `escrow ${bet.escrowIds.join(', ')} left open for refund:`,
         error
       );
     }
@@ -870,7 +870,7 @@ export async function placeBet(request: BetRequest): Promise<PlaceBetResult> {
   // The debit was an await. Re-check the table is still the one we validated against,
   // and still taking bets, before attaching anything to it.
   if (table !== session || session.phase !== 'betting') {
-    await refundEscrow(escrow.escrowId, userId);
+    await refundEscrow([escrow.escrowId], userId);
     return {
       success: false,
       message: 'Bets closed while that was going through — stake returned.',
@@ -887,8 +887,9 @@ export async function placeBet(request: BetRequest): Promise<PlaceBetResult> {
 
   if (existing) {
     // Aggregating keeps one row on the board, but each stake keeps its own escrow row,
-    // so a partial take-down can still return exactly what was put up.
+    // so the whole thing settles or comes down for exactly what was put up.
     existing.amount += amount;
+    existing.escrowIds.push(escrow.escrowId);
     bet = existing;
   } else {
     bet = {
@@ -899,7 +900,7 @@ export async function placeBet(request: BetRequest): Promise<PlaceBetResult> {
       amount,
       placedAt: new Date(),
       status: 'active',
-      escrowId: escrow.escrowId,
+      escrowIds: [escrow.escrowId],
       parentBetId,
       oddsPoint,
     };
@@ -925,11 +926,17 @@ export async function placeBet(request: BetRequest): Promise<PlaceBetResult> {
   };
 }
 
-async function refundEscrow(escrowId: number, userId: string): Promise<void> {
+async function refundEscrow(escrowIds: readonly number[], userId: string): Promise<void> {
+  if (escrowIds.length === 0) return;
+
   try {
-    await escrowDb.voidEscrow(escrowId, userId);
+    // One transaction for every row behind the bet, rather than one per row.
+    await escrowDb.voidEscrowIds(escrowIds, userId);
   } catch (error: unknown) {
-    console.error(`[CRAPS] Failed to refund escrow ${escrowId}; sweep will catch it:`, error);
+    console.error(
+      `[CRAPS] Failed to refund escrow ${escrowIds.join(', ')}; sweep will catch it:`,
+      error
+    );
   }
 }
 
@@ -948,7 +955,7 @@ export async function undoLastBet(userId: string): Promise<number | null> {
     if (!canTakeDown(bet.betType, session.point)) continue;
 
     session.bets.splice(i, 1);
-    if (bet.escrowId !== undefined) await refundEscrow(bet.escrowId, userId);
+    await refundEscrow(bet.escrowIds, userId);
     session.sessionWagered = Math.max(0, session.sessionWagered - bet.amount);
 
     painter.schedulePaint(session);
@@ -973,11 +980,12 @@ export async function takeDownAll(userId: string): Promise<number> {
     (b) => b.userId === userId && b.status === 'active' && canTakeDown(b.betType, session.point)
   );
 
-  let returned = 0;
-  for (const bet of removable) {
-    if (bet.escrowId !== undefined) await refundEscrow(bet.escrowId, userId);
-    returned += bet.amount;
-  }
+  // Every row behind every removable bet, returned in one transaction, so the total
+  // reported back is the total the player actually receives.
+  const escrowIds: number[] = removable.flatMap((bet) => bet.escrowIds);
+  await refundEscrow(escrowIds, userId);
+
+  const returned: number = removable.reduce((sum, bet) => sum + bet.amount, 0);
 
   session.bets = session.bets.filter((b) => !removable.includes(b));
   session.sessionWagered = Math.max(0, session.sessionWagered - returned);

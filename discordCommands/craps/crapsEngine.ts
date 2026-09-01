@@ -67,8 +67,16 @@ export interface CrapsBet {
    * if the table has since moved on.
    */
   readonly oddsPoint?: number;
-  /** Escrow row holding this stake, so it can be settled or voided individually */
-  escrowId?: number;
+  /**
+   * Escrow rows holding this stake, so it can be settled or voided exactly.
+   *
+   * A list rather than one id because place, hardway and odds stakes aggregate: adding
+   * to a number you are already riding keeps one row on the board but opens a second
+   * escrow row, and both have to resolve together. Keeping only the first meant a
+   * losing bet was half refunded when the table closed, a winning one was paid AND
+   * given its second stake back, and a take-down returned less than it announced.
+   */
+  escrowIds: number[];
 }
 
 export interface BetResolutionResult {
