@@ -397,7 +397,9 @@ async function runSpin(): Promise<void> {
   cancelPendingPaint();
   const bets: RouletteBet[] = session.bets;
 
-  // Nobody bet this window: hold the table open briefly, then close it.
+  // Nobody bet this window: hold the table open briefly, then close it. The table
+  // stays in its betting phase with no window armed, which is what `shouldRevive`
+  // recognises when the next bet arrives.
   if (bets.length === 0) {
     session.phase = 'betting';
     session.closesAt = null;
@@ -530,6 +532,28 @@ async function logSpin(
 
 // ============ CLOSING ============
 
+/**
+ * Whether an arriving bet should re-arm a betting window on a table that already exists.
+ *
+ * A spin nobody joined parks the table in its grace period: still in the betting phase,
+ * so `isBettingOpen()` reports true and a stake is taken, but with no window armed and
+ * `extendWindow` declining to arm one because `closesAt` is null. The wheel then never
+ * turns and the grace timer voids the bet when it closes the table.
+ *
+ * Craps avoids this by dropping to an idle phase and reviving in its own `ensureTable`;
+ * roulette has no idle phase, so the armed grace timer is the marker instead.
+ *
+ * Exported as a plain predicate so the condition is testable without driving a spin.
+ */
+export function shouldRevive(
+  phase: TablePhase,
+  closesAt: number | null,
+  graceArmed: boolean,
+  betCount: number
+): boolean {
+  return phase === 'betting' && closesAt === null && graceArmed && betCount === 0;
+}
+
 function startGracePeriod(session: TableSession): void {
   clearTimers(session);
   session.graceTimer = setTimeout(() => {
@@ -597,7 +621,15 @@ export function getRouletteChannelId(): string | undefined {
  * a table and a message.
  */
 export async function ensureTable(channel: TextChannel): Promise<void> {
-  if (table) return;
+  if (table) {
+    // Re-arm before the caller opens any escrow, so a stake can never be taken against
+    // a table whose wheel has nothing scheduled to turn it.
+    if (shouldRevive(table.phase, table.closesAt, table.graceTimer !== null, table.bets.length)) {
+      startBettingWindow(table, false);
+      schedulePaint(table);
+    }
+    return;
+  }
 
   if (openLock) {
     await openLock;
