@@ -17,7 +17,7 @@ import path from 'node:path';
 import { formatInTimeZone } from 'date-fns-tz';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from './askConfig.js';
-import { getCurrentNFLWeek } from '../helpers/utils.js';
+import { getCurrentNFLWeek, getCurrentNFLSeason } from '../helpers/utils.js';
 
 /**
  * The league's timezone. One definition, in the config file.
@@ -119,7 +119,11 @@ function dynamicHalf(context: PromptContext): string {
     '',
     who,
     '',
-    `Today is ${formatInTimeZone(now, LEAGUE_TZ, 'yyyy-MM-dd')}. It is NFL week ${getCurrentNFLWeek(now)} of the ${formatInTimeZone(now, LEAGUE_TZ, 'yyyy')} season.`,
+    // The season is getCurrentNFLSeason(), not the calendar year. In January
+    // and February -- the fantasy playoffs and the championship -- the calendar
+    // year is one ahead of the season being played, so this told the agent it
+    // was the 2027 season while every espn_* tool fetched seasonId 2026.
+    `Today is ${formatInTimeZone(now, LEAGUE_TZ, 'yyyy-MM-dd')}. It is NFL week ${getCurrentNFLWeek(now)} of the ${getCurrentNFLSeason(now)} season.`,
     '',
     'Your data is as of:',
     `- Draft artifact generated: ${orUnknown(asOf.generated)}`,

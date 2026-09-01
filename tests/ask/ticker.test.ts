@@ -329,51 +329,71 @@ describe('ticker', () => {
    * until the final post. splitForDiscord was only ever applied at the end.
    */
   describe('the Discord length ceiling', () => {
-    test('render stays inside the limit while prose streams past it', () => {
-      const ticker: Ticker = createTicker();
-      ticker.onToolCall('mcp__wpfl__sql');
-      ticker.onText('x'.repeat(5000));
-
-      expect(ticker.render().length).toBeLessThanOrEqual(2000);
-    });
-
-    test('it shows the newest prose rather than the oldest', () => {
-      const ticker: Ticker = createTicker();
-      ticker.onText('a'.repeat(3000));
-      ticker.onText('THE-LATEST-WORDS');
-
-      expect(ticker.render()).toContain('THE-LATEST-WORDS');
-    });
-
-    test('it says the view is partial rather than looking finished', () => {
-      const ticker: Ticker = createTicker();
-      ticker.onText('x'.repeat(5000));
-
-      expect(ticker.render()).toMatch(/still writing|…/);
-    });
-
-    test('a long working ticker is capped too', () => {
-      const ticker: Ticker = createTicker();
-      for (let i = 0; i < 400; i += 1) {
-        ticker.onToolCall(`mcp__wpfl__tool_number_${i}`);
-        ticker.onToolInput(JSON.stringify({ query: 'y'.repeat(50) }));
-      }
-
-      expect(ticker.render().length).toBeLessThanOrEqual(2000);
-    });
-
     /**
-     * publish() posts renderFull() and hands it to splitForDiscord. If it used
-     * the capped render(), a long answer would be silently truncated to one
-     * message instead of continued -- the opposite of what §6.3 specifies.
+     * The cap lives on the editor, not the renderer: the editor is what pushes
+     * a string into one Discord message, and Discord rejects an edit over the
+     * limit. A capped render() and an uncapped renderFull() had the same type,
+     * so nothing but a comment stopped publish() reaching for the capped one
+     * and silently truncating a member's answer instead of continuing it.
      */
-    test('renderFull is uncapped, which is what the final post is built from', () => {
+    const cappedBy = async (build: (t: Ticker) => void): Promise<string[]> => {
+      jest.useFakeTimers();
+      try {
+        const sent: string[] = [];
+        const editor = createThrottledEditor(async (content: string) => {
+          sent.push(content);
+        });
+        const ticker: Ticker = createTicker();
+        build(ticker);
+        editor.update(() => ticker.render());
+        await Promise.resolve();
+        return sent;
+      } finally {
+        jest.useRealTimers();
+      }
+    };
+
+    test('the editor caps a long answer before it reaches Discord', async () => {
+      const sent: string[] = await cappedBy((t) => t.onText('x'.repeat(5000)));
+
+      expect(sent).toHaveLength(1);
+      expect(sent[0].length).toBeLessThanOrEqual(2000);
+      expect(sent[0]).toMatch(/still writing/);
+    });
+
+    test('the editor caps a long working ticker too', async () => {
+      const sent: string[] = await cappedBy((t) => {
+        for (let i = 0; i < 400; i += 1) {
+          t.onToolCall(`mcp__wpfl__tool_number_${i}`);
+          t.onToolInput(JSON.stringify({ query: 'y'.repeat(50) }));
+        }
+      });
+
+      expect(sent[0].length).toBeLessThanOrEqual(2000);
+    });
+
+    test('what it sends is the newest prose rather than the oldest', async () => {
+      const sent: string[] = await cappedBy((t) => {
+        t.onText('a'.repeat(3000));
+        t.onText('THE-LATEST-WORDS');
+      });
+
+      expect(sent[0]).toContain('THE-LATEST-WORDS');
+    });
+
+    test('it says the view is partial rather than looking finished', async () => {
+      const sent: string[] = await cappedBy((t) => t.onText('x'.repeat(5000)));
+
+      expect(sent[0]).toMatch(/still writing|…/);
+    });
+
+    test('render() is uncapped, which is what the final post is built from', () => {
       const ticker: Ticker = createTicker();
       ticker.onText('x'.repeat(5000));
 
-      expect(ticker.renderFull().length).toBeGreaterThan(2000);
-      expect(ticker.renderFull()).not.toMatch(/still writing/);
-      expect(splitForDiscord(ticker.renderFull()).length).toBeGreaterThan(1);
+      expect(ticker.render().length).toBeGreaterThan(2000);
+      expect(ticker.render()).not.toMatch(/still writing/);
+      expect(splitForDiscord(ticker.render()).length).toBeGreaterThan(1);
     });
 
     test('prose() still returns everything, so the final post is complete', () => {

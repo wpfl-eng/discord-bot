@@ -67,13 +67,22 @@ const FORBIDDEN: readonly (readonly [string, RegExp])[] = FORBIDDEN_WORDS.map(
 );
 
 /**
- * DESCRIBE and SUMMARIZE are here because the tool's own description tells the
- * agent to reach for DESCRIBE when it does not know a table's shape. Both are
- * read-only, both survive the `SELECT * FROM (...)` wrapper the row cap uses
- * (verified on DuckDB 1.5.5), and both still have to clear the one-statement
- * rule and the forbidden-keyword list below.
+ * What a statement may start with -- declared once, because the guard, the two
+ * refusals, the tool description and the argument description all have to agree
+ * and previously did not. The tool description told the agent to reach for
+ * DESCRIBE while the guard's regex refused it; that mismatch shipped. Adding
+ * EXPLAIN or SHOW here now updates every place that says so.
+ *
+ * All four are read-only and all four survive the `SELECT * FROM (...)` wrapper
+ * the row cap uses (verified on DuckDB 1.5.5). Each still has to clear the
+ * one-statement rule and the forbidden-keyword list.
  */
-const MUST_START_WITH = /^\s*(SELECT|WITH|DESCRIBE|SUMMARIZE)\b/i;
+const READ_ONLY_STARTERS: readonly string[] = ['SELECT', 'WITH', 'DESCRIBE', 'SUMMARIZE'];
+
+const MUST_START_WITH = new RegExp(`^\\s*(${READ_ONLY_STARTERS.join('|')})\\b`, 'i');
+
+/** `SELECT, WITH, DESCRIBE or SUMMARIZE`, for anything a human or the agent reads. */
+const STARTERS_PROSE: string = `${READ_ONLY_STARTERS.slice(0, -1).join(', ')} or ${READ_ONLY_STARTERS[READ_ONLY_STARTERS.length - 1]}`;
 
 /**
  * @returns a member-facing reason to refuse, or null if the statement may run.
@@ -82,7 +91,7 @@ export function guardStatement(sql: string): string | null {
   const bare: string = stripLiteralsAndComments(sql);
 
   if (bare.trim() === '') {
-    return 'Empty query. Send a single read-only SELECT or WITH statement.';
+    return `Empty query. Send a single read-only statement starting with ${STARTERS_PROSE}.`;
   }
 
   // Split on semicolons in code, not in strings. One trailing empty piece is
@@ -96,12 +105,12 @@ export function guardStatement(sql: string): string | null {
   }
 
   if (!MUST_START_WITH.test(bare)) {
-    return 'Only read-only queries are allowed. Start with SELECT, WITH, DESCRIBE or SUMMARIZE.';
+    return `Only read-only queries are allowed. Start with ${STARTERS_PROSE}.`;
   }
 
   for (const [keyword, pattern] of FORBIDDEN) {
     if (pattern.test(bare)) {
-      return `\`${keyword}\` is not allowed. This database is read-only — use SELECT or WITH.`;
+      return `\`${keyword}\` is not allowed. This database is read-only — use ${STARTERS_PROSE}.`;
     }
   }
 
@@ -287,8 +296,8 @@ function shredStamp(dataDir: string): number {
 
 export const sqlTool: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(
   'sql',
-  `Read-only SQL (DuckDB) over every WPFL dataset. This is the only way to reach ten years of rows: wpfl_draft_history (every auction pick 2010-2025), wpfl_matchups (every head-to-head result), and wpfl_player_scores (~36,000 weekly player scores 2015-2025). Join those to the 2026 draft artifact, whose bodies are tables too — teams, league_board, league_dossiers, league_standings, history_seasons, history_skill_luck, night_spend_race, news_players and the rest, one table per shredded file named <directory>_<file>. Run \`SELECT table_name FROM information_schema.tables\` to see them all, or DESCRIBE <table> for its columns. One statement, and it must start with SELECT, WITH, DESCRIBE or SUMMARIZE; integers come back as strings to keep full precision. Results are capped at ${ASK.SQL_ROW_LIMIT} rows — aggregate rather than asking for everything.`,
-  { query: z.string().describe('A single read-only SELECT or WITH statement.') },
+  `Read-only SQL (DuckDB) over every WPFL dataset. This is the only way to reach ten years of rows: wpfl_draft_history (every auction pick 2010-2025), wpfl_matchups (every head-to-head result), and wpfl_player_scores (~36,000 weekly player scores 2015-2025). Join those to the 2026 draft artifact, whose bodies are tables too — teams, league_board, league_dossiers, league_standings, history_seasons, history_skill_luck, night_spend_race, news_players and the rest, one table per shredded file named <directory>_<file>. Run \`SELECT table_name FROM information_schema.tables\` to see them all, or DESCRIBE <table> for its columns. One statement, and it must start with ${STARTERS_PROSE}; integers come back as strings to keep full precision. Results are capped at ${ASK.SQL_ROW_LIMIT} rows — aggregate rather than asking for everything.`,
+  { query: z.string().describe(`A single read-only statement starting with ${STARTERS_PROSE}.`) },
   async (args): Promise<CallToolResult> => {
     const result: SqlResult = await runSql(args.query);
     const notice: string = result.truncated

@@ -19,10 +19,14 @@ import { logError } from '../errors/errorHandler.js';
 const DISCORD_LIMIT = 2000;
 
 export interface Ticker extends AskSink {
-  /** Capped to Discord's message limit; safe to push into an edit. */
+  /**
+   * The whole ticker, uncapped.
+   *
+   * Capping is the throttled editor's job, because the editor is what pushes a
+   * string into a single Discord message. The final post is continued by
+   * splitForDiscord rather than truncated, so it needs this whole.
+   */
   render(): string;
-  /** Uncapped, for the final post, which splitForDiscord continues instead. */
-  renderFull(): string;
   hasProse(): boolean;
   prose(): string;
   /**
@@ -48,7 +52,7 @@ export function createTicker(): Ticker {
   let queuedAt: number | null = null;
   let notify: () => void = (): void => {};
 
-  const renderFull = (): string => {
+  const render = (): string => {
     if (text.trim() !== '') return `${trace(steps)}\n\n${text}`;
     return working(steps, reasoning, queuedAt);
   };
@@ -95,11 +99,7 @@ export function createTicker(): Ticker {
       return text;
     },
 
-    render(): string {
-      return capped(renderFull());
-    },
-
-    renderFull,
+    render,
 
     onChange(handler: () => void): void {
       notify = handler;
@@ -108,15 +108,18 @@ export function createTicker(): Ticker {
 }
 
 /**
- * Discord rejects an edit over DISCORD_LIMIT characters, and render() is pushed
- * into message.edit() on every event. Unbounded, a streamed answer past that
- * length made every remaining live edit throw, and the member watched a frozen
- * ticker until the final post -- which is exactly when the ticker matters most,
- * because the answer is arriving.
+ * Discord rejects an edit over DISCORD_LIMIT characters. Unbounded, a streamed
+ * answer past that length made every remaining live edit throw, and the member
+ * watched a frozen ticker until the final post -- which is exactly when the
+ * ticker matters most, because the answer is arriving.
+ *
+ * Applied by the throttled editor, not by the renderer. A capped render() and
+ * an uncapped renderFull() had the same type, so nothing but a comment stopped
+ * a caller reaching for the capped one to build the final answer and silently
+ * truncating it. The cap belongs to whoever writes a single message.
  *
  * The tail is what is kept: prose streams forwards, so the newest words are the
- * ones worth showing. prose() still returns the whole answer, so the final
- * post is complete and correctly split.
+ * ones worth showing.
  */
 function capped(rendered: string): string {
   if (rendered.length <= DISCORD_LIMIT) return rendered;
@@ -217,7 +220,7 @@ export function createThrottledEditor(
 
   const send = (content: string): void => {
     sent = content;
-    inFlight = edit(content).catch((error: unknown) => {
+    inFlight = edit(capped(content)).catch((error: unknown) => {
       // A rate limit or a deleted message must not stop the next edit.
       logError('ask', 'Ticker edit failed', error);
     });

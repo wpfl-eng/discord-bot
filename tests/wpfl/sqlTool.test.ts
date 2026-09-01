@@ -271,6 +271,32 @@ describe('sqlTool', () => {
     });
   });
 
+  describe('the guard and the description agree', () => {
+    test('every statement the tool description promises, the guard actually allows', () => {
+      // This exact mismatch shipped: the description told the agent to reach
+      // for DESCRIBE when it did not know a table's shape, while the guard's
+      // regex accepted only SELECT and WITH and refused it. The two lists are
+      // now generated from one declaration; this asserts they stay agreed.
+      const described: string = sqlTool.description ?? '';
+      const clause = /must start with ([^;]+);/.exec(described);
+      expect(clause).not.toBeNull();
+
+      const promised: string[] = (clause as RegExpExecArray)[1]
+        .split(/,| or /)
+        .map((word: string): string => word.trim())
+        .filter((word: string): boolean => word !== '');
+
+      expect(promised.length).toBeGreaterThan(1);
+      for (const starter of promised) {
+        expect(guardStatement(`${starter} teams`)).toBeNull();
+      }
+    });
+
+    test('a statement starting with something no list mentions is refused', () => {
+      expect(guardStatement('EXPLAIN SELECT 1')).toMatch(/Only read-only queries/);
+    });
+  });
+
   describe('when the materialized database is rebuilt', () => {
     let dataDir: string;
 

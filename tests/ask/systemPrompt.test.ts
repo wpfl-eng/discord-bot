@@ -126,6 +126,18 @@ describe('systemPrompt', () => {
       expect(later).toMatch(/week 2\b/i);
     });
 
+    test('names the season the ESPN tools query, not the calendar year', () => {
+      // January and February are the fantasy playoffs and the championship, and
+      // they belong to the previous NFL season. This line used the calendar
+      // year, so it told the agent it was the 2027 season while espn_teams and
+      // every other espn_* tool fetched seasonId 2026 -- the exact boundary the
+      // rest of the feature was already careful about.
+      const text: string = dynamic({ now: new Date('2027-01-15T12:00:00Z') });
+
+      expect(text).toContain('2026 season');
+      expect(text).not.toContain('2027 season');
+    });
+
     /**
      * Every other calendar boundary in the feature is America/New_York --
      * caps.ts computes the daily and monthly windows there, matching the trivia

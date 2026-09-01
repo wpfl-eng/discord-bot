@@ -350,10 +350,10 @@ async function publish(
   }
   if (notice !== undefined) suffix.push(notice);
 
-  // renderFull, not render: render() is capped to one Discord message because
-  // it is edited in live, whereas the final answer is continued into follow-up
-  // messages rather than truncated (§6.3).
-  const full: string = [ticker.renderFull(), ...suffix].join('\n\n').trim();
+  // Uncapped on purpose: the final answer is continued into follow-up messages
+  // by splitForDiscord rather than truncated (§6.3). The live edits are capped
+  // by the throttled editor, which is what writes a single message.
+  const full: string = [ticker.render(), ...suffix].join('\n\n').trim();
   const parts: string[] = splitForDiscord(full);
 
   try {
