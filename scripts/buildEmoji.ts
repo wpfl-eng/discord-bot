@@ -1,7 +1,8 @@
 // Emoji Artwork Generator
 //
-// Renders the 91 PNGs the casino uses (53 card faces + 38 roulette pockets) from SVG
-// defined here, so restyling is a code edit rather than 91 redraws.
+// Renders the 104 PNGs the casino uses (53 card faces + 38 roulette pockets + 6 dice
+// faces + 2 point pucks + 5 chips) from SVG defined here, so restyling is a code edit
+// rather than 104 redraws.
 //
 // Run: npm run emoji:build    Output: assets/emoji/*.png
 //
@@ -18,6 +19,11 @@ import { fileURLToPath } from 'node:url';
 import { RANKS, SUITS, type Rank, type Suit } from '../discordCommands/blackjack/blackjackUtils.js';
 import { cardEmojiName, pocketEmojiName, CARD_BACK_NAME } from '../emoji/emojiRegistry.js';
 import { getColor, WHEEL_POSITIONS } from '../discordCommands/roulette/rouletteConfig.js';
+import {
+  dieEmojiName,
+  PUCK_OFF_NAME,
+  PUCK_ON_NAME,
+} from '../discordCommands/craps/crapsConfig.js';
 
 // ============ CONSTANTS ============
 
@@ -42,6 +48,17 @@ const COLORS = {
   heart: '#D0342C',
   diamond: '#1F6FD0',
   club: '#17834A',
+  // Dice read as real dice only if the pips are big, round and high-contrast; anything
+  // subtle vanishes at ~22px inline, which is why craps' old Unicode dice were unusable.
+  dieFace: '#FAFAF7',
+  dieEdge: '#B9BEC9',
+  diePip: '#1B2027',
+  puckOn: '#D0342C',
+  puckOff: '#4A4F57',
+  chipLow: '#4A7FD0',
+  chipMid: '#1E8E4F',
+  chipHigh: '#8A3FC0',
+  chipTop: '#C9A227',
   pocketRed: '#D0342C',
   pocketBlack: '#23262D',
   pocketGreen: '#1E8E4F',
@@ -127,6 +144,95 @@ function pocketSvg(position: string): string {
 </svg>`;
 }
 
+/**
+ * A die face. Pip layout is the standard one: a centre pip for odd values, corners
+ * filling outward, and the two mid-side pips only on 6.
+ */
+function dieSvg(value: number): string {
+  // Grid positions in a 3x3, as [cx, cy] in the 128px box.
+  const L = 34;
+  const M = 64;
+  const R = 94;
+
+  const LAYOUTS: Record<number, [number, number][]> = {
+    1: [[M, M]],
+    2: [
+      [L, L],
+      [R, R],
+    ],
+    3: [
+      [L, L],
+      [M, M],
+      [R, R],
+    ],
+    4: [
+      [L, L],
+      [R, L],
+      [L, R],
+      [R, R],
+    ],
+    5: [
+      [L, L],
+      [R, L],
+      [M, M],
+      [L, R],
+      [R, R],
+    ],
+    6: [
+      [L, L],
+      [R, L],
+      [L, M],
+      [R, M],
+      [L, R],
+      [R, R],
+    ],
+  };
+
+  const pips: string = (LAYOUTS[value] ?? [])
+    .map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="13" fill="${COLORS.diePip}"/>`)
+    .join('\n  ');
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">
+  <rect x="6" y="6" width="116" height="116" rx="26"
+        fill="${COLORS.dieFace}" stroke="${COLORS.dieEdge}" stroke-width="5"/>
+  ${pips}
+</svg>`;
+}
+
+/**
+ * The craps point puck. ON is the red dealer puck sitting on a number; OFF is the dark
+ * side shown during a come-out.
+ */
+function puckSvg(on: boolean): string {
+  const fill: string = on ? COLORS.puckOn : COLORS.puckOff;
+  const label: string = on ? 'ON' : 'OFF';
+  const size: number = on ? 44 : 34;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">
+  <circle cx="64" cy="64" r="58" fill="${fill}" stroke="${COLORS.pocketEdge}" stroke-width="5"/>
+  <circle cx="64" cy="64" r="46" fill="none" stroke="${COLORS.white}" stroke-width="3"
+          opacity="0.55"/>
+  <text x="64" y="${on ? 80 : 76}" font-family="${FONT}" font-size="${size}" font-weight="700"
+        fill="${COLORS.white}" text-anchor="middle">${label}</text>
+</svg>`;
+}
+
+/**
+ * A chip denomination. The label is the abbreviated amount so the chip reads at a glance
+ * next to a bet line.
+ */
+function chipSvg(label: string, fill: string): string {
+  const size: number = label.length >= 3 ? 40 : 50;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">
+  <circle cx="64" cy="64" r="58" fill="${fill}" stroke="${COLORS.white}" stroke-width="6"
+          stroke-dasharray="18 12"/>
+  <circle cx="64" cy="64" r="42" fill="${fill}" stroke="${COLORS.white}" stroke-width="4"/>
+  <text x="64" y="${label.length >= 3 ? 78 : 82}" font-family="${FONT}" font-size="${size}"
+        font-weight="700" fill="${COLORS.white}" text-anchor="middle">${label}</text>
+</svg>`;
+}
+
 // ============ RENDERING ============
 
 interface RenderReport {
@@ -183,6 +289,25 @@ async function main(): Promise<void> {
 
   for (const position of WHEEL_POSITIONS) {
     jobs.push({ name: pocketEmojiName(position), svg: pocketSvg(position) });
+  }
+
+  // Craps dice, replacing the Unicode faces that were illegible at inline size.
+  for (let value = 1; value <= 6; value++) {
+    jobs.push({ name: dieEmojiName(value), svg: dieSvg(value) });
+  }
+
+  jobs.push({ name: PUCK_ON_NAME, svg: puckSvg(true) });
+  jobs.push({ name: PUCK_OFF_NAME, svg: puckSvg(false) });
+
+  // Chip denominations, shared by every table's chip row.
+  const CHIP_ART: { label: string; fill: string }[] = [
+    { label: '100', fill: COLORS.chipLow },
+    { label: '1K', fill: COLORS.chipMid },
+    { label: '10K', fill: COLORS.chipHigh },
+    { label: '50K', fill: COLORS.chipTop },
+  ];
+  for (const chip of CHIP_ART) {
+    jobs.push({ name: `chip${chip.label}`, svg: chipSvg(chip.label, chip.fill) });
   }
 
   console.log(`Rendering ${jobs.length} emoji to ${OUT_DIR} ...`);

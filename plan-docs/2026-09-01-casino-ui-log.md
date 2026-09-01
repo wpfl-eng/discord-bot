@@ -164,7 +164,48 @@ must pass unchanged.
 
 ## Phase 1 — Craps
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
+
+Craps went from an embed-and-autocomplete game with 5 bet types to a Components V2
+board with 20.
+
+**Created**
+
+| File | Purpose |
+|---|---|
+| `discordCommands/craps/crapsRender.ts` | V2 phase-contextual board, slip |
+| `casino/casinoPacing.ts` | D21 adaptive pacing (see deviation below) |
+| `casino/casinoModal.ts` | D20 `Label` / `RadioGroup` / `CheckboxGroup` modals |
+| `migrations/010_craps_bet_expansion.sql` | new stats columns, bet_type length constraint |
+| `tests/craps/crapsPayouts.test.ts` | 105 assertions, written before the engine |
+| `tests/craps/crapsRender.test.ts` | budget, phase rows, shooter, board scaling |
+
+**Rewritten**
+
+- `crapsConfig.ts` — 5 bet types to 20. Odds tables, place targets, hardway targets,
+  prop winners, 3-4-5x caps, `endsSession`, dice/puck emoji lookups.
+- `crapsEngine.ts` — resolution for every new family; `parentBetId` / `oddsPoint` on
+  `CrapsBet`; `canPlaceOdds`; `canTakeDown`; **R1 fix** — only a seven-out ends a session.
+- `crapsState.ts` — embeds to `RenderedMessage`, escrow-backed stakes, shooter rotation
+  with a ROLL button and grace fallback, coalesced painting, session bet log.
+- `craps.ts` — `registerComponentHandler('cr:')`, phase-aware autocomplete over all 20
+  bets, chip modal, odds `RadioGroup` modal, slip / rebet / undo / take-down.
+
+**Rules corrected while implementing** (beyond R1)
+
+- Place bets now ride through a point hit instead of being returned, and sit off during
+  a come-out. The old code pushed them back on a point hit, which is not how a craps
+  table works.
+- The pass line is now a contract bet: it cannot be taken down once a point is on.
+  Everything else, don't pass included, comes down freely.
+
+**Art** — `scripts/buildEmoji.ts` now renders 103 tiles (was 91): 6 dice faces with
+proper pip layouts, 2 point pucks, 4 chip denominations. Verified by eye, not just by
+the ink heuristic — the heuristic counts a light card face as ink and would not have
+caught a blank die.
+
+**Verification:** `npm test` 786 passed / 31 suites; typecheck clean; `npx eslint .`
+clean. Migration 010 is written but NOT applied — this repo has no runner.
 
 ---
 

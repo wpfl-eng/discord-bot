@@ -1,5 +1,20 @@
 // Craps Game Engine
-// Core game logic: bet resolution, outcome determination, payout processing
+//
+// Bet resolution, outcome determination and payout processing. Pure functions
+// throughout - nothing here reads table state, talks to Discord or touches the
+// database, so every payout is directly testable.
+//
+// PAYOUT CONVENTION
+//
+//   win / push      `payout` is the TOTAL RETURN: stake + winnings.
+//   win_and_stay    `payout` is WINNINGS ONLY - the stake remains on the number.
+//   lose / pending  `payout` is 0.
+//
+// SESSION VS DECISION
+//
+// A roll produces a *decision* about the line bets. Only one decision - a seven-out -
+// also ends the shooter's *session* and passes the dice. This distinction did not exist
+// before, which is why the shooter changed on every come-out 7 or 11.
 
 import {
   type Roll,
@@ -7,12 +22,21 @@ import {
   type BetOutcome,
   type SessionOutcome,
   type PayoutResult,
+  BET_TYPES,
+  HARDWAY_TARGET,
+  PLACE_TARGET,
+  PROP_WINNERS,
   isNatural,
   isCraps,
   isPointNumber,
   isFieldWinner,
+  isHardWay,
+  endsSession,
   calculateFieldPayout,
   calculatePlacePayout,
+  maxOdds,
+  oddsPayout,
+  oddsParentType,
   NATURAL_NUMBERS,
   CRAPS_NUMBERS,
 } from './crapsConfig.js';
@@ -20,7 +44,10 @@ import {
 // ============ TYPE DEFINITIONS ============
 
 /**
- * Individual bet placed by a player
+ * Individual bet placed by a player.
+ *
+ * Odds bets are the only ones that are not self-contained: they sit behind a line bet
+ * and pay by the point that was on when they were placed, so both are recorded here.
  */
 export interface CrapsBet {
   readonly id: string;
@@ -31,11 +58,19 @@ export interface CrapsBet {
   readonly placedAt: Date;
   status: 'active' | 'won' | 'lost' | 'push';
   payout?: number;
+  /** Odds bets only: the id of the line bet being backed */
+  readonly parentBetId?: string;
+  /**
+   * Odds bets only: the point they were placed behind.
+   *
+   * Payouts vary by point, and a bet must settle against the point it was made on even
+   * if the table has since moved on.
+   */
+  readonly oddsPoint?: number;
+  /** Escrow row holding this stake, so it can be settled or voided individually */
+  escrowId?: number;
 }
 
-/**
- * Result of resolving a single bet
- */
 export interface BetResolutionResult {
   readonly bet: CrapsBet;
   readonly outcome: BetOutcome;
@@ -43,9 +78,6 @@ export interface BetResolutionResult {
   readonly description: string;
 }
 
-/**
- * Aggregated session results per user
- */
 export interface UserSessionResult {
   readonly userId: string;
   readonly username: string;
@@ -58,11 +90,10 @@ export interface UserSessionResult {
   }[];
 }
 
-/**
- * Complete outcome after resolving a roll
- */
 export interface RollResolutionResult {
+  /** True only when the dice pass to a new shooter */
   readonly sessionEnded: boolean;
+  /** What this roll decided about the line, whether or not the session ended */
   readonly sessionOutcome: SessionOutcome | null;
   readonly pointEstablished: number | null;
   readonly betResults: BetResolutionResult[];
@@ -71,274 +102,251 @@ export interface RollResolutionResult {
 
 // ============ BET RESOLUTION ============
 
-/**
- * Resolve a Pass Line bet
- */
-function resolvePassLine(
-  bet: CrapsBet,
-  roll: Roll,
-  point: number | null
-): PayoutResult {
+function resolvePassLine(bet: CrapsBet, roll: Roll, point: number | null): PayoutResult {
   const { total } = roll;
 
   if (point === null) {
-    // Come-out roll
     if (NATURAL_NUMBERS.includes(total)) {
-      // 7 or 11 - wins
-      return {
-        outcome: 'win',
-        payout: bet.amount * 2,
-        description: 'Natural!',
-      };
+      return { outcome: 'win', payout: bet.amount * 2, description: 'Natural!' };
     }
     if (CRAPS_NUMBERS.includes(total)) {
-      // 2, 3, or 12 - loses
-      return {
-        outcome: 'lose',
-        payout: 0,
-        description: 'Craps!',
-      };
+      return { outcome: 'lose', payout: 0, description: 'Craps!' };
     }
-    // Point established - bet stays
-    return { outcome: 'pending', payout: 0 };
-  } else {
-    // Point phase
-    if (total === point) {
-      // Point hit - wins
-      return {
-        outcome: 'win',
-        payout: bet.amount * 2,
-        description: 'Point hit!',
-      };
-    }
-    if (total === 7) {
-      // Seven-out - loses
-      return {
-        outcome: 'lose',
-        payout: 0,
-        description: 'Seven out!',
-      };
-    }
-    // Neither point nor 7 - stays
     return { outcome: 'pending', payout: 0 };
   }
+
+  if (total === point) {
+    return { outcome: 'win', payout: bet.amount * 2, description: 'Point hit!' };
+  }
+  if (total === 7) {
+    return { outcome: 'lose', payout: 0, description: 'Seven out!' };
+  }
+  return { outcome: 'pending', payout: 0 };
 }
 
-/**
- * Resolve a Don't Pass bet
- */
-function resolveDontPass(
-  bet: CrapsBet,
-  roll: Roll,
-  point: number | null
-): PayoutResult {
+function resolveDontPass(bet: CrapsBet, roll: Roll, point: number | null): PayoutResult {
   const { total } = roll;
 
   if (point === null) {
-    // Come-out roll
     if (total === 2 || total === 3) {
-      // 2 or 3 - wins
       return {
         outcome: 'win',
         payout: bet.amount * 2,
         description: total === 2 ? 'Snake Eyes!' : 'Ace-Deuce!',
       };
     }
+    // Bar the 12. This single rule is the entire house edge on the don't side.
     if (total === 12) {
-      // 12 - push (bar the 12)
-      return {
-        outcome: 'push',
-        payout: bet.amount,
-        description: 'Push on 12!',
-      };
+      return { outcome: 'push', payout: bet.amount, description: 'Push on 12!' };
     }
     if (total === 7 || total === 11) {
-      // 7 or 11 - loses
       return {
         outcome: 'lose',
         payout: 0,
         description: total === 7 ? 'Seven!' : 'Yo-Leven!',
       };
     }
-    // Point established - bet stays
     return { outcome: 'pending', payout: 0 };
-  } else {
-    // Point phase
-    if (total === 7) {
-      // Seven-out - wins
-      return {
-        outcome: 'win',
-        payout: bet.amount * 2,
-        description: 'Seven out!',
-      };
-    }
-    if (total === point) {
-      // Point hit - loses
-      return {
-        outcome: 'lose',
-        payout: 0,
-        description: 'Point hit!',
-      };
-    }
-    // Neither point nor 7 - stays
-    return { outcome: 'pending', payout: 0 };
-  }
-}
-
-/**
- * Resolve a Field bet (one-roll)
- */
-function resolveField(bet: CrapsBet, roll: Roll): PayoutResult {
-  const { total } = roll;
-
-  if (isFieldWinner(total)) {
-    const payout = calculateFieldPayout(bet.amount, total);
-    let description = 'Field wins!';
-    if (total === 2) {
-      description = 'Snake Eyes! Double pay!';
-    } else if (total === 12) {
-      description = 'Boxcars! Triple pay!';
-    }
-    return { outcome: 'win', payout, description };
-  }
-
-  return {
-    outcome: 'lose',
-    payout: 0,
-    description: `${total} - Field loses`,
-  };
-}
-
-/**
- * Resolve a Place bet (6 or 8)
- */
-function resolvePlace(
-  bet: CrapsBet,
-  roll: Roll,
-  point: number | null
-): PayoutResult {
-  const { total } = roll;
-  const target = bet.betType === 'place_6' ? 6 : 8;
-
-  if (total === target) {
-    // Hit the number - wins but stays active
-    const winnings = calculatePlacePayout(bet.amount);
-    return {
-      outcome: 'win_and_stay',
-      payout: winnings,
-      description: `Place ${target} pays!`,
-    };
   }
 
   if (total === 7) {
-    // Seven-out - loses
-    return {
-      outcome: 'lose',
-      payout: 0,
-      description: 'Seven out!',
-    };
+    return { outcome: 'win', payout: bet.amount * 2, description: 'Seven out!' };
   }
-
-  // Check if point hit (not our number) - return bet
-  if (point !== null && total === point && total !== target) {
-    return {
-      outcome: 'push',
-      payout: bet.amount,
-      description: 'Point hit - bet returned',
-    };
+  if (total === point) {
+    return { outcome: 'lose', payout: 0, description: 'Point hit!' };
   }
-
-  // Still waiting
   return { outcome: 'pending', payout: 0 };
 }
 
 /**
- * Resolve a single bet based on roll and point
+ * Free odds. Pays true odds by the point the bet was placed behind, which is why it
+ * carries its own `oddsPoint` rather than reading the table's current point.
  */
-export function resolveBet(
-  bet: CrapsBet,
-  roll: Roll,
-  point: number | null
-): PayoutResult {
-  switch (bet.betType) {
-    case 'pass_line':
-      return resolvePassLine(bet, roll, point);
-    case 'dont_pass':
-      return resolveDontPass(bet, roll, point);
+function resolveOdds(bet: CrapsBet, roll: Roll): PayoutResult {
+  const point: number | undefined = bet.oddsPoint;
+  if (point === undefined) {
+    // An odds bet with no point recorded cannot be settled fairly; hand the stake back.
+    return { outcome: 'push', payout: bet.amount, description: 'Odds bet had no point' };
+  }
+
+  const ratio = oddsPayout(bet.betType, point);
+  if (!ratio) {
+    return { outcome: 'push', payout: bet.amount, description: 'No odds for that point' };
+  }
+
+  const { total } = roll;
+  const winsOnPoint: boolean = bet.betType === 'pass_odds';
+  const hitPoint: boolean = total === point;
+  const sevenedOut: boolean = total === 7;
+
+  if (!hitPoint && !sevenedOut) return { outcome: 'pending', payout: 0 };
+
+  const won: boolean = winsOnPoint ? hitPoint : sevenedOut;
+  if (!won) return { outcome: 'lose', payout: 0, description: 'Odds lost' };
+
+  const [win, wager] = ratio;
+  return {
+    outcome: 'win',
+    payout: bet.amount + Math.floor((bet.amount * win) / wager),
+    description: `Odds paid ${win}:${wager}`,
+  };
+}
+
+/**
+ * Place bets ride the number until it hits or a seven comes.
+ *
+ * They are OFF during a come-out roll, which is the casino default and the reason a
+ * point hit neither pays nor returns them - they simply sit out the next come-out and
+ * come back to life when a new point is established.
+ */
+function resolvePlace(bet: CrapsBet, roll: Roll, point: number | null): PayoutResult {
+  if (point === null) return { outcome: 'pending', payout: 0 };
+
+  const target: number | undefined = PLACE_TARGET[bet.betType];
+  if (target === undefined) return { outcome: 'pending', payout: 0 };
+
+  const { total } = roll;
+
+  if (total === target) {
+    return {
+      outcome: 'win_and_stay',
+      payout: calculatePlacePayout(bet.amount, bet.betType),
+      description: `Place ${target} pays!`,
+    };
+  }
+  if (total === 7) {
+    return { outcome: 'lose', payout: 0, description: 'Seven out!' };
+  }
+  return { outcome: 'pending', payout: 0 };
+}
+
+/**
+ * Hardways. The number must come as a pair, before either the same number the easy way
+ * or any seven. Off during the come-out, like place bets.
+ */
+function resolveHardway(bet: CrapsBet, roll: Roll, point: number | null): PayoutResult {
+  if (point === null) return { outcome: 'pending', payout: 0 };
+
+  const target: number | undefined = HARDWAY_TARGET[bet.betType];
+  if (target === undefined) return { outcome: 'pending', payout: 0 };
+
+  const { total } = roll;
+  const payout = BET_TYPES[bet.betType].payout;
+
+  if (total === target) {
+    if (isHardWay(roll) && payout) {
+      const [win, wager] = payout;
+      return {
+        outcome: 'win',
+        payout: bet.amount + Math.floor((bet.amount * win) / wager),
+        description: `Hard ${target}!`,
+      };
+    }
+    return { outcome: 'lose', payout: 0, description: `${target} the easy way` };
+  }
+
+  if (total === 7) {
+    return { outcome: 'lose', payout: 0, description: 'Seven out!' };
+  }
+  return { outcome: 'pending', payout: 0 };
+}
+
+/** One-roll props. Live in every phase, decided immediately, never carried over. */
+function resolveProp(bet: CrapsBet, roll: Roll): PayoutResult {
+  const winners: readonly number[] | undefined = PROP_WINNERS[bet.betType];
+  const payout = BET_TYPES[bet.betType].payout;
+
+  if (!winners || !payout) return { outcome: 'lose', payout: 0, description: '' };
+
+  if (winners.includes(roll.total)) {
+    const [win, wager] = payout;
+    return {
+      outcome: 'win',
+      payout: bet.amount + Math.floor((bet.amount * win) / wager),
+      description: `${BET_TYPES[bet.betType].name} hits!`,
+    };
+  }
+
+  return { outcome: 'lose', payout: 0, description: `${roll.total} - no good` };
+}
+
+function resolveField(bet: CrapsBet, roll: Roll): PayoutResult {
+  const { total } = roll;
+
+  if (isFieldWinner(total)) {
+    let description = 'Field wins!';
+    if (total === 2) description = 'Snake Eyes! Double pay!';
+    else if (total === 12) description = 'Boxcars! Triple pay!';
+    return { outcome: 'win', payout: calculateFieldPayout(bet.amount, total), description };
+  }
+
+  return { outcome: 'lose', payout: 0, description: `${total} - Field loses` };
+}
+
+/**
+ * Resolve a single bet against a roll.
+ *
+ * @param bet - the wager, including its odds point where relevant
+ * @param roll - the dice, as a pair; hardways depend on HOW the total was made
+ * @param point - the table's current point, or null during a come-out
+ */
+export function resolveBet(bet: CrapsBet, roll: Roll, point: number | null): PayoutResult {
+  const family = BET_TYPES[bet.betType]?.family;
+
+  switch (family) {
+    case 'line':
+      return bet.betType === 'pass_line'
+        ? resolvePassLine(bet, roll, point)
+        : resolveDontPass(bet, roll, point);
+    case 'odds':
+      return resolveOdds(bet, roll);
     case 'field':
       return resolveField(bet, roll);
-    case 'place_6':
-    case 'place_8':
+    case 'place':
       return resolvePlace(bet, roll, point);
+    case 'hardway':
+      return resolveHardway(bet, roll, point);
+    case 'prop':
+      return resolveProp(bet, roll);
     default:
-      // Unknown bet type - treat as push for safety
-      return {
-        outcome: 'push',
-        payout: bet.amount,
-        description: 'Unknown bet type',
-      };
+      // Unknown bet type - hand the stake back rather than guess.
+      return { outcome: 'push', payout: bet.amount, description: 'Unknown bet type' };
   }
 }
 
 // ============ SESSION OUTCOME ============
 
 /**
- * Determine if and how the session ends based on a roll
- * @param roll The dice roll result
- * @param point Current point (null = come-out phase)
- * @returns Session outcome or null if session continues
+ * What this roll decided about the line bets.
+ *
+ * Returning a value here does NOT mean the shooter is done - see `endsSession`.
  */
-export function determineSessionOutcome(
-  roll: Roll,
-  point: number | null
-): SessionOutcome | null {
+export function determineSessionOutcome(roll: Roll, point: number | null): SessionOutcome | null {
   const { total } = roll;
 
   if (point === null) {
-    // Come-out phase
-    if (isNatural(total)) {
-      return 'natural';
-    }
-    if (isCraps(total)) {
-      return 'craps';
-    }
-    // Point established - session continues (not ended)
-    return null;
-  } else {
-    // Point phase
-    if (total === 7) {
-      return 'seven_out';
-    }
-    if (total === point) {
-      return 'point_hit';
-    }
-    // Session continues
+    if (isNatural(total)) return 'natural';
+    if (isCraps(total)) return 'craps';
     return null;
   }
+
+  if (total === 7) return 'seven_out';
+  if (total === point) return 'point_hit';
+  return null;
 }
 
-/**
- * Determine if a point should be established
- */
+/** Whether this roll establishes a point. */
 export function shouldEstablishPoint(roll: Roll, point: number | null): number | null {
-  if (point !== null) {
-    // Already have a point
-    return null;
-  }
-  if (isPointNumber(roll.total)) {
-    return roll.total;
-  }
-  return null;
+  if (point !== null) return null;
+  return isPointNumber(roll.total) ? roll.total : null;
 }
 
 // ============ BATCH RESOLUTION ============
 
 /**
- * Resolve all bets after a roll
- * @param bets All active bets
- * @param roll The dice roll result
- * @param point Current point (null = come-out phase)
- * @returns Resolution results for all bets
+ * Resolve every active bet against a roll.
+ *
+ * @returns the decision, whether the dice pass, and one result per bet
  */
 export function resolveAllBets(
   bets: CrapsBet[],
@@ -346,21 +354,16 @@ export function resolveAllBets(
   point: number | null
 ): RollResolutionResult {
   const sessionOutcome = determineSessionOutcome(roll, point);
-  // Any session outcome (natural, craps, point_hit, seven_out) ends the session
-  const sessionEnded = sessionOutcome !== null;
   const pointEstablished = shouldEstablishPoint(roll, point);
 
   const betResults: BetResolutionResult[] = [];
   let totalPaid = 0;
 
   for (const bet of bets) {
-    if (bet.status !== 'active') {
-      continue;
-    }
+    if (bet.status !== 'active') continue;
 
     const result = resolveBet(bet, roll, point);
 
-    // Update bet status based on outcome
     switch (result.outcome) {
       case 'win':
         bet.status = 'won';
@@ -377,12 +380,11 @@ export function resolveAllBets(
         totalPaid += result.payout;
         break;
       case 'win_and_stay':
-        // Bet stays active but pays out winnings
+        // The number paid but the stake rides on.
         bet.payout = (bet.payout ?? 0) + result.payout;
         totalPaid += result.payout;
         break;
       case 'pending':
-        // No change
         break;
     }
 
@@ -395,7 +397,9 @@ export function resolveAllBets(
   }
 
   return {
-    sessionEnded,
+    // Only a seven-out passes the dice. Every other decision leaves them in the same
+    // hand for another come-out.
+    sessionEnded: endsSession(sessionOutcome),
     sessionOutcome,
     pointEstablished,
     betResults,
@@ -405,9 +409,6 @@ export function resolveAllBets(
 
 // ============ USER RESULTS AGGREGATION ============
 
-/**
- * Mutable builder for user session results
- */
 interface UserResultBuilder {
   userId: string;
   username: string;
@@ -420,40 +421,31 @@ interface UserResultBuilder {
   }>;
 }
 
-/**
- * Aggregate bet results by user for session summary
- */
-export function aggregateUserResults(
-  betResults: BetResolutionResult[]
-): UserSessionResult[] {
+/** Aggregate bet results by user for a summary frame. */
+export function aggregateUserResults(betResults: BetResolutionResult[]): UserSessionResult[] {
   const userMap = new Map<string, UserResultBuilder>();
 
   for (const result of betResults) {
     const { bet, outcome, payout } = result;
-
-    // Skip pending bets
-    if (outcome === 'pending' || outcome === 'win_and_stay') {
-      continue;
-    }
+    if (outcome === 'pending') continue;
 
     let user = userMap.get(bet.userId);
     if (!user) {
-      user = {
-        userId: bet.userId,
-        username: bet.username,
-        netResult: 0,
-        breakdown: [],
-      };
+      user = { userId: bet.userId, username: bet.username, netResult: 0, breakdown: [] };
       userMap.set(bet.userId, user);
     }
 
-    // Calculate net for this bet
     let netForBet: number;
     let outcomeLabel: 'won' | 'lost' | 'push';
 
     switch (outcome) {
       case 'win':
-        netForBet = payout - bet.amount; // Profit only
+        netForBet = payout - bet.amount;
+        outcomeLabel = 'won';
+        break;
+      // A place bet that paid and stayed up is pure profit: the stake never left.
+      case 'win_and_stay':
+        netForBet = payout;
         outcomeLabel = 'won';
         break;
       case 'lose':
@@ -477,7 +469,6 @@ export function aggregateUserResults(
     });
   }
 
-  // Convert to readonly interface
   return Array.from(userMap.values()).map((builder): UserSessionResult => ({
     userId: builder.userId,
     username: builder.username,
@@ -489,108 +480,150 @@ export function aggregateUserResults(
 // ============ VALIDATION ============
 
 /**
- * Check if a bet type can be placed in the current phase
+ * Whether the table's phase allows this bet right now.
+ *
+ * The board only ever shows legal bets (it swaps rows by phase), so this is the
+ * backstop for the slash-command path and for a click that races a phase change.
  */
 export function canPlaceBetType(
   betType: BetType,
   point: number | null
 ): { allowed: boolean; reason?: string } {
-  const isComeout = point === null;
+  const config = BET_TYPES[betType];
+  if (!config) return { allowed: false, reason: 'Unknown bet type' };
 
-  switch (betType) {
-    case 'pass_line':
-    case 'dont_pass':
-      if (!isComeout) {
-        return {
-          allowed: false,
-          reason: `${betType === 'pass_line' ? 'Pass Line' : "Don't Pass"} bets can only be placed during come-out phase`,
-        };
-      }
-      return { allowed: true };
+  const isComeout: boolean = point === null;
 
-    case 'place_6':
-    case 'place_8':
-      if (isComeout) {
-        return {
-          allowed: false,
-          reason: 'Place bets require a point to be established',
-        };
-      }
-      return { allowed: true };
+  if (config.phase === 'any') return { allowed: true };
 
-    case 'field':
-      // Field can be placed any time
-      return { allowed: true };
-
-    default:
-      return { allowed: false, reason: 'Unknown bet type' };
+  if (config.phase === 'comeout' && !isComeout) {
+    return { allowed: false, reason: `${config.name} can only be placed on a come-out roll` };
   }
+
+  if (config.phase === 'point' && isComeout) {
+    return { allowed: false, reason: `${config.name} needs a point to be established` };
+  }
+
+  return { allowed: true };
+}
+
+export interface OddsValidation {
+  readonly allowed: boolean;
+  readonly reason?: string;
+  /** The line bet the odds will sit behind */
+  readonly parent?: CrapsBet;
 }
 
 /**
- * Check if user already has a conflicting bet
- * - Can only have one Pass Line bet
- * - Can only have one Don't Pass bet
- * - Multiple Field bets allowed (one-roll)
- * - Place bets aggregate (add to existing)
+ * Odds carry rules no other bet does: they need a line bet to sit behind, and they are
+ * capped at a multiple of that line bet which varies by point.
+ *
+ * @param existingBets - every bet currently on the table
+ * @param userId - who is backing
+ * @param betType - `pass_odds` or `dont_pass_odds`
+ * @param point - the current point
+ * @param amount - the odds stake being attempted
+ */
+export function canPlaceOdds(
+  existingBets: readonly CrapsBet[],
+  userId: string,
+  betType: BetType,
+  point: number | null,
+  amount: number
+): OddsValidation {
+  const parentType: BetType | null = oddsParentType(betType);
+  if (!parentType) return { allowed: false, reason: 'Not an odds bet' };
+
+  if (point === null) {
+    return { allowed: false, reason: 'Odds need a point to be established' };
+  }
+
+  const parent = existingBets.find(
+    (b) => b.userId === userId && b.betType === parentType && b.status === 'active'
+  );
+
+  if (!parent) {
+    return {
+      allowed: false,
+      reason: `You need a ${BET_TYPES[parentType].name} bet before you can back it with odds`,
+    };
+  }
+
+  const alreadyBacked: number = existingBets
+    .filter((b) => b.userId === userId && b.betType === betType && b.status === 'active')
+    .reduce((sum, b) => sum + b.amount, 0);
+
+  const ceiling: number = maxOdds(parent.amount, point);
+  if (alreadyBacked + amount > ceiling) {
+    const remaining: number = Math.max(0, ceiling - alreadyBacked);
+    return {
+      allowed: false,
+      reason:
+        remaining > 0
+          ? `On a point of ${point} you can back ${parent.amount} with at most ${ceiling}. You have ${remaining} left.`
+          : `You are already backed to the ${ceiling} maximum on a point of ${point}.`,
+    };
+  }
+
+  return { allowed: true, parent };
+}
+
+/**
+ * Whether a user may add this bet, and whether it merges into one they already hold.
+ *
+ * One line bet each; everything else either aggregates onto the existing stake or is
+ * a fresh one-roll wager.
  */
 export function checkDuplicateBet(
   existingBets: CrapsBet[],
   userId: string,
   betType: BetType
 ): { allowed: boolean; aggregate?: boolean; reason?: string } {
-  const userBets = existingBets.filter(
-    (b) => b.userId === userId && b.status === 'active'
-  );
+  const config = BET_TYPES[betType];
+  if (!config) return { allowed: false, reason: 'Unknown bet type' };
 
-  switch (betType) {
-    case 'pass_line':
-      if (userBets.some((b) => b.betType === 'pass_line')) {
-        return {
-          allowed: false,
-          reason: 'You already have a Pass Line bet',
-        };
-      }
-      return { allowed: true };
+  const userBets = existingBets.filter((b) => b.userId === userId && b.status === 'active');
 
-    case 'dont_pass':
-      if (userBets.some((b) => b.betType === 'dont_pass')) {
-        return {
-          allowed: false,
-          reason: "You already have a Don't Pass bet",
-        };
-      }
-      return { allowed: true };
-
-    case 'field':
-      // Multiple field bets allowed
-      return { allowed: true };
-
-    case 'place_6':
-    case 'place_8':
-      // Place bets aggregate
-      if (userBets.some((b) => b.betType === betType)) {
-        return { allowed: true, aggregate: true };
-      }
-      return { allowed: true };
-
-    default:
-      return { allowed: false, reason: 'Unknown bet type' };
+  if (config.family === 'line') {
+    if (userBets.some((b) => b.betType === betType)) {
+      return { allowed: false, reason: `You already have a ${config.name} bet` };
+    }
+    return { allowed: true };
   }
+
+  // Field and props are one-roll wagers; a player may stack as many as they like.
+  if (config.behavior === 'one-roll') return { allowed: true };
+
+  // Place, hardway and odds stakes merge onto the number already being ridden.
+  if (userBets.some((b) => b.betType === betType)) {
+    return { allowed: true, aggregate: true };
+  }
+  return { allowed: true };
+}
+
+/**
+ * Whether a player may pull a bet back off the table.
+ *
+ * The pass line is a CONTRACT bet: once a point is established the player has taken the
+ * good end of the come-out and cannot then withdraw. Everything else - including don't
+ * pass, which is the reverse trade - comes down freely.
+ *
+ * @param betType - the bet being taken down
+ * @param point - the table's current point, or null on a come-out
+ */
+export function canTakeDown(betType: BetType, point: number | null): boolean {
+  if (betType === 'pass_line' && point !== null) return false;
+  return true;
 }
 
 // ============ UTILITY ============
 
-/**
- * Generate a unique bet ID
- */
+/** Generate a unique bet ID */
 export function generateBetId(): string {
   return `bet_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
-/**
- * Get total exposure (sum of active bets) for a user
- */
+/** Total exposure (sum of active bets) for a user */
 export function getUserExposure(bets: CrapsBet[], userId: string): number {
   return bets
     .filter((b) => b.userId === userId && b.status === 'active')

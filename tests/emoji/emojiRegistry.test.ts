@@ -3,6 +3,9 @@ import {
   cardEmojiName,
   pocketEmojiName,
   expectedEmojiNames,
+  CHIP_NAMES,
+  DIE_NAMES,
+  PUCK_NAMES,
   emoji,
   isLoaded,
   CARD_BACK_NAME,
@@ -45,12 +48,20 @@ describe('emoji naming', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  test('the set covers every card, the back, and every pocket', () => {
+  test('the set covers every card, the back, every pocket, dice, pucks and chips', () => {
     const names = expectedEmojiNames(RANKS, SUITS);
 
-    // 52 cards + 1 back + 38 pockets
-    expect(names).toHaveLength(52 + 1 + WHEEL_POSITIONS.length);
+    // 52 cards + 1 back + 38 pockets + 6 dice + 2 pucks + 4 chips
+    expect(names).toHaveLength(
+      52 + 1 + WHEEL_POSITIONS.length + DIE_NAMES.length + PUCK_NAMES.length + CHIP_NAMES.length
+    );
     expect(names).toContain(CARD_BACK_NAME);
+
+    // Craps had no art at all before this: it rendered Unicode dice faces, which are
+    // monochrome and near-illegible at inline size.
+    for (const die of DIE_NAMES) expect(names).toContain(die);
+    for (const puck of PUCK_NAMES) expect(names).toContain(puck);
+    for (const chip of CHIP_NAMES) expect(names).toContain(chip);
 
     for (const suit of SUITS) {
       for (const rank of RANKS) {

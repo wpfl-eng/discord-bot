@@ -17,8 +17,8 @@ import type { EconomyUser } from '../types/database.js';
 
 // ============ TYPES ============
 
-export type EscrowGame = 'roulette' | 'blackjack';
-export type EscrowPurpose = 'bet' | 'double' | 'split' | 'insurance';
+export type EscrowGame = 'roulette' | 'blackjack' | 'craps';
+export type EscrowPurpose = 'bet' | 'double' | 'split' | 'insurance' | 'odds' | 'sidebet';
 export type EscrowStatus = 'open' | 'settled' | 'voided' | 'refunded';
 
 export interface OpenEscrowData {

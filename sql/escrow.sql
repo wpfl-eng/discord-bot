@@ -2,7 +2,7 @@
 -- Run: psql $DATABASE_URL -f sql/escrow.sql
 --
 -- Holds coins that have left a player's wallet but have not yet been resolved by a
--- game. Every debit taken by roulette or blackjack opens a row here in the SAME
+-- game. Every debit taken by roulette, blackjack or craps opens a row here in the SAME
 -- transaction as the wallet update, so the two can never disagree.
 --
 -- A row is 'open' only while money is genuinely at risk. Anything still 'open' when
@@ -14,14 +14,16 @@ CREATE TABLE IF NOT EXISTS wager_escrow (
     user_id     VARCHAR(20)  NOT NULL,
     username    VARCHAR(100) NOT NULL,
 
-    -- 'roulette' | 'blackjack'
+    -- 'roulette' | 'blackjack' | 'craps'
+    -- Deliberately unconstrained: adding a game must not require a migration.
     game        VARCHAR(20)  NOT NULL,
 
     -- Groups every row belonging to one round or one hand, so a session can be
     -- settled or voided as a unit.
     session_key VARCHAR(64)  NOT NULL,
 
-    -- What the debit was for: 'bet' | 'double' | 'split' | 'insurance'
+    -- What the debit was for:
+    --   'bet' | 'double' | 'split' | 'insurance' | 'odds' | 'sidebet'
     purpose     VARCHAR(20)  NOT NULL DEFAULT 'bet',
 
     amount      INTEGER      NOT NULL CHECK (amount > 0),

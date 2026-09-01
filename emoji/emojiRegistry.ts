@@ -7,6 +7,9 @@
 // IDs only exist once scripts/uploadEmoji.ts has run, so every lookup takes a plain
 // text fallback. A bot booted without the upload renders exactly what it renders today
 // and stays fully playable - the art is an upgrade, never a dependency.
+//
+// The set covers cards, roulette pockets, craps dice, the craps point puck and the
+// shared chip denominations: 103 of an allowed 2000.
 
 import type { Client } from 'discord.js';
 import type { Rank, Suit } from '../discordCommands/blackjack/blackjackUtils.js';
@@ -35,6 +38,15 @@ export function cardEmojiName(rank: Rank, suit: Suit): string {
 
 /** Emoji name for the face-down hole card */
 export const CARD_BACK_NAME = 'cback';
+
+/** Craps dice faces, 'd1'..'d6' */
+export const DIE_NAMES: readonly string[] = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6'];
+
+/** Craps point puck, both faces */
+export const PUCK_NAMES: readonly string[] = ['puckOn', 'puckOff'];
+
+/** Chip denominations shared by every table's chip row */
+export const CHIP_NAMES: readonly string[] = ['chip100', 'chip1K', 'chip10K', 'chip50K'];
 
 /**
  * Emoji name for a roulette pocket, e.g. '00' -> 'n00', '17' -> 'n17'
@@ -120,6 +132,8 @@ export function expectedEmojiNames(ranks: readonly Rank[], suits: readonly Suit[
   for (let n = 1; n <= 36; n++) {
     names.push(pocketEmojiName(String(n)));
   }
+
+  names.push(...DIE_NAMES, ...PUCK_NAMES, ...CHIP_NAMES);
 
   return names;
 }
