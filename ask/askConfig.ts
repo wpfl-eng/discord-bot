@@ -38,6 +38,16 @@ export const ASK = {
   ARTIFACT_URL: 'https://wpfl-receipts-694ed0.pages.dev/postdraft.json',
   STALE_AFTER_MS: 6 * 60 * 60 * 1000,
 
+  // ---- WPFL history API (design §3.7) ----
+  // The three row-shaped endpoints are cached locally and reachable only
+  // through SQL, so there is no second path that could disagree with the first.
+  WPFL_API_BASE: 'https://wpflapi.azurewebsites.net/api',
+  WPFL_FETCH_TIMEOUT_MS: 30 * 1000,
+  // Draft history and matchups go back to 2010; player scores start in 2015,
+  // which is when player-level tracking began.
+  HISTORY_MIN_SEASON: 2010,
+  PLAYER_SCORES_MIN_SEASON: 2015,
+
   // ---- Discord surface (design §6.3) ----
   TICKER_EDIT_THROTTLE_MS: 1500, // Discord allows ~5 edits / 5 s per channel
   THREAD_AUTO_ARCHIVE: ThreadAutoArchiveDuration.OneDay,
