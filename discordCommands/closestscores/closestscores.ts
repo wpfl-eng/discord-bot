@@ -4,7 +4,7 @@ const { Client } = pkg;
 import type { Boxscore } from 'espn-fantasy-football-api/node.js';
 import { espnMembers } from '../../constants/espnMembers.js';
 import { getCurrentNFLSeason } from '../../helpers/utils.js';
-import { getCurrentPeriod, type NFLPeriod } from '../../helpers/espnPeriod.js';
+import { resolvePeriod } from '../../helpers/espnPeriod.js';
 
 export const data = new SlashCommandBuilder()
   .setName('closestscores')
@@ -79,9 +79,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.deferReply();
 
   // ESPN publishes the current week directly; the calendar arithmetic is the fallback.
-  const period: NFLPeriod = await getCurrentPeriod();
-  const matchupWeek: number = interaction.options.getInteger('week') ?? period.scoringPeriodId;
-  const matchupYear: number = interaction.options.getInteger('year') ?? period.seasonId;
+  const { week: matchupWeek, season: matchupYear } = await resolvePeriod(
+    interaction.options.getInteger('week'),
+    interaction.options.getInteger('year')
+  );
 
   const response = await getMatchups(matchupWeek, matchupYear);
 

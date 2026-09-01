@@ -3,7 +3,7 @@ import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
 import { espnMembers } from '../../constants/espnMembers.js';
 import { getCurrentNFLSeason } from '../../helpers/utils.js';
-import { getCurrentPeriod, type NFLPeriod } from '../../helpers/espnPeriod.js';
+import { resolvePeriod } from '../../helpers/espnPeriod.js';
 
 import type { Boxscore } from 'espn-fantasy-football-api/node.js';
 
@@ -110,9 +110,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // current one could not even be asked for. The defaults now come from ESPN,
   // which publishes the current week directly, falling back to the calendar
   // arithmetic that got the January rollover wrong twice.
-  const period: NFLPeriod = await getCurrentPeriod();
-  const week: number = interaction.options.getInteger('week') ?? period.scoringPeriodId;
-  const year: number = interaction.options.getInteger('year') ?? period.seasonId;
+  const { week, season: year } = await resolvePeriod(
+    interaction.options.getInteger('week'),
+    interaction.options.getInteger('year')
+  );
 
   try {
     const scores: Score[] = await getRankedScores(week, year);
