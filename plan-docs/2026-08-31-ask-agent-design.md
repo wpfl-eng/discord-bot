@@ -239,8 +239,11 @@ line and returns the whole file. The tool is useless in that form.
 decade of league history into context whether or not it was relevant.
 
 After shredding, the same question — *"why did Jimmy Simpson's draft grade come
-out A+?"* — is `Read INDEX.md` (~2 KB) plus `Read teams/jimmy-simpson.json`
-(8.5 KB): roughly **3K tokens and two tool calls**.
+out A+?"* — is `Read INDEX.md` (11.2 KB, measured) plus
+`Read teams/jimmy-simpson.json` (8.8 KB): roughly **5K tokens and two tool
+calls**. The index is larger than this document first estimated because it
+describes all 53 files individually; 5K against 216K is the comparison that
+matters.
 
 ### 3.3 Shred Layout
 
@@ -313,10 +316,12 @@ Generated on every shred, never hand-edited, so it cannot drift. Contains:
 3. **Anything unexpected** — any body shredded generically because the shredder
    did not recognize it, named explicitly and marked undocumented, so the agent
    knows it is reading something nobody wrote a description for.
-4. **Glossary** — what `worth`, `mkt`, `edge`, `grade.composite`, `skill_luck`,
-   `hindsight`, and `fingerprints` mean. These definitions are **copied into this
-   repo as constants**, not read from draft-2026 at runtime — the bot host does
-   not have draft-2026 on it.
+4. **Glossary** — what `worth`, `market`, `edge`, `grade.composite`,
+   `skill_luck`, `hindsight`, and `fingerprints` mean. These definitions are
+   **copied into this repo as constants**, not read from draft-2026 at runtime —
+   the bot host does not have draft-2026 on it. (This list said `mkt` until
+   Stage 5 counted keys in both builds and found zero occurrences of it; the
+   field the artifact actually carries is `market`.)
 5. **Owner roster** — the 14 canonical names, so the agent never invents a
    spelling.
 6. **Source routing** — a short table of which source answers which kind of
@@ -334,12 +339,23 @@ No timers anywhere. `wpfl/artifactSync.ts`:
 export async function ensureFresh(): Promise<void> {
   const age: number = Date.now() - shredMtime();
   if (age < ASK.STALE_AFTER_MS) return;             // 6 h
-  const etag: string | null = await headEtag(ARTIFACT_URL);
+  const etag: string | null = normalizeEtag(await etagOf(ARTIFACT_URL));
   if (etag !== null && etag === lastSeenEtag()) { touchShred(); return; }
   await fetchAndShred();                            // ~1 s, 935 KB
-  await refreshWpflCache();                         // §3.7, ~15 s
+  await refreshWpflCache();                         // §3.7, ~12 s
 }
 ```
+
+**Etags must be normalized.** Measured 2026-08-31: Cloudflare returns a *weak*
+validator when it serves the artifact compressed and a *strong* one when it does
+not — `curl -sI` (which sends no `Accept-Encoding`) gets
+`"75c67b38d2787f62bc10047932af0353"`, while Node's `fetch` always negotiates
+gzip and gets `W/"75c67b38d2787f62bc10047932af0353"` on both HEAD and GET, for
+the same build. Comparing the raw header strings would therefore never match:
+the unchanged short-circuit would be dead and every stale window would pay a
+full re-shred plus a cache rebuild, forever. `normalizeEtag` strips the `W/`
+prefix and the quotes at the boundary. With it, a stale check against an
+unchanged artifact costs **0.16 s** instead of **8.0 s**.
 
 Called once on `client.once('ready')` and again at the top of every `/ask` before
 `query()`. Whoever asks the first question after a stale window pays a second or
@@ -427,10 +443,18 @@ So the three **row-shaped** endpoints are fetched once and cached as JSONL under
 | --- | --- | ---: |
 | `draft_history.jsonl` | `/api/draft/history?seasonMin=2010&seasonMax=2025` | 3,130 |
 | `matchups.jsonl` | `/api/fantasyMatchupWinners?seasonMin=2010&seasonMax=2025` | 1,449 |
-| `player_scores.jsonl` | `/api/playerscores`, per season 2015–2025 | ~38,000 |
+| `player_scores.jsonl` | `/api/playerscores`, per season 2015–2025 | 35,682 |
 
 Player scores are fetched a season at a time (one 2024 season took 1.28 s), so a
-cold build is roughly 15 seconds. The cache is refreshed on the same lazy schedule
+cold build is **8–12 seconds** measured end to end, for 40,261 rows and 9.33 MB
+across the three files.
+
+**`seasonMax` is the current year, not a hardcoded 2025.** The table above was
+measured while 2026 was empty, but the paragraph below is the load-bearing one:
+the cache refresh exists so the API's current-year rows appear as weeks
+complete, which cannot happen behind a 2025 cap. Asking for a season that has
+not been played costs one request and returns `[]`, which is cheaper and less
+fragile than getting the season boundary right every January. The cache is refreshed on the same lazy schedule
 as the shred, which matters in season: the WPFL API will begin populating 2026 as
 weeks complete.
 
@@ -670,7 +694,7 @@ spend_race, strip, beeswarm, news_players, ...
 -- from the cached WPFL decade
 wpfl_draft_history    3,130 rows   2010-2025
 wpfl_matchups         1,449 rows   2010-2025
-wpfl_player_scores   ~38,000 rows  2015-2025
+wpfl_player_scores   35,682 rows  2015-2025
 ```
 
 **Statement guard**, belt-and-braces on top of that:
@@ -1286,7 +1310,8 @@ tests/
   ask/askAuth.test.ts
   services/askRunner.test.ts
   wpfl/sqlTool.test.ts       wpfl/indexGenerator.test.ts
-  wpfl/historyCache.test.ts  wpfl/artifactShape.test.ts   (live; skipped in CI)
+  wpfl/historyCache.test.ts  wpfl/shredder.test.ts
+  wpfl/artifactSync.test.ts  wpfl/artifactShape.test.ts   (live; skipped in CI)
   fixtures/postdraft-published.json   ~30 KB, generated
   fixtures/postdraft-next.json        ~30 KB, generated
 ```
@@ -1373,19 +1398,26 @@ encodes what this document *claims* the artifact looks like, which is exactly ho
 the first draft of this design went wrong (§3.1a).
 
 `scripts/makeAskFixtures.ts` reads the published artifact and the local
-`postdraft_2026.json`, and emits two ~30 KB fixtures that preserve **every key and
-every container type** while truncating collections to 2–3 entries:
+`postdraft_2026.json`, and emits two fixtures that preserve **every key and
+every container type** while truncating collections to 3 entries. Measured at
+**76 KB and 86 KB** — larger than the ~30 KB this document estimated before the
+generator existed, because they are formatted rather than minified so a shape
+change is legible in a diff, and because a team object is 7 KB of real
+structure. Still an eighth of the repo's largest tracked file:
 
 | Fixture | Source | Represents |
 | --- | --- | --- |
 | `postdraft-published.json` | the live URL | today's shape: `available`, the four `DEAD_KEYS`, no `market` |
 | `postdraft-next.json` | draft-2026's local build | the shape after the next publish: `market`, `night.acts`, no dead keys |
 
-Every assertion in §13.3 holds at 30 KB — `available` ignored, `DEAD_KEYS`
+Every assertion in §13.3 holds at this size — `available` ignored, `DEAD_KEYS`
 skipped, unknown body flagged rather than fatal, missing required body fatal,
-`.jsonl` line counts, `INDEX.md` contents. The remaining 1.87 MB of the real files
-is repetition of shapes already covered, and committing it would make these the
-two largest files in the repo by a wide margin (the current record holder is
+`.jsonl` line counts, `INDEX.md` contents. Verified at generation time: the
+published fixture's key set is identical to the live artifact's at every level,
+and the next fixture's is identical to draft-2026's local build plus the
+`available` wrapper `deploy.sh` adds. The remaining 1.7 MB of the real files is
+repetition of shapes already covered, and committing it would make these the two
+largest files in the repo by a wide margin (the current record holder is
 `data/WPFLHistoryCondensed.xlsx` at 685 KB).
 
 The generator is committed so the fixtures can be regenerated when draft-2026's
@@ -1696,6 +1728,19 @@ recalled; several entries corrected the first draft of this document.
 | Jest | 29.7.0, ESM via `--experimental-vm-modules`; no coverage threshold | `jest.config.js` |
 | Test seams in use | param DI (`standings.test.js`), `unstable_mockModule` (`achievementService.test.ts`) | source read |
 | Node / npm on dev box | v24.14.1 / 11.11.0 | `node -v`, `npm -v` |
+| Artifact etag, `curl -sI` | `"75c67b38…"` — strong | `curl` |
+| Artifact etag, Node `fetch` | `W/"75c67b38…"` — weak, on HEAD *and* GET | `fetch` |
+| Real shred of the published artifact | 53 files, 844,151 B, 5 ms | `shred()` |
+| Team file sizes | 8,029–9,362 B (14 files) | shred output |
+| `grep` one player in `dossiers.jsonl` | 1,079 B line (vs 935 KB whole file) | shred output |
+| Generated `INDEX.md` | 11,196 B, ~2,800 tokens | `generateIndex()` |
+| Fixtures | 76 KB published / 86 KB next, formatted | `makeAskFixtures.ts` |
+| Real WPFL cache build | 40,261 rows, 9,325,799 B, 8–12 s | `refreshWpflCache()` |
+| `draft_history` seasons present | 2010–2025 (2026 empty) | cache build |
+| `player_scores` rows | 35,682, seasons 2015–2025 | cache build |
+| Cold `ensureFresh()` | 8.0 s, 53 files | live run |
+| Stale `ensureFresh()`, etag unchanged | 0.16 s | live run |
+| `mkt` in either artifact build | **0 occurrences**; the field is `market` | key count |
 
 ---
 
