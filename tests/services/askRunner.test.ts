@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 jest.unstable_mockModule('../../ask/askDb.js', () => ({
   recordUsage: jest.fn(),
@@ -61,12 +61,24 @@ function recorder(): { events: string[]; sink: Parameters<typeof runAsk>[1] } {
   return {
     events,
     sink: {
-      onToolCall: (name: string): void => events.push(`tool:${name}`),
-      onToolInput: (fragment: string): void => events.push(`input:${fragment}`),
-      onReasoning: (summary: string): void => events.push(`think:${summary}`),
-      onText: (chunk: string): void => events.push(`text:${chunk}`),
-      onToolSettled: (): void => events.push('settled'),
-      onQueued: (position: number): void => events.push(`queued:${position}`),
+      onToolCall: (name: string): void => {
+        events.push(`tool:${name}`);
+      },
+      onToolInput: (fragment: string): void => {
+        events.push(`input:${fragment}`);
+      },
+      onReasoning: (summary: string): void => {
+        events.push(`think:${summary}`);
+      },
+      onText: (chunk: string): void => {
+        events.push(`text:${chunk}`);
+      },
+      onToolSettled: (): void => {
+        events.push('settled');
+      },
+      onQueued: (position: number): void => {
+        events.push(`queued:${position}`);
+      },
     },
   };
 }
@@ -83,10 +95,35 @@ const stream =
   };
 
 describe('askRunner', () => {
+  // The runner builds the subprocess environment before it can call query(),
+  // and agentEnv() requires a Claude credential. The dev box has none, so the
+  // suite supplies one -- nothing here reaches the network.
+  const originalEnv: NodeJS.ProcessEnv = { ...process.env };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockRecordUsage.mockResolvedValue(undefined);
     resetConcurrency();
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  test('a missing credential fails the run visibly, and still writes the ledger', async () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    const { sink } = recorder();
+
+    const outcome = await runAsk(REQUEST, sink, stream([success()]));
+
+    expect(outcome.text).toBe('');
+    expect(outcome.subtype).toBe('error_during_execution');
+    expect(outcome.error).toBeDefined();
+    expect(mockRecordUsage).toHaveBeenCalled();
+    error.mockRestore();
   });
 
   describe('the message stream', () => {
@@ -307,16 +344,14 @@ describe('askRunner', () => {
     });
 
     test('hands the subprocess a minimal environment, not process.env', async () => {
-      process.env.ANTHROPIC_API_KEY = 'sk-test';
-      try {
-        const env = (await capture()).options.env;
+      process.env.DISCORD_TOKEN = 'discord-secret';
+      process.env.POSTGRES_URL = 'postgres://secret';
 
-        expect(env).not.toHaveProperty('DISCORD_TOKEN');
-        expect(env).not.toHaveProperty('POSTGRES_URL');
-        expect(env.ANTHROPIC_API_KEY).toBe('sk-test');
-      } finally {
-        delete process.env.ANTHROPIC_API_KEY;
-      }
+      const env = (await capture()).options.env;
+
+      expect(env).not.toHaveProperty('DISCORD_TOKEN');
+      expect(env).not.toHaveProperty('POSTGRES_URL');
+      expect(env.ANTHROPIC_API_KEY).toBe('sk-ant-test');
     });
 
     test('registers the guards and the wpfl server', async () => {
