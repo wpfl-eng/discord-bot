@@ -2,7 +2,7 @@
 // Pure functions for hand evaluation and display
 
 import type { Hand, Rank, Suit } from '../blackjack/blackjackUtils.js';
-import { formatCard } from '../blackjack/blackjackUtils.js';
+import { renderCard } from '../blackjack/blackjackUtils.js';
 import { HandRank } from './videoPokerConfig.js';
 
 // ============================================================
@@ -260,7 +260,7 @@ export function formatVideoPokerHand(
   hand: Hand,
   heldCards: [boolean, boolean, boolean, boolean, boolean]
 ): string {
-  const cardRow = hand.map((card) => `\`${formatCard(card)}\``).join('  ');
+  const cardRow = hand.map((card) => renderCard(card)).join('  ');
   const holdRow = heldCards.map((held) => (held ? 'HOLD' : '    ')).join('  ');
 
   return `${cardRow}\n${holdRow}`;
@@ -272,7 +272,7 @@ export function formatVideoPokerHand(
  * @returns Formatted string for embed display
  */
 export function formatVideoPokerHandSimple(hand: Hand): string {
-  return hand.map((card) => `\`${formatCard(card)}\``).join('  ');
+  return hand.map((card) => renderCard(card)).join('  ');
 }
 
 /**
