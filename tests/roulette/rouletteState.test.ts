@@ -36,8 +36,6 @@ function fakeChannel() {
   };
 }
 
-const fakeClient = {} as any;
-
 function bet(userId: string, betType: string, amount: number, escrowId: number) {
   return { userId, username: userId, betType, amount, placedAt: new Date(), escrowId };
 }
@@ -65,7 +63,7 @@ describe('roulette table state', () => {
 
     test('opens on demand and starts a betting window', async () => {
       const channel = fakeChannel();
-      await state.ensureTable(fakeClient, channel as any, 'u1');
+      await state.ensureTable(channel as any);
 
       expect(state.isTableOpen()).toBe(true);
       expect(state.isBettingOpen()).toBe(true);
@@ -78,9 +76,9 @@ describe('roulette table state', () => {
     test('concurrent opens produce exactly one table', async () => {
       const channel = fakeChannel();
       await Promise.all([
-        state.ensureTable(fakeClient, channel as any, 'u1'),
-        state.ensureTable(fakeClient, channel as any, 'u2'),
-        state.ensureTable(fakeClient, channel as any, 'u3'),
+        state.ensureTable(channel as any),
+        state.ensureTable(channel as any),
+        state.ensureTable(channel as any),
       ]);
 
       expect(channel.send).toHaveBeenCalledTimes(1);
@@ -89,7 +87,7 @@ describe('roulette table state', () => {
     test('seeds the recent-spins strip from history', async () => {
       getRecentRounds.mockResolvedValue([{ result_number: '17' }, { result_number: '0' }]);
       const channel = fakeChannel();
-      await state.ensureTable(fakeClient, channel as any, 'u1');
+      await state.ensureTable(channel as any);
 
       expect(getRecentRounds).toHaveBeenCalledWith(LIMITS.HISTORY_LENGTH);
     });
@@ -99,14 +97,14 @@ describe('roulette table state', () => {
       const channel = fakeChannel();
       channel.send.mockRejectedValue(new Error('missing permissions'));
 
-      await expect(state.ensureTable(fakeClient, channel as any, 'u1')).rejects.toThrow();
+      await expect(state.ensureTable(channel as any)).rejects.toThrow();
       expect(state.isTableOpen()).toBe(false);
     });
   });
 
   describe('bets', () => {
     beforeEach(async () => {
-      await state.ensureTable(fakeClient, fakeChannel() as any, 'u1');
+      await state.ensureTable(fakeChannel() as any);
     });
 
     test('accepts a bet and reports it back to its owner', async () => {
@@ -171,7 +169,7 @@ describe('roulette table state', () => {
 
   describe('closing', () => {
     test('refunds anything still on the table', async () => {
-      await state.ensureTable(fakeClient, fakeChannel() as any, 'u1');
+      await state.ensureTable(fakeChannel() as any);
       await state.addBet(bet('u1', 'red', 500, 1));
 
       await state.closeTable();
@@ -181,7 +179,7 @@ describe('roulette table state', () => {
     });
 
     test('does not call for a refund when nothing is on the table', async () => {
-      await state.ensureTable(fakeClient, fakeChannel() as any, 'u1');
+      await state.ensureTable(fakeChannel() as any);
 
       await state.closeTable();
 
@@ -221,7 +219,7 @@ describe('roulette table state', () => {
     // flurry of edits, or the table starts 429ing mid-round.
     test('a burst of bets does not produce an edit per bet', async () => {
       const channel = fakeChannel();
-      await state.ensureTable(fakeClient, channel as any, 'u1');
+      await state.ensureTable(channel as any);
 
       const editsAfterOpen = channel.__message.edit.mock.calls.length;
 
@@ -235,7 +233,7 @@ describe('roulette table state', () => {
 
     test('every bet still lands regardless of repaint timing', async () => {
       const channel = fakeChannel();
-      await state.ensureTable(fakeClient, channel as any, 'u1');
+      await state.ensureTable(channel as any);
 
       for (let i = 0; i < 10; i++) {
         await state.addBet(bet('u1', 'red', 100, i + 1));

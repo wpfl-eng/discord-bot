@@ -27,6 +27,7 @@ import {
   MessageFlags,
   type MessageActionRowComponentBuilder,
 } from 'discord.js';
+import type { RenderedMessage } from '../../interactions/renderedMessage.js';
 import {
   BET_TYPES,
   CHIPS,
@@ -34,6 +35,7 @@ import {
   WHEEL_POSITIONS,
   betDisplayRich,
   formatAmount,
+  EMBED_COLORS,
   getBetDisplay,
   getColor,
   getColorEmoji,
@@ -96,17 +98,18 @@ export interface TableView {
   readonly spinCount: number;
   readonly sessionWagered: number;
   /** Who opened the table */
-  readonly openedBy?: string;
 }
 
 // ============ COLOURS ============
 
+// The palette lives in the config so it is defined once; this maps the table's phases
+// onto it.
 const ACCENT = {
-  betting: 0x3498db,
-  spinning: 0xf1c40f,
-  win: 0x2ecc71,
-  lose: 0xe74c3c,
-  closed: 0x5d6874,
+  betting: EMBED_COLORS.ACTIVE,
+  spinning: EMBED_COLORS.SPINNING,
+  win: EMBED_COLORS.WIN,
+  lose: EMBED_COLORS.LOSE,
+  closed: EMBED_COLORS.CLOSED,
 } as const;
 
 // ============ TEXT SECTIONS ============
@@ -314,11 +317,9 @@ function actionRow(disabled: boolean): ActionRowBuilder<MessageActionRowComponen
 
 // ============ TABLE MESSAGE ============
 
-export interface RenderedMessage {
-  readonly flags: number;
-  readonly components: unknown[];
-  readonly allowedMentions: { parse: never[] };
-}
+// Shared with the other V2 renderer; re-exported so callers can keep importing it from
+// the module that builds their views.
+export type { RenderedMessage };
 
 /**
  * The shared table message.

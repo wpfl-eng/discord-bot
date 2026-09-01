@@ -31,6 +31,7 @@ import { checkForAchievements } from '../../achievements/achievementService.js';
 import { ACTION_TYPES } from '../../achievements/achievementConfig.js';
 import {
   TABLES,
+  DEFAULT_TABLE,
   beginHand,
   calculateInsuranceBet,
   createShoe,
@@ -56,6 +57,7 @@ import {
   resolveHand,
   resolveInsurance,
   splitHand,
+  totalStaked,
   type HandResult,
   type PlayerHand,
 } from './blackjackEngine.js';
@@ -77,7 +79,6 @@ interface GameState {
   readonly username: string;
   /** Groups every escrow row for this hand */
   readonly sessionKey: string;
-  escrowIds: number[];
   readonly table: TableConfig;
   shoe: Shoe;
   dealerHand: Hand;
@@ -90,7 +91,12 @@ interface GameState {
   /** Latest interaction, so the timeout can still edit the ephemeral message */
   lastInteraction: HandInteraction;
   timeoutTimer: NodeJS.Timeout | null;
-  readonly channelId: string | null;
+  /**
+   * The player's wallet after the most recent money movement, for the footer. Kept on
+   * the game so a repaint does not re-read the row on every button click; nothing else
+   * moves the wallet while a hand is live.
+   */
+  balance: number;
 }
 
 // ============ STATE ============
@@ -193,9 +199,9 @@ function viewOf(game: GameState, balance: number, extra: Partial<GameView> = {})
 async function present(interaction: HandInteraction, message: RenderedMessage): Promise<void> {
   try {
     if (interaction.isMessageComponent() && !interaction.deferred && !interaction.replied) {
-      await interaction.update(message as never);
+      await interaction.update(message);
     } else {
-      await interaction.editReply(message as never);
+      await interaction.editReply(message);
     }
   } catch (err) {
     console.error('[BLACKJACK] Failed to present hand:', err);
@@ -256,9 +262,11 @@ async function takeStake(
     purpose,
   });
 
-  if (!result.ok || result.escrowId === null) return null;
+  if (!result.ok) return null;
 
-  game.escrowIds.push(result.escrowId);
+  // openEscrow returns the debited row, so the cached balance stays current without
+  // another read.
+  if (result.user) game.balance = result.user.wallet;
   return result.user;
 }
 
@@ -292,7 +300,6 @@ async function dealHand(
     userId,
     username,
     sessionKey,
-    escrowIds: [],
     table,
     shoe,
     dealerHand: [],
@@ -304,16 +311,17 @@ async function dealHand(
     phase: 'playing',
     lastInteraction: interaction,
     timeoutTimer: null,
-    channelId: interaction.channelId,
+    balance: 0,
   };
 
   const staked: EconomyUser | null = await takeStake(game, amount, 'bet');
   if (!staked) {
-    await present(interaction, {
+    const cleared: RenderedMessage = {
       flags: 64,
       components: [],
       allowedMentions: { parse: [] },
-    } as RenderedMessage);
+    };
+    await present(interaction, cleared);
     await interaction.editReply({ content: 'Could not place that bet. Please try again.' });
     return;
   }
@@ -390,7 +398,7 @@ async function finishGame(
   const insurancePayout: number = resolveInsurance(game.insuranceBet, game.dealerHand);
   const handPayout: number = results.reduce((sum, r) => sum + r.payout, 0);
   const totalPayout: number = handPayout + insurancePayout;
-  const totalStake: number = game.hands.reduce((sum, h) => sum + h.bet, 0) + game.insuranceBet;
+  const totalStake: number = totalStaked(game.hands, game.insuranceBet);
   const netProfit: number = totalPayout - totalStake;
 
   let updatedUser: EconomyUser | null;
@@ -550,8 +558,7 @@ async function advance(game: GameState, interaction: HandInteraction): Promise<v
   game.lastInteraction = interaction;
   armTimeout(game);
 
-  const user: EconomyUser | null = await economyDb.getUser(game.userId);
-  await present(interaction, buildGameMessage(viewOf(game, user?.wallet ?? 0)));
+  await present(interaction, buildGameMessage(viewOf(game, game.balance)));
 }
 
 // ============ BUTTON HANDLERS ============
@@ -565,7 +572,7 @@ export async function handleComponent(interaction: MessageComponentInteraction):
 
   const userId: string = interaction.user.id;
 
-  if (interaction.customId === IDS.PLAY_AGAIN) {
+  if (interaction.customId.startsWith(IDS.PLAY_AGAIN)) {
     await handlePlayAgain(interaction);
     return;
   }
@@ -785,23 +792,24 @@ async function handlePlayAgain(interaction: ButtonInteraction): Promise<void> {
 }
 
 /**
- * Recover the stake and table from the finished hand's own message.
+ * Recover the stake and table from the button's own customId.
  *
- * Reading them back from the rendered text keeps Play Again working across a restart,
- * where an in-memory record of the last hand would be gone.
+ * Carrying them in the id keeps Play Again working across a restart, where an
+ * in-memory record of the last hand would be gone, without coupling the deal to how
+ * the label happens to be worded.
  */
 function parseReplayContext(interaction: ButtonInteraction): {
   amount: number;
   table: TableConfig;
 } {
-  const raw: string = JSON.stringify(interaction.message?.components ?? []);
+  // `bj:again:<amount>:<table>`
+  const [, , rawAmount, rawTable] = interaction.customId.split(':');
 
-  const amountMatch = /Play again \([^\d]*([\d,]+)\)/.exec(raw);
-  const amount: number = amountMatch
-    ? Number(amountMatch[1].replace(/,/g, ''))
-    : CONFIG.BLACKJACK_MIN;
+  const parsed: number = Number(rawAmount);
+  const amount: number = Number.isFinite(parsed) ? parsed : CONFIG.BLACKJACK_MIN;
 
-  const table: TableConfig = raw.includes(TABLES.vegas.displayName) ? TABLES.vegas : TABLES.classic;
-
-  return { amount: Math.max(amount, CONFIG.BLACKJACK_MIN), table };
+  return {
+    amount: Math.max(amount, CONFIG.BLACKJACK_MIN),
+    table: TABLES[rawTable] ?? DEFAULT_TABLE,
+  };
 }

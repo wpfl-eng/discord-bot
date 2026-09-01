@@ -4,8 +4,11 @@
 // process dies in that window the player paid for an outcome they never received, so
 // every row still 'open' at boot is returned.
 //
-// This runs once on ready, before players can interact, so there is no race with a
-// live round: nothing can be opening escrow yet.
+// Note on ordering: this runs from the 'ready' handler, which discord.js does not await
+// (AsyncEventEmitter hands the returned promise to handleMaybeAsync without blocking).
+// The InteractionCreate listener is therefore already live while the sweep runs, so a
+// bet placed in that window could in principle be swept as if it were abandoned. The
+// window is the few hundred milliseconds between ready and the sweep completing.
 
 import type { Client } from 'discord.js';
 import { sweepOpenEscrows, type RefundEntry, type SweepResult } from './escrowDb.js';

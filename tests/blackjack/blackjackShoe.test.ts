@@ -37,11 +37,15 @@ describe('shoe', () => {
     expect([...counts.values()].every((n) => n === 6)).toBe(true);
   });
 
+  /** Simulate `n` cards having been dealt, by removing them. */
+  function dealt(shoe: Shoe, n: number): void {
+    shoe.cards.length = shoeSize(shoe) - n;
+  }
+
   test('drawing depletes it one card at a time', () => {
     const shoe: Shoe = createShoe(1);
     drawFromShoe(shoe);
     drawFromShoe(shoe);
-    expect(shoe.dealt).toBe(2);
     expect(shoeRemaining(shoe)).toBe(50);
     expect(shoe.cards).toHaveLength(50);
   });
@@ -52,18 +56,17 @@ describe('shoe', () => {
     const shoe: Shoe = createShoe(6);
     expect(needsShuffle(shoe)).toBe(false);
 
-    shoe.dealt = Math.floor(shoeSize(shoe) * SHOE_PENETRATION) - 1;
+    dealt(shoe, Math.floor(shoeSize(shoe) * SHOE_PENETRATION) - 1);
     expect(needsShuffle(shoe)).toBe(false);
 
-    shoe.dealt = Math.ceil(shoeSize(shoe) * SHOE_PENETRATION);
+    dealt(shoe, Math.ceil(shoeSize(shoe) * SHOE_PENETRATION));
     expect(needsShuffle(shoe)).toBe(true);
   });
 
   test('shuffling restores a full shoe', () => {
     const shoe: Shoe = createShoe(6);
-    shoe.dealt = 300;
+    dealt(shoe, 300);
     shuffleShoe(shoe);
-    expect(shoe.dealt).toBe(0);
     expect(shoe.cards).toHaveLength(312);
   });
 
@@ -71,20 +74,20 @@ describe('shoe', () => {
   // the check belongs at the start of a hand and nowhere else.
   test('beginHand only shuffles once the cut card is reached', () => {
     const shoe: Shoe = createShoe(6);
-    shoe.dealt = 10;
+    dealt(shoe, 10);
     expect(beginHand(shoe)).toBe(false);
-    expect(shoe.dealt).toBe(10);
+    expect(shoeRemaining(shoe)).toBe(302);
     expect(shoe.justShuffled).toBe(false);
 
-    shoe.dealt = 300;
+    dealt(shoe, 300);
     expect(beginHand(shoe)).toBe(true);
-    expect(shoe.dealt).toBe(0);
+    expect(shoeRemaining(shoe)).toBe(312);
     expect(shoe.justShuffled).toBe(true);
   });
 
   test('the shuffle flag clears on the next hand', () => {
     const shoe: Shoe = createShoe(6);
-    shoe.dealt = 300;
+    dealt(shoe, 300);
     beginHand(shoe);
     expect(shoe.justShuffled).toBe(true);
 
@@ -98,7 +101,6 @@ describe('shoe', () => {
     for (let i = 0; i < 20; i++) drawFromShoe(shoe);
 
     beginHand(shoe);
-    expect(shoe.dealt).toBe(20);
     expect(shoeRemaining(shoe)).toBe(292);
   });
 
@@ -110,11 +112,5 @@ describe('shoe', () => {
     const card = drawFromShoe(shoe);
     expect(card).toBeDefined();
     expect(card.rank).toBeDefined();
-  });
-
-  test('remaining never reports negative', () => {
-    const shoe: Shoe = createShoe(1);
-    shoe.dealt = 999;
-    expect(shoeRemaining(shoe)).toBe(0);
   });
 });

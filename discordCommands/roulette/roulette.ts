@@ -23,7 +23,10 @@ import {
 import * as economyDb from '../../economy/economyDb.js';
 import * as escrowDb from '../../economy/escrowDb.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
-import { registerComponentHandler } from '../../interactions/componentRouter.js';
+import {
+  registerComponentHandler,
+  type RoutableInteraction,
+} from '../../interactions/componentRouter.js';
 import {
   ALL_BET_TYPES,
   BET_TYPES,
@@ -147,7 +150,6 @@ async function placeBet(
   username: string,
   amount: number,
   betType: string,
-  client: import('discord.js').Client,
   channel: TextChannel
 ): Promise<PlaceBetOutcome> {
   if (!BET_TYPES[betType]) {
@@ -161,7 +163,7 @@ async function placeBet(
     };
   }
 
-  await rouletteState.ensureTable(client, channel, userId);
+  await rouletteState.ensureTable(channel);
 
   if (!rouletteState.isBettingOpen()) {
     return { ok: false, message: 'Betting is closed for this spin. Hang on for the next one.' };
@@ -239,7 +241,6 @@ async function handleBetCommand(interaction: ChatInputCommandInteraction): Promi
     interaction.user.username,
     amount,
     betType,
-    interaction.client,
     interaction.channel as TextChannel
   );
 
@@ -422,7 +423,7 @@ function buildChipModal(): ModalBuilder {
     .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
 }
 
-async function setChip(interaction: MessageComponentInteraction, amount: number): Promise<void> {
+async function setChip(interaction: RoutableInteraction, amount: number): Promise<void> {
   if (!Number.isInteger(amount) || amount < LIMITS.MIN_BET || amount > LIMITS.MAX_BET) {
     await interaction.reply({
       content: `Chips run from ${formatAmount(LIMITS.MIN_BET)} to ${formatAmount(LIMITS.MAX_BET)}.`,
@@ -464,7 +465,6 @@ async function betFromComponent(
     interaction.user.username,
     amount,
     betType,
-    interaction.client,
     interaction.channel as TextChannel
   );
 
@@ -478,9 +478,9 @@ async function betFromComponent(
 
 async function openPanel(interaction: MessageComponentInteraction): Promise<void> {
   const userId: string = interaction.user.id;
-  await interaction.reply({
-    ...buildBetPanel(chipFor(userId), buildSlipText(rouletteState.getUserBets(userId))),
-  } as never);
+  await interaction.reply(
+    buildBetPanel(chipFor(userId), buildSlipText(rouletteState.getUserBets(userId)))
+  );
 }
 
 async function showSlip(interaction: MessageComponentInteraction): Promise<void> {
@@ -519,7 +519,6 @@ async function rebet(interaction: MessageComponentInteraction): Promise<void> {
       interaction.user.username,
       bet.amount,
       bet.betType,
-      interaction.client,
       interaction.channel as TextChannel
     );
     if (outcome.ok) placed.push(outcome.message);
@@ -587,16 +586,16 @@ async function clearBets(interaction: MessageComponentInteraction): Promise<void
 
   await interaction.deferUpdate();
 
-  let returned = 0;
-  for (const bet of removed) {
-    const refund = await escrowDb.voidEscrow(bet.escrowId, userId);
-    if (refund) returned += bet.amount;
-  }
+  // One transaction for the whole slip rather than one per chip.
+  const refund = await escrowDb.voidEscrowIds(
+    removed.map((bet) => bet.escrowId),
+    userId
+  );
 
   await rouletteState.refresh();
 
   await interaction.followUp({
-    content: `🧹 Cleared ${removed.length} bet(s), ${formatAmount(returned)} returned.`,
+    content: `🧹 Cleared ${removed.length} bet(s), ${formatAmount(refund.totalRefunded)} returned.`,
     ephemeral: true,
   });
 }
@@ -605,21 +604,9 @@ async function clearBets(interaction: MessageComponentInteraction): Promise<void
 
 async function handleChipModal(interaction: ModalSubmitInteraction): Promise<void> {
   const raw: string = interaction.fields.getTextInputValue('amount').replace(/[,\s]/g, '');
-  const amount: number = Number.parseInt(raw, 10);
-
-  if (!Number.isInteger(amount) || amount < LIMITS.MIN_BET || amount > LIMITS.MAX_BET) {
-    await interaction.reply({
-      content: `Chips run from ${formatAmount(LIMITS.MIN_BET)} to ${formatAmount(LIMITS.MAX_BET)}.`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  activeChip.set(interaction.user.id, amount);
-  await interaction.reply({
-    content: `Chip set to **${formatAmount(amount)}**. Every one-click bet now uses it.`,
-    ephemeral: true,
-  });
+  // setChip owns the limit check and both replies, so the typed and clicked paths
+  // cannot drift apart.
+  await setChip(interaction, Number.parseInt(raw, 10));
 }
 
 // ============ REGISTRATION ============

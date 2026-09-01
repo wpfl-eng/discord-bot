@@ -179,13 +179,15 @@ export interface RouletteUserStats {
  * wager_escrow - so every row here has a known outcome.
  */
 export async function getUserStats(userId: string): Promise<RouletteUserStats> {
-  const totals = await sql<{
-    bet_count: number;
-    spins: number;
-    wagered: number;
-    returned: number;
-    wins: number;
-  }>`
+  // Four independent read-only queries; one round-trip of latency instead of four.
+  const [totals, biggest, favourite, luckiest] = await Promise.all([
+    sql<{
+      bet_count: number;
+      spins: number;
+      wagered: number;
+      returned: number;
+      wins: number;
+    }>`
     SELECT
       COUNT(*)::int                                        AS bet_count,
       COUNT(DISTINCT round_id)::int                        AS spins,
@@ -194,32 +196,24 @@ export async function getUserStats(userId: string): Promise<RouletteUserStats> {
       COUNT(*) FILTER (WHERE won)::int                     AS wins
     FROM roulette_bets
     WHERE user_id = ${userId}
-  `;
-
-  const row = totals.rows[0];
-  const wagered: number = Number(row?.wagered ?? 0);
-  const returned: number = Number(row?.returned ?? 0);
-  const betCount: number = Number(row?.bet_count ?? 0);
-
-  const biggest = await sql<{ profit: number; bet_type: string }>`
+  `,
+    sql<{ profit: number; bet_type: string }>`
     SELECT (returned - amount)::bigint AS profit, bet_type
       FROM roulette_bets
      WHERE user_id = ${userId} AND won
      ORDER BY (returned - amount) DESC
      LIMIT 1
-  `;
-
-  const favourite = await sql<{ bet_type: string; uses: number }>`
+  `,
+    sql<{ bet_type: string; uses: number }>`
     SELECT bet_type, COUNT(*)::int AS uses
       FROM roulette_bets
      WHERE user_id = ${userId}
      GROUP BY bet_type
      ORDER BY uses DESC, bet_type ASC
      LIMIT 1
-  `;
-
-  // The pocket this player has won on most often.
-  const luckiest = await sql<{ result_number: string; hits: number }>`
+  `,
+    // The pocket this player has won on most often.
+    sql<{ result_number: string; hits: number }>`
     SELECT r.result_number, COUNT(*)::int AS hits
       FROM roulette_bets b
       JOIN roulette_rounds r ON r.id = b.round_id
@@ -227,9 +221,14 @@ export async function getUserStats(userId: string): Promise<RouletteUserStats> {
      GROUP BY r.result_number
      ORDER BY hits DESC, r.result_number ASC
      LIMIT 1
-  `;
+  `,
+  ]);
 
+  const row = totals.rows[0];
   const favouriteRow = favourite.rows[0];
+  const wagered: number = Number(row?.wagered ?? 0);
+  const returned: number = Number(row?.returned ?? 0);
+  const betCount: number = Number(row?.bet_count ?? 0);
 
   return {
     betCount,

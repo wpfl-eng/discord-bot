@@ -6,6 +6,9 @@ import { Client, Collection, GatewayIntentBits, Events, ActivityType, Partials }
 import { fileURLToPath, pathToFileURL } from 'url';
 import { TriviaService } from './trivia/triviaService.js';
 import { isValidCommandModule } from './types/commands.js';
+// Side-effect import: registers the int8 parser process-wide at bootstrap, so it does
+// not depend on which database module happens to load first.
+import './db/pgTypes.js';
 import {
   dispatchComponent,
   registerComponentHandler,

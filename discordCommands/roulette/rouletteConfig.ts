@@ -264,6 +264,7 @@ export const EMBED_COLORS = {
   SPINNING: 0xf1c40f, // Gold
   WIN: 0x2ecc71, // Green
   LOSE: 0xe74c3c, // Red
+  CLOSED: 0x5d6874, // Slate - the table is shut
 } as const;
 
 // ============ FORMATTING ============

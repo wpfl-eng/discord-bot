@@ -24,6 +24,8 @@ import {
   MessageFlags,
   type MessageActionRowComponentBuilder,
 } from 'discord.js';
+import type { APIMessageTopLevelComponent } from 'discord.js';
+import type { RenderedMessage } from '../../interactions/renderedMessage.js';
 import { formatCurrency } from '../../economy/economyConfig.js';
 import {
   calculateHandValue,
@@ -88,11 +90,9 @@ export interface GameView {
   readonly streakNote?: string;
 }
 
-export interface RenderedMessage {
-  readonly flags: number;
-  readonly components: unknown[];
-  readonly allowedMentions: { parse: never[] };
-}
+// Shared with the other V2 renderer; re-exported so callers can keep importing it from
+// the module that builds their views.
+export type { RenderedMessage };
 
 // ============ TEXT ============
 
@@ -235,9 +235,24 @@ function actionRow(view: GameView): ActionRowBuilder<MessageActionRowComponentBu
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(buttons);
 }
 
-function playAgainRow(originalBet: number): ActionRowBuilder<MessageActionRowComponentBuilder> {
+/**
+ * The stake and table ride in the customId rather than being read back out of the
+ * label, so rewording the button cannot change what it deals.
+ */
+export function playAgainId(originalBet: number, table: string): string {
+  return `${IDS.PLAY_AGAIN}:${originalBet}:${table}`;
+}
+
+function playAgainRow(
+  originalBet: number,
+  table: string
+): ActionRowBuilder<MessageActionRowComponentBuilder> {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents([
-    button(IDS.PLAY_AGAIN, `Play again (${formatCurrency(originalBet)})`, ButtonStyle.Success),
+    button(
+      playAgainId(originalBet, table),
+      `Play again (${formatCurrency(originalBet)})`,
+      ButtonStyle.Success
+    ),
   ]);
 }
 
@@ -264,10 +279,11 @@ function container(view: GameView): ContainerBuilder {
 }
 
 export function buildGameMessage(view: GameView): RenderedMessage {
-  const components: unknown[] = [container(view).toJSON()];
+  const components: APIMessageTopLevelComponent[] = [container(view).toJSON()];
 
   if (view.results) {
-    if (view.canPlayAgain) components.push(playAgainRow(view.originalBet).toJSON());
+    if (view.canPlayAgain)
+      components.push(playAgainRow(view.originalBet, view.table.name).toJSON());
   } else {
     components.push(actionRow(view).toJSON());
   }

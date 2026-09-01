@@ -66,3 +66,12 @@ export const getCurrentNFLWeek = (referenceDate: Date = new Date()): NFLWeek => 
 
   return Math.min(Math.floor(daysSinceStart / 7) + 1, 18) as NFLWeek;
 };
+
+/**
+ * Resolve after `ms` milliseconds.
+ *
+ * Used to pace animation frames (the roulette spin, the craps roll) where the delay is
+ * the point rather than a workaround.
+ */
+export const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));

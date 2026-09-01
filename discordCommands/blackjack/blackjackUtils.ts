@@ -337,8 +337,6 @@ export function renderHand(hand: Hand, hideSecond: boolean = false): string {
 export interface Shoe {
   cards: Deck;
   readonly deckCount: number;
-  /** Cards dealt since the last shuffle */
-  dealt: number;
   /** Share of the shoe dealt before the cut card comes out */
   readonly penetration: number;
   /** True when the most recent hand start triggered a shuffle, for the UI */
@@ -352,7 +350,6 @@ export function createShoe(deckCount: number, penetration: number = SHOE_PENETRA
   return {
     cards: createDeck(deckCount),
     deckCount,
-    dealt: 0,
     penetration,
     justShuffled: false,
   };
@@ -363,14 +360,19 @@ export function shoeSize(shoe: Shoe): number {
   return shoe.deckCount * 52;
 }
 
-/** Cards left before the cut card, floored at zero. */
+/** Cards left in the shoe. */
 export function shoeRemaining(shoe: Shoe): number {
-  return Math.max(shoeSize(shoe) - shoe.dealt, 0);
+  return shoe.cards.length;
 }
 
-/** Whether the cut card has been reached. */
+/**
+ * Whether the cut card has been reached.
+ *
+ * Measured off the cards actually left rather than a separate dealt counter, so the
+ * two can never disagree.
+ */
 export function needsShuffle(shoe: Shoe): boolean {
-  return shoe.dealt >= shoeSize(shoe) * shoe.penetration;
+  return shoe.cards.length <= shoeSize(shoe) * (1 - shoe.penetration);
 }
 
 /**
@@ -379,7 +381,6 @@ export function needsShuffle(shoe: Shoe): boolean {
  */
 export function shuffleShoe(shoe: Shoe): void {
   shoe.cards = createDeck(shoe.deckCount);
-  shoe.dealt = 0;
 }
 
 /**
@@ -408,6 +409,5 @@ export function drawFromShoe(shoe: Shoe): Card {
     console.warn('[BLACKJACK] Shoe exhausted mid-hand; reshuffling');
     shuffleShoe(shoe);
   }
-  shoe.dealt++;
   return shoe.cards.pop()!;
 }

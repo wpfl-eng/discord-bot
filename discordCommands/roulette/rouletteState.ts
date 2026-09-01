@@ -10,10 +10,11 @@
 // restart loses the table but never the money - the startup sweep returns it.
 
 import { randomUUID } from 'node:crypto';
-import { Client, TextChannel, Message } from 'discord.js';
+import { TextChannel, Message } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
 import * as escrowDb from '../../economy/escrowDb.js';
 import * as rouletteDb from './rouletteDb.js';
+import { sleep } from '../../helpers/utils.js';
 import {
   WHEEL_POSITIONS,
   getColor,
@@ -59,8 +60,6 @@ export interface PayoutResult {
 }
 
 interface TableSession {
-  client: Client;
-  channelId: string;
   message: Message | null;
   /** Groups the current spin's escrow rows */
   sessionKey: string;
@@ -70,7 +69,6 @@ interface TableSession {
   recentSpins: string[];
   spinCount: number;
   sessionWagered: number;
-  openedBy: string;
   /** Epoch ms the betting window closes */
   closesAt: number | null;
   windowTimer: NodeJS.Timeout | null;
@@ -89,10 +87,6 @@ let table: TableSession | null = null;
 let openLock: Promise<void> | null = null;
 
 // ============ HELPERS ============
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function clearTimers(session: TableSession): void {
   if (session.windowTimer) {
@@ -117,7 +111,6 @@ function viewOf(session: TableSession, overrides: Partial<TableView> = {}): Tabl
     recentSpins: session.recentSpins,
     spinCount: session.spinCount,
     sessionWagered: session.sessionWagered,
-    openedBy: session.openedBy,
     ...overrides,
   };
 }
@@ -132,7 +125,7 @@ async function paint(session: TableSession, overrides: Partial<TableView> = {}):
   if (!session.message) return;
   lastPaintAt = Date.now();
   try {
-    await session.message.edit(buildTableMessage(viewOf(session, overrides)) as never);
+    await session.message.edit(buildTableMessage(viewOf(session, overrides)));
   } catch (err) {
     console.error('[ROULETTE] Failed to paint table:', err);
   }
@@ -243,23 +236,29 @@ export async function processPayouts(
   for (const bet of bets) {
     const betDef = BET_TYPES[bet.betType];
 
+    // The five identifying fields are identical in every outcome; only the four
+    // outcome fields vary, so they are the only ones spelled out at each branch.
+    const record = (won: boolean, profit: number, totalReturn: number, paid: boolean): void => {
+      results.push({
+        userId: bet.userId,
+        username: bet.username,
+        betType: bet.betType,
+        amount: bet.amount,
+        won,
+        profit,
+        totalReturn,
+        paid,
+        escrowId: bet.escrowId,
+      });
+    };
+
     if (!betDef) {
       // We cannot decide the outcome, so we must not keep the stake.
       console.error(
         `[ROULETTE] Unknown bet type "${bet.betType}" for ${bet.userId}; ` +
           `leaving escrow ${bet.escrowId} open for refund`
       );
-      results.push({
-        userId: bet.userId,
-        username: bet.username,
-        betType: bet.betType,
-        amount: bet.amount,
-        won: false,
-        profit: 0,
-        totalReturn: 0,
-        paid: false,
-        escrowId: bet.escrowId,
-      });
+      record(false, 0, 0, false);
       continue;
     }
 
@@ -268,17 +267,7 @@ export async function processPayouts(
     if (!won) {
       // The stake was taken when escrow opened; a loss just resolves the row.
       settledEscrowIds.push(bet.escrowId);
-      results.push({
-        userId: bet.userId,
-        username: bet.username,
-        betType: bet.betType,
-        amount: bet.amount,
-        won: false,
-        profit: 0,
-        totalReturn: 0,
-        paid: true,
-        escrowId: bet.escrowId,
-      });
+      record(false, 0, 0, true);
       continue;
     }
 
@@ -293,17 +282,7 @@ export async function processPayouts(
       if (!credited) throw new Error('addToWallet returned null - user row missing?');
 
       settledEscrowIds.push(bet.escrowId);
-      results.push({
-        userId: bet.userId,
-        username: bet.username,
-        betType: bet.betType,
-        amount: bet.amount,
-        won: true,
-        profit,
-        totalReturn,
-        paid: true,
-        escrowId: bet.escrowId,
-      });
+      record(true, profit, totalReturn, true);
     } catch (err) {
       // Recording this as paid would have the database claim a payout the wallet never
       // received. Leaving the row open means the sweep returns the stake instead.
@@ -312,17 +291,7 @@ export async function processPayouts(
           `escrow ${bet.escrowId} left open for refund:`,
         err
       );
-      results.push({
-        userId: bet.userId,
-        username: bet.username,
-        betType: bet.betType,
-        amount: bet.amount,
-        won: true,
-        profit,
-        totalReturn,
-        paid: false,
-        escrowId: bet.escrowId,
-      });
+      record(true, profit, totalReturn, false);
     }
   }
 
@@ -422,7 +391,7 @@ async function runSpin(): Promise<void> {
     bets: [],
   });
 
-  void logSpin(session, resultNumber, resultColor, results, totalWagered, bets.length);
+  void logSpin(resultNumber, resultColor, results, totalWagered, bets.length);
 
   await sleep(TIMING.RESULT_HOLD_MS);
 
@@ -435,7 +404,6 @@ async function runSpin(): Promise<void> {
 
 /** Persist the spin. Failure here must never affect play. */
 async function logSpin(
-  session: TableSession,
   resultNumber: string,
   resultColor: RouletteColor,
   results: readonly PayoutResult[],
@@ -470,7 +438,6 @@ async function logSpin(
   } catch (err) {
     console.error('[ROULETTE] Failed to log spin:', err);
   }
-  void session;
 }
 
 // ============ CLOSING ============
@@ -541,11 +508,7 @@ export function getRouletteChannelId(): string | undefined {
  * Race-safe: simultaneous first bets queue on a single open rather than each creating
  * a table and a message.
  */
-export async function ensureTable(
-  client: Client,
-  channel: TextChannel,
-  openedBy: string
-): Promise<void> {
+export async function ensureTable(channel: TextChannel): Promise<void> {
   if (table) return;
 
   if (openLock) {
@@ -553,7 +516,7 @@ export async function ensureTable(
     return;
   }
 
-  const opening: Promise<void> = openTable(client, channel, openedBy);
+  const opening: Promise<void> = openTable(channel);
   openLock = opening;
 
   try {
@@ -563,10 +526,8 @@ export async function ensureTable(
   }
 }
 
-async function openTable(client: Client, channel: TextChannel, openedBy: string): Promise<void> {
+async function openTable(channel: TextChannel): Promise<void> {
   const session: TableSession = {
-    client,
-    channelId: channel.id,
     message: null,
     sessionKey: randomUUID(),
     phase: 'betting',
@@ -574,7 +535,6 @@ async function openTable(client: Client, channel: TextChannel, openedBy: string)
     recentSpins: [],
     spinCount: 0,
     sessionWagered: 0,
-    openedBy,
     closesAt: null,
     windowTimer: null,
     graceTimer: null,
@@ -593,7 +553,7 @@ async function openTable(client: Client, channel: TextChannel, openedBy: string)
   startBettingWindow(session, true);
 
   try {
-    session.message = await channel.send(buildTableMessage(viewOf(session)) as never);
+    session.message = await channel.send(buildTableMessage(viewOf(session)));
   } catch (err) {
     // No message means no table. Tear down rather than leaving timers running against
     // something nobody can see.

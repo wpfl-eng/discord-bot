@@ -4,6 +4,7 @@ import {
   buildEvenMoneyPrompt,
   buildGameMessage,
   buildInsurancePrompt,
+  playAgainId,
   type GameView,
 } from '../../discordCommands/blackjack/blackjackRender.js';
 import {
@@ -163,8 +164,9 @@ describe('controls', () => {
     expect(withAll).toContain(IDS.SURRENDER);
   });
 
-  // Play Again reads its stake back from this label, so the amount must be in it.
-  test('the settled view offers Play Again carrying the stake', () => {
+  // Play Again reads its stake and table back from the customId, so the id must carry
+  // both. The label is presentation only and must not be what the replay depends on.
+  test('the settled view offers Play Again carrying the stake and table', () => {
     const payload = buildGameMessage({
       ...baseView,
       hideHole: false,
@@ -172,8 +174,9 @@ describe('controls', () => {
       netProfit: -1000,
       canPlayAgain: true,
     });
-    const play = buttons(payload).find((b) => b.custom_id === IDS.PLAY_AGAIN);
+    const play = buttons(payload).find((b) => b.custom_id.startsWith(IDS.PLAY_AGAIN));
     expect(play).toBeDefined();
+    expect(play.custom_id).toBe(playAgainId(1000, baseView.table.name));
     expect(play.label).toContain('1,000');
   });
 

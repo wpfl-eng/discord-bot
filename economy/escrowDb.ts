@@ -40,18 +40,6 @@ export interface OpenEscrowResult {
   readonly user: EconomyUser | null;
 }
 
-export interface EscrowRow {
-  readonly id: number;
-  readonly user_id: string;
-  readonly username: string;
-  readonly game: string;
-  readonly session_key: string;
-  readonly purpose: string;
-  readonly amount: number;
-  readonly status: EscrowStatus;
-  readonly detail: Record<string, unknown> | null;
-}
-
 export interface RefundEntry {
   readonly userId: string;
   readonly username: string;
@@ -241,6 +229,28 @@ export async function voidSession(game: EscrowGame, sessionKey: string): Promise
   );
 }
 
+/**
+ * Return a specific set of open wagers to one player, in a single transaction.
+ *
+ * Clearing a roulette slip voids every chip at once; doing that one row at a time cost
+ * a transaction and a wallet write per chip. The same `status = 'open'` guard makes it
+ * idempotent, so a double click still refunds once.
+ */
+export async function voidEscrowIds(
+  escrowIds: readonly number[],
+  userId: string
+): Promise<SweepResult> {
+  if (escrowIds.length === 0) {
+    return { rowsRefunded: 0, totalRefunded: 0, byUser: [] };
+  }
+
+  return refundWhere(
+    `id = ANY($1::int[]) AND user_id = $2 AND status = 'open'`,
+    [[...escrowIds], userId],
+    'voided'
+  );
+}
+
 // ============ STARTUP SWEEP ============
 
 /**
@@ -251,40 +261,6 @@ export async function voidSession(game: EscrowGame, sessionKey: string): Promise
  */
 export async function sweepOpenEscrows(): Promise<SweepResult> {
   return refundWhere(`status = 'open'`, [], 'refunded');
-}
-
-// ============ QUERIES ============
-
-/**
- * Open rows for one session, in the order they were placed.
- */
-export async function getOpenSessionEscrows(
-  game: EscrowGame,
-  sessionKey: string
-): Promise<EscrowRow[]> {
-  const result = await sql<EscrowRow>`
-    SELECT id, user_id, username, game, session_key, purpose, amount, status, detail
-      FROM wager_escrow
-     WHERE game = ${game}
-       AND session_key = ${sessionKey}
-       AND status = 'open'
-     ORDER BY id ASC
-  `;
-  return result.rows;
-}
-
-/**
- * Total a player currently has at risk in a game. Used to enforce per-round caps.
- */
-export async function getOpenTotalForUser(userId: string, game: EscrowGame): Promise<number> {
-  const result = await sql<{ total: number | null }>`
-    SELECT SUM(amount)::int AS total
-      FROM wager_escrow
-     WHERE user_id = ${userId}
-       AND game = ${game}
-       AND status = 'open'
-  `;
-  return result.rows[0]?.total ?? 0;
 }
 
 // ============ INTERNAL ============
