@@ -13,7 +13,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "emoji:build": "tsx scripts/buildEmoji.ts",
+    "emoji:upload": "tsx scripts/uploadEmoji.ts"
   },
   "dependencies": {
     "@vercel/postgres": "^0.10.0",
@@ -27,6 +29,7 @@
     "node-fetch": "^3.3.2",
     "openai": "^4.47.2",
     "pg": "8.7.1",
+    "sharp": "^0.35.4",
     "tsx": "^4.21.0"
   },
   "devDependencies": {

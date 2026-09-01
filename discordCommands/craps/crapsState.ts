@@ -1,9 +1,37 @@
 // Craps State Management
-// In-memory table state, timer management, and game flow control
+//
+// One shared table per process, driven by timers and by the shooter's own ROLL button.
+//
+// SHOOTER
+//
+// The dice genuinely belong to one player. They keep them until they seven out, at
+// which point the dice pass to the next player in the queue. A shooter who goes quiet
+// does not freeze the table: after a short grace the house throws for them.
+//
+// This only works because the engine now distinguishes a line DECISION from the end of
+// a SESSION. Previously every come-out 7 or 11 was treated as the end of the session,
+// so the shooter changed constantly and the role meant nothing.
+//
+// MONEY
+//
+// Every stake is escrow-backed. Coins leave the wallet in the same transaction that
+// opens the escrow row, so the two can never disagree, and anything left open when the
+// process dies is refunded by the startup sweep.
 
-import { Client, TextChannel, Message, EmbedBuilder } from 'discord.js';
+import { randomUUID } from 'node:crypto';
+import { ChannelType, Client, TextChannel, Message } from 'discord.js';
 import * as economyDb from '../../economy/economyDb.js';
+import * as escrowDb from '../../economy/escrowDb.js';
 import * as crapsDb from '../../craps/crapsDb.js';
+import { pacingFor, sleep, type Pacing } from '../../casino/casinoPacing.js';
+import { crapsHeroSvg, renderHero, type Hero } from '../../casino/casinoHero.js';
+import { createPainter } from '../../casino/casinoPaint.js';
+import {
+  clearTableState,
+  loadTableState,
+  saveTableState,
+  type CrapsSnapshot,
+} from '../../casino/casinoPersistence.js';
 import {
   type Roll,
   type BetType,
@@ -11,25 +39,31 @@ import {
   type SessionOutcome,
   TIMING,
   LIMITS,
-  EMBED_COLORS,
+  BET_TYPES,
   rollDice,
-  formatDiceRoll,
   getRollName,
   getBetDisplay,
   formatAmount,
-  getHotStreakMessage,
   getCrapsChannelId,
 } from './crapsConfig.js';
 import {
   type CrapsBet,
   type RollResolutionResult,
-  resolveAllBets,
-  aggregateUserResults,
   canPlaceBetType,
+  canPlaceOdds,
+  canTakeDown,
   checkDuplicateBet,
   generateBetId,
   getUserExposure,
+  resolveAllBets,
 } from './crapsEngine.js';
+import {
+  buildBoard,
+  type BoardPhase,
+  type BoardView,
+  type RenderBet,
+  type RenderResult,
+} from './crapsRender.js';
 
 // ============ TYPE DEFINITIONS ============
 
@@ -38,644 +72,545 @@ export interface ShooterInfo {
   readonly username: string;
 }
 
-export interface SessionStats {
-  rollCount: number;
-  startedAt: Date;
-  totalWagered: number;
-}
-
-export interface CrapsTableState {
-  status: TableStatus;
+interface TableSession {
+  phase: BoardPhase;
   point: number | null;
   shooter: ShooterInfo | null;
-  rollHistory: Roll[];
+  /** Everyone who has had action this table, in arrival order - the rotation queue */
+  queue: ShooterInfo[];
   bets: CrapsBet[];
-  sessionStats: SessionStats;
-  tableMessage: Message | null;
-  bettingTimer: NodeJS.Timeout | null;
-  bettingEndTime: number | null;
-  graceTimer: NodeJS.Timeout | null;
+  rollHistory: Roll[];
+  lastRoll: Roll | null;
+  rollName: string | undefined;
+  results: RenderResult[] | undefined;
+  sevenOut: boolean;
+  nextShooter: string | null;
+  tumbling: Roll[] | undefined;
+  /** Rendered result image, set only for a big roll */
+  hero: Hero | null;
+
+  /** Groups every escrow row for this shooter's turn */
+  sessionKey: string;
+  sessionWagered: number;
+  sessionPaid: number;
+  rollCount: number;
+  startedAt: Date;
+  /**
+   * Every settled bet this shooter session, accumulated for one write at the end.
+   *
+   * craps_sessions is per shooter turn, so writing per roll would fragment a single
+   * turn across many rows.
+   */
+  betLog: crapsDb.LogBetData[];
+
+  message: Message | null;
   channelId: string;
   client: Client | null;
+
+  deadline: number | null;
+  windowTimer: NodeJS.Timeout | null;
+  shooterTimer: NodeJS.Timeout | null;
+  graceTimer: NodeJS.Timeout | null;
 }
 
 export interface PlaceBetResult {
-  success: boolean;
-  message: string;
-  bet?: CrapsBet;
-  tableJustOpened?: boolean;
+  readonly success: boolean;
+  readonly message: string;
+  readonly bet?: CrapsBet;
+  readonly tableJustOpened?: boolean;
 }
 
 // ============ STATE ============
 
-let tableState: CrapsTableState = createInitialState();
+let table: TableSession | null = null;
 
-function createInitialState(): CrapsTableState {
+function createSession(channelId: string, client: Client): TableSession {
   return {
-    status: 'idle',
+    phase: 'idle',
     point: null,
     shooter: null,
-    rollHistory: [],
+    queue: [],
     bets: [],
-    sessionStats: {
-      rollCount: 0,
-      startedAt: new Date(),
-      totalWagered: 0,
-    },
-    tableMessage: null,
-    bettingTimer: null,
-    bettingEndTime: null,
+    rollHistory: [],
+    lastRoll: null,
+    rollName: undefined,
+    results: undefined,
+    sevenOut: false,
+    nextShooter: null,
+    tumbling: undefined,
+    hero: null,
+    sessionKey: randomUUID(),
+    sessionWagered: 0,
+    sessionPaid: 0,
+    rollCount: 0,
+    startedAt: new Date(),
+    betLog: [],
+    message: null,
+    channelId,
+    client,
+    deadline: null,
+    windowTimer: null,
+    shooterTimer: null,
     graceTimer: null,
-    channelId: '',
-    client: null,
   };
 }
 
-// ============ HELPERS ============
+// ============ RENDERING ============
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function toRenderBets(bets: readonly CrapsBet[]): RenderBet[] {
+  return bets
+    .filter((b) => b.status === 'active')
+    .map((b) => ({
+      userId: b.userId,
+      betType: b.betType,
+      amount: b.amount,
+      oddsPoint: b.oddsPoint,
+    }));
 }
 
-function clearBettingTimer(): void {
-  if (tableState.bettingTimer) {
-    clearTimeout(tableState.bettingTimer);
-    tableState.bettingTimer = null;
-    tableState.bettingEndTime = null;
-  }
+function viewOf(session: TableSession): BoardView {
+  return {
+    phase: session.phase,
+    point: session.point,
+    shooter: session.shooter,
+    bets: toRenderBets(session.bets),
+    recentRolls: session.rollHistory.map((r) => r.total),
+    lastRoll: session.lastRoll,
+    rollName: session.rollName,
+    results: session.results,
+    deadline: session.deadline,
+    rollCount: session.rollCount,
+    sessionWagered: session.sessionWagered,
+    tumbling: session.tumbling,
+    sevenOut: session.sevenOut,
+    nextShooter: session.nextShooter,
+    hero: session.hero,
+  };
 }
 
-function clearGraceTimer(): void {
-  if (tableState.graceTimer) {
-    clearTimeout(tableState.graceTimer);
-    tableState.graceTimer = null;
-  }
+const painter = createPainter<TableSession>({
+  label: 'CRAPS',
+  getMessage: (session) => session.message,
+  build: (session) => buildBoard(viewOf(session)),
+  isCurrent: (session) => table === session,
+});
+
+/** Current board payload, for a handler acknowledging a click with update(). */
+export function currentBoard(): ReturnType<typeof buildBoard> | null {
+  return table ? buildBoard(viewOf(table)) : null;
 }
 
-// ============ EMBED BUILDERS ============
-
-function buildTableEmbed(): EmbedBuilder {
-  const { status, point, shooter, bets, sessionStats, bettingEndTime } = tableState;
-  const isComeout = point === null;
-
-  // Determine color
-  let color: number = EMBED_COLORS.COLD;
-  if (status === 'betting') {
-    color = isComeout ? EMBED_COLORS.BETTING : EMBED_COLORS.POINT;
-  } else if (status === 'rolling') {
-    color = EMBED_COLORS.ROLLING;
-  }
-
-  // Title with point indicator
-  let title = 'CRAPS TABLE';
-  if (point !== null) {
-    title += ` | POINT IS ${point}`;
-  }
-
-  // Build description
-  const lines: string[] = [];
-
-  // Shooter info
-  if (shooter) {
-    lines.push(`<@${shooter.userId}> has the dice!`);
-  }
-
-  // Timer info
-  if (status === 'betting' && bettingEndTime) {
-    const spinTime = Math.floor(bettingEndTime / 1000);
-    lines.push(`Rolling <t:${spinTime}:R>`);
-  }
-
-  // Hot streak
-  const hotMessage = getHotStreakMessage(sessionStats.rollCount);
-  if (hotMessage) {
-    lines.push(hotMessage);
-  }
-
-  // Last roll
-  if (tableState.rollHistory.length > 0) {
-    const lastRoll = tableState.rollHistory[tableState.rollHistory.length - 1];
-    lines.push(
-      `\nLast Roll: ${formatDiceRoll(lastRoll.die1, lastRoll.die2)} = ${lastRoll.total}`
-    );
-  }
-
-  lines.push('');
-
-  // Group bets by type
-  const activeBets = bets.filter((b) => b.status === 'active');
-  const betsByType = new Map<BetType, CrapsBet[]>();
-  for (const bet of activeBets) {
-    const existing = betsByType.get(bet.betType) || [];
-    existing.push(bet);
-    betsByType.set(bet.betType, existing);
-  }
-
-  // Display each bet type
-  const betOrder: BetType[] = ['pass_line', 'dont_pass', 'field', 'place_6', 'place_8'];
-  for (const betType of betOrder) {
-    const typeBets = betsByType.get(betType);
-    if (!typeBets || typeBets.length === 0) continue;
-
-    const totalAmount = typeBets.reduce((sum, b) => sum + b.amount, 0);
-    const display = getBetDisplay(betType);
-    const bettors = typeBets
-      .slice(0, 6)
-      .map((b) => `<@${b.userId}> ${formatAmount(b.amount)}`)
-      .join(', ');
-    const overflow = typeBets.length > 6 ? ` +${typeBets.length - 6} more` : '';
-
-    lines.push(`**${display}** | ${formatAmount(totalAmount)}`);
-    lines.push(`${bettors}${overflow}`);
-    lines.push('');
-  }
-
-  if (activeBets.length === 0) {
-    lines.push('_No active bets_');
-    lines.push('');
-  }
-
-  // Roll history (point phase only)
-  if (tableState.rollHistory.length > 1) {
-    const rolls = tableState.rollHistory.slice(-8).map((r) => r.total).join(' ');
-    lines.push(`Rolls: ${rolls}`);
-  }
-
-  // Total wagered
-  lines.push(`Total Action: ${formatAmount(sessionStats.totalWagered)}`);
-
-  return new EmbedBuilder()
-    .setColor(color)
-    .setTitle(title)
-    .setDescription(lines.join('\n'))
-    .setTimestamp();
+/** Request a coalesced repaint. Safe to call on every bet. */
+export function refresh(): void {
+  if (table) painter.schedulePaint(table);
 }
 
-function buildRollingEmbed(): EmbedBuilder {
-  return new EmbedBuilder()
-    .setColor(EMBED_COLORS.ROLLING)
-    .setTitle('CRAPS TABLE')
-    .setDescription('\n\nThe dice are out!\n\n')
-    .setTimestamp();
-}
+// ============ TIMERS ============
 
-function buildRollResultEmbed(roll: Roll): EmbedBuilder {
-  const rollName = getRollName(roll.total, tableState.point);
-  const diceDisplay = formatDiceRoll(roll.die1, roll.die2);
-
-  return new EmbedBuilder()
-    .setColor(EMBED_COLORS.ROLLING)
-    .setTitle('CRAPS TABLE')
-    .setDescription(`\n\n${diceDisplay}\n\n**${rollName}**\n\n`)
-    .setTimestamp();
-}
-
-function buildSessionResultsEmbed(
-  outcome: SessionOutcome,
-  resolution: RollResolutionResult
-): EmbedBuilder {
-  const userResults = aggregateUserResults(resolution.betResults);
-
-  let title = '';
-  let color: number = EMBED_COLORS.COLD;
-
-  switch (outcome) {
-    case 'natural':
-      title = 'NATURAL!';
-      color = EMBED_COLORS.WIN;
-      break;
-    case 'craps':
-      title = 'CRAPS!';
-      color = EMBED_COLORS.LOSE;
-      break;
-    case 'point_hit':
-      title = 'POINT HIT!';
-      color = EMBED_COLORS.WIN;
-      break;
-    case 'seven_out':
-      title = 'SEVEN OUT!';
-      color = EMBED_COLORS.LOSE;
-      break;
-  }
-
-  const lines: string[] = [];
-  lines.push(`Session lasted ${tableState.sessionStats.rollCount} roll${tableState.sessionStats.rollCount !== 1 ? 's' : ''}`);
-  lines.push('');
-
-  // Show results by user
-  for (const user of userResults) {
-    const netStr =
-      user.netResult >= 0
-        ? `+${formatAmount(user.netResult)}`
-        : `-${formatAmount(Math.abs(user.netResult))}`;
-
-    const emoji = user.netResult > 0 ? '🏆' : user.netResult < 0 ? '💸' : '➖';
-    lines.push(`${emoji} <@${user.userId}>: ${netStr}`);
-
-    for (const item of user.breakdown) {
-      const outcomeEmoji = item.outcome === 'won' ? '✅' : item.outcome === 'lost' ? '❌' : '↩️';
-      lines.push(`  ${outcomeEmoji} ${getBetDisplay(item.betType)}: ${item.outcome}`);
+function clearTimers(session: TableSession): void {
+  for (const key of ['windowTimer', 'shooterTimer', 'graceTimer'] as const) {
+    const timer = session[key];
+    if (timer) {
+      clearTimeout(timer);
+      session[key] = null;
     }
   }
-
-  if (userResults.length === 0) {
-    lines.push('No bets resolved this session');
-  }
-
-  lines.push('');
-  lines.push(`Table cooling... Use \`/craps bet\` to continue!`);
-
-  return new EmbedBuilder()
-    .setColor(color)
-    .setTitle(title)
-    .setDescription(lines.join('\n'))
-    .setTimestamp();
+  painter.cancelPending();
 }
 
-// ============ GAME FLOW ============
+/**
+ * Open the betting window.
+ *
+ * The come-out window is longer than a between-rolls window: a new shooter is a moment
+ * people want time to react to, while a point-phase roll should keep the game moving.
+ */
+function startBettingWindow(session: TableSession): void {
+  clearTimers(session);
 
-async function executeRoll(): Promise<void> {
-  clearBettingTimer();
+  session.phase = 'betting';
+  session.results = undefined;
+  session.tumbling = undefined;
+  session.hero = null;
+  session.sevenOut = false;
+  session.nextShooter = null;
 
-  if (tableState.bets.filter((b) => b.status === 'active').length === 0) {
-    // No bets, go to grace period
-    startGracePeriod();
+  const seconds: number =
+    session.point === null ? TIMING.COMEOUT_BETTING_SECONDS : TIMING.POINT_BETTING_SECONDS;
+
+  session.deadline = Date.now() + seconds * 1000;
+  session.windowTimer = setTimeout(() => void closeBetting(), seconds * 1000);
+
+  // The rotation is stable between rolls, which is what is worth persisting.
+  void saveState();
+}
+
+/** Push the window out when a bet lands, capped so a busy table still rolls. */
+function extendWindow(session: TableSession): void {
+  if (session.phase !== 'betting' || !session.deadline) return;
+
+  const ceiling: number = Date.now() + TIMING.MAX_BETTING_SECONDS * 1000;
+  const extended: number = Math.min(session.deadline + TIMING.BET_EXTENDS_TIMER_BY * 1000, ceiling);
+  if (extended <= session.deadline) return;
+
+  session.deadline = extended;
+  if (session.windowTimer) clearTimeout(session.windowTimer);
+  session.windowTimer = setTimeout(() => void closeBetting(), extended - Date.now());
+}
+
+/**
+ * Lock betting and hand the dice to the shooter.
+ *
+ * The grace timer is what keeps the shooter role meaningful without letting one absent
+ * player hold everyone else up.
+ */
+async function closeBetting(): Promise<void> {
+  const session = table;
+  if (!session || session.phase !== 'betting') return;
+
+  clearTimers(session);
+
+  if (activeBets(session).length === 0) {
+    // Nothing at risk. Do not spend a roll on an empty table.
+    startGracePeriod(session);
     return;
   }
 
-  tableState.status = 'rolling';
-
-  // Update embed to show rolling
-  await updateTableMessage(buildRollingEmbed());
-  await sleep(TIMING.ROLL_ANIMATION_MS);
-
-  // Generate roll
-  const roll = rollDice();
-  tableState.rollHistory.push(roll);
-  tableState.sessionStats.rollCount++;
-
-  // Show roll result
-  await updateTableMessage(buildRollResultEmbed(roll));
-  await sleep(TIMING.RESULT_DISPLAY_MS);
-
-  // Resolve all bets
-  const resolution = resolveAllBets(
-    tableState.bets,
-    roll,
-    tableState.point
+  session.phase = 'awaiting_roll';
+  session.deadline = Date.now() + TIMING.SHOOTER_GRACE_SECONDS * 1000;
+  session.shooterTimer = setTimeout(
+    () => void executeRoll(true),
+    TIMING.SHOOTER_GRACE_SECONDS * 1000
   );
 
-  // Process payouts
-  for (const result of resolution.betResults) {
-    if (result.payout > 0 && result.outcome !== 'pending') {
-      try {
-        await economyDb.addToWallet(result.bet.userId, result.payout);
-      } catch (err) {
-        console.error(`[CRAPS] Payout failed for ${result.bet.userId}:`, err);
-      }
-    }
+  await painter.paintNow(session);
+}
+
+function startGracePeriod(session: TableSession): void {
+  clearTimers(session);
+  session.phase = 'idle';
+  session.deadline = null;
+  session.graceTimer = setTimeout(() => void closeTable(), TIMING.GRACE_PERIOD_SECONDS * 1000);
+  void painter.paintNow(session);
+}
+
+// ============ ROLLING ============
+
+function activeBets(session: TableSession): CrapsBet[] {
+  return session.bets.filter((b) => b.status === 'active');
+}
+
+/** Random dice for the tumble frames - decoration only, never the result. */
+function tumbleFrames(count: number): Roll[] {
+  return Array.from({ length: count }, () => rollDice());
+}
+
+/**
+ * Throw the dice, resolve everything, then either keep the shooter going or pass the
+ * dice on.
+ *
+ * @param automatic - true when the grace timer fired rather than the shooter clicking
+ */
+export async function executeRoll(automatic: boolean = false): Promise<void> {
+  const session = table;
+  if (!session || session.phase !== 'awaiting_roll') return;
+
+  clearTimers(session);
+
+  const atRisk: number = activeBets(session).reduce((sum, b) => sum + b.amount, 0);
+  const pacing: Pacing = pacingFor(atRisk);
+
+  // ---- animate ----
+  session.phase = 'rolling';
+  session.deadline = null;
+  for (let frame = 0; frame < pacing.frames; frame++) {
+    session.tumbling = tumbleFrames(2);
+    await painter.paintNow(session);
+    await sleep(pacing.frameMs);
+  }
+  session.tumbling = undefined;
+
+  // ---- roll ----
+  const roll: Roll = rollDice();
+  const pointBefore: number | null = session.point;
+
+  session.lastRoll = roll;
+  session.rollHistory.push(roll);
+  session.rollCount += 1;
+  session.rollName = getRollName(roll.total, pointBefore);
+
+  if (automatic && session.shooter) {
+    console.log(`[CRAPS] Rolled for ${session.shooter.username} after the grace period`);
   }
 
-  // Check if point was established
-  if (resolution.pointEstablished !== null) {
-    tableState.point = resolution.pointEstablished;
+  // ---- resolve ----
+  const resolution: RollResolutionResult = resolveAllBets(activeBets(session), roll, pointBefore);
+  const paid = await settleResolution(session, resolution);
+
+  session.results = paid;
+  session.phase = 'resolved';
+  session.sevenOut = resolution.sessionEnded;
+
+  // A big roll earns a rendered result. Null whenever sharp is unavailable, in which
+  // case the board simply reads as text.
+  session.hero = pacing.hero
+    ? await renderHero(
+        crapsHeroSvg(roll.die1, roll.die2, session.rollName ?? String(roll.total)),
+        `Craps roll: ${roll.die1} and ${roll.die2}, total ${roll.total}`
+      )
+    : null;
+
+  // Bets that resolved leave the table; multi-roll bets that are still pending ride on.
+  session.bets = session.bets.filter((b) => b.status === 'active');
+
+  // ---- advance the table ----
+  if (resolution.sessionEnded) {
+    const next: ShooterInfo | null = nextInQueue(session);
+    session.nextShooter = next?.userId ?? null;
+  } else if (resolution.pointEstablished !== null) {
+    session.point = resolution.pointEstablished;
+  } else if (resolution.sessionOutcome === 'point_hit') {
+    // The point is made and the same shooter starts a fresh come-out.
+    session.point = null;
   }
 
-  // Handle session outcome
-  if (resolution.sessionEnded && resolution.sessionOutcome) {
-    await endSession(resolution.sessionOutcome, resolution);
+  await painter.paintNow(session);
+  await sleep(pacing.holdMs);
+
+  if (table !== session) return;
+
+  if (resolution.sessionEnded) {
+    await passTheDice(session);
+  } else if (activeBets(session).length > 0 || session.queue.length > 0) {
+    startBettingWindow(session);
+    await painter.paintNow(session);
   } else {
-    // Continue to next betting phase
-    tableState.status = 'resolved';
-    await updateTableMessage(buildTableEmbed());
-    await sleep(1000);
-    startBettingPhase();
+    startGracePeriod(session);
   }
 }
 
-async function endSession(
-  outcome: SessionOutcome,
+/**
+ * Credit every winner and close out the escrow rows whose outcome was fully applied.
+ *
+ * A payout that fails leaves its escrow row open on purpose: the startup sweep then
+ * returns the stake, rather than the database claiming a payout the wallet never got.
+ */
+async function settleResolution(
+  session: TableSession,
   resolution: RollResolutionResult
-): Promise<void> {
-  tableState.status = 'resolved';
+): Promise<RenderResult[]> {
+  const settledEscrowIds: number[] = [];
+  const netByUser = new Map<string, number>();
 
-  // Show session results
-  await updateTableMessage(buildSessionResultsEmbed(outcome, resolution));
+  const addNet = (userId: string, net: number): void => {
+    netByUser.set(userId, (netByUser.get(userId) ?? 0) + net);
+  };
 
-  // Get resolved bets (bets that are no longer active)
-  const resolvedBets = tableState.bets.filter((b) => b.status !== 'active');
+  for (const result of resolution.betResults) {
+    const { bet, outcome, payout } = result;
+    if (outcome === 'pending') continue;
 
-  // Log to database
+    if (outcome === 'lose') {
+      // The stake was taken when escrow opened; a loss only resolves the row.
+      if (bet.escrowId !== undefined) settledEscrowIds.push(bet.escrowId);
+      addNet(bet.userId, -bet.amount);
+      session.betLog.push({
+        userId: bet.userId,
+        username: bet.username,
+        betType: bet.betType,
+        amount: bet.amount,
+        outcome: 'lost',
+        payout: 0,
+      });
+      continue;
+    }
+
+    // win, push and win_and_stay all move coins back to the player.
+    try {
+      const credited = await economyDb.addToWallet(bet.userId, payout);
+      if (!credited) throw new Error('addToWallet returned null - user row missing?');
+
+      // A place bet that paid and stayed keeps its stake at risk, so its escrow row
+      // must stay open. Everything else is done.
+      if (outcome !== 'win_and_stay' && bet.escrowId !== undefined) {
+        settledEscrowIds.push(bet.escrowId);
+      }
+
+      addNet(bet.userId, outcome === 'win' ? payout - bet.amount : outcome === 'push' ? 0 : payout);
+      session.sessionPaid += payout;
+      session.betLog.push({
+        userId: bet.userId,
+        username: bet.username,
+        betType: bet.betType,
+        amount: bet.amount,
+        outcome: outcome === 'push' ? 'push' : 'won',
+        payout,
+      });
+    } catch (error: unknown) {
+      console.error(
+        `[CRAPS] Payout of ${payout} to ${bet.userId} FAILED; ` +
+          `escrow ${bet.escrowId} left open for refund:`,
+        error
+      );
+    }
+  }
+
+  if (settledEscrowIds.length > 0) {
+    try {
+      await escrowDb.settleEscrowIds(settledEscrowIds);
+    } catch (error: unknown) {
+      // Non-fatal: unsettled rows are refunded by the next sweep, which errs toward
+      // giving coins back.
+      console.error('[CRAPS] Failed to settle escrow rows:', error);
+    }
+  }
+
+  return [...netByUser.entries()].map(([userId, net]) => ({ userId, net }));
+}
+
+// ============ SHOOTER ROTATION ============
+
+/** The player after the current shooter in the queue, wrapping around. */
+function nextInQueue(session: TableSession): ShooterInfo | null {
+  if (session.queue.length === 0) return null;
+  if (!session.shooter) return session.queue[0];
+
+  const index: number = session.queue.findIndex((p) => p.userId === session.shooter?.userId);
+  if (index === -1) return session.queue[0];
+
+  return session.queue[(index + 1) % session.queue.length] ?? null;
+}
+
+/**
+ * A seven-out ends the shooter's turn. Everything on the table has already resolved, so
+ * the point comes off, a new escrow session starts and the next player takes the dice.
+ */
+async function passTheDice(session: TableSession): Promise<void> {
+  await recordSession(session, 'seven_out');
+
+  const next: ShooterInfo | null = nextInQueue(session);
+
+  session.point = null;
+  session.shooter = next;
+  session.rollCount = 0;
+  session.rollHistory = [];
+  session.sessionKey = randomUUID();
+  session.sessionWagered = 0;
+  session.sessionPaid = 0;
+  session.betLog = [];
+  session.startedAt = new Date();
+  session.bets = [];
+
+  if (!next) {
+    startGracePeriod(session);
+    return;
+  }
+
+  startBettingWindow(session);
+  await painter.paintNow(session);
+}
+
+// ============ PERSISTENCE ============
+
+/**
+ * Write the whole shooter session, then roll each player's lifetime stats forward.
+ *
+ * Called once when the dice pass, not once per roll: `craps_sessions` is keyed to a
+ * shooter's turn, and a per-roll write would fragment one turn across many rows.
+ *
+ * Stats are decoration. A failure here must never interrupt a live table.
+ */
+async function recordSession(session: TableSession, outcome: SessionOutcome): Promise<void> {
+  if (session.betLog.length === 0 && session.rollCount === 0) return;
+
   try {
     await crapsDb.logCompleteSession(
       {
-        channelId: tableState.channelId,
-        shooterUserId: tableState.shooter?.userId ?? null,
-        shooterUsername: tableState.shooter?.username ?? null,
-        point: tableState.point,
-        rollCount: tableState.sessionStats.rollCount,
+        channelId: session.channelId,
+        shooterUserId: session.shooter?.userId ?? null,
+        shooterUsername: session.shooter?.username ?? null,
+        point: session.point,
+        rollCount: session.rollCount,
         outcome,
-        totalWagered: tableState.sessionStats.totalWagered,
-        totalPaid: resolution.totalPaid,
-        rollHistory: tableState.rollHistory,
-        startedAt: tableState.sessionStats.startedAt,
+        totalWagered: session.sessionWagered,
+        totalPaid: session.sessionPaid,
+        rollHistory: session.rollHistory,
+        startedAt: session.startedAt,
       },
-      resolvedBets.map((b) => ({
-        userId: b.userId,
-        username: b.username,
-        betType: b.betType,
-        amount: b.amount,
-        outcome: b.status === 'won' ? 'won' : b.status === 'lost' ? 'lost' : 'push',
-        payout: b.payout ?? 0,
-      }))
+      session.betLog
     );
-  } catch (err) {
-    console.error('[CRAPS] Failed to log session:', err);
+  } catch (error: unknown) {
+    console.error('[CRAPS] Failed to log session:', error);
   }
 
-  // Update player stats for all participants
-  const userBetsMap = new Map<string, {
-    username: string;
-    bets: Array<{
-      betType: BetType;
-      amount: number;
-      outcome: 'won' | 'lost' | 'push';
-      payout: number;
-    }>;
-  }>();
-
-  for (const bet of resolvedBets) {
-    let userData = userBetsMap.get(bet.userId);
-    if (!userData) {
-      userData = { username: bet.username, bets: [] };
-      userBetsMap.set(bet.userId, userData);
-    }
-    userData.bets.push({
-      betType: bet.betType,
-      amount: bet.amount,
-      outcome: bet.status === 'won' ? 'won' : bet.status === 'lost' ? 'lost' : 'push',
-      payout: bet.payout ?? 0,
-    });
+  // Group the session's bets per player so each gets exactly one stats update.
+  const perUser = new Map<string, crapsDb.LogBetData[]>();
+  for (const entry of session.betLog) {
+    const existing = perUser.get(entry.userId) ?? [];
+    existing.push(entry);
+    perUser.set(entry.userId, existing);
   }
 
-  for (const [userId, userData] of userBetsMap) {
+  for (const [userId, entries] of perUser) {
     try {
       await crapsDb.updatePlayerStats({
         userId,
-        username: userData.username,
-        wasShooter: userId === tableState.shooter?.userId,
+        username: entries[0]?.username ?? 'unknown',
+        wasShooter: session.shooter?.userId === userId,
         sessionOutcome: outcome,
-        rollCount: tableState.sessionStats.rollCount,
-        bets: userData.bets,
+        rollCount: session.rollCount,
+        bets: entries.map((e) => ({
+          betType: e.betType,
+          amount: e.amount,
+          outcome: e.outcome,
+          payout: e.payout,
+        })),
       });
-    } catch (err) {
-      console.error(`[CRAPS] Failed to update stats for ${userId}:`, err);
-    }
-  }
-
-  // Start grace period
-  startGracePeriod();
-}
-
-function startGracePeriod(): void {
-  // Reset session state but keep channel/client
-  const channelId = tableState.channelId;
-  const client = tableState.client;
-  const message = tableState.tableMessage;
-
-  tableState = createInitialState();
-  tableState.channelId = channelId;
-  tableState.client = client;
-  tableState.tableMessage = message;
-  tableState.status = 'idle';
-
-  // Set grace timer
-  tableState.graceTimer = setTimeout(() => {
-    // Table goes cold - clear message reference
-    tableState.tableMessage = null;
-  }, TIMING.GRACE_PERIOD_SECONDS * 1000);
-}
-
-function startBettingPhase(): void {
-  clearGraceTimer();
-
-  tableState.status = 'betting';
-
-  const durationSeconds = tableState.point === null
-    ? TIMING.COMEOUT_BETTING_SECONDS
-    : TIMING.POINT_BETTING_SECONDS;
-
-  tableState.bettingEndTime = Date.now() + durationSeconds * 1000;
-  tableState.bettingTimer = setTimeout(() => executeRoll(), durationSeconds * 1000);
-
-  // Update embed
-  updateTableMessage(buildTableEmbed()).catch((err) => {
-    console.error('[CRAPS] Failed to update table message:', err);
-  });
-}
-
-function extendBettingTimer(seconds: number): void {
-  if (!tableState.bettingTimer || !tableState.bettingEndTime) return;
-
-  // Cap at MAX_BETTING_SECONDS from now to prevent infinite extension
-  const maxEndTime = Date.now() + TIMING.MAX_BETTING_SECONDS * 1000;
-  const newEndTime = Math.min(tableState.bettingEndTime + seconds * 1000, maxEndTime);
-
-  if (newEndTime <= tableState.bettingEndTime) return;
-
-  clearTimeout(tableState.bettingTimer);
-  tableState.bettingEndTime = newEndTime;
-  tableState.bettingTimer = setTimeout(
-    () => executeRoll(),
-    newEndTime - Date.now()
-  );
-}
-
-async function updateTableMessage(embed: EmbedBuilder): Promise<void> {
-  if (!tableState.tableMessage || !tableState.client) return;
-
-  try {
-    await tableState.tableMessage.edit({ embeds: [embed] });
-  } catch (err) {
-    console.error('[CRAPS] Failed to update table message:', err);
-    // Try to send a new message
-    try {
-      const channel = await tableState.client.channels.fetch(tableState.channelId);
-      if (channel && 'send' in channel) {
-        tableState.tableMessage = await (channel as TextChannel).send({ embeds: [embed] });
-      }
-    } catch (sendErr) {
-      console.error('[CRAPS] Failed to send new table message:', sendErr);
+    } catch (error: unknown) {
+      console.error(`[CRAPS] Failed to update stats for ${userId}:`, error);
     }
   }
 }
 
-// ============ PUBLIC API ============
+// ============ TABLE LIFECYCLE ============
 
-/**
- * Check if table is active (not idle)
- */
-export function isTableActive(): boolean {
-  return tableState.status !== 'idle';
+export function isTableOpen(): boolean {
+  return table !== null;
 }
 
-/**
- * Get current table status
- */
 export function getTableStatus(): TableStatus {
-  return tableState.status;
+  if (!table) return 'idle';
+  if (table.phase === 'betting') return 'betting';
+  if (table.phase === 'rolling' || table.phase === 'awaiting_roll') return 'rolling';
+  if (table.phase === 'resolved') return 'resolved';
+  return 'idle';
 }
 
-/**
- * Get current point (null = come-out phase)
- */
 export function getCurrentPoint(): number | null {
-  return tableState.point;
+  return table?.point ?? null;
 }
 
-/**
- * Get user's active bets
- */
+export function isBettingOpen(): boolean {
+  return table?.phase === 'betting';
+}
+
+export function getActiveSessionKey(): string | null {
+  return table?.sessionKey ?? null;
+}
+
+export function getShooter(): ShooterInfo | null {
+  return table?.shooter ?? null;
+}
+
 export function getUserBets(userId: string): CrapsBet[] {
-  return tableState.bets.filter((b) => b.userId === userId && b.status === 'active');
+  return (table?.bets ?? []).filter((b) => b.userId === userId && b.status === 'active');
 }
 
-/**
- * Get user's total exposure (sum of active bets)
- */
 export function getUserTotalExposure(userId: string): number {
-  return getUserExposure(tableState.bets, userId);
+  return getUserExposure(table?.bets ?? [], userId);
 }
 
-/**
- * Place a bet on the table
- */
-export async function placeBet(
-  client: Client,
-  channel: TextChannel,
-  userId: string,
-  username: string,
-  betType: BetType,
-  amount: number
-): Promise<PlaceBetResult> {
-  // Validate bet type for current phase
-  const phaseCheck = canPlaceBetType(betType, tableState.point);
-  if (!phaseCheck.allowed) {
-    return { success: false, message: phaseCheck.reason ?? 'Invalid bet' };
-  }
+export { getCrapsChannelId };
 
-  // Check for duplicates
-  const duplicateCheck = checkDuplicateBet(tableState.bets, userId, betType);
-  if (!duplicateCheck.allowed) {
-    return { success: false, message: duplicateCheck.reason ?? 'Duplicate bet not allowed' };
-  }
-
-  // Check exposure limit
-  const currentExposure = getUserTotalExposure(userId);
-  if (currentExposure + amount > LIMITS.MAX_EXPOSURE) {
-    return {
-      success: false,
-      message: `You have ${formatAmount(currentExposure)} on the table. Max exposure is ${formatAmount(LIMITS.MAX_EXPOSURE)}.`,
-    };
-  }
-
-  // Check bet amount limits
-  if (amount < LIMITS.MIN_BET) {
-    return { success: false, message: `Minimum bet is ${formatAmount(LIMITS.MIN_BET)}` };
-  }
-  if (amount > LIMITS.MAX_BET) {
-    return { success: false, message: `Maximum bet is ${formatAmount(LIMITS.MAX_BET)}` };
-  }
-
-  // Check if we're in a valid state to accept bets
-  if (tableState.status === 'rolling') {
-    return { success: false, message: 'Dice are in the air! Wait for the next betting window.' };
-  }
-
-  // Deduct from wallet
-  const deductResult = await economyDb.deductFromWallet(userId, amount);
-  if (!deductResult) {
-    return { success: false, message: 'Insufficient funds' };
-  }
-
-  let tableJustOpened = false;
-
-  // Handle aggregation for place bets
-  if (duplicateCheck.aggregate) {
-    const existingBet = tableState.bets.find(
-      (b) => b.userId === userId && b.betType === betType && b.status === 'active'
-    );
-    if (existingBet) {
-      // Add to existing bet
-      existingBet.amount += amount;
-      tableState.sessionStats.totalWagered += amount;
-      extendBettingTimer(TIMING.BET_EXTENDS_TIMER_BY);
-      await updateTableMessage(buildTableEmbed());
-      return {
-        success: true,
-        message: `Added ${formatAmount(amount)} to your ${getBetDisplay(betType)} bet`,
-        bet: existingBet,
-      };
-    }
-  }
-
-  // Create new bet
-  const bet: CrapsBet = {
-    id: generateBetId(),
-    userId,
-    username,
-    betType,
-    amount,
-    placedAt: new Date(),
-    status: 'active',
-  };
-
-  tableState.bets.push(bet);
-  tableState.sessionStats.totalWagered += amount;
-
-  // Check if table was idle - need to open it
-  if (tableState.status === 'idle') {
-    tableJustOpened = true;
-    tableState.channelId = channel.id;
-    tableState.client = client;
-    tableState.shooter = { userId, username };
-    tableState.sessionStats.startedAt = new Date();
-
-    // Clear grace timer if set
-    clearGraceTimer();
-
-    // Send opening message
-    const openEmbed = new EmbedBuilder()
-      .setColor(EMBED_COLORS.BETTING)
-      .setTitle('THE CRAPS TABLE IS NOW OPEN!')
-      .setDescription(
-        `<@${userId}> started the action!\n\n` +
-        `Use \`/craps bet <amount> <type>\` to join!\n\n` +
-        `Rolling in ${TIMING.COMEOUT_BETTING_SECONDS} seconds...`
-      )
-      .setTimestamp();
-
-    tableState.tableMessage = await channel.send({ embeds: [openEmbed] });
-
-    // Start betting phase
-    startBettingPhase();
-  } else {
-    // Extend timer and update embed
-    extendBettingTimer(TIMING.BET_EXTENDS_TIMER_BY);
-    await updateTableMessage(buildTableEmbed());
-  }
-
-  return {
-    success: true,
-    message: `Placed ${formatAmount(amount)} on ${getBetDisplay(betType)}`,
-    bet,
-    tableJustOpened,
-  };
-}
-
-/**
- * Get table info for status command
- */
 export function getTableInfo(): {
   status: TableStatus;
   point: number | null;
@@ -686,43 +621,346 @@ export function getTableInfo(): {
   bettingEndsAt: number | null;
 } {
   return {
-    status: tableState.status,
-    point: tableState.point,
-    shooter: tableState.shooter,
-    rollCount: tableState.sessionStats.rollCount,
-    totalWagered: tableState.sessionStats.totalWagered,
-    activeBetCount: tableState.bets.filter((b) => b.status === 'active').length,
-    bettingEndsAt: tableState.bettingEndTime,
+    status: getTableStatus(),
+    point: table?.point ?? null,
+    shooter: table?.shooter ?? null,
+    rollCount: table?.rollCount ?? 0,
+    totalWagered: table?.sessionWagered ?? 0,
+    activeBetCount: table ? activeBets(table).length : 0,
+    bettingEndsAt: table?.deadline ?? null,
   };
 }
 
-/**
- * Get the craps channel ID from env
- */
-export { getCrapsChannelId };
-
-/**
- * Emergency shutdown - refund all bets
- * Call this on bot shutdown or channel deletion
- */
-export async function emergencyShutdown(): Promise<void> {
-  console.log('[CRAPS] Emergency shutdown initiated');
-
-  clearBettingTimer();
-  clearGraceTimer();
-
-  // Refund all active bets
-  for (const bet of tableState.bets) {
-    if (bet.status === 'active') {
-      try {
-        await economyDb.addToWallet(bet.userId, bet.amount);
-        console.log(`[CRAPS] Refunded ${bet.amount} to ${bet.userId}`);
-      } catch (err) {
-        console.error(`[CRAPS] Failed to refund ${bet.userId}:`, err);
-      }
+/** Open the table if it is not already up. */
+export async function ensureTable(channel: TextChannel, client: Client): Promise<void> {
+  if (table) {
+    // A table in its grace period is still alive; a new bet revives it.
+    if (table.phase === 'idle' && table.graceTimer) {
+      clearTimers(table);
+      startBettingWindow(table);
     }
+    return;
   }
 
-  // Reset state
-  tableState = createInitialState();
+  const session = createSession(channel.id, client);
+  table = session;
+
+  session.message = await channel.send(buildBoard(viewOf(session)));
+  startBettingWindow(session);
+  await painter.paintNow(session);
+}
+
+/** Shut the table down and record whatever it managed. */
+export async function closeTable(): Promise<void> {
+  const session = table;
+  if (!session) return;
+
+  clearTimers(session);
+  table = null;
+
+  // Anything still at risk when the table shuts belongs to nobody. Hand it back.
+  try {
+    await escrowDb.voidSession('craps', session.sessionKey);
+  } catch (error: unknown) {
+    console.error('[CRAPS] Failed to void escrow on close:', error);
+  }
+
+  session.phase = 'idle';
+  session.bets = [];
+  session.deadline = null;
+
+  // A closed table must not reopen itself on the next boot.
+  await clearTableState('craps');
+
+  try {
+    if (session.message) await session.message.edit(buildBoard(viewOf(session)));
+  } catch {
+    // The board may have been deleted. Nothing to recover.
+  }
+}
+
+// ============ BETTING ============
+
+export interface BetRequest {
+  readonly userId: string;
+  readonly username: string;
+  readonly betType: BetType;
+  readonly amount: number;
+  readonly channel: TextChannel;
+  readonly client: Client;
+}
+
+/**
+ * Place a bet.
+ *
+ * Order matters: the table is opened first so the wager has a session to belong to,
+ * then the coins are taken atomically, then the bet joins the table. Because the debit
+ * is an await, every precondition is re-checked afterwards - and if the bet cannot be
+ * attached the stake is handed straight back rather than waiting for the sweep.
+ */
+export async function placeBet(request: BetRequest): Promise<PlaceBetResult> {
+  const { userId, username, betType, amount, channel, client } = request;
+
+  if (!BET_TYPES[betType]) {
+    return { success: false, message: `Unknown bet type: "${betType}".` };
+  }
+
+  if (!Number.isInteger(amount) || amount < LIMITS.MIN_BET || amount > LIMITS.MAX_BET) {
+    return {
+      success: false,
+      message: `Bets run from ${formatAmount(LIMITS.MIN_BET)} to ${formatAmount(LIMITS.MAX_BET)}.`,
+    };
+  }
+
+  const justOpened: boolean = table === null;
+  await ensureTable(channel, client);
+
+  const session = table;
+  if (!session) return { success: false, message: 'The table just closed. Try again in a moment.' };
+
+  if (session.phase !== 'betting') {
+    return { success: false, message: 'Bets are closed for this roll. Hang on for the next one.' };
+  }
+
+  const phaseCheck = canPlaceBetType(betType, session.point);
+  if (!phaseCheck.allowed) {
+    return { success: false, message: phaseCheck.reason ?? 'That bet is not available now.' };
+  }
+
+  const duplicate = checkDuplicateBet(session.bets, userId, betType);
+  if (!duplicate.allowed) {
+    return { success: false, message: duplicate.reason ?? 'You already have that bet.' };
+  }
+
+  // Odds carry rules no other bet does: they need a parent line bet and are capped at a
+  // multiple of it that varies by point.
+  let oddsPoint: number | undefined;
+  let parentBetId: string | undefined;
+
+  if (BET_TYPES[betType].family === 'odds') {
+    const check = canPlaceOdds(session.bets, userId, betType, session.point, amount);
+    if (!check.allowed) {
+      return { success: false, message: check.reason ?? 'You cannot back that.' };
+    }
+    oddsPoint = session.point ?? undefined;
+    parentBetId = check.parent?.id;
+  }
+
+  const exposure: number = getUserExposure(session.bets, userId);
+  if (exposure + amount > LIMITS.MAX_EXPOSURE) {
+    return {
+      success: false,
+      message:
+        `That would put you ${formatAmount(exposure + amount)} in the air; ` +
+        `the table caps one player at ${formatAmount(LIMITS.MAX_EXPOSURE)}.`,
+    };
+  }
+
+  const escrow = await escrowDb.openEscrow({
+    userId,
+    username,
+    game: 'craps',
+    sessionKey: session.sessionKey,
+    amount,
+    purpose: BET_TYPES[betType].family === 'odds' ? 'odds' : 'bet',
+    detail: { betType, point: session.point },
+  });
+
+  if (!escrow.ok || escrow.escrowId === null) {
+    return { success: false, message: `You do not have ${formatAmount(amount)} in your wallet.` };
+  }
+
+  // The debit was an await. Re-check the table is still the one we validated against,
+  // and still taking bets, before attaching anything to it.
+  if (table !== session || session.phase !== 'betting') {
+    await refundEscrow(escrow.escrowId, userId);
+    return {
+      success: false,
+      message: 'Bets closed while that was going through — stake returned.',
+    };
+  }
+
+  const existing = duplicate.aggregate
+    ? session.bets.find(
+        (b) => b.userId === userId && b.betType === betType && b.status === 'active'
+      )
+    : undefined;
+
+  let bet: CrapsBet;
+
+  if (existing) {
+    // Aggregating keeps one row on the board, but each stake keeps its own escrow row,
+    // so a partial take-down can still return exactly what was put up.
+    existing.amount += amount;
+    bet = existing;
+  } else {
+    bet = {
+      id: generateBetId(),
+      userId,
+      username,
+      betType,
+      amount,
+      placedAt: new Date(),
+      status: 'active',
+      escrowId: escrow.escrowId,
+      parentBetId,
+      oddsPoint,
+    };
+    session.bets.push(bet);
+  }
+
+  session.sessionWagered += amount;
+
+  // First bettor takes the dice; everyone else joins the rotation behind them.
+  if (!session.queue.some((p) => p.userId === userId)) {
+    session.queue.push({ userId, username });
+  }
+  if (!session.shooter) session.shooter = { userId, username };
+
+  extendWindow(session);
+  painter.schedulePaint(session);
+
+  return {
+    success: true,
+    message: `${formatAmount(amount)} on ${getBetDisplay(betType)}`,
+    bet,
+    tableJustOpened: justOpened,
+  };
+}
+
+async function refundEscrow(escrowId: number, userId: string): Promise<void> {
+  try {
+    await escrowDb.voidEscrow(escrowId, userId);
+  } catch (error: unknown) {
+    console.error(`[CRAPS] Failed to refund escrow ${escrowId}; sweep will catch it:`, error);
+  }
+}
+
+/**
+ * Pull a player's most recent removable bet back off the table.
+ *
+ * @returns the amount returned, or null if there was nothing to take down
+ */
+export async function undoLastBet(userId: string): Promise<number | null> {
+  const session = table;
+  if (!session || session.phase !== 'betting') return null;
+
+  for (let i = session.bets.length - 1; i >= 0; i--) {
+    const bet = session.bets[i];
+    if (bet.userId !== userId || bet.status !== 'active') continue;
+    if (!canTakeDown(bet.betType, session.point)) continue;
+
+    session.bets.splice(i, 1);
+    if (bet.escrowId !== undefined) await refundEscrow(bet.escrowId, userId);
+    session.sessionWagered = Math.max(0, session.sessionWagered - bet.amount);
+
+    painter.schedulePaint(session);
+    return bet.amount;
+  }
+
+  return null;
+}
+
+/**
+ * Take down everything a player can legally remove.
+ *
+ * The pass line stays put once a point is on - it is a contract bet.
+ *
+ * @returns the total returned
+ */
+export async function takeDownAll(userId: string): Promise<number> {
+  const session = table;
+  if (!session || session.phase !== 'betting') return 0;
+
+  const removable = session.bets.filter(
+    (b) => b.userId === userId && b.status === 'active' && canTakeDown(b.betType, session.point)
+  );
+
+  let returned = 0;
+  for (const bet of removable) {
+    if (bet.escrowId !== undefined) await refundEscrow(bet.escrowId, userId);
+    returned += bet.amount;
+  }
+
+  session.bets = session.bets.filter((b) => !removable.includes(b));
+  session.sessionWagered = Math.max(0, session.sessionWagered - returned);
+
+  painter.schedulePaint(session);
+  return returned;
+}
+
+/** Whether this user is the one holding the dice. */
+export function isShooter(userId: string): boolean {
+  return table?.shooter?.userId === userId;
+}
+
+/** Whether the table is waiting on a throw right now. */
+export function isAwaitingRoll(): boolean {
+  return table?.phase === 'awaiting_roll';
+}
+
+// ============ PERSISTENCE ============
+
+/**
+ * Save the shooter rotation and the recent roll strip.
+ *
+ * The POINT is deliberately not saved. It belongs to a shooter's turn whose bets have
+ * just been refunded by the escrow sweep, so that turn is void and restoring its point
+ * would leave the table mid-hand with nothing on it.
+ */
+export async function saveState(): Promise<void> {
+  const session = table;
+  if (!session) return;
+
+  await saveTableState<CrapsSnapshot>('craps', session.channelId, {
+    queue: session.queue.map((player) => ({
+      userId: player.userId,
+      username: player.username,
+    })),
+    shooterUserId: session.shooter?.userId ?? null,
+    recentRolls: session.rollHistory.map((r) => r.total).slice(-12),
+  });
+}
+
+/**
+ * Bring the table back after a restart, with the same people in the same order.
+ *
+ * @returns true when a table was restored
+ */
+export async function restoreState(client: Client): Promise<boolean> {
+  const snapshot = await loadTableState<CrapsSnapshot>('craps');
+  if (!snapshot || snapshot.state.queue.length === 0) return false;
+
+  try {
+    const channel = await client.channels.fetch(snapshot.channelId);
+    if (!channel || channel.type !== ChannelType.GuildText) return false;
+
+    const textChannel = channel as TextChannel;
+    const session = createSession(textChannel.id, client);
+
+    session.queue = snapshot.state.queue.map((player) => ({ ...player }));
+    session.shooter =
+      session.queue.find((p) => p.userId === snapshot.state.shooterUserId) ??
+      session.queue[0] ??
+      null;
+
+    table = session;
+    session.message = await textChannel.send(buildBoard(viewOf(session)));
+    startBettingWindow(session);
+    await painter.paintNow(session);
+
+    console.log(`[CRAPS] Restored table with ${session.queue.length} player(s)`);
+    return true;
+  } catch (error: unknown) {
+    console.error('[CRAPS] Failed to restore table:', error);
+    return false;
+  }
+}
+
+// ============ TEST SEAM ============
+
+export function __resetTableForTesting(): void {
+  if (table) clearTimers(table);
+  table = null;
+  painter.reset();
 }

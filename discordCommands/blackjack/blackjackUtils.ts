@@ -1,12 +1,16 @@
 // Blackjack Card and Deck Utilities
 
+// The emoji registry only imports types from this module, so this pairing is erased at
+// runtime and creates no import cycle.
+import { emoji, cardEmojiName, CARD_BACK_NAME } from '../../emoji/emojiRegistry.js';
+
 // ============ TYPE DEFINITIONS ============
 
 export type Suit = '♠' | '♥' | '♦' | '♣';
 export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
 
 export interface TableConfig {
-  readonly name: 'classic' | 'vegas';
+  readonly name: 'main';
   readonly displayName: string;
   readonly deckCount: number;
   readonly dealerHitsSoft17: boolean;
@@ -14,26 +18,37 @@ export interface TableConfig {
 
 // ============ TABLE CONFIGURATIONS ============
 
+/**
+ * The house rules.
+ *
+ * There is one table now, not two. A shared multi-seat game only works on one shoe, and
+ * a single-deck game reshuffled every hand makes the shoe indicator - and any counting
+ * it enables - meaningless.
+ *
+ * This takes the six-deck persistent shoe from the old Vegas Strip table and the
+ * player-friendly stand-on-soft-17 rule from the old Classic table. With 3:2 blackjack,
+ * double after split, late surrender and re-splits to four hands, the house edge is
+ * roughly 0.35%.
+ */
 export const TABLES: Readonly<Record<string, TableConfig>> = {
-  classic: {
-    name: 'classic',
-    displayName: 'Classic',
-    deckCount: 1,
-    dealerHitsSoft17: false, // S17 - stands on soft 17
-  },
-  vegas: {
-    name: 'vegas',
-    displayName: 'Vegas Strip',
+  main: {
+    name: 'main',
+    displayName: 'Blackjack',
     deckCount: 6,
-    dealerHitsSoft17: true, // H17 - hits on soft 17
+    dealerHitsSoft17: false, // S17 - stands on soft 17
   },
 } as const;
 
-export const DEFAULT_TABLE: TableConfig = TABLES.classic;
+export const DEFAULT_TABLE: TableConfig = TABLES.main;
 
 export interface Card {
   readonly suit: Suit;
   readonly rank: Rank;
+}
+
+/** A card's colour group. Spades and clubs are black; hearts and diamonds are red. */
+export function cardColor(card: Card): 'red' | 'black' {
+  return card.suit === '♥' || card.suit === '♦' ? 'red' : 'black';
 }
 
 export type Hand = Card[];
@@ -290,4 +305,120 @@ export function shouldDealerHit(dealerHand: Hand, table: TableConfig): boolean {
 
   // Stand on hard 17+ or soft 18+
   return false;
+}
+
+// ============ CARD RENDERING ============
+
+/**
+ * Render a card as its custom tile, falling back to the backticked text this used to
+ * show when the emoji set has not been uploaded.
+ *
+ * Kept separate from formatCard, which is the plain-text contract other code and the
+ * tests rely on.
+ */
+export function renderCard(card: Card): string {
+  return emoji(cardEmojiName(card.rank, card.suit), `\`${formatCard(card)}\``);
+}
+
+/** The face-down hole card. */
+export function renderCardBack(): string {
+  return emoji(CARD_BACK_NAME, '`🎴`');
+}
+
+/**
+ * Render a hand, optionally keeping the dealer's hole card face down.
+ */
+export function renderHand(hand: Hand, hideSecond: boolean = false): string {
+  if (hideSecond && hand.length >= 2) {
+    return `${renderCard(hand[0])} ${renderCardBack()}`;
+  }
+  return hand.map(renderCard).join(' ');
+}
+
+// ============ SHOE ============
+
+/**
+ * A dealing shoe that survives between hands.
+ *
+ * Fresh-shuffling every hand makes deck count almost meaningless, so the multi-deck
+ * table now deals from a persistent shoe with a cut card. The single-deck table
+ * deliberately does not: a deeply-dealt single deck is the one configuration where
+ * counting gives a real edge over the house.
+ */
+export interface Shoe {
+  cards: Deck;
+  readonly deckCount: number;
+  /** Share of the shoe dealt before the cut card comes out */
+  readonly penetration: number;
+  /** True when the most recent hand start triggered a shuffle, for the UI */
+  justShuffled: boolean;
+}
+
+/** Cut card at three quarters, the usual depth for a six-deck game. */
+export const SHOE_PENETRATION = 0.75;
+
+export function createShoe(deckCount: number, penetration: number = SHOE_PENETRATION): Shoe {
+  return {
+    cards: createDeck(deckCount),
+    deckCount,
+    penetration,
+    justShuffled: false,
+  };
+}
+
+/** Total cards in a full shoe of this size. */
+export function shoeSize(shoe: Shoe): number {
+  return shoe.deckCount * 52;
+}
+
+/** Cards left in the shoe. */
+export function shoeRemaining(shoe: Shoe): number {
+  return shoe.cards.length;
+}
+
+/**
+ * Whether the cut card has been reached.
+ *
+ * Measured off the cards actually left rather than a separate dealt counter, so the
+ * two can never disagree.
+ */
+export function needsShuffle(shoe: Shoe): boolean {
+  return shoe.cards.length <= shoeSize(shoe) * (1 - shoe.penetration);
+}
+
+/**
+ * Reshuffle between hands. Never called mid-hand: a real table finishes the hand it
+ * is dealing before the cut card takes effect.
+ */
+export function shuffleShoe(shoe: Shoe): void {
+  shoe.cards = createDeck(shoe.deckCount);
+}
+
+/**
+ * Prepare a shoe for a new hand, shuffling if the cut card has come out.
+ *
+ * @returns true if the shoe was shuffled, so the UI can say so
+ */
+export function beginHand(shoe: Shoe): boolean {
+  if (needsShuffle(shoe)) {
+    shuffleShoe(shoe);
+    shoe.justShuffled = true;
+    return true;
+  }
+  shoe.justShuffled = false;
+  return false;
+}
+
+/**
+ * Draw one card.
+ *
+ * Reshuffles defensively if the shoe is somehow exhausted - with a cut card at 75%
+ * that should be unreachable, but running out mid-hand would otherwise deal undefined.
+ */
+export function drawFromShoe(shoe: Shoe): Card {
+  if (shoe.cards.length === 0) {
+    console.warn('[BLACKJACK] Shoe exhausted mid-hand; reshuffling');
+    shuffleShoe(shoe);
+  }
+  return shoe.cards.pop()!;
 }

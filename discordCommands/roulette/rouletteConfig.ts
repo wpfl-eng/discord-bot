@@ -1,5 +1,19 @@
 // Roulette Configuration
 // American roulette wheel with Vegas standard payouts
+//
+// The felt carries 158 bets: the 12 outside bets written out below, plus the 146 inside
+// bets generated from the layout in rouletteInsideBets.ts. Listing 146 combinations by
+// hand would be both unreadable and impossible to keep correct.
+
+import { emoji } from '../../emoji/emojiRegistry.js';
+import { pocketEmojiName } from '../../emoji/emojiRegistry.js';
+import {
+  INSIDE_BETS,
+  insideBet,
+  insideBetsCovering,
+  type InsideBet,
+  type InsideFamily,
+} from './rouletteInsideBets.js';
 
 // ============ WHEEL LAYOUT ============
 
@@ -172,62 +186,153 @@ export const BET_TYPES: Record<string, BetType> = {
   },
 };
 
-// Add straight-up number bets (0, 00, 1-36) - 35:1 payout
-for (const pos of WHEEL_POSITIONS) {
-  BET_TYPES[pos] = {
-    name: pos,
-    display: pos,
-    payout: 35,
-    matches: (r) => r === pos,
+// ============ INSIDE BETS ============
+
+/** The twelve written-out bets above, before the generated ones are merged in. */
+export const OUTSIDE_BET_TYPES: readonly string[] = Object.keys(BET_TYPES);
+
+/**
+ * Prefix an inside bet's display with its shape, so a slip reads "Corner 13-14-16-17"
+ * rather than a bare run of numbers that could be any of four families.
+ */
+const FAMILY_LABEL: Readonly<Record<InsideFamily, string>> = {
+  straight: '',
+  split: 'Split ',
+  street: 'Street ',
+  corner: 'Corner ',
+  line: 'Line ',
+  basket: 'Basket ',
+} as const;
+
+// Merge every generated inside bet into the same table the outside bets live in, so
+// nothing downstream has to know which kind it is holding.
+for (const bet of INSIDE_BETS) {
+  BET_TYPES[bet.key] = {
+    name: bet.key,
+    display: `${FAMILY_LABEL[bet.family]}${bet.display}`.trim(),
+    payout: bet.payout,
+    matches: (result: string) => bet.pockets.includes(result),
   };
 }
 
 // ============ AUTOCOMPLETE OPTIONS ============
 
 export const ALL_BET_TYPES: readonly string[] = [
-  'red',
-  'black',
-  'odd',
-  'even',
-  'low',
-  'high',
-  'first-dozen',
-  'second-dozen',
-  'third-dozen',
-  'first-column',
-  'second-column',
-  'third-column',
-  ...WHEEL_POSITIONS,
+  ...OUTSIDE_BET_TYPES,
+  ...INSIDE_BETS.map((b) => b.key),
 ];
+
+// ============ COVERAGE ============
+
+/** A bet offered on the number-anchored panel. */
+export interface CoveringBet {
+  readonly key: string;
+  readonly display: string;
+  readonly payout: number;
+  /** 'straight', 'split', ... or 'outside' */
+  readonly family: InsideFamily | 'outside';
+}
+
+/**
+ * Every bet that covers a pocket, longest shot first.
+ *
+ * This is what the number-anchored panel is built on. A player thinks "I want 17
+ * covered", not "I want the corner whose top-left is 13", so the panel is keyed on the
+ * number and lists what reaches it. Never exceeds about 16 entries, which keeps it
+ * inside a single 25-option select.
+ *
+ * @param pocket - a wheel position, e.g. '17' or '00'
+ */
+export function betsCovering(pocket: string): CoveringBet[] {
+  const inside: CoveringBet[] = insideBetsCovering(pocket).map((b: InsideBet) => ({
+    key: b.key,
+    display: BET_TYPES[b.key]?.display ?? b.display,
+    payout: b.payout,
+    family: b.family,
+  }));
+
+  const color: RouletteColor = getColor(pocket);
+  const outside: CoveringBet[] = OUTSIDE_BET_TYPES.filter((key) =>
+    BET_TYPES[key]?.matches(pocket, color)
+  ).map((key) => ({
+    key,
+    display: BET_TYPES[key].display,
+    payout: BET_TYPES[key].payout,
+    family: 'outside' as const,
+  }));
+
+  return [...inside, ...outside].sort((a, b) => b.payout - a.payout);
+}
+
+/** Whether a bet of any kind covers a pocket. */
+export function betCovers(betType: string, pocket: string): boolean {
+  const bet = BET_TYPES[betType];
+  if (!bet) return false;
+  return bet.matches(pocket, getColor(pocket));
+}
+
+/** The inside-bet record behind a key, or null for an outside bet. */
+export { insideBet };
 
 // ============ TIMING ============
 
-export const ROUND_DURATION_MS = 2 * 60 * 1000; // 2 minutes
-export const SPIN_SUSPENSE_MS = 2500; // 2.5 seconds
+/**
+ * The table runs as a session: it opens on the first bet, spins repeatedly, and closes
+ * after a spin nobody bets on. Windows are short and extend when bets land, so an
+ * active table keeps moving instead of sitting through a fixed two-minute wait.
+ *
+ * Mirrors the shape of the craps table's TIMING block so both games feel the same.
+ */
+export const TIMING = {
+  /** Betting window for the first spin after the table opens */
+  FIRST_WINDOW_SECONDS: 45,
 
-// ============ EMBED COLORS ============
+  /** Betting window for every spin after that */
+  NEXT_WINDOW_SECONDS: 30,
 
-export const EMBED_COLORS = {
-  ACTIVE: 0x3498db, // Blue
-  SPINNING: 0xf1c40f, // Gold
-  WIN: 0x2ecc71, // Green
-  LOSE: 0xe74c3c, // Red
+  /** Each new bet pushes the window out by this much */
+  BET_EXTENDS_BY_SECONDS: 5,
+
+  /** Ceiling on extensions, so a busy table still spins */
+  MAX_WINDOW_SECONDS: 60,
+
+  /** How long the table stays open after a spin with no bets before closing */
+  GRACE_SECONDS: 30,
+
+  /** Gap between frames of the spin animation */
+  SPIN_FRAME_MS: 800,
+
+  /** How long the result stays up before the next betting window opens */
+  RESULT_HOLD_MS: 3000,
 } as const;
+
+// ============ TABLE LIMITS ============
+
+export const LIMITS = {
+  MIN_BET: 10,
+
+  /**
+   * Roulette carries its own ceiling rather than borrowing CONFIG.GAMBLE_MAX (10,000).
+   * At 35:1 a max straight-up returns 3,500,000; there is deliberately no house-side
+   * cap on the payout.
+   */
+  MAX_BET: 100_000,
+
+  /** How many spins the table remembers for the recent-results strip */
+  HISTORY_LENGTH: 12,
+} as const;
+
+/** One-click stake buttons, spanning the range up to MAX_BET */
+export const CHIPS: readonly number[] = [100, 1_000, 10_000, 50_000];
+
+/** Stake a player starts on before touching a chip button */
+export const DEFAULT_CHIP = 1_000;
 
 // ============ FORMATTING ============
 
-/**
- * Format amount with abbreviation (1000 -> 1K)
- */
-export function formatAmount(amount: number): string {
-  if (amount >= 10000) {
-    return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
-  }
-  if (amount >= 1000) {
-    return `${(amount / 1000).toFixed(1).replace(/\.0$/, '')}K`;
-  }
-  return String(amount);
-}
+// Compact amounts live in casino/casinoFormat.ts, shared with craps and blackjack.
+// Re-exported here so every existing importer keeps its import path.
+export { formatAmount } from '../../casino/casinoFormat.js';
 
 /**
  * Get display name for a bet type
@@ -235,4 +340,42 @@ export function formatAmount(amount: number): string {
 export function getBetDisplay(betType: string): string {
   const bet = BET_TYPES[betType];
   return bet?.display ?? betType;
+}
+
+// ============ POCKET DISPLAY ============
+
+/**
+ * Render a pocket as its custom tile, falling back to a coloured circle plus the
+ * number when the emoji set has not been uploaded.
+ *
+ * Kept here rather than in the renderer so the strip, the result banner and the stats
+ * command all read a pocket the same way.
+ */
+export function pocketDisplay(position: string): string {
+  return emoji(pocketEmojiName(position), `${getColorEmoji(getColor(position))}${position}`);
+}
+
+/**
+ * Just the pocket's icon, with no number baked in.
+ *
+ * pocketDisplay's text fallback includes the number so a bare strip still reads, which
+ * makes it wrong anywhere the number is already printed alongside.
+ */
+export function pocketIcon(position: string): string {
+  return emoji(pocketEmojiName(position), getColorEmoji(getColor(position)));
+}
+
+/**
+ * Label for a bet as it appears on a slip or the live board. Straight-up bets show
+ * their pocket tile; everything else uses its written name.
+ */
+export function betDisplayRich(betType: string): string {
+  if (WHEEL_POSITIONS.includes(betType)) return pocketDisplay(betType);
+  return getBetDisplay(betType);
+}
+
+/** Payout as a ratio string, e.g. '17:1'. */
+export function payoutLabel(betType: string): string {
+  const bet = BET_TYPES[betType];
+  return bet ? `${bet.payout}:1` : '';
 }
