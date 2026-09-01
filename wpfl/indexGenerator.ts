@@ -25,7 +25,34 @@ export interface IndexInput {
   readonly etag: string | null;
   /** When the WPFL history cache was last rebuilt, or null if it has not been. */
   readonly wpflCacheFetchedAt: Date | null;
+  /**
+   * The files actually present in the cache directory when this was generated.
+   *
+   * Not what the refresh set out to fetch -- what is on disk, which is what the
+   * `sql` tool will find. A season whose fetch failed leaves player_scores.jsonl
+   * unwritten, and INDEX.md must not then advertise the table.
+   */
+  readonly wpflCacheFiles?: readonly string[];
 }
+
+/** The cache files this feature knows how to describe, and their table names. */
+const CACHED_DECADE: readonly (readonly [string, string, string])[] = [
+  [
+    'draft_history.jsonl',
+    'wpfl_draft_history',
+    'Every auction pick, one row per player per season.',
+  ],
+  [
+    'matchups.jsonl',
+    'wpfl_matchups',
+    'Every head-to-head result, with both scores and the margin.',
+  ],
+  [
+    'player_scores.jsonl',
+    'wpfl_player_scores',
+    'Every weekly player score, with roster slot — the only way to ask what a drafted player went on to do.',
+  ],
+];
 
 /** One line per file, keyed by shred-relative path. Team files share a description. */
 const FILE_DESCRIPTIONS: Record<string, string> = {
@@ -135,7 +162,7 @@ export function generateIndex(input: IndexInput): string {
   const sections: string[] = [
     header(meta, news, etag, wpflCacheFetchedAt),
     fileMap(shred),
-    cachedDecade(wpflCacheFetchedAt),
+    cachedDecade(wpflCacheFetchedAt, input.wpflCacheFiles),
     skipped(shred),
     undocumented(shred),
     glossary(),
@@ -199,11 +226,21 @@ function describeFile(relative: string): string {
  * of ShredResult, so the file map above cannot see it. Without this section the
  * agent is told to read INDEX.md before guessing at a filename, and INDEX.md
  * never mentions the largest dataset it has.
+ *
+ * Rendered from the files that are actually there, not from a fixed list. This
+ * section used to name all three tables unconditionally, which meant a single
+ * failed player-scores season -- the file then never written -- left INDEX.md
+ * telling the agent to plan a ten-year query around a table `sql` would report
+ * as missing. That is precisely the drift this module exists to make
+ * impossible, and it was the one section not generated from what was written.
  */
-function cachedDecade(fetchedAt: Date | null): string {
+function cachedDecade(fetchedAt: Date | null, files: readonly string[] = []): string {
+  const present = CACHED_DECADE.filter(([file]) => files.includes(file));
+  const missing = CACHED_DECADE.filter(([file]) => !files.includes(file));
+
   const lines: string[] = ['## The cached WPFL decade', ''];
 
-  if (fetchedAt === null) {
+  if (present.length === 0) {
     lines.push(
       'The ten-year history cache has not been built. `wpfl_draft_history`,',
       '`wpfl_matchups` and `wpfl_player_scores` are unavailable this run — say so',
@@ -213,16 +250,23 @@ function cachedDecade(fetchedAt: Date | null): string {
   }
 
   lines.push(
-    `Fetched ${fetchedAt.toISOString().slice(0, 10)} from the league's history API and written`,
+    `${fetchedAt === null ? 'Fetched' : `Fetched ${fetchedAt.toISOString().slice(0, 10)}`} from the league's history API and written`,
     'to `wpfl/` as JSONL. Reachable **only through the `sql` tool** — one table each,',
     'and far too many rows to read as files:',
     '',
     '| Table | What it holds |',
     '| --- | --- |',
-    '| `wpfl_draft_history` | Every auction pick, one row per player per season. |',
-    '| `wpfl_matchups` | Every head-to-head result, with both scores and the margin. |',
-    '| `wpfl_player_scores` | Every weekly player score, with roster slot — the only way to ask what a drafted player went on to do. |'
+    ...present.map(([, table, description]) => `| \`${table}\` | ${description} |`)
   );
+
+  if (missing.length > 0) {
+    lines.push(
+      '',
+      `**Not available this run:** ${missing.map(([, table]) => `\`${table}\``).join(', ')}.`,
+      'That fetch failed and the file was not written. Say so rather than',
+      'answering as if the table were there.'
+    );
+  }
 
   return lines.join('\n');
 }

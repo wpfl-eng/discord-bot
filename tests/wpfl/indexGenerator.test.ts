@@ -180,12 +180,15 @@ describe('indexGenerator', () => {
    * neither the files nor the fact that they are reachable only through `sql`.
    */
   describe('the cached decade', () => {
+    const ALL_CACHED: string[] = ['draft_history.jsonl', 'matchups.jsonl', 'player_scores.jsonl'];
+
     test('names the three cached sources and the table each becomes', () => {
       const index: string = generateIndex({
         shred: result,
         artifact,
         etag: ETAG,
         wpflCacheFetchedAt: new Date('2026-08-31T12:00:00Z'),
+        wpflCacheFiles: ALL_CACHED,
       });
 
       expect(index).toContain('wpfl_draft_history');
@@ -194,12 +197,33 @@ describe('indexGenerator', () => {
       expect(index).toMatch(/only through the `sql` tool/i);
     });
 
+    test('does not advertise a table whose file was never written', () => {
+      // One failed player-scores season means historyCache writes no
+      // player_scores.jsonl at all. INDEX.md used to name the table anyway, so
+      // the agent would plan a ten-year query around a table `sql` reports as
+      // missing -- in a file whose whole premise is that it can only describe
+      // what is actually on disk.
+      const index: string = generateIndex({
+        shred: result,
+        artifact,
+        etag: ETAG,
+        wpflCacheFetchedAt: new Date('2026-08-31T12:00:00Z'),
+        wpflCacheFiles: ['draft_history.jsonl', 'matchups.jsonl'],
+      });
+
+      expect(index).toContain('| `wpfl_draft_history` |');
+      expect(index).toContain('| `wpfl_matchups` |');
+      expect(index).not.toContain('| `wpfl_player_scores` |');
+      expect(index).toMatch(/Not available this run:.*wpfl_player_scores/);
+    });
+
     test('says so plainly when the cache has never been built', () => {
       const index: string = generateIndex({
         shred: result,
         artifact,
         etag: null,
         wpflCacheFetchedAt: null,
+        wpflCacheFiles: [],
       });
 
       expect(index).toMatch(/not been (built|fetched)|unavailable/i);

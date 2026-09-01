@@ -138,6 +138,11 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
       }
     }
 
+    // What is on disk after the copy-back, not what the refresh set out to
+    // fetch: a source whose fetch failed may still be served from the previous
+    // cache, and one that was never fetched at all must not be advertised.
+    const cacheFiles: string[] = fs.existsSync(stagedCache) ? fs.readdirSync(stagedCache) : [];
+
     fs.writeFileSync(
       path.join(staging, 'INDEX.md'),
       generateIndex({
@@ -145,6 +150,7 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
         artifact,
         etag,
         wpflCacheFetchedAt: cache.sources.length > 0 ? cache.fetchedAt : null,
+        wpflCacheFiles: cacheFiles,
       })
     );
     if (etag !== null) fs.writeFileSync(path.join(staging, '.etag'), `${etag}\n`);
