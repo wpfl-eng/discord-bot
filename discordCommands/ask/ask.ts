@@ -285,8 +285,10 @@ async function answer(request: AnswerRequest): Promise<void> {
   const editor = createThrottledEditor(async (content: string): Promise<void> => {
     await message.edit(content);
   });
-
-  const sink = wrap(ticker, () => editor.update(ticker.render()));
+  // Wired after the editor exists, because the editor edits the message this
+  // ticker's first render produced. The thunk is not called unless an edit is
+  // actually going out.
+  ticker.onChange((): void => editor.update((): string => ticker.render()));
 
   const outcome: AskOutcome = await runAsk(
     {
@@ -297,32 +299,12 @@ async function answer(request: AnswerRequest): Promise<void> {
       espnId: member?.espnId ?? null,
       ...(resume === null ? {} : { sessionId: resume }),
     },
-    sink
+    ticker
   );
 
   await editor.flush();
   await persist(destination.id, user.id, question, outcome, resume);
   await publish(message, destination, ticker, outcome, notice);
-}
-
-/** Re-render on every event, so the ticker reflects the run rather than polling it. */
-function wrap(ticker: Ticker, onChange: () => void): Ticker {
-  const notify =
-    <T extends unknown[]>(fn: (...args: T) => void) =>
-    (...args: T): void => {
-      fn.apply(ticker, args);
-      onChange();
-    };
-
-  return {
-    ...ticker,
-    onToolCall: notify(ticker.onToolCall),
-    onToolInput: notify(ticker.onToolInput),
-    onReasoning: notify(ticker.onReasoning),
-    onText: notify(ticker.onText),
-    onToolSettled: notify(ticker.onToolSettled),
-    onQueued: notify(ticker.onQueued),
-  };
 }
 
 async function persist(

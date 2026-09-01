@@ -142,7 +142,7 @@ describe('ticker', () => {
           sent.push(c);
         });
 
-        editor.update('one');
+        editor.update(() => 'one');
         await Promise.resolve();
 
         expect(sent).toEqual(['one']);
@@ -160,11 +160,11 @@ describe('ticker', () => {
           sent.push(c);
         });
 
-        editor.update('one');
+        editor.update(() => 'one');
         await Promise.resolve();
-        editor.update('two');
-        editor.update('three');
-        editor.update('four');
+        editor.update(() => 'two');
+        editor.update(() => 'three');
+        editor.update(() => 'four');
         await Promise.resolve();
 
         expect(sent).toEqual(['one']);
@@ -188,9 +188,9 @@ describe('ticker', () => {
           sent.push(c);
         });
 
-        editor.update('one');
+        editor.update(() => 'one');
         await Promise.resolve();
-        editor.update('final');
+        editor.update(() => 'final');
 
         await editor.flush();
 
@@ -208,7 +208,7 @@ describe('ticker', () => {
           sent.push(c);
         });
 
-        editor.update('one');
+        editor.update(() => 'one');
         await Promise.resolve();
         await editor.flush();
         await editor.flush();
@@ -233,9 +233,9 @@ describe('ticker', () => {
           sent.push(c);
         });
 
-        editor.update('one');
+        editor.update(() => 'one');
         await Promise.resolve();
-        editor.update('two');
+        editor.update(() => 'two');
         await editor.flush();
 
         expect(sent).toEqual(['two']);
@@ -243,6 +243,52 @@ describe('ticker', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+  });
+
+  describe('rendering is lazy', () => {
+    test('does not render for every update, only for edits that go out', async () => {
+      // The agent's stream emits on the order of 1,000-3,000 deltas per run and
+      // the throttle sends at most ~40 edits. Rendering eagerly built the whole
+      // ticker -- the accumulated answer included -- for every delta and threw
+      // almost all of them away, which is O(n^2) in the length of the answer.
+      jest.useFakeTimers();
+      try {
+        const editor = createThrottledEditor(async () => {});
+        let rendered = 0;
+        const render = (): string => {
+          rendered += 1;
+          return `state ${rendered}`;
+        };
+
+        for (let i = 0; i < 500; i += 1) editor.update(render);
+        await Promise.resolve();
+
+        // One for the edit that opened the window; the other 499 are coalesced.
+        expect(rendered).toBe(1);
+
+        await editor.flush();
+        expect(rendered).toBe(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('notifies its owner after every sink event', () => {
+      const ticker: Ticker = createTicker();
+      let changes = 0;
+      ticker.onChange(() => {
+        changes += 1;
+      });
+
+      ticker.onQueued(1);
+      ticker.onToolCall('mcp__wpfl__sql');
+      ticker.onToolInput('{"query"');
+      ticker.onToolSettled();
+      ticker.onReasoning('thinking');
+      ticker.onText('answer');
+
+      expect(changes).toBe(6);
     });
   });
 

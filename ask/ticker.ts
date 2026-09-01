@@ -25,6 +25,14 @@ export interface Ticker extends AskSink {
   renderFull(): string;
   hasProse(): boolean;
   prose(): string;
+  /**
+   * Called after every sink event. Set once, by whoever owns the editor.
+   *
+   * A setter rather than a constructor argument because the first thing the
+   * caller does with a ticker is render it into the message the editor then
+   * edits -- so the editor cannot exist before the ticker does.
+   */
+  onChange(handler: () => void): void;
 }
 
 interface Step {
@@ -38,10 +46,8 @@ export function createTicker(): Ticker {
   let reasoning: string | null = null;
   let text = '';
   let queuedAt: number | null = null;
+  let notify: () => void = (): void => {};
 
-  // A closure rather than `this.renderFull()`: ask.ts's wrap() spreads this
-  // object to add its change notifications, and a method that depends on its
-  // receiver would then depend on the spread having copied its sibling too.
   const renderFull = (): string => {
     if (text.trim() !== '') return `${trace(steps)}\n\n${text}`;
     return working(steps, reasoning, queuedAt);
@@ -50,29 +56,35 @@ export function createTicker(): Ticker {
   return {
     onToolCall(name: string): void {
       steps.push({ tool: readableName(name), input: '', settled: false });
+      notify();
     },
 
     onToolInput(fragment: string): void {
       const step: Step | undefined = steps[steps.length - 1];
       if (step !== undefined) step.input += fragment;
+      notify();
     },
 
     onReasoning(summary: string): void {
       // Replaced, not stacked: only the current thought is worth a line.
       reasoning = summary.trim();
+      notify();
     },
 
     onText(chunk: string): void {
       text += chunk;
+      notify();
     },
 
     onToolSettled(): void {
       const step: Step | undefined = [...steps].reverse().find((s) => !s.settled);
       if (step !== undefined) step.settled = true;
+      notify();
     },
 
     onQueued(position: number): void {
       queuedAt = position;
+      notify();
     },
 
     hasProse(): boolean {
@@ -88,6 +100,10 @@ export function createTicker(): Ticker {
     },
 
     renderFull,
+
+    onChange(handler: () => void): void {
+      notify = handler;
+    },
   };
 }
 
@@ -171,7 +187,10 @@ function truncate(value: string, limit: number): string {
 }
 
 export interface ThrottledEditor {
-  update(content: string): void;
+  /**
+   * @param render called only if an edit is actually about to go out.
+   */
+  update(render: () => string): void;
   flush(): Promise<void>;
 }
 
@@ -179,12 +198,19 @@ export interface ThrottledEditor {
  * Discord allows roughly 5 edits per 5 s per channel. Edits are coalesced to
  * one per throttle window — whatever arrived in between is dropped, since only
  * the newest state matters — and the final state is always flushed.
+ *
+ * `update` takes a thunk rather than a string because the caller is the agent's
+ * event stream: a run emits on the order of 1,000-3,000 deltas, of which a
+ * 60 s run sends at most ~40 edits. Rendering eagerly built the whole ticker,
+ * including the entire accumulated answer, for every one of those deltas and
+ * threw >95% of them away -- O(n^2) in the length of the answer, and the
+ * answer is the part that grows.
  */
 export function createThrottledEditor(
   edit: (content: string) => Promise<void>,
   intervalMs: number = ASK.TICKER_EDIT_THROTTLE_MS
 ): ThrottledEditor {
-  let pending: string | null = null;
+  let pending: (() => string) | null = null;
   let sent: string | null = null;
   let timer: NodeJS.Timeout | null = null;
   let inFlight: Promise<void> = Promise.resolve();
@@ -197,26 +223,33 @@ export function createThrottledEditor(
     });
   };
 
+  /** @returns whether anything was actually sent. */
+  const sendPending = (): boolean => {
+    if (pending === null) return false;
+    const render: () => string = pending;
+    pending = null;
+    const content: string = render();
+    if (content === sent) return false;
+    send(content);
+    return true;
+  };
+
   const openWindow = (): void => {
     timer = setTimeout(() => {
       timer = null;
-      if (pending !== null && pending !== sent) {
-        const next: string = pending;
-        pending = null;
-        send(next);
-        openWindow();
-      }
+      if (sendPending()) openWindow();
     }, intervalMs);
   };
 
   return {
-    update(content: string): void {
+    update(render: () => string): void {
       if (timer === null) {
+        const content: string = render();
         if (content !== sent) send(content);
         openWindow();
         return;
       }
-      pending = content;
+      pending = render;
     },
 
     async flush(): Promise<void> {
@@ -224,11 +257,7 @@ export function createThrottledEditor(
         clearTimeout(timer);
         timer = null;
       }
-      if (pending !== null && pending !== sent) {
-        const next: string = pending;
-        pending = null;
-        send(next);
-      }
+      sendPending();
       await inFlight;
     },
   };
