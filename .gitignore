@@ -22,3 +22,7 @@ dist/
 
 # Coverage
 coverage/
+
+# Database backups (contain player data)
+backups/
+*.backup.json

@@ -1,7 +1,10 @@
 -- Migration 008: retire NFLmon, /rob and the training-ground schema
 --
--- NOT APPLIED AUTOMATICALLY. There is no migration runner in this repo -
--- run this by hand when you are ready to drop the data permanently.
+-- NOT APPLIED AUTOMATICALLY. Nothing runs migrations on startup - apply this
+-- by hand when you are ready to drop the data permanently, either with psql
+-- or with:
+--   npx tsx scripts/backupMigration008.ts    # dump the data first
+--   npx tsx scripts/runMigration.ts migrations/008_remove_nflmon_rob_training.sql
 --
 -- The application code no longer references anything below, so the bot
 -- runs correctly whether or not this has been applied. Applying it is
