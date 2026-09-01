@@ -161,7 +161,10 @@ async function fetchChunk(
 ): Promise<Chunk | null> {
   const rows: Row[] | null = await fetchRows(fetchFn, endpoint, params, label);
   if (rows === null) return null;
-  return { text: rows.map((row: Row): string => JSON.stringify(row)).join('\n'), rows: rows.length };
+  return {
+    text: rows.map((row: Row): string => JSON.stringify(row)).join('\n'),
+    rows: rows.length,
+  };
 }
 
 /** Returns null on any failure -- the caller keeps whatever is already on disk. */
