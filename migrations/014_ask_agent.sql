@@ -1,6 +1,9 @@
--- Migration: /ask agent -- sessions, usage ledger, and a tool-exception log
+-- Migration: /ask agent -- sessions, usage ledger, tool-exception log, feedback
 -- Run this in your Vercel Postgres database:
---   npx tsx scripts/runMigration.ts migrations/009_ask_agent.sql
+--   npx tsx scripts/runMigration.ts migrations/014_ask_agent.sql
+--
+-- Numbered 014: this file was 009 while 009_widen_economy_money_columns.sql
+-- already existed on main. Renamed before it was ever applied (log Stage 14).
 --
 -- NOT APPLIED AUTOMATICALLY. Nothing runs migrations on startup. Wrapped in a
 -- transaction so a failure part-way leaves no half-built schema behind.
@@ -19,7 +22,11 @@ CREATE TABLE IF NOT EXISTS ask_sessions (
   total_cost_usd  NUMERIC(10, 6) NOT NULL DEFAULT 0,  -- ESTIMATE. Observability only.
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_used_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  closed          BOOLEAN NOT NULL DEFAULT FALSE      -- set when the thread archives
+  closed          BOOLEAN NOT NULL DEFAULT FALSE,     -- set when the thread archives
+  -- TRUE when /ask opened the thread itself. In such a thread the opener
+  -- continues the conversation by just typing; in a thread the bot did not
+  -- create, everyone has to address it (design §6.2).
+  bot_thread      BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- One row per query() call. Drives the daily and monthly caps, which count
@@ -44,6 +51,13 @@ CREATE TABLE IF NOT EXISTS ask_usage (
   cost_usd     NUMERIC(10, 6) NOT NULL DEFAULT 0,  -- ESTIMATE. Never gates anything.
   subtype      TEXT,                          -- success | error_max_budget_usd | ...
   duration_ms  INTEGER,
+  -- What a member is charged for. FALSE when the run never reached the model
+  -- (no session id was ever observed) or the SDK reported one of its
+  -- ops-failure codes: an expired login, a rate limit, an overloaded API. The
+  -- caps count rows WHERE counted; the row itself stays for observability.
+  counted      BOOLEAN NOT NULL DEFAULT TRUE,
+  error        TEXT,                          -- what the run died of, when it did
+  message_id   TEXT,                          -- the Discord message the answer landed in
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_ask_usage_user_day ON ask_usage (user_id, created_at DESC);
@@ -66,5 +80,21 @@ CREATE TABLE IF NOT EXISTS ask_tool_calls (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_ask_tool_calls_thread ON ask_tool_calls (thread_id, created_at);
+
+-- One row per person per answer: the 👍 or 👎 on the answer's buttons. Keyed
+-- by the Discord message rather than the ledger row, so a vote survives a
+-- ledger write that failed; the join to ask_usage.message_id is optional.
+-- Triage, not learning: a thumbs-down says which thread to open.
+CREATE TABLE IF NOT EXISTS ask_feedback (
+  id          SERIAL PRIMARY KEY,
+  message_id  TEXT NOT NULL,
+  thread_id   TEXT,
+  user_id     TEXT NOT NULL,
+  rating      SMALLINT NOT NULL CHECK (rating IN (-1, 1)),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (message_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ask_feedback_message ON ask_feedback (message_id);
 
 COMMIT;

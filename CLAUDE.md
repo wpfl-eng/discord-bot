@@ -88,7 +88,7 @@ through `/ask`, an agent built on the Claude Agent SDK. 48 slash commands are re
   That means applied-state is only knowable by inspecting the schema for a migration's
   effects: 008 is applied iff the `nflmon_*` tables are gone, 009 iff
   `economy_users.wallet` is `bigint` rather than `integer`, 013 iff `casino_table_state`
-  exists. Check before assuming - **do not record applied-state in this file.** This
+  exists, 014 iff `ask_sessions` exists. Check before assuming - **do not record applied-state in this file.** This
   bullet previously asserted 008 was "deliberately NOT applied" long after it had in fact
   been applied, and that claim was repeated downstream as fact.
 

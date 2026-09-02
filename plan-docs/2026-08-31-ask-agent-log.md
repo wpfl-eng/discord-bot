@@ -36,7 +36,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 13 | — | `feat/ask` | The two lifetime races — deferred teardown for shred and SQL | DONE |
 | 14 | — | `feat/ask` | Second adversarial review with AJ — nineteen decisions, first live runs | IN PROGRESS |
 
-**AJ's, not the build's** (design §17.5): applying migration 009, merging to
+**AJ's, not the build's** (design §17.5): applying migration 014, merging to
 `main`, `git push`, `deploy-commands.ts`, and the pre-launch re-run of
 `draft-2026/scripts/deploy.sh`.
 

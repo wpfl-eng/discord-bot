@@ -93,7 +93,7 @@ shredded to disk), a locally cached decade of WPFL history queried with read-onl
 history API's computed aggregates, the live ESPN season, and the web.
 
 It needs `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`, and migration
-`migrations/009_ask_agent.sql`.
+`migrations/014_ask_agent.sql`.
 
 ### Fantasy Football
 
