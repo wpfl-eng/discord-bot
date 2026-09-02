@@ -85,11 +85,7 @@ export function withErrorBoundary<T extends ChatInputCommandInteraction>(
  * Log an error with a command context prefix.
  * Use for non-interaction errors that need logging.
  */
-export function logError(
-  commandName: string,
-  message: string,
-  error?: Error | unknown
-): void {
+export function logError(commandName: string, message: string, error?: Error | unknown): void {
   const prefix = `[${commandName.toUpperCase()}]`;
   if (error instanceof Error) {
     console.error(prefix, message, {
@@ -101,4 +97,9 @@ export function logError(
   } else {
     console.error(prefix, message);
   }
+}
+
+/** The message of whatever was thrown: an Error's own, or the value stringified. */
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

@@ -113,3 +113,11 @@ export const getCurrentNFLWeek = (referenceDate: Date = new Date()): NFLWeek => 
  */
 export const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Cut `value` to `limit` characters, ending in a single-character ellipsis so
+ * the result is exactly `limit` long. Discord's thread names, the /ask ticker
+ * and the /ask-admin listings all trim the same way.
+ */
+export const truncate = (value: string, limit: number): string =>
+  value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;

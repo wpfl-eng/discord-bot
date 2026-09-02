@@ -18,6 +18,13 @@ import { loadApplicationEmojis } from './emoji/emojiRegistry.js';
 import { runStartupRefundSweep } from './economy/startupSweep.js';
 import { restoreCasinoTables } from './casino/casinoBoot.js';
 
+import { continueThread, checkIdentityMapping, onThreadArchived } from './ask/thread.js';
+import { ensureFresh } from './wpfl/artifactSync.js';
+import { warmSqlDatabase } from './wpfl/sqlTool.js';
+import { credentialConfigured } from './ask/askAuth.js';
+import { missingAskTables } from './ask/askDb.js';
+import { logError } from './errors/errorHandler.js';
+
 // Create a new client instance
 const client = new Client({
   intents: [
@@ -42,7 +49,7 @@ registerComponentHandler('trivia_', async (interaction) => {
 });
 
 // When the client is ready, run this code (only once)
-client.once('ready', async () => {
+client.once(Events.ClientReady, async () => {
   console.log('Ready!');
   console.log(`[ROUTER] Component prefixes: ${getRegisteredPrefixes().join(', ')}`);
 
@@ -62,7 +69,58 @@ client.once('ready', async () => {
   // The casino hub board is intentionally not started: the tables announce themselves in
   // their own channels, and the hub's standing summary was noise in the casino channel.
   // To bring it back, import { startHub } from './casino/casinoHub.js' and call it here.
+
+  // /ask setup. Both are non-fatal, they share nothing, and the sync can take
+  // seconds, so they run together rather than holding boot one behind the other.
+  if (!credentialConfigured()) {
+    console.warn(
+      '[ASK] No Claude credential is set (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN). ' +
+        '/ask will refuse every question until one is.'
+    );
+  }
+  await Promise.all([verifyIdentityMapping(client), verifyAskSchema(), syncArtifactAtBoot()]);
 });
+
+/** Nothing runs migrations. Say at boot which /ask tables are missing, not on the first question. */
+async function verifyAskSchema(): Promise<void> {
+  try {
+    const missing: string[] = await missingAskTables();
+    if (missing.length > 0) {
+      console.warn(
+        `[ASK] Migration 014 is not applied: missing ${missing.join(', ')}. Every /ask will fail until it is: ` +
+          'npx tsx scripts/runMigration.ts migrations/014_ask_agent.sql'
+      );
+    }
+  } catch (error) {
+    logError('ask', 'Could not check the /ask tables', error);
+  }
+}
+
+/** Resolve all 14 league snowflakes. An unresolved one is an owner /ask will refuse until the id is fixed. */
+async function verifyIdentityMapping(bot: Client): Promise<void> {
+  const guildId: string | undefined = process.env.DISCORD_GUILD_ID;
+  if (guildId === undefined) return;
+  try {
+    await checkIdentityMapping(await bot.guilds.fetch(guildId));
+  } catch (error) {
+    logError('ask', 'Could not verify the league identity mapping', error);
+  }
+}
+
+/**
+ * Fetch the artifact if the shred is stale, then build the SQL database in the
+ * background so the first question after a boot does not pay for it. A reshred
+ * starts that build itself and this call joins it; a shred that was already
+ * fresh has nothing running yet. A stale shred still answers.
+ */
+async function syncArtifactAtBoot(): Promise<void> {
+  try {
+    console.log('[ASK] Artifact sync:', JSON.stringify(await ensureFresh()));
+  } catch (error) {
+    logError('ask', 'Artifact sync failed at startup', error);
+  }
+  warmSqlDatabase();
+}
 
 client.commands = new Collection();
 
@@ -217,14 +275,31 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// Handle DMs for trivia answers
+// Handle DMs for trivia answers, and ordinary messages in an /ask thread
 client.on('messageCreate', async (message) => {
-  if (message.guild === null && !message.author.bot) {
+  if (message.author.bot) return;
+
+  if (message.guild === null) {
     await triviaService.handleDM(message);
+    return;
+  }
+
+  // An /ask thread continues as ordinary conversation (design §6.2). This runs
+  // on every guild message, so the cheap checks come first and the database is
+  // only consulted once they pass.
+  try {
+    await continueThread(message);
+  } catch (error) {
+    logError('ask', 'Thread continuation failed', error);
   }
 });
 
-client.on('ready', () => {
+// An archived thread's session is closed rather than resumed (design §6.2):
+// the SDK prunes its transcript on its own schedule, so resuming one that has
+// aged out fails instead of starting fresh.
+client.on(Events.ThreadUpdate, onThreadArchived);
+
+client.on(Events.ClientReady, () => {
   client.user?.setActivity('Jaguars Highlights', {
     type: ActivityType.Watching,
   });

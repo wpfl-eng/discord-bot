@@ -5,6 +5,7 @@ import {
   getCurrentNFLSeason,
   produceResponseObjectForText,
   produceImmediateResponse,
+  truncate,
 } from '../../helpers/utils.js';
 
 describe('utils', () => {
@@ -177,6 +178,20 @@ describe('utils', () => {
 
     test('December of the same calendar year is unaffected', () => {
       expect(getCurrentNFLWeek(new Date('2026-12-15T12:00:00-05:00'))).toBe(14);
+    });
+  });
+
+  describe('truncate', () => {
+    test('leaves a short value alone', () => {
+      expect(truncate('short', 10)).toBe('short');
+      expect(truncate('exactly ten', 11)).toBe('exactly ten');
+    });
+
+    test('cuts to the limit exactly, ellipsis included', () => {
+      const cut: string = truncate('x'.repeat(300), 100);
+
+      expect(cut).toHaveLength(100);
+      expect(cut.endsWith('…')).toBe(true);
     });
   });
 });

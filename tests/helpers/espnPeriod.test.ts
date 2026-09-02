@@ -19,7 +19,7 @@ jest.unstable_mockModule('../../espnClient.cjs', () => ({
 const mockLogError = jest.fn();
 jest.unstable_mockModule('../../errors/index.js', () => ({ logError: mockLogError }));
 
-const { getCurrentPeriod, resolvePeriod, resetPeriodCache } =
+const { getCurrentPeriod, resolvePeriod, resetPeriodCache, espnClientFromEnv } =
   await import('../../helpers/espnPeriod.js');
 const { getCurrentNFLWeek, getCurrentNFLSeason } = await import('../../helpers/utils.js');
 
@@ -88,6 +88,21 @@ describe('getCurrentPeriod', () => {
       expect(period.source).toBe('calendar');
       expect(period.scoringPeriodId).toBe(getCurrentNFLWeek());
       expect(period.seasonId).toBe(getCurrentNFLSeason());
+    });
+
+    test('the shared client factory says so with null rather than throwing', () => {
+      expect(espnClientFromEnv()).toBeNull();
+    });
+  });
+
+  // The one place the fork is constructed: the week lookup, the /ask ESPN
+  // tools and the fixtures script all take their client from here.
+  describe('the shared client factory', () => {
+    test('builds a client with the cookies from the environment', () => {
+      const client = espnClientFromEnv();
+
+      expect(client).not.toBeNull();
+      expect(mockSetCookies).toHaveBeenCalledWith({ espnS2: 'cookie', SWID: '{swid}' });
     });
   });
 

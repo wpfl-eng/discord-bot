@@ -6,7 +6,9 @@ Malevolently Robotting For Life - A Discord bot for fantasy football league mana
 
 CommishBot is a feature-rich Discord bot built for the WPFL fantasy football league. It pulls league
 data from ESPN and the WPFL history API, and layers on a full virtual economy: casino games,
-collectibles, prediction markets, stock trading, trivia, and Wordle.
+collectibles, prediction markets, stock trading, trivia, and Wordle. `/ask` answers open-ended
+league questions using the Claude Agent SDK, reasoning over the draft report, ten years of history,
+the live ESPN season, and the web.
 
 The codebase is TypeScript throughout, run directly with [`tsx`](https://github.com/privatenumber/tsx)
 (no build step).
@@ -75,7 +77,29 @@ npm run format:check
 
 ## Available Commands
 
-47 slash commands are registered. Each lives in `discordCommands/<name>/<name>.ts`.
+49 slash commands are registered. Each lives in `discordCommands/<name>/<name>.ts`.
+
+### Ask
+
+| Command | Options | Notes |
+| --- | --- | --- |
+| `/ask` | `question` (required) | Open-ended questions about the league, answered in a public thread |
+| `/ask-admin` | `status` / `resync` / `usage` / `pause` / `resume` | Commissioner controls; hidden from everyone without Administrator, and answered only for the commish's user id |
+
+`/ask` opens a thread on the answer and streams a live ticker of what it is doing — which file it
+read, which query it ran, what it is currently reasoning about — then the answer itself, with a
+source footer and 👍/👎 buttons. The member who asked keeps talking to it by just typing in the
+thread; any other owner joins by replying to the bot or mentioning it. Both entries answer only
+the 14 owners in `constants/wpflMembers.ts`; anyone else gets one private line saying so, before
+anything is looked up. Each owner's questions count against their own daily limit, and only runs
+that reached the model count. It reasons over five
+sources: the draft-2026 post-draft report (fetched and shredded to disk), a locally cached decade
+of WPFL history queried with read-only SQL, the WPFL history API's computed aggregates, the live
+ESPN season, and the web.
+
+It needs `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`, and migration
+`migrations/014_ask_agent.sql`. To keep `/ask` out of a channel, use Discord's per-command channel
+permissions in Server Settings; there is no channel setting in the bot.
 
 ### Fantasy Football
 
@@ -220,6 +244,8 @@ Create `.env` from `.env.sample`.
 | `POSTGRES_*` | Vercel Postgres connection |
 | `OPEN_API_KEY` | `/image` (DALL-E 3) |
 | `FINNHUB_API_KEY` | `/stock` quotes |
+| `ANTHROPIC_API_KEY` *or* `CLAUDE_CODE_OAUTH_TOKEN` | `/ask` (the API key takes precedence if both are set) |
+| `WPFL_DATA_DIR` | Where `/ask` writes its shredded data (default `$HOME/wpfl-data`) |
 | `PORT` | Express health server (default 5000) |
 | `TRIVIA_CHANNEL_ID` | Where scheduled trivia posts |
 | `TRIVIA_ADMIN_USER_IDS` | Comma-separated IDs allowed to run `/triviaquestion` |
@@ -238,6 +264,8 @@ discord-bot/
 ├── discordCommands/          # Slash command implementations
 │   └── commandname/
 │       └── commandname.ts    # Must match folder name (case-insensitive)
+├── ask/                      # /ask agent: config, auth, runner, caps, hooks, ticker, prompt
+├── wpfl/                     # /ask data layer: artifact sync + shred, SQL tool, ESPN/WPFL tools, MCP server
 ├── economy/                  # Shared economy config + DB access
 ├── achievements/             # Achievement definitions and award service
 ├── inventory/                # Item definitions and inventory DB

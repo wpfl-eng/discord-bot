@@ -74,7 +74,8 @@ There is no build step — TypeScript runs directly through `tsx`.
 
 This is a Discord bot for fantasy football league management (CommishBot). It pulls league data from
 ESPN and the WPFL history API, and layers on a virtual economy: casino games, collectibles,
-prediction markets, stock trading, trivia, and Wordle. 47 slash commands are registered.
+prediction markets, stock trading, trivia, and Wordle. It also answers open-ended league questions
+through `/ask`, an agent built on the Claude Agent SDK. 49 slash commands are registered.
 
 ### Core Structure
 - **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, routes button/autocomplete/DM interactions, runs Express health check server
@@ -87,7 +88,7 @@ prediction markets, stock trading, trivia, and Wordle. 47 slash commands are reg
   That means applied-state is only knowable by inspecting the schema for a migration's
   effects: 008 is applied iff the `nflmon_*` tables are gone, 009 iff
   `economy_users.wallet` is `bigint` rather than `integer`, 013 iff `casino_table_state`
-  exists. Check before assuming - **do not record applied-state in this file.** This
+  exists, 014 iff `ask_sessions` exists. Check before assuming - **do not record applied-state in this file.** This
   bullet previously asserted 008 was "deliberately NOT applied" long after it had in fact
   been applied, and that claim was repeated downstream as fact.
 
@@ -116,6 +117,19 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `trivia/` - `triviaService.ts` (cron scheduler), `categoryLoader.ts`, `answerMatcher.ts`, `*Questions.json` banks
 - `wordle/`, `stock/`, `polymarket/` - config + DB + API client per feature
 - `blackjack/`, `craps/`, `redzone/`, `videopoker/` - per-game stats DB modules
+- `ask/` - the `/ask` agent: `askConfig.ts` (all tuning, including model), `askAuth.ts`,
+  `askDb.ts`, `askRunner.ts`, `preflight.ts` (pause, credential, caps and freshness, shared by
+  both entry points), `thread.ts` (the answer pipeline, the messages that continue a thread and
+  the session's lifetime; the slash command and the gateway handlers `index.ts` wires both land
+  here), `askFeedback.ts` (the 👍/👎 buttons), `caps.ts`, `leagueTime.ts` (every date the
+  feature shows, in one timezone), `concurrency.ts` (the global slots), `threadQueue.ts` (one
+  run at a time per thread), `hooks.ts`, `systemPrompt.ts`, `ticker.ts`, `pause.ts` (the
+  in-memory kill switch). `discordCommands/ask/ask.ts` is the slash transport only, and
+  `discordCommands/askadmin/` the `/ask-admin` command
+- `wpfl/` - the data layer behind `/ask`: `layout.ts` (every path and marker in the data
+  directory, and the as-of reader), artifact fetch and shred, `INDEX.md` generation, the cached
+  WPFL decade, the read-only DuckDB SQL tool, the ESPN and WPFL API tools, and the in-process
+  MCP server that exposes all eight
 - `errors/`, `helpers/`, `constants/`, `types/` - shared support code
 
 Some features keep their config next to the command instead: `discordCommands/roulette/`,
@@ -140,6 +154,11 @@ Folder name does not have to equal command name: `checkpredictions/` registers `
 and `mypredictions/` registers `/my-predictions`.
 
 ### Background Behavior
+- **`/ask` freshness and continuation** - no timers. The published artifact is re-fetched lazily
+  (etag check, 6h staleness window) on `ready` and at the top of every `/ask`, and the cached
+  WPFL decade on its own 24h window; `/ask-admin resync` forces both. Messages in an `/ask`
+  thread continue that agent session through `messageCreate` when they address the bot, or
+  come from the opener in a thread the bot created
 - **Trivia scheduler** (`trivia/triviaService.ts:150`) - cron in `America/New_York`; posts at 9/11/13/15/17/19/21, auto-closes each 2h later, season rollover at midnight on the 1st
 - **Trivia DMs** - `messageCreate` handler accepts answers sent to the bot directly
 - **Roulette auto-spin** - rounds spin on a timer in `discordCommands/roulette/rouletteState.ts`
@@ -172,6 +191,8 @@ Required environment variables (create `.env` from `.env.sample`):
 - ESPN: `ESPN_S2`, `SWID`, `LEAGUE_ID`
 - Sleeper: `SLEEPER_LEAGUE_ID`
 - Database: PostgreSQL connection variables (`POSTGRES_*`)
+- `/ask`: `ANTHROPIC_API_KEY` **or** `CLAUDE_CODE_OAUTH_TOKEN` (the key wins if both are set);
+  optional `WPFL_DATA_DIR` (defaults to `$HOME/wpfl-data`)
 - Stock: `FINNHUB_API_KEY`
 - Trivia: `TRIVIA_CHANNEL_ID`, `TRIVIA_ADMIN_USER_IDS` (comma-separated; gates `/triviaquestion`)
 - Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID` (casino hub),
@@ -182,6 +203,11 @@ Required environment variables (create `.env` from `.env.sample`):
 - `discord.js` v14 - Modern Discord bot framework
 - `tsx` - runs TypeScript directly, no build step
 - `node-cron` - trivia scheduling
+- `@anthropic-ai/claude-agent-sdk` - the `/ask` agent runtime (ships a native binary as an
+  optional dependency; never install with `--omit=optional`)
+- `@duckdb/node-api` - read-only SQL over the shredded artifact and the cached WPFL decade
+  (also a native optional dependency)
+- `zod` - tool input schemas for the MCP server
 - `@vercel/postgres` - database access
 - Custom ESPN API fork: `git+https://github.com/aboorde/ESPN-Fantasy-Football-API.git`
 - Direct Sleeper API calls to `api.sleeper.app`
@@ -363,6 +389,6 @@ for optimalcoaching, the api returns the aggregate of the week prior, so week 1 
 ]
 
 Important information regarding data from these endpoints
--- 2010-2024 is the current data extractable from the endpoint
+-- 2010-2025 is the current data extractable from the endpoint; the current season is loaded in-season, days or weeks behind the games
 -- 2015 is the start of tracking player data
 -- 2016 is the first year of auction draft

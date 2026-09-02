@@ -1,0 +1,398 @@
+import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { shred, type ShredResult } from '../../wpfl/shredder.js';
+import { loadFixture } from './support.js';
+
+type Artifact = Record<string, unknown>;
+
+describe('shredder', () => {
+  let dir: string;
+  let published: Artifact;
+  let next: Artifact;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-shred-'));
+    published = loadFixture<Artifact>('postdraft-published.json');
+    next = loadFixture<Artifact>('postdraft-next.json');
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const exists = (relative: string): boolean => fs.existsSync(path.join(dir, relative));
+  const read = (relative: string): string => fs.readFileSync(path.join(dir, relative), 'utf8');
+
+  describe('both real shapes shred', () => {
+    test('shreds the currently published shape', () => {
+      const result: ShredResult = shred(published, dir);
+      expect(result.files.length).toBeGreaterThan(30);
+    });
+
+    test('shreds the shape the next publish will have', () => {
+      const result: ShredResult = shred(next, dir);
+      expect(result.files.length).toBeGreaterThan(30);
+    });
+  });
+
+  describe('the deploy wrapper', () => {
+    test('ignores `available` by name rather than shredding it', () => {
+      const result: ShredResult = shred(published, dir);
+
+      expect(exists('available.json')).toBe(false);
+      expect(result.ignored).toContain('available');
+      expect(result.undocumented).not.toContain('available');
+    });
+  });
+
+  describe('dead keys', () => {
+    test('skips every retired key by name and records it', () => {
+      const result: ShredResult = shred(published, dir);
+
+      expect(exists('league/grade_board.json')).toBe(false);
+      expect(exists('league/ridgeline.json')).toBe(false);
+      expect(exists('league/season_intro.json')).toBe(false);
+      expect(exists('night/clock.json')).toBe(false);
+
+      expect(result.deadKeys.sort()).toEqual([
+        'league.grade_board',
+        'league.ridgeline',
+        'league.season_intro',
+        'night.clock',
+      ]);
+    });
+
+    test('reports no dead keys for the shape that has already dropped them', () => {
+      const result: ShredResult = shred(next, dir);
+      expect(result.deadKeys).toEqual([]);
+    });
+  });
+
+  describe('planned layout', () => {
+    test('writes meta as a single file at the root', () => {
+      shred(published, dir);
+
+      expect(exists('meta.json')).toBe(true);
+      const meta: Record<string, unknown> = JSON.parse(read('meta.json')) as Record<
+        string,
+        unknown
+      >;
+      expect(meta.season).toBe(2026);
+      expect(meta.generated).toBe('2026-08-28 21:20');
+    });
+
+    test('writes one team file per owner, named by a slug of the canonical spelling', () => {
+      shred(published, dir);
+
+      const owners: string[] = (published.teams as { owner: string }[]).map((t) => t.owner);
+      expect(owners).toContain('AJ Boorde');
+
+      expect(exists('teams/aj-boorde.json')).toBe(true);
+      const team: { owner: string } = JSON.parse(read('teams/aj-boorde.json')) as { owner: string };
+      expect(team.owner).toBe('AJ Boorde');
+
+      const written: string[] = fs.readdirSync(path.join(dir, 'teams'));
+      expect(written).toHaveLength(owners.length);
+    });
+
+    test('writes one file per key for each dict body', () => {
+      shred(published, dir);
+
+      expect(exists('league/standings.json')).toBe(true);
+      expect(exists('league/board.json')).toBe(true);
+      expect(exists('history/seasons.json')).toBe(true);
+      expect(exists('history/record_book.json')).toBe(true);
+      expect(exists('news/wire.json')).toBe(true);
+      expect(exists('night/spend_race.json')).toBe(true);
+    });
+
+    test('writes the optional market body only when it is present', () => {
+      shred(published, dir);
+      expect(exists('market')).toBe(false);
+
+      const fresh: string = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-shred-'));
+      try {
+        shred(next, fresh);
+        expect(fs.existsSync(path.join(fresh, 'market/curve.json'))).toBe(true);
+        expect(fs.existsSync(path.join(fresh, 'night/acts.json'))).toBe(true);
+      } finally {
+        fs.rmSync(fresh, { recursive: true, force: true });
+      }
+    });
+
+    test('reports the byte size of every file it wrote, and every one exists', () => {
+      const result: ShredResult = shred(published, dir);
+
+      for (const file of result.files) {
+        const full: string = path.join(dir, file.path);
+        expect(fs.existsSync(full)).toBe(true);
+        expect(file.bytes).toBe(fs.statSync(full).size);
+      }
+    });
+  });
+
+  describe('jsonl collections', () => {
+    test('writes one line per entry, carrying the key so grep can find it', () => {
+      shred(published, dir);
+
+      expect(exists('league/dossiers.jsonl')).toBe(true);
+      expect(exists('league/dossiers.json')).toBe(false);
+
+      const entries: Record<string, unknown> = published.league as Record<string, unknown>;
+      const dossiers: Record<string, unknown> = entries.dossiers as Record<string, unknown>;
+      const names: string[] = Object.keys(dossiers);
+
+      const lines: string[] = read('league/dossiers.jsonl').trimEnd().split('\n');
+      expect(lines).toHaveLength(names.length);
+
+      const first: { key: string } = JSON.parse(lines[0]) as { key: string };
+      expect(first.key).toBe(names[0]);
+      // Every line must be self-contained: one grep hit is one whole record.
+      for (const line of lines) {
+        expect(() => JSON.parse(line)).not.toThrow();
+      }
+    });
+
+    test('writes news.players as jsonl too', () => {
+      shred(published, dir);
+
+      const news: Record<string, unknown> = published.news as Record<string, unknown>;
+      const players: Record<string, unknown> = news.players as Record<string, unknown>;
+
+      expect(exists('news/players.jsonl')).toBe(true);
+      const lines: string[] = read('news/players.jsonl').trimEnd().split('\n');
+      expect(lines).toHaveLength(Object.keys(players).length);
+    });
+
+    test('merges the value onto the key rather than nesting it', () => {
+      shred(published, dir);
+
+      const line: string = read('league/dossiers.jsonl').split('\n')[0];
+      const record: Record<string, unknown> = JSON.parse(line) as Record<string, unknown>;
+
+      expect(Object.keys(record)).toContain('risk');
+      expect(Object.keys(record)).toContain('price_2026');
+    });
+  });
+
+  describe('tolerant and loud', () => {
+    test('shreds an unknown body generically and flags it instead of throwing', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const withRace: Artifact = {
+        ...published,
+        race: { week: 1, leaders: [{ owner: 'AJ Boorde' }] },
+      };
+
+      const result: ShredResult = shred(withRace, dir);
+
+      expect(result.undocumented).toContain('race');
+      expect(exists('race/week.json')).toBe(true);
+      expect(exists('race/leaders.json')).toBe(true);
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    test('writes an unknown list body to a single file', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const withList: Artifact = { ...published, ledger: [{ id: 1 }, { id: 2 }] };
+
+      const result: ShredResult = shred(withList, dir);
+
+      expect(result.undocumented).toContain('ledger');
+      expect(exists('ledger.json')).toBe(true);
+      warn.mockRestore();
+    });
+  });
+
+  describe('abort conditions', () => {
+    for (const body of ['meta', 'teams', 'league', 'news', 'history']) {
+      test(`throws when the required body \`${body}\` is absent`, () => {
+        const broken: Artifact = { ...published };
+        delete broken[body];
+
+        expect(() => shred(broken, dir)).toThrow(new RegExp(body));
+      });
+    }
+
+    test('throws when teams arrives as a dict instead of a list', () => {
+      const broken: Artifact = { ...published, teams: { 'aj-boorde': {} } };
+
+      expect(() => shred(broken, dir)).toThrow(/teams/);
+    });
+
+    test('throws when league arrives as a list instead of a dict', () => {
+      const broken: Artifact = { ...published, league: [1, 2, 3] };
+
+      expect(() => shred(broken, dir)).toThrow(/league/);
+    });
+
+    test('throws when meta arrives as a scalar', () => {
+      const broken: Artifact = { ...published, meta: 'nope' };
+
+      expect(() => shred(broken, dir)).toThrow(/meta/);
+    });
+
+    test('throws when a team carries no owner to name its file after', () => {
+      const teams: unknown[] = [...(published.teams as unknown[])];
+      teams[0] = { team_id: 1 };
+      const broken: Artifact = { ...published, teams };
+
+      expect(() => shred(broken, dir)).toThrow(/owner/);
+    });
+
+    test('does not throw when the optional body night is absent', () => {
+      const withoutNight: Artifact = { ...published };
+      delete withoutNight.night;
+
+      expect(() => shred(withoutNight, dir)).not.toThrow();
+    });
+  });
+  /**
+   * The artifact is fetched over the network. Body and key names go straight
+   * into the path a file is written at, so a key like `../../x` was a
+   * remote-content-to-arbitrary-file-write primitive. Owner names were already
+   * slugged; nothing else was.
+   */
+  describe('filenames from artifact content', () => {
+    // The shred root is buried several levels inside a sandbox this test owns,
+    // so a `..` climb lands somewhere it can assert on. One level is not
+    // enough: keys are written as `<body>/<key>.json`, so the body directory
+    // absorbs the first climb and a single `../` never leaves the root at all.
+    let sandbox: string;
+    let target: string;
+
+    beforeEach(() => {
+      sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-shred-escape-'));
+      target = path.join(sandbox, 'a', 'b', 'c', 'shred');
+      fs.mkdirSync(target, { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(sandbox, { recursive: true, force: true });
+    });
+
+    /** Every file anywhere under the sandbox, as absolute paths. */
+    const filesUnder = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const full: string = path.join(dir, entry.name);
+        return entry.isDirectory() ? filesUnder(full) : [full];
+      });
+
+    const expectNothingEscaped = (): void => {
+      const root: string = path.resolve(target);
+      for (const file of filesUnder(sandbox)) {
+        expect(file.startsWith(`${root}${path.sep}`)).toBe(true);
+      }
+    };
+
+    test('an owner name that slugs to nothing still gets a real filename', () => {
+      // The owner slug was the one path component that never went through
+      // safeName -- sanitising was remembered at each call site, and this call
+      // site did not. slug('!!!') is the empty string, so the file was written
+      // as `teams/.json`: a dotfile, invisible to the agent's Glob and to
+      // anyone looking at the directory. Building the path in one place fixes
+      // it by construction.
+      const result: ShredResult = shred(
+        {
+          meta: { generated: '2026-08-31' },
+          teams: [{ owner: '!!!' }],
+          league: {},
+          news: {},
+          history: {},
+        },
+        target
+      );
+
+      expect(result.files.map((f) => f.path)).toContain('teams/_.json');
+      expectNothingEscaped();
+    });
+
+    const withKey = (key: string): Record<string, unknown> => ({
+      meta: { generated: '2026-08-31' },
+      teams: [{ owner: 'AJ Boorde' }],
+      league: {},
+      news: {},
+      history: { [key]: { value: 1 } },
+    });
+
+    test('never writes outside the target directory', () => {
+      shred(withKey('../../escaped'), target);
+
+      expectNothingEscaped();
+    });
+
+    test('a deeper climb does not escape either', () => {
+      shred(withKey('../../../escaped'), target);
+
+      expectNothingEscaped();
+    });
+
+    test('an unknown body climbing out of the root does not escape', () => {
+      shred(
+        {
+          meta: { generated: '2026-08-31' },
+          teams: [{ owner: 'AJ Boorde' }],
+          league: {},
+          news: {},
+          history: {},
+          '../../..': { escaped: 1 },
+        },
+        target
+      );
+
+      expectNothingEscaped();
+    });
+
+    test('every file it reports is inside the target directory', () => {
+      const result: ShredResult = shred(withKey('../../../etc/cron.d/x'), target);
+
+      for (const file of result.files) {
+        const full: string = path.resolve(target, file.path);
+        expect(full.startsWith(path.resolve(target) + path.sep)).toBe(true);
+      }
+    });
+
+    test('an absolute key does not become an absolute path', () => {
+      shred(withKey('/etc/passwd'), target);
+
+      expect(fs.readFileSync('/etc/passwd', 'utf8')).toMatch(/root/);
+    });
+
+    test('flattens a separator in a key rather than nesting on it', () => {
+      const result: ShredResult = shred(withKey('a/b'), target);
+
+      expect(result.files.some((f) => f.path.includes('..'))).toBe(false);
+      for (const file of result.files) {
+        expect(fs.existsSync(path.join(target, file.path))).toBe(true);
+      }
+    });
+
+    test('an unknown body with a traversing name stays inside too', () => {
+      const artifact: Record<string, unknown> = {
+        meta: { generated: '2026-08-31' },
+        teams: [{ owner: 'AJ Boorde' }],
+        league: {},
+        news: {},
+        history: {},
+        '../evil': { a: 1 },
+      };
+
+      const result: ShredResult = shred(artifact, target);
+
+      expect(result.undocumented).toContain('../evil');
+      for (const file of result.files) {
+        const full: string = path.resolve(target, file.path);
+        expect(full.startsWith(path.resolve(target) + path.sep)).toBe(true);
+      }
+    });
+
+    test('still writes the ordinary keys under their own names', () => {
+      const result: ShredResult = shred(withKey('seasons'), target);
+
+      expect(result.files.some((f) => f.path === 'history/seasons.json')).toBe(true);
+      expect(fs.existsSync(path.join(target, 'history/seasons.json'))).toBe(true);
+    });
+  });
+});
