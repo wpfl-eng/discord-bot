@@ -92,6 +92,78 @@ describe('ticker', () => {
     test('says something even before the first tool call', () => {
       expect(createTicker().render().trim().length).toBeGreaterThan(0);
     });
+
+    /**
+     * Steps settle by tool_use id (log Stage 14, decision 6). Under parallel
+     * tool calls the results come back in completion order, and on a resumed
+     * session the stream may replay results for calls this ticker never saw.
+     */
+    describe('settling by id', () => {
+      const line = (rendered: string, needle: string): string =>
+        rendered.split('\n').find((l) => l.includes(needle)) ?? '';
+
+      test('settles the step whose id matches, not the oldest one', () => {
+        const ticker: Ticker = createTicker();
+        ticker.onToolCall('Read', 'a');
+        ticker.onToolInput('{"file_path":"first.json"}');
+        ticker.onToolCall('Read', 'b');
+        ticker.onToolInput('{"file_path":"second.json"}');
+
+        ticker.onToolSettled('b');
+
+        const rendered: string = ticker.render();
+        expect(line(rendered, 'second.json')).toContain('✓');
+        expect(line(rendered, 'first.json')).not.toContain('✓');
+      });
+
+      test('ignores an id it never issued, as a replayed history would carry', () => {
+        const ticker: Ticker = createTicker();
+        ticker.onToolCall('Read', 'a');
+        ticker.onToolInput('{"file_path":"first.json"}');
+
+        ticker.onToolSettled('stale-from-last-week');
+
+        expect(line(ticker.render(), 'first.json')).not.toContain('✓');
+      });
+
+      test('settles the oldest unsettled step when no id is available', () => {
+        const ticker: Ticker = createTicker();
+        ticker.onToolCall('Read');
+        ticker.onToolInput('{"file_path":"first.json"}');
+        ticker.onToolCall('Read');
+        ticker.onToolInput('{"file_path":"second.json"}');
+
+        ticker.onToolSettled(null);
+
+        const rendered: string = ticker.render();
+        expect(line(rendered, 'first.json')).toContain('✓');
+        expect(line(rendered, 'second.json')).not.toContain('✓');
+      });
+
+      test('shows a failed step with its reason, so a denial is legible', () => {
+        const ticker: Ticker = createTicker();
+        ticker.onToolCall('WebFetch', 'a');
+        ticker.onToolInput('{"url":"https://example.com/x"}');
+
+        ticker.onToolSettled('a', "I don't open links from hosts I don't know.");
+
+        const rendered: string = ticker.render();
+        expect(line(rendered, 'WebFetch')).toContain('✗');
+        expect(line(rendered, 'WebFetch')).toContain("hosts I don't know");
+        expect(line(rendered, 'WebFetch')).not.toContain('✓');
+      });
+
+      test('the collapsed trace marks the step that failed', () => {
+        const ticker: Ticker = createTicker();
+        ticker.onToolCall('mcp__wpfl__sql', 'a');
+        ticker.onToolSettled('a', 'Parser Error');
+        ticker.onToolCall('mcp__wpfl__sql', 'b');
+        ticker.onToolSettled('b');
+        ticker.onText('The answer.');
+
+        expect(ticker.render()).toMatch(/sql ✗ → sql/);
+      });
+    });
   });
 
   describe('when the prose starts', () => {

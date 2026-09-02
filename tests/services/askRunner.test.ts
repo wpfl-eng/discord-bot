@@ -45,6 +45,16 @@ const assistant = (): Message => ({
   message: { id: 'm1', content: [] },
 });
 
+/** The tool's result, as the SDK delivers it: a user message carrying a tool_result block. */
+const toolResult = (id: string, text: string, isError = false): Message => ({
+  type: 'user',
+  session_id: 's1',
+  message: {
+    role: 'user',
+    content: [{ type: 'tool_result', tool_use_id: id, content: text, is_error: isError }],
+  },
+});
+
 const success = (over: Message = {}): Message => ({
   type: 'result',
   subtype: 'success',
@@ -65,8 +75,8 @@ function recorder(): { events: string[]; sink: Parameters<typeof runAsk>[1] } {
   return {
     events,
     sink: {
-      onToolCall: (name: string): void => {
-        events.push(`tool:${name}`);
+      onToolCall: (name: string, id: string | null): void => {
+        events.push(`tool:${name}:${id ?? '-'}`);
       },
       onToolInput: (fragment: string): void => {
         events.push(`input:${fragment}`);
@@ -77,8 +87,8 @@ function recorder(): { events: string[]; sink: Parameters<typeof runAsk>[1] } {
       onText: (chunk: string): void => {
         events.push(`text:${chunk}`);
       },
-      onToolSettled: (): void => {
-        events.push('settled');
+      onToolSettled: (id: string | null, error?: string): void => {
+        events.push(error === undefined ? `settled:${id ?? '-'}` : `settled:${id ?? '-'}:${error}`);
       },
       onQueued: (position: number): void => {
         events.push(`queued:${position}`);
@@ -242,9 +252,11 @@ describe('askRunner', () => {
           toolStart('Read'),
           delta({ type: 'input_json_delta', partial_json: '{"file_path":"INDEX.md"}' }),
           assistant(),
+          toolResult('tu1', '# WPFL data index'),
           delta({ type: 'thinking_delta', thinking: 'comparing his WR spend' }),
           toolStart('mcp__wpfl__sql'),
           assistant(),
+          toolResult('tu1', '[{"owner":"Jimmy Simpson"}]'),
           delta({ type: 'text_delta', text: 'Jimmy paid ' }),
           delta({ type: 'text_delta', text: '$54 for Drake London.' }),
           success(),
@@ -252,14 +264,85 @@ describe('askRunner', () => {
       );
 
       expect(events).toEqual([
-        'tool:Read',
+        'tool:Read:tu1',
         'input:{"file_path":"INDEX.md"}',
-        'settled',
+        'settled:tu1',
         'think:comparing his WR spend',
-        'tool:mcp__wpfl__sql',
-        'settled',
+        'tool:mcp__wpfl__sql:tu1',
+        'settled:tu1',
         'text:Jimmy paid ',
         'text:$54 for Drake London.',
+      ]);
+    });
+
+    /**
+     * Measured live (log Stage 14): the SDK emits an assistant message per
+     * content block, so the one carrying a tool_use arrives before the tool
+     * runs. Settling on it showed ✓ on a SQL query for the whole twenty
+     * seconds it executed. The result is a user message with a tool_result
+     * block, matched by id.
+     */
+    test('settles a step on its tool result, not on the assistant message that issued it', async () => {
+      const { events, sink } = recorder();
+
+      await runAsk(
+        REQUEST,
+        sink,
+        stream([toolStart('mcp__wpfl__sql'), assistant(), toolResult('tu1', 'rows'), success()])
+      );
+
+      expect(events).toEqual(['tool:mcp__wpfl__sql:tu1', 'settled:tu1']);
+    });
+
+    test('reports a tool error by its first line, which is what a denial reads as', async () => {
+      const { events, sink } = recorder();
+
+      await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          toolStart('WebFetch'),
+          toolResult('tu1', "I don't open links from hosts I don't know.\nSecond line.", true),
+          success(),
+        ])
+      );
+
+      expect(events).toEqual([
+        'tool:WebFetch:tu1',
+        "settled:tu1:I don't open links from hosts I don't know.",
+      ]);
+    });
+
+    test('reads a tool result whose content is a list of text blocks', async () => {
+      const { events, sink } = recorder();
+
+      await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          toolStart('mcp__wpfl__sql'),
+          {
+            type: 'user',
+            session_id: 's1',
+            message: {
+              role: 'user',
+              content: [
+                {
+                  type: 'tool_result',
+                  tool_use_id: 'tu1',
+                  is_error: true,
+                  content: [{ type: 'text', text: 'Parser Error: syntax error at end of input' }],
+                },
+              ],
+            },
+          },
+          success(),
+        ])
+      );
+
+      expect(events).toEqual([
+        'tool:mcp__wpfl__sql:tu1',
+        'settled:tu1:Parser Error: syntax error at end of input',
       ]);
     });
 

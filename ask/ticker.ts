@@ -41,8 +41,12 @@ export interface Ticker extends AskSink {
 
 interface Step {
   readonly tool: string;
+  /** The tool_use id, when the stream carried one; what a result is matched by. */
+  readonly id: string | null;
   input: string;
   settled: boolean;
+  /** The first line of the result when it came back as an error. */
+  error: string | null;
 }
 
 export function createTicker(): Ticker {
@@ -58,8 +62,8 @@ export function createTicker(): Ticker {
   };
 
   return {
-    onToolCall(name: string): void {
-      steps.push({ tool: readableName(name), input: '', settled: false });
+    onToolCall(name: string, id: string | null = null): void {
+      steps.push({ tool: readableName(name), id, input: '', settled: false, error: null });
       notify();
     },
 
@@ -80,9 +84,16 @@ export function createTicker(): Ticker {
       notify();
     },
 
-    onToolSettled(): void {
-      const step: Step | undefined = [...steps].reverse().find((s) => !s.settled);
-      if (step !== undefined) step.settled = true;
+    onToolSettled(id: string | null = null, error?: string): void {
+      // By id when there is one: under parallel calls results arrive in
+      // completion order, and a resumed session can replay results for calls
+      // this ticker never issued -- those match nothing and are ignored.
+      // Without an id, the oldest unsettled step is the one that finished.
+      const step: Step | undefined =
+        id === null ? steps.find((s) => !s.settled) : steps.find((s) => s.id === id && !s.settled);
+      if (step === undefined) return;
+      step.settled = true;
+      step.error = error ?? null;
       notify();
     },
 
@@ -143,7 +154,7 @@ function working(steps: Step[], reasoning: string | null, queuedAt: number | nul
   }
 
   for (const step of steps) {
-    lines.push(`> ${step.settled ? '✓' : '▸'} ${describe(step)}`);
+    lines.push(`> ${glyph(step)} ${describe(step)}`);
   }
   if (reasoning !== null && reasoning !== '') {
     lines.push(`> … _${truncate(reasoning, 160)}_`);
@@ -155,13 +166,21 @@ function working(steps: Step[], reasoning: string | null, queuedAt: number | nul
 /** Once prose starts, the whole tool list becomes one line of provenance. */
 function trace(steps: Step[]): string {
   if (steps.length === 0) return '🤖 **CommishBot**';
-  const names: string = steps.map((s) => s.tool).join(' → ');
+  const names: string = steps.map((s) => (s.error === null ? s.tool : `${s.tool} ✗`)).join(' → ');
   return `> _${steps.length} tool call${steps.length === 1 ? '' : 's'}: ${truncate(names, 180)}_`;
+}
+
+function glyph(step: Step): string {
+  if (!step.settled) return '▸';
+  return step.error === null ? '✓' : '✗';
 }
 
 function describe(step: Step): string {
   const argument: string | null = firstArgument(step.input);
-  return argument === null ? step.tool : `${step.tool} ${truncate(argument, 90)}`;
+  const call: string = argument === null ? step.tool : `${step.tool} ${truncate(argument, 90)}`;
+  // A failed step carries its reason: a hook denial was written to be read,
+  // and a parser error explains the retry that follows it.
+  return step.error === null ? call : `${call} — ${truncate(step.error, 80)}`;
 }
 
 /**

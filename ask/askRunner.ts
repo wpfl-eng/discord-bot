@@ -60,12 +60,17 @@ export const OPS_FAILURES: ReadonlySet<SDKAssistantMessageError> =
 
 /** Everything the runner emits while it works. The ticker renders these. */
 export interface AskSink {
-  onToolCall(name: string): void;
+  /** @param id the tool_use id, so the result can be matched to the call. */
+  onToolCall(name: string, id?: string | null): void;
   onToolInput(fragment: string): void;
   onReasoning(summary: string): void;
   onText(chunk: string): void;
-  /** The tool call that was in flight has finished. */
-  onToolSettled(): void;
+  /**
+   * A tool result arrived. Matched by id; `error` is the first line of the
+   * result when it came back as an error, which is what a hook denial reads
+   * as, and undefined otherwise.
+   */
+  onToolSettled(id?: string | null, error?: string): void;
   onQueued(position: number): void;
 }
 
@@ -200,8 +205,14 @@ function consume(
     };
   }
 
-  if (message.type === 'assistant') {
-    sink.onToolSettled();
+  // A tool settles when its result arrives, which the SDK delivers as a user
+  // message carrying tool_result blocks. Not on the assistant message: with
+  // partial messages the SDK emits one per content block, so the one carrying
+  // a tool_use lands before the tool has run (measured, log Stage 14).
+  if (message.type === 'user') {
+    for (const result of toolResults(message.message)) {
+      sink.onToolSettled(result.id, result.error);
+    }
     return null;
   }
 
@@ -209,12 +220,12 @@ function consume(
 
   const event = message.event as {
     type?: string;
-    content_block?: { type?: string; name?: string };
+    content_block?: { type?: string; name?: string; id?: string };
     delta?: { type?: string; partial_json?: string; thinking?: string; text?: string };
   };
 
   if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-    sink.onToolCall(event.content_block.name ?? 'tool');
+    sink.onToolCall(event.content_block.name ?? 'tool', event.content_block.id ?? null);
     return null;
   }
 
@@ -231,6 +242,41 @@ function consume(
   }
 
   return null;
+}
+
+interface SettledTool {
+  readonly id: string | null;
+  readonly error?: string;
+}
+
+/** The tool_result blocks in a user message, with the first line of any error. */
+function toolResults(message: unknown): SettledTool[] {
+  const content: unknown = (message as { content?: unknown } | null)?.content;
+  if (!Array.isArray(content)) return [];
+
+  const settled: SettledTool[] = [];
+  for (const block of content as {
+    type?: string;
+    tool_use_id?: string;
+    is_error?: boolean;
+    content?: unknown;
+  }[]) {
+    if (block.type !== 'tool_result') continue;
+    const id: string | null = typeof block.tool_use_id === 'string' ? block.tool_use_id : null;
+    settled.push(block.is_error === true ? { id, error: firstLine(block.content) } : { id });
+  }
+  return settled;
+}
+
+/** A tool result's text is a string or a list of text blocks. */
+function firstLine(content: unknown): string {
+  const text: string =
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? (content as { text?: string }[]).map((block) => block.text ?? '').join(' ')
+        : '';
+  return text.split('\n')[0].trim() || 'Tool returned an error.';
 }
 
 function buildOptions(request: AskRequest, signal: AbortSignal): Options {
