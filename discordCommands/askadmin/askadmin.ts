@@ -8,9 +8,10 @@
  * exist to be read. `pause` and `resume` are the incident switch, from a
  * phone, for the design's highest-ranked failure.
  *
- * Gated by Discord itself: the builder's default member permission hides the
- * command from everyone without Administrator, and a server admin can widen
- * that per channel or role in Server Settings without a code change.
+ * Gated twice. Discord's default member permission hides the command from
+ * everyone without Administrator, which a server admin can widen or narrow in
+ * Server Settings without a code change; and the command itself answers only
+ * ASK.ADMIN_USER_IDS, which nothing in the Discord UI can change.
  */
 
 import {
@@ -86,6 +87,15 @@ export interface AskUsage {
 const RECENT = 5;
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!ASK.ADMIN_USER_IDS.includes(interaction.user.id)) {
+    // Worth a line in the log: the command is already hidden from everyone
+    // without Administrator, so whoever this is holds that and is not the
+    // commish.
+    console.warn(`[ASK] /ask-admin refused for user ${interaction.user.id}`);
+    await interaction.reply({ content: "That one's for the commish.", ephemeral: true });
+    return;
+  }
+
   await interaction.deferReply({ ephemeral: true });
 
   let content: string;

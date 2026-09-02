@@ -17,6 +17,7 @@ jest.unstable_mockModule('../../wpfl/artifactSync.js', () => ({
 const { data, execute, renderStatus, renderUsage, renderSync } =
   await import('../../discordCommands/askadmin/askadmin.js');
 const { isAskPaused, setAskPaused } = await import('../../ask/pause.js');
+const { ASK } = await import('../../ask/askConfig.js');
 const artifactSync = await import('../../wpfl/artifactSync.js');
 
 /**
@@ -114,9 +115,11 @@ describe('/ask-admin', () => {
   });
 
   describe('execute', () => {
-    const interaction = (subcommand: string): never =>
+    const interaction = (subcommand: string, userId: string = ASK.ADMIN_USER_IDS[0]): never =>
       ({
         options: { getSubcommand: (): string => subcommand },
+        user: { id: userId },
+        reply: jest.fn(async () => undefined),
         deferReply: jest.fn(async () => undefined),
         editReply: jest.fn(async () => undefined),
       }) as never;
@@ -124,6 +127,30 @@ describe('/ask-admin', () => {
     beforeEach(() => {
       setAskPaused(false);
       jest.clearAllMocks();
+    });
+
+    /**
+     * Administrator only hides the command, and any server admin can hand it
+     * out from Server Settings. The pause switch is the commish's, so the
+     * command checks the user id itself, before it does anything at all.
+     */
+    test('refuses anyone but the commish, ephemerally, before deferring or acting', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const i = interaction('pause', '999999999999999999');
+
+      await execute(i);
+
+      expect(isAskPaused()).toBe(false);
+      expect((i as { reply: jest.Mock }).reply).toHaveBeenCalledWith(
+        expect.objectContaining({ ephemeral: true, content: expect.stringMatching(/commish/i) })
+      );
+      expect((i as { deferReply: jest.Mock }).deferReply).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('999999999999999999'));
+      warn.mockRestore();
+    });
+
+    test('the commish is the one id in the allowlist', () => {
+      expect(ASK.ADMIN_USER_IDS).toEqual(['120231673722830849']);
     });
 
     test('pause and resume flip the switch the /ask entry points read', async () => {

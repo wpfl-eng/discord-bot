@@ -84,7 +84,7 @@ npm run format:check
 | Command | Options | Notes |
 | --- | --- | --- |
 | `/ask` | `question` (required) | Open-ended questions about the league, answered in a public thread |
-| `/ask-admin` | `status` / `resync` / `usage` / `pause` / `resume` | Commissioner controls; hidden from everyone without Administrator |
+| `/ask-admin` | `status` / `resync` / `usage` / `pause` / `resume` | Commissioner controls; hidden from everyone without Administrator, and answered only for the commish's user id |
 
 `/ask` opens a thread on the answer and streams a live ticker of what it is doing — which file it
 read, which query it ran, what it is currently reasoning about — then the answer itself, with a

@@ -114,6 +114,14 @@ export const ASK = {
   TICKER_EDIT_THROTTLE_MS: 1500, // Discord allows ~5 edits / 5 s per channel
   THREAD_AUTO_ARCHIVE: ThreadAutoArchiveDuration.OneDay,
 
+  // ---- Who may run /ask-admin ----
+  // Discord's Administrator permission only hides the command, and any server
+  // admin can widen that from the UI. This is the check nothing in the UI can
+  // undo: the pause switch and the resync are the commish's, not whoever
+  // happens to hold a role. The id is the one constants/wpflMembers.ts maps
+  // to AJ Boorde.
+  ADMIN_USER_IDS: ['120231673722830849'] as readonly string[],
+
   // ---- WebFetch host allowlist (design §10.4) ----
   // A pasted beat-writer link is among the most natural things anyone will do
   // with this feature, so the guard is an allowlist rather than a blanket
