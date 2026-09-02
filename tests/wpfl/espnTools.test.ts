@@ -125,10 +125,87 @@ describe('espnTools', () => {
       });
     });
 
+    // This asserted that 'TQB' found Baker Mayfield: the recording carries the
+    // fork's slot label for him, and the test had encoded the bug below.
     test('filters by position when asked', () => {
       expect(toFreeAgents(recording, 'D/ST').map((p) => p.name)).toEqual(['Browns D/ST']);
-      expect(toFreeAgents(recording, 'TQB').map((p) => p.name)).toEqual(['Baker Mayfield']);
+      expect(toFreeAgents(recording, 'QB').map((p) => p.name)).toEqual(['Baker Mayfield']);
+      expect(toFreeAgents(recording, 'TQB')).toEqual([]);
       expect(toFreeAgents(recording, 'RB')).toEqual([]);
+    });
+
+    /**
+     * Measured live, 2026-09-02 (log Stage 14): the fork's `defaultPosition`
+     * is the *slot* whose id equals the player's position id, so the free
+     * agent pool comes back as {TQB, RB, RB/WR, WR, WR/TE, D/ST} -- a real
+     * WR is labelled RB/WR, a real TE is labelled WR, a kicker WR/TE. The
+     * first live question asked for WRs and was handed Hunter Henry, Kenyon
+     * Sadiq, Dalton Schultz and Pat Freiermuth. `eligiblePositions` still
+     * carries the bare position, so that is what the tools read.
+     */
+    describe('the position comes from eligiblePositions, not the slot label', () => {
+      const probe = (
+        fullName: string,
+        defaultPosition: string,
+        eligiblePositions: (string | null)[],
+        percentOwned: number
+      ) => ({
+        ...recording[0],
+        fullName,
+        defaultPosition,
+        eligiblePositions,
+        percentOwned,
+      });
+      const pool = [
+        probe('Hunter Henry', 'WR', ['WR/TE', 'TE', 'RB/WR/TE', 'OP', 'Bench', 'IR'], 57.7),
+        probe('Marvin Mims', 'RB/WR', ['WR', 'WR/TE', 'RB/WR', 'RB/WR/TE', 'OP', 'Bench'], 40.2),
+        probe('Baker Mayfield', 'TQB', ['QB', 'OP'], 60.8),
+        probe('Jake Elliott', 'WR/TE', ['K', 'Bench'], 30.1),
+        probe('Bucky Irving', 'RB', ['RB', 'RB/WR', 'RB/WR/TE', 'Bench'], 88.0),
+        probe('Browns D/ST', 'D/ST', ['D/ST', 'Bench'], 12.0),
+      ];
+
+      test('labels each player by their bare position', () => {
+        const positions: Record<string, string> = Object.fromEntries(
+          toFreeAgents(pool).map((p) => [p.name, p.position])
+        );
+
+        expect(positions).toEqual({
+          'Hunter Henry': 'TE',
+          'Marvin Mims': 'WR',
+          'Baker Mayfield': 'QB',
+          'Jake Elliott': 'K',
+          'Bucky Irving': 'RB',
+          'Browns D/ST': 'D/ST',
+        });
+      });
+
+      test('a WR filter returns receivers, not the tight ends the slot label points at', () => {
+        expect(toFreeAgents(pool, 'WR').map((p) => p.name)).toEqual(['Marvin Mims']);
+        expect(toFreeAgents(pool, 'TE').map((p) => p.name)).toEqual(['Hunter Henry']);
+      });
+
+      test('falls back to the label when no bare position is listed', () => {
+        const odd = [probe('Mystery', 'FLEX', ['RB/WR/TE', null], 1)];
+
+        expect(toFreeAgents(odd)[0].position).toBe('FLEX');
+      });
+
+      test('roster entries are labelled the same way', () => {
+        const teams = toTeams([
+          {
+            ...recording[0],
+            id: 4,
+            wins: 0,
+            losses: 0,
+            ties: 0,
+            playoffSeed: 1,
+            roster: [probe('Baker Mayfield', 'TQB', ['QB', 'OP'], 60.8)],
+          } as never,
+        ]);
+
+        expect(teams[0].roster[0].position).toBe('QB');
+      });
     });
 
     test('matches a position case-insensitively', () => {

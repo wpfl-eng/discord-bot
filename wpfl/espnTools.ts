@@ -93,6 +93,29 @@ export interface TransactionSummary {
   readonly bidAmount: number;
 }
 
+/**
+ * A player's bare position, from `eligiblePositions`.
+ *
+ * Measured live (log Stage 14): the fork's `defaultPosition` is the *slot*
+ * whose id happens to equal the player's position id, so a real WR arrives
+ * labelled RB/WR, a real TE labelled WR, a kicker WR/TE and a QB TQB. The
+ * first live question asked for wide receivers and was handed four tight
+ * ends. The eligible-slot list still carries the bare position -- a TE's
+ * has TE and never a bare WR -- so it is read in a fixed order, with the
+ * label as the fallback for a shape nobody has seen.
+ */
+const BARE_POSITIONS: readonly string[] = ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST'];
+
+function positionOf(player: {
+  readonly defaultPosition: string;
+  readonly eligiblePositions?: readonly (string | null)[];
+}): string {
+  const eligible = new Set<string>(
+    (player.eligiblePositions ?? []).filter((slot): slot is string => typeof slot === 'string')
+  );
+  return BARE_POSITIONS.find((position) => eligible.has(position)) ?? player.defaultPosition;
+}
+
 export function toTeams(teams: readonly Team[]): TeamSummary[] {
   return teams.map((team) => ({
     espnId: team.id,
@@ -135,10 +158,11 @@ export function toFreeAgents(
   // A FreeAgentPlayer extends Player on the fork, so the player fields sit on
   // the entry itself alongside its stat blocks.
   return entries
-    .filter((entry) => wanted === undefined || entry.defaultPosition.toLowerCase() === wanted)
-    .map((entry) => ({
+    .map((entry) => ({ entry, position: positionOf(entry) }))
+    .filter(({ position }) => wanted === undefined || position.toLowerCase() === wanted)
+    .map(({ entry, position }) => ({
       name: entry.fullName,
-      position: entry.defaultPosition,
+      position,
       proTeam: entry.proTeamAbbreviation ?? null,
       percentOwned: entry.percentOwned ?? null,
       percentChange: entry.percentChange ?? null,
@@ -170,7 +194,7 @@ export function toTransactions(topics: readonly ActivityAction[][]): Transaction
 function toRosterEntry(player: Player): RosterEntry {
   return {
     name: player.fullName,
-    position: player.defaultPosition,
+    position: positionOf(player),
     proTeam: player.proTeamAbbreviation ?? null,
     injuryStatus: player.injuryStatus ?? null,
     percentOwned: player.percentOwned ?? null,
