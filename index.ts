@@ -18,11 +18,7 @@ import { loadApplicationEmojis } from './emoji/emojiRegistry.js';
 import { runStartupRefundSweep } from './economy/startupSweep.js';
 import { restoreCasinoTables } from './casino/casinoBoot.js';
 
-import {
-  continueThread,
-  checkIdentityMapping,
-  onThreadArchived,
-} from './discordCommands/ask/ask.js';
+import { continueThread, checkIdentityMapping, onThreadArchived } from './ask/thread.js';
 import { ensureFresh } from './wpfl/artifactSync.js';
 import { warmSqlDatabase } from './wpfl/sqlTool.js';
 import { credentialConfigured } from './ask/askAuth.js';
@@ -97,8 +93,9 @@ async function verifyIdentityMapping(bot: Client): Promise<void> {
 
 /**
  * Fetch the artifact if the shred is stale, then build the SQL database in the
- * background so the first question after a boot does not pay for it. A stale
- * shred still answers.
+ * background so the first question after a boot does not pay for it. A reshred
+ * starts that build itself and this call joins it; a shred that was already
+ * fresh has nothing running yet. A stale shred still answers.
  */
 async function syncArtifactAtBoot(): Promise<void> {
   try {

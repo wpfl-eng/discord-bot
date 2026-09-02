@@ -35,6 +35,8 @@ import prettier from 'prettier';
 import { ASK } from '../ask/askConfig.js';
 import { espnClientFromEnv } from '../helpers/espnPeriod.js';
 import { getCurrentNFLSeason } from '../helpers/utils.js';
+import { errorMessage } from '../errors/errorHandler.js';
+import { fetchJsonArray, fetchWithTimeout, type HttpResponse } from '../wpfl/wpflHttp.js';
 
 // The URLs come from askConfig rather than being restated here. The whole point
 // of this script is that the fixtures match what the bot actually fetches, and a
@@ -85,11 +87,11 @@ function trim(value: Json, depth: number, keep: number = KEEP): Json {
 }
 
 async function fetchPublished(): Promise<Json> {
-  const response: Response = await fetch(ARTIFACT_URL);
+  const response: HttpResponse = await fetchWithTimeout(ARTIFACT_URL, fetch, 'The artifact fetch');
   if (!response.ok) {
     throw new Error(`${ARTIFACT_URL} returned ${response.status}`);
   }
-  console.log(`published etag ${response.headers.get('etag') ?? 'none'}`);
+  console.log(`published etag ${response.headers?.get('etag') ?? 'none'}`);
   return (await response.json()) as Json;
 }
 
@@ -152,13 +154,13 @@ const WPFL_RECORDINGS: readonly (readonly [string, string])[] = [
 ];
 
 for (const [name, url] of WPFL_RECORDINGS) {
-  const response: Response = await fetch(url);
-  if (!response.ok) {
-    console.log(`skipped ${name}: ${url} returned ${response.status}`);
-    continue;
-  }
+  // The bot's own fetch path, so a recording is of what the bot would see.
   // One row per owner, so these are small enough to keep whole.
-  await write(name, (await response.json()) as Json);
+  try {
+    await write(name, await fetchJsonArray<Json>(url, {}, fetch));
+  } catch (error: unknown) {
+    console.log(`skipped ${name}: ${errorMessage(error)}`);
+  }
 }
 
 const client = espnClientFromEnv();

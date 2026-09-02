@@ -15,7 +15,7 @@ import { leagueDate } from '../ask/leagueTime.js';
 
 export const indexFile = (dataDir: string): string => path.join(dataDir, 'INDEX.md');
 export const metaFile = (dataDir: string): string => path.join(dataDir, 'meta.json');
-export const newsAsOfFile = (dataDir: string): string => path.join(dataDir, 'news', 'as_of.json');
+const newsAsOfFile = (dataDir: string): string => path.join(dataDir, 'news', 'as_of.json');
 export const etagFile = (dataDir: string): string => path.join(dataDir, '.etag');
 export const cacheDir = (dataDir: string): string => path.join(dataDir, 'wpfl');
 /** Written by the cache refresh into the cache directory; holds the ISO instant of the last fetch. */

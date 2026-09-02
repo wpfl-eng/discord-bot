@@ -39,6 +39,15 @@ const BODY_PLANS: Record<string, BodyPlan> = {
   market: { kind: 'dict', required: false },
 };
 
+/**
+ * Bodies shredded to one file per owner. The SQL tool reads each as one table
+ * across its files rather than fourteen, and INDEX.md describes each with one
+ * line. Derived from the plans, so a second such body needs no second list.
+ */
+export const PER_OWNER_BODIES: readonly string[] = Object.entries(BODY_PLANS)
+  .filter(([, plan]: [string, BodyPlan]): boolean => plan.kind === 'list-by-owner')
+  .map(([body]: [string, BodyPlan]): string => body);
+
 /** Not a body: deploy.sh publishes `{"available": True, **art}` to mirror the FastAPI shape. */
 const IGNORED_KEYS: ReadonlySet<string> = new Set(['available']);
 

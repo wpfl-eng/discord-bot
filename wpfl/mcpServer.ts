@@ -8,10 +8,11 @@
  * reaches them through their declared schemas and nothing else.
  */
 
-import { createSdkMcpServer, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { sqlTool } from './sqlTool.js';
 import { wpflApiTools } from './wpflApiTools.js';
 import { espnTools } from './espnTools.js';
+import type { AnyTool } from './toolResult.js';
 
 /**
  * All eight schemas ride in the initial prompt. Tool search is on by default
@@ -21,10 +22,7 @@ import { espnTools } from './espnTools.js';
  * together serialise to about two thousand tokens, cached after the first
  * turn. Declared once, on the server, rather than per tool (log Stage 14).
  */
-// See the note in wpflApiTools.ts on why this collection is typed as the
-// library types its own.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const wpflTools: SdkMcpToolDefinition<any>[] = [sqlTool, ...wpflApiTools, ...espnTools];
+export const wpflTools: AnyTool[] = [sqlTool, ...wpflApiTools, ...espnTools];
 
 /**
  * The server's name is also the `mcpServers` key the runner registers it under

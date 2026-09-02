@@ -1,37 +1,30 @@
 import { describe, test, expect } from '@jest/globals';
-import fs from 'node:fs';
-import path from 'node:path';
 import {
   fetchExpectedWins,
   fetchOptimalCoaching,
   fetchDraftedPoints,
   wpflApiTools,
-  toToolResult,
 } from '../../wpfl/wpflApiTools.js';
+import { toToolResult } from '../../wpfl/toolResult.js';
 import type { FetchFn, HttpResponse } from '../../wpfl/wpflHttp.js';
-
-const load = (name: string): unknown =>
-  JSON.parse(fs.readFileSync(path.join(process.cwd(), 'tests/fixtures', name), 'utf8'));
+import { fakeResponse, loadFixture } from './support.js';
 
 /** Answers with a recording and remembers the URL it was asked for. */
 function replay(body: unknown, seen: string[] = []): FetchFn {
   return async (url: string): Promise<HttpResponse> => {
     seen.push(url);
-    return { ok: true, status: 200, json: async (): Promise<unknown> => body };
+    return fakeResponse({ body });
   };
 }
 
 const failing =
   (status: number): FetchFn =>
-  async (): Promise<HttpResponse> => ({
-    ok: false,
-    status,
-    json: async (): Promise<unknown> => null,
-  });
+  async (): Promise<HttpResponse> =>
+    fakeResponse({ status });
 
 describe('wpflApiTools', () => {
   describe('expected_wins', () => {
-    const recording = load('wpfl-expected-wins.json');
+    const recording = loadFixture('wpfl-expected-wins.json');
 
     test('returns the rows the API returned, unchanged', async () => {
       const rows = await fetchExpectedWins({ season: 2024 }, replay(recording));
@@ -79,7 +72,7 @@ describe('wpflApiTools', () => {
   });
 
   describe('optimal_coaching', () => {
-    const recording = load('wpfl-optimal-coaching.json');
+    const recording = loadFixture('wpfl-optimal-coaching.json');
 
     test('returns actual against optimal points for every owner', async () => {
       const rows = await fetchOptimalCoaching({ season: 2024, week: 16 }, replay(recording));
@@ -112,7 +105,7 @@ describe('wpflApiTools', () => {
   });
 
   describe('drafted_points', () => {
-    const recording = load('wpfl-drafted-points.json');
+    const recording = loadFixture('wpfl-drafted-points.json');
 
     test('returns drafted points per owner', async () => {
       const rows = await fetchDraftedPoints(

@@ -24,22 +24,23 @@ import { buildSystemPrompt } from './systemPrompt.js';
 import { createHooks, toolResultText } from './hooks.js';
 import { requestSlot, startDeadline, type Slot } from './concurrency.js';
 import { recordUsage } from './askDb.js';
-import { logError } from '../errors/errorHandler.js';
+import { errorMessage, logError } from '../errors/errorHandler.js';
 import { wpflServer, WPFL_SERVER } from '../wpfl/mcpServer.js';
 import { liveShred } from '../wpfl/liveShred.js';
 import { readAsOf } from '../wpfl/layout.js';
 import { getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
 import type { Release } from './generations.js';
+import type { WpflMember } from '../constants/wpflMembers.js';
 
 export interface AskRequest {
   readonly prompt: string;
   readonly userId: string;
   /** The channel or thread the conversation lives in; the ask_sessions key. */
   readonly threadId: string;
-  readonly owner: string | null;
-  readonly espnId: number | null;
-  /** Present only when continuing an existing thread. */
-  readonly sessionId?: string;
+  /** The league member asking, or null for a Discord user with no mapping. */
+  readonly member: WpflMember | null;
+  /** The SDK session to resume when continuing a thread; null for a fresh one. */
+  readonly sessionId: string | null;
   /** The Discord message the answer lands in, so the ledger row can be joined to feedback. */
   readonly messageId?: string;
 }
@@ -65,7 +66,7 @@ export const OPS_FAILURE_CODES = [
 
 export type OpsFailure = (typeof OPS_FAILURE_CODES)[number];
 
-export const OPS_FAILURES: ReadonlySet<SDKAssistantMessageError> = new Set(OPS_FAILURE_CODES);
+const OPS_FAILURES: ReadonlySet<SDKAssistantMessageError> = new Set(OPS_FAILURE_CODES);
 
 function isOpsFailure(code: SDKAssistantMessageError): code is OpsFailure {
   return OPS_FAILURES.has(code);
@@ -74,7 +75,7 @@ function isOpsFailure(code: SDKAssistantMessageError): code is OpsFailure {
 /** Everything the runner emits while it works. The ticker renders these. */
 export interface AskSink {
   /** @param id the tool_use id, so the result can be matched to the call. */
-  onToolCall(name: string, id?: string | null): void;
+  onToolCall(name: string, id: string): void;
   onToolInput(fragment: string): void;
   onReasoning(summary: string): void;
   onText(chunk: string): void;
@@ -83,7 +84,7 @@ export interface AskSink {
    * result when it came back as an error, which is what a hook denial reads
    * as, and undefined otherwise.
    */
-  onToolSettled(id?: string | null, error?: string): void;
+  onToolSettled(id: string, error?: string): void;
   onQueued(position: number): void;
 }
 
@@ -148,7 +149,7 @@ export async function runAsk(
   const period: NFLPeriod = await getCurrentPeriod();
 
   const state: StreamState = { text: '', thinking: '' };
-  let sessionId: string | null = request.sessionId ?? null;
+  let sessionId: string | null = request.sessionId;
   // From the stream, not from the request: a resumed session id proves
   // nothing about whether this run ever reached the model.
   let sessionObserved = false;
@@ -172,7 +173,7 @@ export async function runAsk(
       if (deadline.expired()) break;
     }
   } catch (error: unknown) {
-    failure = error instanceof Error ? error.message : String(error);
+    failure = errorMessage(error);
     // logError, not console.error: it captures the stack, which is the only
     // thing that distinguishes an SDK abort from a bug in the consumption loop.
     logError('ask', 'query() threw', error);
@@ -345,12 +346,7 @@ function buildOptions(
       `mcp__${WPFL_SERVER}__*`,
     ],
 
-    systemPrompt: buildSystemPrompt({
-      owner: request.owner,
-      espnId: request.espnId,
-      period,
-      asOf: readAsOf(),
-    }),
+    systemPrompt: buildSystemPrompt({ member: request.member, period, asOf: readAsOf() }),
     mcpServers: { [WPFL_SERVER]: wpflServer },
     strictMcpConfig: true,
 
@@ -364,7 +360,7 @@ function buildOptions(
 
     // Left absent rather than set to undefined: whether the SDK treats an
     // explicit `resume: undefined` as "no session" is not documented.
-    ...(request.sessionId === undefined ? {} : { resume: request.sessionId }),
+    ...(request.sessionId === null ? {} : { resume: request.sessionId }),
   };
   return options;
 }

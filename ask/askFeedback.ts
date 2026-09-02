@@ -16,34 +16,24 @@
  * a ledger write that failed; the join to ask_usage.message_id is optional.
  */
 
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  type MessageActionRowComponentBuilder,
-} from 'discord.js';
-import { recordFeedback, feedbackCounts, type FeedbackCounts } from '../../ask/askDb.js';
+import type { ActionRowBuilder, MessageActionRowComponentBuilder } from 'discord.js';
+import { button, row } from '../casino/casinoRender.js';
+import { recordFeedback, feedbackCounts, type FeedbackCounts } from './askDb.js';
 import {
   registerComponentHandler,
   type RoutableInteraction,
-} from '../../interactions/componentRouter.js';
-import { logError } from '../../errors/errorHandler.js';
+} from '../interactions/componentRouter.js';
+import { logError } from '../errors/errorHandler.js';
 
 export const FEEDBACK_PREFIX = 'ask:feedback:';
 
 export function feedbackRow(
   counts: FeedbackCounts
 ): ActionRowBuilder<MessageActionRowComponentBuilder> {
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${FEEDBACK_PREFIX}up`)
-      .setLabel(`👍 ${counts.up}`)
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`${FEEDBACK_PREFIX}down`)
-      .setLabel(`👎 ${counts.down}`)
-      .setStyle(ButtonStyle.Secondary)
-  );
+  return row([
+    button({ id: `${FEEDBACK_PREFIX}up`, label: `👍 ${counts.up}` }),
+    button({ id: `${FEEDBACK_PREFIX}down`, label: `👎 ${counts.down}` }),
+  ]);
 }
 
 export async function handleFeedback(interaction: RoutableInteraction): Promise<void> {

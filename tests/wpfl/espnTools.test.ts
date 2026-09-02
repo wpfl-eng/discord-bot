@@ -1,6 +1,4 @@
 import { describe, test, expect } from '@jest/globals';
-import fs from 'node:fs';
-import path from 'node:path';
 import {
   toTeams,
   toBoxscores,
@@ -9,14 +7,12 @@ import {
   espnTools,
   FREE_AGENT_LIMIT,
 } from '../../wpfl/espnTools.js';
-
-const load = <T>(name: string): T =>
-  JSON.parse(fs.readFileSync(path.join(process.cwd(), 'tests/fixtures', name), 'utf8')) as T;
+import { loadFixture } from './support.js';
 
 describe('espnTools', () => {
   describe('espn_teams', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recording = load<any[]>('espn-teams.json');
+    const recording = loadFixture<any[]>('espn-teams.json');
 
     // The recording was taken on a fork build that returned a blank name; the
     // current build returns real names and owners. The owner still comes from
@@ -89,7 +85,7 @@ describe('espnTools', () => {
 
   describe('espn_boxscores', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recording = load<any[]>('espn-boxscores.json');
+    const recording = loadFixture<any[]>('espn-boxscores.json');
 
     test('names both owners and reports both scores', () => {
       const matchups = toBoxscores(recording);
@@ -112,7 +108,7 @@ describe('espnTools', () => {
 
   describe('espn_free_agents', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recording = load<any[]>('espn-free-agents.json');
+    const recording = loadFixture<any[]>('espn-free-agents.json');
 
     test('projects to the fields that decide a waiver claim', () => {
       const players = toFreeAgents(recording);
@@ -257,7 +253,7 @@ describe('espnTools', () => {
 
   describe('espn_transactions', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recording = load<any[][]>('espn-transactions.json');
+    const recording = loadFixture<any[][]>('espn-transactions.json');
 
     test('flattens topics into individual transactions', () => {
       const moves = toTransactions(recording);
@@ -269,7 +265,7 @@ describe('espnTools', () => {
       const moves = toTransactions(recording);
 
       expect(moves[0]).toEqual({
-        date: '2026-08-31T18:34:36.058Z',
+        date: '2026-08-31 14:34 EDT',
         action: 'FA ADDED',
         owner: 'Jimmy Simpson',
         toOwner: 'Jimmy Simpson',

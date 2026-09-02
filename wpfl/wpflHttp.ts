@@ -26,10 +26,23 @@ export interface HttpResponse {
   json(): Promise<unknown>;
 }
 
-export type FetchFn = (url: string, init?: { signal?: AbortSignal }) => Promise<HttpResponse>;
+/** The request options these callers set; a real fetch takes them as a RequestInit. */
+export interface FetchInit {
+  readonly signal?: AbortSignal;
+  readonly headers?: Readonly<Record<string, string>>;
+}
+
+export type FetchFn = (url: string, init?: FetchInit) => Promise<HttpResponse>;
 
 /** Query values that are `undefined` are omitted rather than sent as "undefined". */
 export type Query = Record<string, string | number | boolean | undefined>;
+
+export interface FetchOptions {
+  /** Defaults to ASK.WPFL_FETCH_TIMEOUT_MS. */
+  readonly timeoutMs?: number;
+  /** Extra request headers, e.g. a conditional `If-None-Match`. */
+  readonly headers?: Readonly<Record<string, string>>;
+}
 
 /**
  * One request with a deadline. Maps the abort onto a readable error and
@@ -42,12 +55,15 @@ export async function fetchWithTimeout(
   url: string,
   fetchFn: FetchFn,
   what: string,
-  timeoutMs: number = ASK.WPFL_FETCH_TIMEOUT_MS
+  options: FetchOptions = {}
 ): Promise<HttpResponse> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? ASK.WPFL_FETCH_TIMEOUT_MS
+  );
   try {
-    return await fetchFn(url, { signal: controller.signal });
+    return await fetchFn(url, { signal: controller.signal, headers: options.headers });
   } catch (error: unknown) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`${what} timed out.`);

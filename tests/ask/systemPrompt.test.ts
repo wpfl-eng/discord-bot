@@ -1,3 +1,4 @@
+import type { WpflMember } from '../../constants/wpflMembers.js';
 import { describe, test, expect } from '@jest/globals';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
 import { buildSystemPrompt, STATIC_PROMPT } from '../../ask/systemPrompt.js';
@@ -22,12 +23,14 @@ const AS_OF: AsOf = {
   cacheFetchedAt: '2026-08-31',
 };
 
+const AJ: WpflMember = { espnId: 4, owner: 'AJ Boorde', discordId: '120231673722830849' };
+const NEILL: WpflMember = { espnId: 11, owner: 'Neill Bullock', discordId: '543421070548664331' };
+
 describe('systemPrompt', () => {
   describe('the cache boundary', () => {
     test('is the SDK marker, as a standalone element between the halves', () => {
       const parts: string[] = buildSystemPrompt({
-        owner: 'AJ Boorde',
-        espnId: 4,
+        member: AJ,
         now: SEPT,
         period: WEEK_1,
         asOf: AS_OF,
@@ -39,15 +42,13 @@ describe('systemPrompt', () => {
 
     test('the static half is byte-identical no matter who is asking or when', () => {
       const one: string[] = buildSystemPrompt({
-        owner: 'AJ Boorde',
-        espnId: 4,
+        member: AJ,
         now: SEPT,
         period: WEEK_1,
         asOf: AS_OF,
       });
       const two: string[] = buildSystemPrompt({
-        owner: 'Neill Bullock',
-        espnId: 11,
+        member: NEILL,
         now: new Date('2026-12-01T00:00:00Z'),
         period: { ...WEEK_1, scoringPeriodId: 13, matchupPeriodId: 13, source: 'calendar' },
         asOf: { ...AS_OF, newsAsOf: '2026-11-30' },
@@ -59,8 +60,7 @@ describe('systemPrompt', () => {
 
     test('everything that varies is after the boundary', () => {
       const parts: string[] = buildSystemPrompt({
-        owner: 'AJ Boorde',
-        espnId: 4,
+        member: AJ,
         now: SEPT,
         period: WEEK_1,
         asOf: AS_OF,
@@ -110,8 +110,7 @@ describe('systemPrompt', () => {
   describe('the per-request half', () => {
     const dynamic = (over: Partial<Parameters<typeof buildSystemPrompt>[0]> = {}): string =>
       buildSystemPrompt({
-        owner: 'AJ Boorde',
-        espnId: 4,
+        member: AJ,
         now: SEPT,
         period: WEEK_1,
         asOf: AS_OF,
@@ -126,7 +125,7 @@ describe('systemPrompt', () => {
     });
 
     test('says plainly when the caller is not a league member', () => {
-      const text: string = dynamic({ owner: null, espnId: null });
+      const text: string = dynamic({ member: null });
 
       expect(text).not.toContain('AJ Boorde');
       expect(text).toMatch(/not.*(mapped|member)|don't know who/i);

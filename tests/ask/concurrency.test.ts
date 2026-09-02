@@ -106,7 +106,7 @@ describe('concurrency', () => {
         jest.advanceTimersByTime(999);
 
         expect(deadline.expired()).toBe(false);
-        expect(deadline.signal.aborted).toBe(false);
+        expect(deadline.controller.signal.aborted).toBe(false);
         deadline.clear();
       } finally {
         jest.useRealTimers();
@@ -121,7 +121,7 @@ describe('concurrency', () => {
         jest.advanceTimersByTime(1001);
 
         expect(deadline.expired()).toBe(true);
-        expect(deadline.signal.aborted).toBe(true);
+        expect(deadline.controller.signal.aborted).toBe(true);
       } finally {
         jest.useRealTimers();
       }
@@ -136,7 +136,7 @@ describe('concurrency', () => {
         jest.advanceTimersByTime(5000);
 
         expect(deadline.expired()).toBe(false);
-        expect(deadline.signal.aborted).toBe(false);
+        expect(deadline.controller.signal.aborted).toBe(false);
       } finally {
         jest.useRealTimers();
       }

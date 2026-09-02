@@ -119,10 +119,12 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `blackjack/`, `craps/`, `redzone/`, `videopoker/` - per-game stats DB modules
 - `ask/` - the `/ask` agent: `askConfig.ts` (all tuning, including model), `askAuth.ts`,
   `askDb.ts`, `askRunner.ts`, `preflight.ts` (pause, credential, caps and freshness, shared by
-  both entry points), `caps.ts`, `leagueTime.ts` (every date the feature shows, in one
-  timezone), `concurrency.ts` (the global slots), `threadQueue.ts` (one run at a time per
-  thread), `hooks.ts`, `systemPrompt.ts`, `ticker.ts`, `pause.ts` (the in-memory kill switch),
-  `mentions.ts`. `discordCommands/ask/askFeedback.ts` holds the 👍/👎 buttons and
+  both entry points), `thread.ts` (the answer pipeline, the messages that continue a thread and
+  the session's lifetime; the slash command and the gateway handlers `index.ts` wires both land
+  here), `askFeedback.ts` (the 👍/👎 buttons), `caps.ts`, `leagueTime.ts` (every date the
+  feature shows, in one timezone), `concurrency.ts` (the global slots), `threadQueue.ts` (one
+  run at a time per thread), `hooks.ts`, `systemPrompt.ts`, `ticker.ts`, `pause.ts` (the
+  in-memory kill switch). `discordCommands/ask/ask.ts` is the slash transport only, and
   `discordCommands/askadmin/` the `/ask-admin` command
 - `wpfl/` - the data layer behind `/ask`: `layout.ts` (every path and marker in the data
   directory, and the as-of reader), artifact fetch and shred, `INDEX.md` generation, the cached

@@ -19,38 +19,26 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
 jest.unstable_mockModule('../../wpfl/artifactSync.js', () => ({
   ensureFresh: jest.fn(async () => ({ kind: 'fresh' })),
 }));
-jest.unstable_mockModule('../../wpfl/sqlTool.js', () => ({
-  warmSqlDatabase: jest.fn(),
-}));
 jest.unstable_mockModule('../../ask/askRunner.js', () => ({
   runAsk: jest.fn(),
-  OPS_FAILURES: new Set([
-    'authentication_failed',
-    'oauth_org_not_allowed',
-    'account_on_hold',
-    'billing_error',
-    'rate_limit',
-    'overloaded',
-  ]),
 }));
 
 const askDb = await import('../../ask/askDb.js');
 const askRunner = await import('../../ask/askRunner.js');
-const sqlTool = await import('../../wpfl/sqlTool.js');
-const artifactSync = await import('../../wpfl/artifactSync.js');
 const {
-  resolveTarget,
+  opensThread,
+  resumeFrom,
   threadName,
   checkIdentityMapping,
   isAskThreadMessage,
   continuesConversation,
   onThreadArchived,
-  execute,
   suffixLines,
-  data,
-} = await import('../../discordCommands/ask/ask.js');
+  CONTEXT_LOST,
+} = await import('../../ask/thread.js');
+const { execute, data } = await import('../../discordCommands/ask/ask.js');
 const { earlyRefusal } = await import('../../ask/preflight.js');
-const { NO_MENTIONS } = await import('../../ask/mentions.js');
+const { NO_MENTIONS } = await import('../../interactions/renderedMessage.js');
 const { setAskPaused } = await import('../../ask/pause.js');
 const { wpflMembers } = await import('../../constants/wpflMembers.js');
 const { ASK } = await import('../../ask/askConfig.js');
@@ -80,42 +68,18 @@ describe('the /ask command', () => {
   // Design §6.1's routing table, one case per row.
   describe('where the answer goes', () => {
     test('a text channel gets a thread of its own', () => {
-      expect(resolveTarget(ChannelType.GuildText, null)).toEqual({ kind: 'new-thread' });
-      expect(resolveTarget(ChannelType.GuildAnnouncement, null)).toEqual({ kind: 'new-thread' });
+      expect(opensThread(ChannelType.GuildText)).toBe(true);
+      expect(opensThread(ChannelType.GuildAnnouncement)).toBe(true);
     });
 
-    test('a thread that is a live ask session continues it', () => {
-      expect(resolveTarget(ChannelType.PublicThread, live)).toEqual({
-        kind: 'in-place',
-        resume: 's1',
-      });
-    });
-
-    test('a thread that is not an ask session starts a fresh one in place', () => {
-      expect(resolveTarget(ChannelType.PublicThread, null)).toEqual({
-        kind: 'in-place',
-        resume: null,
-      });
-    });
-
-    // Posting in an archived thread un-archives it in Discord, but the SDK has
-    // pruned the transcript by then. Resuming a closed session would fail.
-    test('a revived thread whose session was closed starts fresh rather than resuming', () => {
-      expect(resolveTarget(ChannelType.PublicThread, closed)).toEqual({
-        kind: 'in-place',
-        resume: null,
-      });
-    });
-
-    test('a private or announcement thread behaves like a public one', () => {
-      expect(resolveTarget(ChannelType.PrivateThread, live)).toEqual({
-        kind: 'in-place',
-        resume: 's1',
-      });
-      expect(resolveTarget(ChannelType.AnnouncementThread, null)).toEqual({
-        kind: 'in-place',
-        resume: null,
-      });
+    test('a thread of any kind answers in place', () => {
+      for (const type of [
+        ChannelType.PublicThread,
+        ChannelType.PrivateThread,
+        ChannelType.AnnouncementThread,
+      ]) {
+        expect(opensThread(type)).toBe(false);
+      }
     });
 
     // startThread throws MessageThreadParent outside GuildText and
@@ -128,8 +92,24 @@ describe('the /ask command', () => {
         ChannelType.GuildMedia,
         ChannelType.DM,
       ]) {
-        expect(resolveTarget(type, null).kind).toBe('in-place');
+        expect(opensThread(type)).toBe(false);
       }
+    });
+  });
+
+  describe('which session an answer resumes', () => {
+    test('a live session continues', () => {
+      expect(resumeFrom(live)).toBe('s1');
+    });
+
+    test('no session starts fresh', () => {
+      expect(resumeFrom(null)).toBeNull();
+    });
+
+    // Posting in an archived thread un-archives it in Discord, but the SDK has
+    // pruned the transcript by then. Resuming a closed session would fail.
+    test('a closed session starts fresh rather than resuming', () => {
+      expect(resumeFrom(closed)).toBeNull();
     });
   });
 
@@ -190,10 +170,25 @@ describe('the /ask command', () => {
     });
 
     test('defers before it touches the database', async () => {
-      await execute(interaction());
+      await execute(
+        interaction({
+          channel: { id: 't1', type: ChannelType.PublicThread, isSendable: (): boolean => true },
+        })
+      );
 
       expect(calls[0]).toBe('defer');
       expect(calls.indexOf('session')).toBeGreaterThan(0);
+    });
+
+    test('does not look up a session for a channel that gets a thread of its own', async () => {
+      const i = interaction();
+
+      await execute(i);
+
+      expect(calls).not.toContain('session');
+      expect((i as { followUp: jest.Mock }).followUp).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringMatching(/daily limit/) })
+      );
     });
 
     test('a refusal replaces the placeholder with an ephemeral follow-up', async () => {
@@ -313,18 +308,33 @@ describe('the /ask command', () => {
         expect(edits[edits.length - 1]).toContain('Reply or @ me');
       });
 
-      test("a reshred during the preflight warms the SQL database off the member's turn", async () => {
-        scripted('ok');
-        (artifactSync.ensureFresh as jest.Mock).mockImplementationOnce(async () => ({
-          kind: 'reshredded',
-          files: 53,
-          etag: 'x',
-        }));
-        const { interaction: i } = posting();
+      /**
+       * The closed-session rule used to live in two places: a message in the
+       * thread said the context was lost, the slash command in the same thread
+       * started fresh without a word. One owner now, in answer().
+       */
+      test('a revived thread whose session was closed starts fresh and says so, from the slash command too', async () => {
+        scripted('fresh answer');
+        (askDb.getSession as jest.Mock).mockImplementation(async () => closed);
+        const message = { id: 'm1', edit: jest.fn(async () => undefined) };
+        const send = jest.fn(async () => message);
+        const i = interaction({
+          channel: {
+            id: 't1',
+            type: ChannelType.PublicThread,
+            isSendable: (): boolean => true,
+            send,
+          },
+          editReply: jest.fn(async () => ({})),
+        });
 
         await execute(i);
 
-        expect(sqlTool.warmSqlDatabase).toHaveBeenCalledTimes(1);
+        expect((send.mock.calls[0] as unknown[])[0]).toEqual(
+          expect.objectContaining({ content: CONTEXT_LOST })
+        );
+        const request = (askRunner.runAsk as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
+        expect(request).toHaveProperty('sessionId', null);
       });
     });
   });
@@ -392,7 +402,7 @@ describe('the /ask command', () => {
     test('reports the time limit, the budget, and a notice', () => {
       const lines: string[] = suffixLines(
         outcome({ timedOut: true, subtype: 'error_max_budget_usd', text: 'partial' }),
-        '_a notice_'
+        ['_a notice_']
       );
 
       expect(lines.join(' ')).toMatch(/time limit/);

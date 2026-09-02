@@ -12,8 +12,7 @@ import { credentialConfigured, NOT_CONFIGURED } from './askAuth.js';
 import { isAskPaused } from './pause.js';
 import { decideCaps, loadUsage, type CapDecision } from './caps.js';
 import type { AskSession } from './askDb.js';
-import { ensureFresh, type SyncOutcome } from '../wpfl/artifactSync.js';
-import { warmSqlDatabase } from '../wpfl/sqlTool.js';
+import { ensureFresh } from '../wpfl/artifactSync.js';
 
 export type Preflight =
   | {
@@ -54,11 +53,8 @@ export async function preflight(
   if (!decision.allowed) return { ok: false, refusal: decision.refusal };
 
   // Non-fatal: a failed fetch leaves the previous shred in place, and the
-  // answer's as-of dates report honestly what it had. A reshred retires the
-  // materialized database, so it is rebuilt now, in the background, rather
-  // than inside this member's turn.
-  const sync: SyncOutcome = await ensureFresh();
-  if (sync.kind === 'reshredded') warmSqlDatabase();
+  // answer's as-of dates report honestly what it had.
+  await ensureFresh();
 
   return { ok: true, session, notice: decision.notice };
 }

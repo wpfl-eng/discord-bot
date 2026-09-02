@@ -15,10 +15,11 @@
  */
 
 import { z } from 'zod';
-import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
+import { tool } from '@anthropic-ai/claude-agent-sdk';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ASK } from '../ask/askConfig.js';
 import { fetchJsonArray, type FetchFn } from './wpflHttp.js';
+import { toToolResult, type AnyTool } from './toolResult.js';
 // The row shapes are `types/api.ts`'s, not this module's own. /ewins and
 // /optimal read the same three endpoints through those interfaces, and the
 // system prompt promises the agent's number is the same number those commands
@@ -79,24 +80,7 @@ export async function fetchDraftedPoints(
   );
 }
 
-/** Rows as indented JSON. An empty result says so, so it is not read as zeroes. */
-export function toToolResult(rows: readonly unknown[]): CallToolResult {
-  return {
-    content: [
-      {
-        type: 'text',
-        text: rows.length === 0 ? 'No rows for those parameters.' : JSON.stringify(rows, null, 1),
-      },
-    ],
-  };
-}
-
-// A tool definition's handler is contravariant in its own schema, so a
-// heterogeneous array of them cannot be typed more precisely than the library
-// types its own collection -- CreateSdkMcpServerOptions.tools is
-// Array<SdkMcpToolDefinition<any>>.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const wpflApiTools: SdkMcpToolDefinition<any>[] = [
+export const wpflApiTools: AnyTool[] = [
   tool(
     'expected_wins',
     `Expected wins against actual wins for all 14 owners in one season, computed by the league's own history API from every weekly score. Expected wins is what an owner's scores would have won against an average schedule, so the gap to actual wins is schedule luck. Never compute this yourself from cached scores: /ewins publishes this exact figure to the league. ${HISTORY_ONLY}`,

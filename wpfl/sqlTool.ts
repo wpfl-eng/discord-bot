@@ -30,6 +30,8 @@ import { createGenerations, type Generations, type Release } from '../ask/genera
 import { logError } from '../errors/errorHandler.js';
 import { liveShred } from './liveShred.js';
 import { metaFile, tableName } from './layout.js';
+import { PER_OWNER_BODIES } from './shredder.js';
+import { textResult } from './toolResult.js';
 
 export interface SqlResult {
   readonly rows: Record<string, unknown>[];
@@ -135,7 +137,6 @@ function stripLiteralsAndComments(sql: string): string {
 
 interface Materialized {
   readonly connection: DuckDBConnection;
-  readonly tables: string[];
   /** `<dataDir>:<shred mtime>` -- what this database was built from. */
   readonly key: string;
 }
@@ -191,15 +192,13 @@ function install(next: Materialized): void {
  * and both run the whole CREATE TABLE loop over ~11 MB -- twice the work and
  * two live native instances. The second caller joins the first build.
  */
-let building: Promise<void> | null = null;
-let buildingKey: string | null = null;
+let building: { readonly key: string; readonly done: Promise<void> } | null = null;
 
 /** Drop the in-memory database, so the next query rebuilds it. */
 export function resetSqlDatabase(): void {
   const previous: Materialized | null = current;
   current = null;
   building = null;
-  buildingKey = null;
   connections.rotate((): void => close(previous));
 }
 
@@ -212,23 +211,13 @@ function close(materialized: Materialized | null): void {
   }
 }
 
-/** Tests only: what the shred became. */
-export async function tableNames(dataDir: string = ASK.DATA_DIR): Promise<string[]> {
-  const held: Held = await database(dataDir);
-  try {
-    return held.materialized.tables;
-  } finally {
-    held.release();
-  }
-}
-
 /**
  * Build the database for the live shred now, in the background, so the first
  * `sql` call after a boot or a reshred does not pay the ~11 MB materialization
  * inside a member's turn. A call that arrives mid-build joins it.
  */
-export function warmSqlDatabase(): void {
-  database(ASK.DATA_DIR)
+export function warmSqlDatabase(dataDir: string = ASK.DATA_DIR): void {
+  database(dataDir)
     .then((held: Held): void => held.release())
     .catch((error: unknown): void => {
       logError('ask', 'Could not warm the SQL database', error);
@@ -288,23 +277,19 @@ async function database(dataDir: string): Promise<Held> {
 }
 
 function ensureBuilt(dataDir: string, key: string): Promise<void> {
-  if (building !== null && buildingKey === key) return building;
+  if (building !== null && building.key === key) return building.done;
 
-  buildingKey = key;
-  building = build(dataDir, key).finally((): void => {
-    if (buildingKey === key) {
-      building = null;
-      buildingKey = null;
-    }
+  const done: Promise<void> = build(dataDir, key).finally((): void => {
+    if (building?.key === key) building = null;
   });
-  return building;
+  building = { key, done };
+  return done;
 }
 
 async function build(dataDir: string, key: string): Promise<void> {
   // ~11 MB read off the live shred, a file at a time. A reshred landing
   // half-way through would otherwise unlink the sources under the loop.
   const shred: Release = liveShred.enter();
-  const tables: string[] = [];
   let connection: DuckDBConnection;
 
   try {
@@ -316,7 +301,6 @@ async function build(dataDir: string, key: string): Promise<void> {
         await connection.run(
           `CREATE TABLE ${table} AS SELECT * FROM read_json_auto('${source.replace(/'/g, "''")}', union_by_name = true)`
         );
-        tables.push(table);
       } catch (error: unknown) {
         // A body that is not table-shaped is not an error -- it is simply not a
         // table. The agent can still Read the file.
@@ -330,27 +314,29 @@ async function build(dataDir: string, key: string): Promise<void> {
     shred();
   }
 
-  install({ connection, tables: tables.sort(), key });
+  install({ connection, key });
 }
 
 /**
- * Every shredded file becomes a table named `<directory>_<file>`, plus the 14
- * team files as one `teams` table and the cached decade as `wpfl_*`. Uniform
- * and generated, so a new body in the artifact becomes a queryable table with
- * no code change and no name collision.
+ * Every shredded file becomes a table named `<directory>_<file>`, a per-owner
+ * body (the 14 team files) one table across its files, and the cached decade
+ * `wpfl_*`. Uniform and generated, so a new body in the artifact becomes a
+ * queryable table with no code change and no name collision.
  */
 function queryableSources(dataDir: string): [string, string][] {
   const sources: [string, string][] = [];
-
-  const teams: string = path.join(dataDir, 'teams');
-  if (fs.existsSync(teams)) sources.push(['teams', path.join(teams, '*.json')]);
 
   for (const entry of fs.readdirSync(dataDir, { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith('.json')) {
       sources.push([tableName(null, entry.name), path.join(dataDir, entry.name)]);
       continue;
     }
-    if (!entry.isDirectory() || entry.name === 'teams') continue;
+    if (!entry.isDirectory()) continue;
+
+    if (PER_OWNER_BODIES.includes(entry.name)) {
+      sources.push([tableName(null, entry.name), path.join(dataDir, entry.name, '*.json')]);
+      continue;
+    }
 
     for (const file of fs.readdirSync(path.join(dataDir, entry.name))) {
       if (!file.endsWith('.json') && !file.endsWith('.jsonl')) continue;
@@ -385,16 +371,8 @@ export const sqlTool: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(
     const notice: string = result.truncated
       ? `\n\n(Truncated at ${ASK.SQL_ROW_LIMIT} rows. Narrow the query or aggregate.)`
       : '';
-    return {
-      content: [
-        {
-          type: 'text',
-          text:
-            result.rows.length === 0
-              ? 'No rows.'
-              : `${JSON.stringify(result.rows, null, 1)}${notice}`,
-        },
-      ],
-    };
+    return textResult(
+      result.rows.length === 0 ? 'No rows.' : `${JSON.stringify(result.rows, null, 1)}${notice}`
+    );
   }
 );

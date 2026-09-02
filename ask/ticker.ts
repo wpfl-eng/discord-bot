@@ -15,6 +15,7 @@
 import type { AskSink } from './askRunner.js';
 import { ASK } from './askConfig.js';
 import { truncate } from '../helpers/utils.js';
+import { plural } from '../casino/casinoFormat.js';
 import { logError } from '../errors/errorHandler.js';
 
 const DISCORD_LIMIT = 2000;
@@ -49,8 +50,8 @@ export interface Ticker extends AskSink {
 
 interface Step {
   readonly tool: string;
-  /** The tool_use id, when the stream carried one; what a result is matched by. */
-  readonly id: string | null;
+  /** The tool_use id; what a result is matched by. */
+  readonly id: string;
   input: string;
   settled: boolean;
   /** The first line of the result when it came back as an error. */
@@ -71,7 +72,7 @@ export function createTicker(): Ticker {
   };
 
   return {
-    onToolCall(name: string, id: string | null = null): void {
+    onToolCall(name: string, id: string): void {
       steps.push({ tool: readableName(name), id, input: '', settled: false, error: null });
       notify();
     },
@@ -93,13 +94,11 @@ export function createTicker(): Ticker {
       notify();
     },
 
-    onToolSettled(id: string | null = null, error?: string): void {
-      // By id when there is one: under parallel calls results arrive in
-      // completion order, and a resumed session can replay results for calls
-      // this ticker never issued -- those match nothing and are ignored.
-      // Without an id, the oldest unsettled step is the one that finished.
-      const step: Step | undefined =
-        id === null ? steps.find((s) => !s.settled) : steps.find((s) => s.id === id && !s.settled);
+    onToolSettled(id: string, error?: string): void {
+      // By id: under parallel calls results arrive in completion order, and a
+      // resumed session can replay results for calls this ticker never issued
+      // -- those match nothing and are ignored.
+      const step: Step | undefined = steps.find((s) => s.id === id && !s.settled);
       if (step === undefined) return;
       step.settled = true;
       step.error = error ?? null;
@@ -154,29 +153,21 @@ function working(
   queuedAt: number | null,
   waitingBehind: number | null
 ): string {
-  const lines: string[] = [HEADER];
-
   // Its own thread first: a message behind another in the same thread has not
   // asked for a slot yet, so the global queue line would be wrong.
   if (waitingBehind !== null && steps.length === 0) {
-    lines.push(
-      waitingBehind === 1
-        ? '> ⏳ waiting for the answer above to finish.'
-        : `> ⏳ waiting for the ${waitingBehind} answers above to finish.`
-    );
-    return lines.join('\n');
+    return waitingBehind === 1
+      ? `${HEADER}\n> ⏳ waiting for the answer above to finish.`
+      : `${HEADER}\n> ⏳ waiting for the ${waitingBehind} answers above to finish.`;
   }
 
   if (queuedAt !== null && steps.length === 0) {
-    lines.push(`> ⏳ ${queuedAt} question${queuedAt === 1 ? '' : 's'} ahead in the queue.`);
-    return lines.join('\n');
+    return `${HEADER}\n> ⏳ ${plural(queuedAt, 'question')} ahead in the queue.`;
   }
 
-  if (steps.length === 0 && reasoning === null) {
-    lines.push('> …thinking');
-    return lines.join('\n');
-  }
+  if (steps.length === 0 && reasoning === null) return `${HEADER}\n> …thinking`;
 
+  const lines: string[] = [HEADER];
   for (const step of steps) {
     lines.push(`> ${glyph(step)} ${describe(step)}`);
   }
@@ -191,7 +182,7 @@ function working(
 function trace(steps: Step[]): string {
   if (steps.length === 0) return HEADER;
   const names: string = steps.map((s) => (s.error === null ? s.tool : `${s.tool} ✗`)).join(' → ');
-  return `> _${steps.length} tool call${steps.length === 1 ? '' : 's'}: ${truncate(names, 180)}_`;
+  return `> _${plural(steps.length, 'tool call')}: ${truncate(names, 180)}_`;
 }
 
 function glyph(step: Step): string {

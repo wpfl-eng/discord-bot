@@ -2,14 +2,18 @@ import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globa
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ensureFresh, type SyncOutcome, type SyncDeps } from '../../wpfl/artifactSync.js';
-import type { HistoryCacheResult } from '../../wpfl/historyCache.js';
+import type { SyncOutcome, SyncDeps } from '../../wpfl/artifactSync.js';
 import type { FetchFn, HttpResponse } from '../../wpfl/wpflHttp.js';
+import { fakeResponse, fixturePath } from './support.js';
 import { liveShred } from '../../wpfl/liveShred.js';
 import type { Release } from '../../ask/generations.js';
 import { ASK } from '../../ask/askConfig.js';
 
-const FIXTURE: string = path.join(process.cwd(), 'tests/fixtures/postdraft-published.json');
+// A reshred starts the DuckDB build for the swapped directory; here that is a
+// temp dir per test, and the build is sqlTool's own test's business.
+jest.unstable_mockModule('../../wpfl/sqlTool.js', () => ({ warmSqlDatabase: jest.fn() }));
+const { ensureFresh } = await import('../../wpfl/artifactSync.js');
+const sqlTool = await import('../../wpfl/sqlTool.js');
 
 // artifactSync is not in the design's mandatory red-green table -- it is I/O
 // orchestration. These tests cover the parts that measurably can break: the
@@ -22,34 +26,24 @@ describe('artifactSync', () => {
     let artifact: string;
 
     beforeEach(() => {
+      jest.clearAllMocks();
       parent = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-sync-'));
       dataDir = path.join(parent, 'wpfl-data');
-      artifact = fs.readFileSync(FIXTURE, 'utf8');
+      artifact = fs.readFileSync(fixturePath('postdraft-published.json'), 'utf8');
     });
 
     afterEach(() => {
       fs.rmSync(parent, { recursive: true, force: true });
     });
 
-    const respond = (etag: string | null, body?: string): HttpResponse => ({
-      ok: true,
-      status: 200,
-      headers: {
-        get: (name: string): string | null => (name.toLowerCase() === 'etag' ? etag : null),
-      },
-      json: async (): Promise<unknown> => JSON.parse(body ?? artifact),
-    });
+    const respond = (etag: string | null, body?: string): HttpResponse =>
+      fakeResponse({ etag, body: JSON.parse(body ?? artifact) });
 
     const deps = (over: Partial<SyncDeps> = {}): SyncDeps => ({
       dataDir,
       fetchFn: (async () => respond('W/"etag-1"')) as FetchFn,
       // The real cache costs 12 s of network; the shred is what is under test.
-      refreshCache: async (): Promise<HistoryCacheResult> => ({
-        sources: [{ path: 'draft_history.jsonl', rows: 1, bytes: 10 }],
-        fetchedAt: new Date('2026-08-31T00:00:00Z'),
-        failedSeasons: [],
-        failedSources: [],
-      }),
+      refreshCache: async (): Promise<void> => {},
       ...over,
     });
 
@@ -61,6 +55,28 @@ describe('artifactSync', () => {
       expect(fs.existsSync(path.join(dataDir, 'meta.json'))).toBe(true);
       expect(fs.existsSync(path.join(dataDir, 'teams/aj-boorde.json'))).toBe(true);
       expect(fs.readFileSync(path.join(dataDir, '.etag'), 'utf8').trim()).toBe('etag-1');
+    });
+
+    test('a reshred starts the SQL rebuild in the background, for the directory it swapped', async () => {
+      await ensureFresh(deps());
+
+      expect(sqlTool.warmSqlDatabase).toHaveBeenCalledWith(dataDir);
+    });
+
+    test('an unchanged sync leaves the materialized database alone', async () => {
+      await ensureFresh(deps());
+      (sqlTool.warmSqlDatabase as jest.Mock).mockClear();
+      const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+      fs.mkdirSync(path.join(dataDir, 'wpfl'), { recursive: true });
+      fs.writeFileSync(
+        path.join(dataDir, 'wpfl', '.fetched'),
+        `${new Date(stale).toISOString()}\n`
+      );
+
+      const outcome: SyncOutcome = await ensureFresh(deps({ now: () => stale }));
+
+      expect(outcome.kind).toBe('unchanged');
+      expect(sqlTool.warmSqlDatabase).not.toHaveBeenCalled();
     });
 
     test('does not touch the network while the shred is young', async () => {
@@ -94,6 +110,32 @@ describe('artifactSync', () => {
       );
 
       expect(outcome.kind).toBe('unchanged');
+    });
+
+    /**
+     * The same build was being downloaded whole -- ~935 KB -- up to four times
+     * a day, to compare one header. With the shred and the cache both in a
+     * state where an unchanged build can be served, the stored etag goes out
+     * as If-None-Match and a 304 is the answer.
+     */
+    test('offers the stored etag as If-None-Match and takes a 304 as unchanged', async () => {
+      await ensureFresh(deps());
+      const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+      fs.mkdirSync(path.join(dataDir, 'wpfl'), { recursive: true });
+      fs.writeFileSync(
+        path.join(dataDir, 'wpfl', '.fetched'),
+        `${new Date(stale).toISOString()}\n`
+      );
+      const offered: (Readonly<Record<string, string>> | undefined)[] = [];
+      const fetchFn: FetchFn = async (_url, init): Promise<HttpResponse> => {
+        offered.push(init?.headers);
+        return fakeResponse({ status: 304 });
+      };
+
+      const outcome: SyncOutcome = await ensureFresh(deps({ now: () => stale, fetchFn }));
+
+      expect(outcome.kind).toBe('unchanged');
+      expect(offered).toEqual([{ 'If-None-Match': '"etag-1"' }]);
     });
 
     /**
@@ -235,15 +277,9 @@ describe('artifactSync', () => {
         deps({
           now: () => stale,
           fetchFn: (async () => respond('W/"etag-2"')) as FetchFn,
-          refreshCache: async (target: string): Promise<HistoryCacheResult> => {
+          refreshCache: async (target: string): Promise<void> => {
             fs.mkdirSync(target, { recursive: true });
             fs.writeFileSync(path.join(target, 'player_scores.jsonl'), '{"fresh":true}\n');
-            return {
-              sources: [{ path: 'player_scores.jsonl', rows: 1, bytes: 16 }],
-              fetchedAt: new Date('2026-09-01T00:00:00Z'),
-              failedSeasons: [],
-              failedSources: [],
-            };
           },
         })
       );
@@ -348,12 +384,7 @@ describe('artifactSync', () => {
         await ensureFresh(deps());
         const stale: number = Date.now() + 7 * 60 * 60 * 1000;
         cacheAt(new Date(stale - 60 * 60 * 1000).toISOString());
-        const refresh = jest.fn(async () => ({
-          sources: [],
-          fetchedAt: new Date(),
-          failedSeasons: [],
-          failedSources: [],
-        }));
+        const refresh = jest.fn(async (): Promise<void> => {});
 
         const outcome: SyncOutcome = await ensureFresh(
           deps({ now: () => stale, refreshCache: refresh as never })
@@ -367,10 +398,9 @@ describe('artifactSync', () => {
         await ensureFresh(deps());
         const stale: number = Date.now() + 7 * 60 * 60 * 1000;
         cacheAt(new Date(stale - 2 * ASK.WPFL_CACHE_STALE_AFTER_MS).toISOString());
-        const refresh = jest.fn(async (target: string) => {
+        const refresh = jest.fn(async (target: string): Promise<void> => {
           fs.mkdirSync(target, { recursive: true });
           fs.writeFileSync(path.join(target, '.fetched'), `${new Date(stale).toISOString()}\n`);
-          return { sources: [], fetchedAt: new Date(stale), failedSeasons: [], failedSources: [] };
         });
 
         const outcome: SyncOutcome = await ensureFresh(
@@ -379,6 +409,22 @@ describe('artifactSync', () => {
 
         expect(outcome.kind).toBe('reshredded');
         expect(refresh).toHaveBeenCalledTimes(1);
+      });
+
+      test('does not offer If-None-Match while the cache is stale, since a 304 could not be served', async () => {
+        await ensureFresh(deps());
+        const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+        cacheAt(new Date(stale - 2 * ASK.WPFL_CACHE_STALE_AFTER_MS).toISOString());
+        const offered: unknown[] = [];
+        const fetchFn: FetchFn = async (_url, init): Promise<HttpResponse> => {
+          offered.push(init?.headers);
+          return respond('W/"etag-1"');
+        };
+
+        const outcome: SyncOutcome = await ensureFresh(deps({ now: () => stale, fetchFn }));
+
+        expect(outcome.kind).toBe('reshredded');
+        expect(offered).toEqual([undefined]);
       });
 
       test('a missing cache marker counts as stale', async () => {
@@ -402,6 +448,29 @@ describe('artifactSync', () => {
 
         expect(fetchFn).toHaveBeenCalledTimes(1);
         expect(outcome.kind).toBe('reshredded');
+      });
+
+      /**
+       * A forced call used to join a sync already in flight and take its
+       * outcome -- so the one weekly admin action could silently do nothing,
+       * and renderSync carried an apology for it.
+       */
+      test('waits for a sync already in flight, then runs its own rather than joining it', async () => {
+        let fetches = 0;
+        const fetchFn = (async (): Promise<HttpResponse> => {
+          fetches += 1;
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return respond('W/"etag-1"');
+        }) as FetchFn;
+
+        const [first, forced] = await Promise.all([
+          ensureFresh(deps({ fetchFn })),
+          ensureFresh(deps({ fetchFn, force: true })),
+        ]);
+
+        expect(first.kind).toBe('reshredded');
+        expect(forced.kind).toBe('reshredded');
+        expect(fetches).toBe(2);
       });
 
       test('still reports a failed fetch honestly', async () => {

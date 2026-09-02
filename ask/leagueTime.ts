@@ -28,6 +28,11 @@ export function leagueDate(date: Date): string {
   return formatInTimeZone(date, ASK.LEAGUE_TZ, 'yyyy-MM-dd');
 }
 
+/** `2026-09-02 14:05 EDT`: a full instant, for a date the agent relays. */
+export function leagueInstant(date: Date): string {
+  return formatInTimeZone(date, ASK.LEAGUE_TZ, 'yyyy-MM-dd HH:mm zzz');
+}
+
 /** `09-02 14:05`, in the league timezone. For listings where the year is obvious. */
 export function leagueDateTime(date: Date): string {
   return formatInTimeZone(date, ASK.LEAGUE_TZ, 'MM-dd HH:mm');

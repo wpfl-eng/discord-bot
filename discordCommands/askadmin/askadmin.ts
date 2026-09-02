@@ -36,9 +36,8 @@ import {
 import { ensureFresh, type SyncOutcome } from '../../wpfl/artifactSync.js';
 import { cacheExtents, type SourceExtents } from '../../wpfl/historyCache.js';
 import { cacheDir, readAsOf, type AsOf } from '../../wpfl/layout.js';
-import { warmSqlDatabase } from '../../wpfl/sqlTool.js';
 import { getWpflMemberByDiscordId } from '../../constants/wpflMembers.js';
-import { NO_MENTIONS } from '../../ask/mentions.js';
+import { NO_MENTIONS } from '../../interactions/renderedMessage.js';
 import { truncate } from '../../helpers/utils.js';
 
 export const data = new SlashCommandBuilder()
@@ -70,7 +69,7 @@ export const data = new SlashCommandBuilder()
 export interface AskStatus {
   readonly dataDir: string;
   readonly asOf: AsOf;
-  readonly extents: Readonly<Record<string, SourceExtents>>;
+  readonly extents: Readonly<Record<string, SourceExtents | null>>;
   readonly inFlight: number;
   readonly activeThreads: number;
   readonly credential: boolean;
@@ -79,7 +78,6 @@ export interface AskStatus {
 
 export interface AskUsage {
   readonly monthTotal: number;
-  readonly monthCap: number;
   readonly today: readonly UserCount[];
   readonly runs: readonly RecentRun[];
   readonly thumbsDown: readonly RecentThumbsDown[];
@@ -95,14 +93,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     case 'status':
       content = renderStatus(gatherStatus());
       break;
-    case 'resync': {
-      const outcome: SyncOutcome = await ensureFresh({ force: true });
-      // A reshred retires the materialized database; rebuild it now rather
-      // than inside the next member's turn.
-      if (outcome.kind === 'reshredded') warmSqlDatabase();
-      content = renderSync(outcome);
+    case 'resync':
+      content = renderSync(await ensureFresh({ force: true }));
       break;
-    }
     case 'usage':
       content = renderUsage(await gatherUsage());
       break;
@@ -141,14 +134,15 @@ async function gatherUsage(): Promise<AskUsage> {
     recentRuns(RECENT),
     recentThumbsDown(RECENT),
   ]);
-  return { monthTotal, monthCap: ASK.MONTHLY_QUERIES_TOTAL, today, runs, thumbsDown };
+  return { monthTotal, today, runs, thumbsDown };
 }
 
 export function renderStatus(status: AskStatus): string {
   const yesNo = (value: boolean): string => (value ? 'yes' : 'no');
-  const extents: string[] = Object.entries(status.extents).map(
-    ([file, e]) =>
-      `  ${file}: ${e.seasonMin}–${e.seasonMax}${e.latestWeek === null ? '' : `, latest week ${e.latestWeek}`}`
+  const extents: string[] = Object.entries(status.extents).map(([file, e]) =>
+    e === null
+      ? `  ${file}: present, no rows found`
+      : `  ${file}: ${e.seasonMin}–${e.seasonMax}${e.latestWeek === null ? '' : `, latest week ${e.latestWeek}`}`
   );
 
   return [
@@ -175,7 +169,7 @@ export function renderSync(outcome: SyncOutcome): string {
     case 'unchanged':
       return 'Unchanged: the published artifact is the build already on disk.';
     case 'fresh':
-      return 'Fresh: nothing to do. (A forced resync should not say this; a sync was already in flight.)';
+      return 'Fresh: nothing to do.';
     case 'failed':
       return `Failed: ${outcome.reason}. The previous shred is still serving.`;
   }
@@ -208,7 +202,7 @@ export function renderUsage(usage: AskUsage): string {
   return [
     '**/ask usage**',
     '```',
-    `this month: ${usage.monthTotal} of ${usage.monthCap}`,
+    `this month: ${usage.monthTotal} of ${ASK.MONTHLY_QUERIES_TOTAL}`,
     'today:',
     ...today,
     `last ${RECENT} runs:`,

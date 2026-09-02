@@ -14,7 +14,7 @@
  */
 
 import path from 'node:path';
-import type { ShredResult } from './shredder.js';
+import { PER_OWNER_BODIES, type ShredResult } from './shredder.js';
 import type { SourceExtents } from './historyCache.js';
 import { CACHE_SOURCES, tableName, type AsOf } from './layout.js';
 import { wpflMembers } from '../constants/wpflMembers.js';
@@ -28,19 +28,16 @@ export interface IndexInput {
    */
   readonly asOf: AsOf;
   /**
-   * The files actually present in the cache directory when this was generated.
-   *
-   * Not what the refresh set out to fetch -- what is on disk, which is what the
-   * `sql` tool will find. A season whose fetch failed leaves player_scores.jsonl
-   * unwritten, and INDEX.md must not then advertise the table.
+   * The cache files actually present when this was generated, each with where
+   * its rows run, read from the file on disk (null when it held nothing to
+   * scan). Not what the refresh set out to fetch -- what is on disk, which is
+   * what the `sql` tool will find: a season whose fetch failed leaves
+   * player_scores.jsonl unwritten, and INDEX.md must not then advertise the
+   * table. Where the rows run is what replaces "the history API stops at
+   * 2025", a year that was wrong the moment the API gained a current-season
+   * row, and wrong again every August.
    */
-  readonly wpflCacheFiles?: readonly string[];
-  /**
-   * Where each cached file's rows run, read from the files on disk. This is
-   * what replaces "the history API stops at 2025": a year that was wrong the
-   * moment the API gained a current-season row, and wrong again every August.
-   */
-  readonly wpflCacheExtents?: Readonly<Record<string, SourceExtents>>;
+  readonly wpflCache?: Readonly<Record<string, SourceExtents | null>>;
 }
 
 /**
@@ -133,8 +130,14 @@ const FILE_DESCRIPTIONS: Record<string, string> = {
   'market/prose.json': 'The written findings of the market study.',
 };
 
-const TEAM_FILE_DESCRIPTION: string =
-  'One owner’s full post-draft file: grade and its components, spend, roster with per-player worth and edge, forecast, schedule, nomination behaviour, and the written verdict.';
+/** One line per per-owner body; its files are the 14 owners and share it. */
+const PER_OWNER_DESCRIPTIONS: Record<string, string> = {
+  teams:
+    'One owner’s full post-draft file: grade and its components, spend, roster with per-player worth and edge, forecast, schedule, nomination behaviour, and the written verdict.',
+};
+
+const UNDOCUMENTED =
+  'Undocumented — this body has no shred plan, so nobody has written a description for it. Read it before trusting it.';
 
 /** Terms an outsider would misread. Copied from draft-2026; the bot host does not have it. */
 const GLOSSARY: readonly (readonly [string, string])[] = [
@@ -165,7 +168,7 @@ export function generateIndex(input: IndexInput): string {
   const sections: string[] = [
     header(asOf),
     fileMap(shred),
-    cachedDecade(asOf.cacheFetchedAt, input.wpflCacheFiles, input.wpflCacheExtents),
+    cachedDecade(asOf.cacheFetchedAt, input.wpflCache),
     skipped(shred),
     undocumented(shred),
     glossary(),
@@ -212,11 +215,10 @@ function fileMap(shred: ShredResult): string {
 }
 
 function describeFile(relative: string): string {
-  if (relative.startsWith('teams/')) return TEAM_FILE_DESCRIPTION;
-  return (
-    FILE_DESCRIPTIONS[relative] ??
-    'Undocumented — this body has no shred plan, so nobody has written a description for it. Read it before trusting it.'
-  );
+  const [directory] = relative.split('/');
+  if (PER_OWNER_BODIES.includes(directory))
+    return PER_OWNER_DESCRIPTIONS[directory] ?? UNDOCUMENTED;
+  return FILE_DESCRIPTIONS[relative] ?? UNDOCUMENTED;
 }
 
 /**
@@ -234,11 +236,10 @@ function describeFile(relative: string): string {
  */
 function cachedDecade(
   fetchedAt: string | null,
-  files: readonly string[] = [],
-  extents: Readonly<Record<string, SourceExtents>> = {}
+  cache: Readonly<Record<string, SourceExtents | null>> = {}
 ): string {
-  const present = CACHED_DECADE.filter(([file]) => files.includes(file));
-  const missing = CACHED_DECADE.filter(([file]) => !files.includes(file));
+  const present = CACHED_DECADE.filter(([file]) => file in cache);
+  const missing = CACHED_DECADE.filter(([file]) => !(file in cache));
   const tables = (rows: typeof CACHED_DECADE): string =>
     rows.map(([, table]) => `\`${table}\``).join(', ');
 
@@ -263,7 +264,7 @@ function cachedDecade(
     '| --- | --- | --- |',
     ...present.map(
       ([file, table, description]) =>
-        `| \`${table}\` | ${description} | ${describeExtents(extents[file])} |`
+        `| \`${table}\` | ${description} | ${describeExtents(cache[file])} |`
     )
   );
 
@@ -279,8 +280,8 @@ function cachedDecade(
   return lines.join('\n');
 }
 
-function describeExtents(extents: SourceExtents | undefined): string {
-  if (extents === undefined) return 'unknown';
+function describeExtents(extents: SourceExtents | null | undefined): string {
+  if (extents === null || extents === undefined) return 'unknown';
   const seasons: string =
     extents.seasonMin === extents.seasonMax
       ? `${extents.seasonMin}`

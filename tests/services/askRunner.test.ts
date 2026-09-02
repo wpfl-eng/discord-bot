@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import type { AskRequest } from '../../ask/askRunner.js';
 
 jest.unstable_mockModule('../../ask/askDb.js', () => ({
   recordUsage: jest.fn(),
@@ -27,12 +28,12 @@ const mockRecordUsage = askDb.recordUsage as any;
 
 type Message = Record<string, unknown>;
 
-const REQUEST = {
+const REQUEST: AskRequest = {
   prompt: 'why did Jimmy get an A+?',
   userId: 'u1',
   threadId: 't1',
-  owner: 'AJ Boorde',
-  espnId: 4,
+  member: { espnId: 4, owner: 'AJ Boorde', discordId: '120231673722830849' },
+  sessionId: null,
 };
 
 const toolStart = (name: string): Message => ({
@@ -590,7 +591,7 @@ describe('askRunner', () => {
 
   describe('the options it builds', () => {
     const capture = async (
-      over: Partial<typeof REQUEST> & { sessionId?: string } = {}
+      over: Partial<AskRequest> = {}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ): Promise<any> => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

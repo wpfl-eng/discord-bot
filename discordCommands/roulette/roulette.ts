@@ -27,6 +27,7 @@ import {
 import { registerGameStatus } from '../../casino/casinoHub.js';
 import { ackBoard } from '../../casino/casinoPaint.js';
 import { forEdit } from '../../casino/casinoRender.js';
+import { NO_MENTIONS } from '../../interactions/renderedMessage.js';
 import { amountModal } from '../../casino/casinoModal.js';
 import {
   ALL_BET_TYPES,
@@ -355,7 +356,7 @@ async function handleLeaderboard(interaction: ChatInputCommandInteraction): Prom
     content:
       `### 🎰 Roulette — ${CATEGORY_LABEL[category]}\n\n${lines.join('\n')}` +
       (category === 'rtp' ? `\n\n_Minimum ${rouletteDb.RTP_MIN_BETS} bets to rank._` : ''),
-    allowedMentions: { parse: [] },
+    allowedMentions: NO_MENTIONS,
   });
 }
 

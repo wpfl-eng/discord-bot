@@ -3,14 +3,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { shred, type ShredResult } from '../../wpfl/shredder.js';
+import { loadFixture } from './support.js';
 
 type Artifact = Record<string, unknown>;
-
-const FIXTURES: string = path.join(process.cwd(), 'tests', 'fixtures');
-
-function loadFixture(name: string): Artifact {
-  return JSON.parse(fs.readFileSync(path.join(FIXTURES, name), 'utf8')) as Artifact;
-}
 
 describe('shredder', () => {
   let dir: string;
@@ -19,8 +14,8 @@ describe('shredder', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-shred-'));
-    published = loadFixture('postdraft-published.json');
-    next = loadFixture('postdraft-next.json');
+    published = loadFixture<Artifact>('postdraft-published.json');
+    next = loadFixture<Artifact>('postdraft-next.json');
   });
 
   afterEach(() => {

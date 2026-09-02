@@ -76,7 +76,7 @@ export function createPathGuard(
     // A tool the table does not describe cannot be confined, so it is refused
     // rather than passed on the strength of an empty list.
     if (requested === null) {
-      await record(context, input.tool_name, input.tool_input, 'path_guard', null);
+      void record(context, input.tool_name, input.tool_input, 'path_guard', null);
       return deny(`I don't know where ${input.tool_name} reads from, so I can't allow it.`);
     }
 
@@ -84,7 +84,7 @@ export function createPathGuard(
     // data directory, so an empty list passes.
     for (const candidate of requested) {
       if (inside(candidate)) continue;
-      await record(context, input.tool_name, input.tool_input, 'path_guard', null);
+      void record(context, input.tool_name, input.tool_input, 'path_guard', null);
       return deny('I can only read the WPFL data directory.');
     }
 
@@ -105,7 +105,7 @@ export function createWebFetchGuard(context: HookContext): HookCallback {
     const url: unknown = (input.tool_input as { url?: unknown } | null)?.url;
     if (typeof url === 'string' && hostAllowed(url)) return PASS;
 
-    await record(context, input.tool_name, input.tool_input, 'domain_guard', null);
+    void record(context, input.tool_name, input.tool_input, 'domain_guard', null);
     return deny(
       "I don't open links from hosts I don't know. Tell me what you want to know and I'll look it up."
     );
@@ -135,14 +135,14 @@ function hostAllowed(url: string): boolean {
 export function createAuditHook(context: HookContext): HookCallback {
   return async (input): Promise<HookJSONOutput> => {
     if (input.hook_event_name === 'PostToolUseFailure') {
-      await record(context, input.tool_name, input.tool_input, null, input.error);
+      void record(context, input.tool_name, input.tool_input, null, input.error);
       return PASS;
     }
 
     if (input.hook_event_name === 'PostToolUse') {
       const response = input.tool_response as { isError?: boolean; content?: unknown } | null;
       if (response?.isError === true) {
-        await record(
+        void record(
           context,
           input.tool_name,
           input.tool_input,
@@ -221,6 +221,12 @@ function realpath(target: string): string {
   }
 }
 
+/**
+ * Not awaited by its callers. The decision never depends on the write, and a
+ * serverless round trip on every denied call -- each `sql` refusal the model
+ * retries, say -- was paid inside the agent loop while a member watched the
+ * ticker. Failures are caught here, so nothing is left to reject unobserved.
+ */
 async function record(
   context: HookContext,
   toolName: string,
@@ -238,7 +244,7 @@ async function record(
       error,
     });
   } catch (writeError: unknown) {
-    // Never let bookkeeping block a denial or kill an answer.
+    // Never let bookkeeping kill an answer.
     logError('ask', 'Could not record a tool exception', writeError);
   }
 }

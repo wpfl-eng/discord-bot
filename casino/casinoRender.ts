@@ -22,7 +22,7 @@ import {
   type APIMessageTopLevelComponent,
   type MessageActionRowComponentBuilder,
 } from 'discord.js';
-import type { RenderedMessage } from '../interactions/renderedMessage.js';
+import { NO_MENTIONS, type RenderedMessage } from '../interactions/renderedMessage.js';
 
 export type { RenderedMessage };
 
@@ -149,7 +149,7 @@ export function rendered(
   return {
     flags,
     components: [...components],
-    allowedMentions: { parse: [] },
+    allowedMentions: NO_MENTIONS,
     ...(options.files && options.files.length > 0 ? { files: [...options.files] } : {}),
   };
 }

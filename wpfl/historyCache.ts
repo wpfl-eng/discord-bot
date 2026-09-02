@@ -16,24 +16,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ASK } from '../ask/askConfig.js';
 import { getCurrentNFLSeason } from '../helpers/utils.js';
-import { logError } from '../errors/errorHandler.js';
+import { errorMessage, logError } from '../errors/errorHandler.js';
 import { fetchJsonArray, type FetchFn } from './wpflHttp.js';
 import { CACHE_MARKER, CACHE_SOURCES } from './layout.js';
-
-export interface CachedSource {
-  readonly path: string;
-  readonly rows: number;
-  readonly bytes: number;
-}
-
-export interface HistoryCacheResult {
-  readonly sources: CachedSource[];
-  readonly fetchedAt: Date;
-  /** Player-scores seasons whose fetch failed. An empty season is not a failure. */
-  readonly failedSeasons: number[];
-  /** Files left untouched because at least one of their fetches failed. */
-  readonly failedSources: string[];
-}
 
 /** Where one cached source's rows run, read from the file itself. */
 export interface SourceExtents {
@@ -63,12 +48,16 @@ const {
  * reshred, after deferReply, with nothing on screen. All thirteen at once
  * returned 200 in 7.0 s wall-clock -- the host is latency-bound, not
  * throughput-bound, so concurrency is what helps and it does not throttle.
+ *
+ * Nothing is returned. What was written is on disk, which is what the sync
+ * reads back and INDEX.md describes; a result object restating it had no
+ * reader outside the tests.
  */
 export async function refreshWpflCache(
   targetDir: string,
   fetchFn: FetchFn = fetch,
   seasonMax: number = getCurrentNFLSeason()
-): Promise<HistoryCacheResult> {
+): Promise<void> {
   fs.mkdirSync(targetDir, { recursive: true });
 
   const seasons: number[] = [];
@@ -77,21 +66,21 @@ export async function refreshWpflCache(
   }
 
   const [draft, matchups, ...scores] = await Promise.all([
-    fetchChunk(
+    fetchJsonl(
       fetchFn,
       `${ASK.WPFL_API_BASE}/draft/history`,
       { seasonMin: ASK.HISTORY_MIN_SEASON, seasonMax },
       DRAFT_HISTORY
     ),
-    fetchChunk(
+    fetchJsonl(
       fetchFn,
       `${ASK.WPFL_API_BASE}/fantasyMatchupWinners`,
       { seasonMin: ASK.HISTORY_MIN_SEASON, seasonMax },
       MATCHUPS
     ),
     ...seasons.map(
-      (season: number): Promise<Chunk | null> =>
-        fetchChunk(
+      (season: number): Promise<string | null> =>
+        fetchJsonl(
           fetchFn,
           `${ASK.WPFL_API_BASE}/playerscores`,
           { seasonMin: season, seasonMax: season },
@@ -100,44 +89,26 @@ export async function refreshWpflCache(
     ),
   ]);
 
-  const sources: CachedSource[] = [];
-  const failedSources: string[] = [];
-
-  const write = (name: string, chunks: readonly Chunk[]): void => {
-    const full: string = path.join(targetDir, name);
-    const body: string = `${chunks
-      .map((chunk: Chunk): string => chunk.text)
-      .filter((text: string): boolean => text !== '')
-      .join('\n')}\n`;
-    fs.writeFileSync(full, body);
-    sources.push({
-      path: name,
-      rows: chunks.reduce((total: number, chunk: Chunk): number => total + chunk.rows, 0),
-      bytes: Buffer.byteLength(body),
-    });
+  let wrote = false;
+  const write = (name: string, parts: readonly string[]): void => {
+    const body: string = `${parts.filter((part: string): boolean => part !== '').join('\n')}\n`;
+    fs.writeFileSync(path.join(targetDir, name), body);
+    wrote = true;
   };
 
   // Each source is written only if every fetch behind it succeeded. A partial
   // write would silently drop a decade of rows and the SQL tool would answer
-  // from it without complaint.
-  if (draft === null) failedSources.push(DRAFT_HISTORY);
-  else write(DRAFT_HISTORY, [draft]);
-
-  if (matchups === null) failedSources.push(MATCHUPS);
-  else write(MATCHUPS, [matchups]);
-
-  const failedSeasons: number[] = seasons.filter(
-    (_season: number, index: number): boolean => scores[index] === null
-  );
-  if (failedSeasons.length > 0) failedSources.push(PLAYER_SCORES);
-  else write(PLAYER_SCORES, scores as Chunk[]);
-
-  const fetchedAt = new Date();
-  if (sources.length > 0) {
-    fs.writeFileSync(path.join(targetDir, CACHE_MARKER), `${fetchedAt.toISOString()}\n`);
+  // from it without complaint; a source left unwritten is carried across from
+  // the previous cache by the sync.
+  if (draft !== null) write(DRAFT_HISTORY, [draft]);
+  if (matchups !== null) write(MATCHUPS, [matchups]);
+  if (scores.every((part: string | null): part is string => part !== null)) {
+    write(PLAYER_SCORES, scores);
   }
 
-  return { sources, fetchedAt, failedSeasons, failedSources };
+  if (wrote) {
+    fs.writeFileSync(path.join(targetDir, CACHE_MARKER), `${new Date().toISOString()}\n`);
+  }
 }
 
 /**
@@ -145,19 +116,19 @@ export async function refreshWpflCache(
  * disk rather than from what this run fetched, so a source carried over from
  * a previous cache is described as accurately as one fetched today. This is
  * what lets INDEX.md say where the rows actually end instead of naming a
- * year that was wrong the moment the API gained a current-season row.
+ * year that was wrong the moment the API gained a current-season row. Every
+ * file present gets a key -- null when it holds no rows to scan -- so what is
+ * there and where its rows run are one answer.
  *
  * A regex scan, not a parse: player scores alone are ~36,000 lines and 8 MB,
  * and two fields are all that is needed. The three sources disagree on
  * whether season and week are strings or numbers, so both forms match.
  */
-export function cacheExtents(dir: string): Record<string, SourceExtents> {
-  const extents: Record<string, SourceExtents> = {};
+export function cacheExtents(dir: string): Record<string, SourceExtents | null> {
+  const extents: Record<string, SourceExtents | null> = {};
   for (const name of Object.values(CACHE_SOURCES)) {
     const file: string = path.join(dir, name);
-    if (!fs.existsSync(file)) continue;
-    const found: SourceExtents | null = scanExtents(fs.readFileSync(file, 'utf8'));
-    if (found !== null) extents[name] = found;
+    if (fs.existsSync(file)) extents[name] = scanExtents(fs.readFileSync(file, 'utf8'));
   }
   return extents;
 }
@@ -187,44 +158,28 @@ function scanExtents(text: string): SourceExtents | null {
   return { seasonMin, seasonMax, latestWeek: latestWeekBySeason.get(seasonMax) ?? null };
 }
 
-/** One source's rows, already serialised. */
-interface Chunk {
-  readonly text: string;
-  readonly rows: number;
-}
-
 /**
- * Serialise as soon as the rows land, so the parsed objects for one season
- * become garbage while the other twelve requests are still in flight rather
- * than all being held live until the final join. Player scores alone are
- * ~38,000 objects against ~8.4 MB of text.
+ * One source's rows as JSONL, serialised as soon as they land so the parsed
+ * objects for one season become garbage while the other twelve requests are
+ * still in flight rather than all being held live until the final join.
+ * Player scores alone are ~38,000 objects against ~8.4 MB of text.
+ *
+ * @returns null on any failure -- the caller keeps whatever is already on disk.
  */
-async function fetchChunk(
+async function fetchJsonl(
   fetchFn: FetchFn,
   endpoint: string,
   params: Record<string, number>,
   label: string
-): Promise<Chunk | null> {
-  const rows: unknown[] | null = await fetchRows(fetchFn, endpoint, params, label);
-  if (rows === null) return null;
-  return {
-    text: rows.map((row: unknown): string => JSON.stringify(row)).join('\n'),
-    rows: rows.length,
-  };
-}
-
-/** Returns null on any failure -- the caller keeps whatever is already on disk. */
-async function fetchRows(
-  fetchFn: FetchFn,
-  endpoint: string,
-  params: Record<string, number>,
-  label: string
-): Promise<unknown[] | null> {
+): Promise<string | null> {
   try {
-    return await fetchJsonArray<unknown>(endpoint, params, fetchFn);
+    const rows: unknown[] = await fetchJsonArray<unknown>(endpoint, params, fetchFn);
+    return rows.map((row: unknown): string => JSON.stringify(row)).join('\n');
   } catch (error: unknown) {
-    const reason: string = error instanceof Error ? error.message : String(error);
-    logError('ask', `WPFL cache: ${label} failed (${reason}). Keeping the previous file.`);
+    logError(
+      'ask',
+      `WPFL cache: ${label} failed (${errorMessage(error)}). Keeping the previous file.`
+    );
     return null;
   }
 }

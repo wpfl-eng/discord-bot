@@ -9,7 +9,6 @@ export interface AskSession {
   readonly thread_id: string;
   readonly session_id: string;
   readonly opener_user_id: string;
-  readonly question: string;
   readonly turns: number;
   readonly closed: boolean;
   /** TRUE when /ask opened the thread itself; decides who may continue it by just typing. */
@@ -99,7 +98,7 @@ export async function countAllQuestionsSince(since: Date): Promise<number> {
 
 export async function getSession(threadId: string): Promise<AskSession | null> {
   const result = await sql<AskSession>`
-    SELECT thread_id, session_id, opener_user_id, question, turns, closed, bot_thread
+    SELECT thread_id, session_id, opener_user_id, turns, closed, bot_thread
     FROM ask_sessions
     WHERE thread_id = ${threadId}
   `;
@@ -182,17 +181,11 @@ export async function countByUserSince(since: Date): Promise<UserCount[]> {
   return result.rows.map((row) => ({ userId: row.user_id, count: Number(row.count) }));
 }
 
-export interface RecentRun {
-  readonly userId: string;
-  readonly threadId: string | null;
-  readonly prompt: string;
-  readonly subtype: string | null;
-  readonly costUsd: number;
-  readonly durationMs: number | null;
-  readonly counted: boolean;
-  readonly error: string | null;
-  readonly createdAt: Date;
-}
+/** A ledger row as /ask-admin lists it: the fields a reader wants, and when. */
+export type RecentRun = Pick<
+  UsageRecord,
+  'userId' | 'threadId' | 'prompt' | 'subtype' | 'costUsd' | 'durationMs' | 'counted' | 'error'
+> & { readonly createdAt: Date };
 
 export async function recentRuns(limit: number): Promise<RecentRun[]> {
   const result = await sql<{

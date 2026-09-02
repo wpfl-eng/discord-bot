@@ -12,10 +12,10 @@ describe('ticker', () => {
     test('lists each tool call, and marks the finished ones', () => {
       const ticker: Ticker = createTicker();
 
-      ticker.onToolCall('Read');
+      ticker.onToolCall('Read', 't1');
       ticker.onToolInput('{"file_path":"INDEX.md"}');
-      ticker.onToolSettled();
-      ticker.onToolCall('Read');
+      ticker.onToolSettled('t1');
+      ticker.onToolCall('Read', 't2');
       ticker.onToolInput('{"file_path":"teams/aj-boorde.json"}');
 
       const rendered: string = ticker.render();
@@ -32,7 +32,7 @@ describe('ticker', () => {
     test('accumulates tool input across fragments before reading it', () => {
       const ticker: Ticker = createTicker();
 
-      ticker.onToolCall('mcp__wpfl__sql');
+      ticker.onToolCall('mcp__wpfl__sql', 't1');
       ticker.onToolInput('{"query":"SELECT owner');
       ticker.onToolInput(' FROM teams"}');
 
@@ -42,7 +42,7 @@ describe('ticker', () => {
     test('names the tool in a form a league member can read', () => {
       const ticker: Ticker = createTicker();
 
-      ticker.onToolCall('mcp__wpfl__expected_wins');
+      ticker.onToolCall('mcp__wpfl__expected_wins', 't1');
       ticker.onToolInput('{"season":2024}');
 
       // Not "mcp__wpfl__expected_wins".
@@ -53,7 +53,7 @@ describe('ticker', () => {
     test('shows a tool call whose input never parsed, rather than dropping it', () => {
       const ticker: Ticker = createTicker();
 
-      ticker.onToolCall('WebSearch');
+      ticker.onToolCall('WebSearch', 't1');
       ticker.onToolInput('{"query":"Bijan Rob');
 
       expect(ticker.render()).toContain('WebSearch');
@@ -64,7 +64,7 @@ describe('ticker', () => {
     test('shows the latest reasoning summary on its own line', () => {
       const ticker: Ticker = createTicker();
 
-      ticker.onToolCall('Read');
+      ticker.onToolCall('Read', 't1');
       ticker.onReasoning('comparing his WR spend against the ten-year curve');
 
       expect(ticker.render()).toContain('comparing his WR spend');
@@ -146,20 +146,6 @@ describe('ticker', () => {
         expect(line(ticker.render(), 'first.json')).not.toContain('✓');
       });
 
-      test('settles the oldest unsettled step when no id is available', () => {
-        const ticker: Ticker = createTicker();
-        ticker.onToolCall('Read');
-        ticker.onToolInput('{"file_path":"first.json"}');
-        ticker.onToolCall('Read');
-        ticker.onToolInput('{"file_path":"second.json"}');
-
-        ticker.onToolSettled(null);
-
-        const rendered: string = ticker.render();
-        expect(line(rendered, 'first.json')).toContain('✓');
-        expect(line(rendered, 'second.json')).not.toContain('✓');
-      });
-
       test('shows a failed step with its reason, so a denial is legible', () => {
         const ticker: Ticker = createTicker();
         ticker.onToolCall('WebFetch', 'a');
@@ -190,9 +176,9 @@ describe('ticker', () => {
     test('collapses the tool list and shows the answer', () => {
       const ticker: Ticker = createTicker();
 
-      ticker.onToolCall('Read');
+      ticker.onToolCall('Read', 't1');
       ticker.onToolInput('{"file_path":"INDEX.md"}');
-      ticker.onToolSettled();
+      ticker.onToolSettled('t1');
       ticker.onReasoning('thinking about it');
       ticker.onText('Jimmy paid $54 for Drake London.');
 
@@ -205,10 +191,10 @@ describe('ticker', () => {
     test('keeps a one-line trace of what it did', () => {
       const ticker: Ticker = createTicker();
 
-      ticker.onToolCall('Read');
-      ticker.onToolSettled();
-      ticker.onToolCall('mcp__wpfl__sql');
-      ticker.onToolSettled();
+      ticker.onToolCall('Read', 't1');
+      ticker.onToolSettled('t1');
+      ticker.onToolCall('mcp__wpfl__sql', 't2');
+      ticker.onToolSettled('t2');
       ticker.onText('The answer.');
 
       expect(ticker.render()).toMatch(/2 (tool calls|steps)|Read.*sql/i);
@@ -223,8 +209,8 @@ describe('ticker', () => {
      */
     test('the final render takes the answer it is given, not the streamed prose', () => {
       const ticker: Ticker = createTicker();
-      ticker.onToolCall('Read');
-      ticker.onToolSettled();
+      ticker.onToolCall('Read', 't1');
+      ticker.onToolSettled('t1');
       ticker.onText("I'll start with INDEX.md. ");
       ticker.onText('Jimmy paid $54.');
 
@@ -239,7 +225,7 @@ describe('ticker', () => {
 
     test('with no answer, the final render is the working view, so a failed run shows its steps', () => {
       const ticker: Ticker = createTicker();
-      ticker.onToolCall('Read');
+      ticker.onToolCall('Read', 't1');
       ticker.onToolInput('{"file_path":"INDEX.md"}');
 
       expect(ticker.renderFinal('')).toContain('INDEX.md');
@@ -441,9 +427,9 @@ describe('ticker', () => {
       });
 
       ticker.onQueued(1);
-      ticker.onToolCall('mcp__wpfl__sql');
+      ticker.onToolCall('mcp__wpfl__sql', 't1');
       ticker.onToolInput('{"query"');
-      ticker.onToolSettled();
+      ticker.onToolSettled('t1');
       ticker.onReasoning('thinking');
       ticker.onText('answer');
 
@@ -523,7 +509,7 @@ describe('ticker', () => {
     test('the editor caps a long working ticker too', async () => {
       const sent: string[] = await cappedBy((t) => {
         for (let i = 0; i < 400; i += 1) {
-          t.onToolCall(`mcp__wpfl__tool_number_${i}`);
+          t.onToolCall(`mcp__wpfl__tool_number_${i}`, `t${i}`);
           t.onToolInput(JSON.stringify({ query: 'y'.repeat(50) }));
         }
       });
@@ -563,7 +549,7 @@ describe('ticker', () => {
 
     test('a short answer is untouched', () => {
       const ticker: Ticker = createTicker();
-      ticker.onToolCall('Read');
+      ticker.onToolCall('Read', 't1');
       ticker.onText('Jimmy paid $61 for Bijan.');
 
       expect(ticker.render()).toContain('Jimmy paid $61 for Bijan.');

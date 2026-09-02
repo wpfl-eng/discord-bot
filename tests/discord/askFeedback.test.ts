@@ -6,8 +6,7 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
 }));
 
 const askDb = await import('../../ask/askDb.js');
-const { feedbackRow, handleFeedback, FEEDBACK_PREFIX } =
-  await import('../../discordCommands/ask/askFeedback.js');
+const { feedbackRow, handleFeedback, FEEDBACK_PREFIX } = await import('../../ask/askFeedback.js');
 const { findComponentHandler } = await import('../../interactions/componentRouter.js');
 
 /**

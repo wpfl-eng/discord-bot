@@ -13,10 +13,19 @@
 
 import type { APIMessageTopLevelComponent, AttachmentBuilder } from 'discord.js';
 
+/**
+ * Silenced mentions, for every send and edit that carries text somebody else
+ * wrote: a V2 TextDisplay, a member's question, a model's tool inputs or
+ * prose, a fetched page quoted in it. Real message content pings on an
+ * unescaped <@id>. A refusal reply carries bot text only and keeps the
+ * default, so the person refused is still pinged.
+ */
+export const NO_MENTIONS = { parse: [] } as const;
+
 export interface RenderedMessage {
   readonly flags: number;
   readonly components: APIMessageTopLevelComponent[];
-  readonly allowedMentions: { parse: never[] };
+  readonly allowedMentions: typeof NO_MENTIONS;
   /**
    * Attachments referenced by a MediaGallery in `components`, via `attachment://name`.
    *

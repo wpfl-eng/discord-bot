@@ -2,12 +2,9 @@ import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globa
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {
-  refreshWpflCache,
-  cacheExtents,
-  type HistoryCacheResult,
-} from '../../wpfl/historyCache.js';
+import { refreshWpflCache, cacheExtents } from '../../wpfl/historyCache.js';
 import type { FetchFn, HttpResponse } from '../../wpfl/wpflHttp.js';
+import { fakeResponse } from './support.js';
 
 type Row = Record<string, unknown>;
 
@@ -21,12 +18,7 @@ function fakeFetch(
     const url: URL = new URL(input);
     const planned = answer(url);
     if (planned.throws === true) throw new Error('network down');
-    const status: number = planned.status ?? 200;
-    return {
-      ok: status >= 200 && status < 300,
-      status,
-      json: async (): Promise<unknown> => planned.rows ?? [],
-    };
+    return fakeResponse({ status: planned.status, body: planned.rows ?? [] });
   };
 }
 
@@ -90,7 +82,7 @@ describe('historyCache', () => {
         peak = Math.max(peak, inFlight);
         await new Promise<void>((resolve) => release.push(resolve));
         inFlight -= 1;
-        return { ok: true, status: 200, json: async (): Promise<unknown> => [] };
+        return fakeResponse({ body: [] });
       };
 
       const done = refreshWpflCache(dir, fetchFn, 2017);
@@ -107,7 +99,7 @@ describe('historyCache', () => {
 
   describe('jsonl output', () => {
     test('writes one line per row, per source', async () => {
-      const result: HistoryCacheResult = await refreshWpflCache(
+      await refreshWpflCache(
         dir,
         fakeFetch((url) => {
           if (url.pathname.includes('draft/history')) return { rows: rows(7, 'draft') };
@@ -121,13 +113,6 @@ describe('historyCache', () => {
       expect(lines('matchups.jsonl')).toHaveLength(5);
       // Two seasons, 2015 and 2016, three rows each.
       expect(lines('player_scores.jsonl')).toHaveLength(6);
-
-      const counts: Record<string, number> = Object.fromEntries(
-        result.sources.map((s) => [s.path, s.rows])
-      );
-      expect(counts['draft_history.jsonl']).toBe(7);
-      expect(counts['matchups.jsonl']).toBe(5);
-      expect(counts['player_scores.jsonl']).toBe(6);
     });
 
     test('every line is a self-contained JSON record', async () => {
@@ -142,22 +127,21 @@ describe('historyCache', () => {
       }
     });
 
-    test('records when it fetched, both in the result and on disk', async () => {
-      const result: HistoryCacheResult = await refreshWpflCache(
+    test('records when it fetched, as an instant on disk', async () => {
+      const before: number = Date.now();
+      await refreshWpflCache(
         dir,
         fakeFetch(() => ({ rows: rows(1, 'x') })),
         2015
       );
 
-      expect(result.fetchedAt).toBeInstanceOf(Date);
-      expect(fs.existsSync(path.join(dir, '.fetched'))).toBe(true);
-      expect(fs.readFileSync(path.join(dir, '.fetched'), 'utf8')).toContain(
-        result.fetchedAt.toISOString().slice(0, 10)
-      );
+      const marker: string = fs.readFileSync(path.join(dir, '.fetched'), 'utf8').trim();
+      expect(Date.parse(marker)).toBeGreaterThanOrEqual(before);
+      expect(Date.parse(marker)).toBeLessThanOrEqual(Date.now());
     });
 
     test('an empty season is not a failure -- the API returns [] for a season not yet played', async () => {
-      const result: HistoryCacheResult = await refreshWpflCache(
+      await refreshWpflCache(
         dir,
         fakeFetch((url) =>
           url.searchParams.get('seasonMin') === '2016' ? { rows: [] } : { rows: rows(2, 'x') }
@@ -165,7 +149,6 @@ describe('historyCache', () => {
         2016
       );
 
-      expect(result.failedSeasons).toEqual([]);
       expect(lines('player_scores.jsonl')).toHaveLength(2);
     });
   });
@@ -219,10 +202,10 @@ describe('historyCache', () => {
       });
     });
 
-    test('omits a source whose file is absent or empty', () => {
+    test('omits an absent source, and reports a present one with nothing to scan as null', () => {
       fs.writeFileSync(path.join(dir, 'matchups.jsonl'), '\n');
 
-      expect(cacheExtents(dir)).toEqual({});
+      expect(cacheExtents(dir)).toEqual({ 'matchups.jsonl': null });
     });
   });
 
@@ -231,7 +214,7 @@ describe('historyCache', () => {
       const error = jest.spyOn(console, 'error').mockImplementation(() => {});
       fs.writeFileSync(path.join(dir, 'player_scores.jsonl'), '{"previous":true}\n');
 
-      const result: HistoryCacheResult = await refreshWpflCache(
+      await refreshWpflCache(
         dir,
         fakeFetch((url) =>
           url.pathname.includes('playerscores') && url.searchParams.get('seasonMin') === '2016'
@@ -241,15 +224,17 @@ describe('historyCache', () => {
         2016
       );
 
-      expect(result.failedSeasons).toEqual([2016]);
       expect(lines('player_scores.jsonl')).toEqual(['{"previous":true}']);
+      expect(error.mock.calls.map((call) => String(call[1]))).toEqual([
+        expect.stringContaining('player_scores.jsonl (2016)'),
+      ]);
       error.mockRestore();
     });
 
     test('still writes the sources that succeeded', async () => {
       const error = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      const result: HistoryCacheResult = await refreshWpflCache(
+      await refreshWpflCache(
         dir,
         fakeFetch((url) =>
           url.pathname.includes('playerscores') ? { status: 500 } : { rows: rows(3, 'x') }
@@ -259,7 +244,7 @@ describe('historyCache', () => {
 
       expect(fs.existsSync(path.join(dir, 'draft_history.jsonl'))).toBe(true);
       expect(fs.existsSync(path.join(dir, 'matchups.jsonl'))).toBe(true);
-      expect(result.failedSources).toContain('player_scores.jsonl');
+      expect(fs.existsSync(path.join(dir, 'player_scores.jsonl'))).toBe(false);
       error.mockRestore();
     });
 
@@ -267,7 +252,7 @@ describe('historyCache', () => {
       const error = jest.spyOn(console, 'error').mockImplementation(() => {});
       fs.writeFileSync(path.join(dir, 'draft_history.jsonl'), '{"previous":true}\n');
 
-      const result: HistoryCacheResult = await refreshWpflCache(
+      await refreshWpflCache(
         dir,
         fakeFetch((url) =>
           url.pathname.includes('draft/history') ? { throws: true } : { rows: rows(1, 'x') }
@@ -275,22 +260,23 @@ describe('historyCache', () => {
         2015
       );
 
-      expect(result.failedSources).toContain('draft_history.jsonl');
       expect(lines('draft_history.jsonl')).toEqual(['{"previous":true}']);
       error.mockRestore();
     });
 
-    test('reports a total failure without throwing, so a stale cache still serves', async () => {
+    test('survives a total failure without throwing or writing, so a stale cache still serves', async () => {
       const error = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      const result: HistoryCacheResult = await refreshWpflCache(
-        dir,
-        fakeFetch(() => ({ throws: true })),
-        2015
-      );
+      await expect(
+        refreshWpflCache(
+          dir,
+          fakeFetch(() => ({ throws: true })),
+          2015
+        )
+      ).resolves.toBeUndefined();
 
-      expect(result.failedSources).toHaveLength(3);
-      expect(result.sources).toEqual([]);
+      // Not even the marker: the previous cache is carried across whole.
+      expect(fs.readdirSync(dir)).toEqual([]);
       error.mockRestore();
     });
   });

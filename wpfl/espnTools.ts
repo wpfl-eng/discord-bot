@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
+import { tool } from '@anthropic-ai/claude-agent-sdk';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type {
   ActivityAction,
@@ -33,7 +33,8 @@ import { getWpflMemberByEspnId } from '../constants/wpflMembers.js';
 // the same helper /median reads, so the default week here, the week the
 // prompt states and the week /median prints are one number (log Stage 14).
 import { espnClientFromEnv, getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
-import { toToolResult } from './wpflApiTools.js';
+import { toToolResult, type AnyTool } from './toolResult.js';
+import { leagueInstant } from '../ask/leagueTime.js';
 
 export interface RosterEntry {
   readonly name: string;
@@ -82,6 +83,7 @@ export interface FreeAgentSummary {
 }
 
 export interface TransactionSummary {
+  /** In the league timezone, like every other date the agent is shown. */
   readonly date: string;
   readonly action: string;
   readonly owner: string;
@@ -175,7 +177,7 @@ export function toTransactions(topics: readonly ActivityAction[][]): Transaction
   // a team no longer in the league, or a player neither on a roster nor
   // returned by the player-card endpoint.
   return topics.flat().map((action) => ({
-    date: new Date(action.date).toISOString(),
+    date: leagueInstant(new Date(action.date)),
     action: action.action,
     owner: action.team === undefined ? 'Unknown' : ownerFor(action.team.id),
     toOwner: action.ids.to === undefined ? null : ownerFor(action.ids.to),
@@ -219,10 +221,7 @@ function espnClient(): EspnClient {
 const CURRENT_SEASON_ONLY =
   'This is the live ESPN league and the only source of truth for the season in progress — the WPFL history API returns nothing for it and the draft artifact froze on draft night.';
 
-// See the note in wpflApiTools.ts on why this collection is typed the way the
-// library types its own.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const espnTools: SdkMcpToolDefinition<any>[] = [
+export const espnTools: AnyTool[] = [
   tool(
     'espn_teams',
     `Every team in the live ESPN league: owner, record, playoff seed, points for and against, and the full roster with each player's injury status. Use this for standings, for who owns a player right now, and for injuries on a roster. ${CURRENT_SEASON_ONLY}`,

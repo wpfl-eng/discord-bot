@@ -6,6 +6,7 @@ import { shred, type ShredResult } from '../../wpfl/shredder.js';
 import { generateIndex } from '../../wpfl/indexGenerator.js';
 import { readAsOf, type AsOf } from '../../wpfl/layout.js';
 import { wpflMembers } from '../../constants/wpflMembers.js';
+import { loadFixture } from './support.js';
 
 type Artifact = Record<string, unknown>;
 
@@ -20,9 +21,7 @@ describe('indexGenerator', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-index-'));
-    artifact = JSON.parse(
-      fs.readFileSync(path.join(process.cwd(), 'tests/fixtures/postdraft-published.json'), 'utf8')
-    ) as Artifact;
+    artifact = loadFixture<Artifact>('postdraft-published.json');
     result = shred(artifact, dir);
     // As the sync does: the dates come back off the shredded files, through
     // the same reader the prompt and /ask-admin use.
@@ -180,10 +179,15 @@ describe('indexGenerator', () => {
    * neither the files nor the fact that they are reachable only through `sql`.
    */
   describe('the cached decade', () => {
-    const ALL_CACHED: string[] = ['draft_history.jsonl', 'matchups.jsonl', 'player_scores.jsonl'];
+    // Present, with nothing scanned: what the sync passes for a file it found but could not read a season from.
+    const ALL_CACHED: Record<string, null> = {
+      'draft_history.jsonl': null,
+      'matchups.jsonl': null,
+      'player_scores.jsonl': null,
+    };
 
     test('names the three cached sources and the table each becomes', () => {
-      const index: string = generateIndex({ shred: result, asOf, wpflCacheFiles: ALL_CACHED });
+      const index: string = generateIndex({ shred: result, asOf, wpflCache: ALL_CACHED });
 
       expect(index).toContain('wpfl_draft_history');
       expect(index).toContain('wpfl_matchups');
@@ -195,8 +199,7 @@ describe('indexGenerator', () => {
       const index: string = generateIndex({
         shred: result,
         asOf,
-        wpflCacheFiles: ALL_CACHED,
-        wpflCacheExtents: {
+        wpflCache: {
           'draft_history.jsonl': { seasonMin: 2010, seasonMax: 2025, latestWeek: null },
           'matchups.jsonl': { seasonMin: 2015, seasonMax: 2025, latestWeek: 17 },
           'player_scores.jsonl': { seasonMin: 2015, seasonMax: 2026, latestWeek: 3 },
@@ -217,7 +220,7 @@ describe('indexGenerator', () => {
       const index: string = generateIndex({
         shred: result,
         asOf,
-        wpflCacheFiles: ['draft_history.jsonl', 'matchups.jsonl'],
+        wpflCache: { 'draft_history.jsonl': null, 'matchups.jsonl': null },
       });
 
       expect(index).toContain('| `wpfl_draft_history` |');
@@ -230,7 +233,7 @@ describe('indexGenerator', () => {
       const index: string = generateIndex({
         shred: result,
         asOf: { ...asOf, etag: null, cacheFetchedAt: null },
-        wpflCacheFiles: [],
+        wpflCache: {},
       });
 
       expect(index).toMatch(/not been (built|fetched)|unavailable/i);

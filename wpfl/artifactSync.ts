@@ -25,7 +25,8 @@ import {
   readEtag,
 } from './layout.js';
 import { liveShred } from './liveShred.js';
-import { logError } from '../errors/errorHandler.js';
+import { warmSqlDatabase } from './sqlTool.js';
+import { errorMessage, logError } from '../errors/errorHandler.js';
 
 export type SyncOutcome =
   | { readonly kind: 'fresh' }
@@ -43,7 +44,8 @@ export interface SyncDeps {
   /**
    * Skip every freshness window and the etag short-circuit: fetch, shred and
    * refresh the cache now. For /ask-admin resync, after draft-2026's Tuesday
-   * republish. A forced call that finds a sync already in flight joins it.
+   * republish. A forced call that finds a sync already in flight waits for it,
+   * then runs its own.
    */
   readonly force?: boolean;
 }
@@ -62,9 +64,21 @@ const inFlight = new Map<string, Promise<SyncOutcome>>();
 export async function ensureFresh(deps: SyncDeps = {}): Promise<SyncOutcome> {
   const key: string = deps.dataDir ?? ASK.DATA_DIR;
   const running: Promise<SyncOutcome> | undefined = inFlight.get(key);
-  if (running !== undefined) return running;
+  if (running !== undefined && deps.force !== true) return running;
 
-  const started: Promise<SyncOutcome> = sync(deps).finally(() => inFlight.delete(key));
+  // A forced call never joins: it waits for whatever is in flight, whichever
+  // way that ends, then runs its own. Joining lost the force, and the one
+  // weekly admin action could silently do nothing at the moment it was run.
+  const started: Promise<SyncOutcome> = (
+    running === undefined
+      ? sync(deps)
+      : running.then(
+          () => sync(deps),
+          () => sync(deps)
+        )
+  ).finally((): void => {
+    if (inFlight.get(key) === started) inFlight.delete(key);
+  });
   inFlight.set(key, started);
   return started;
 }
@@ -83,6 +97,18 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
     return { kind: 'fresh' };
   }
 
+  // The build already on disk can be served as is only when INDEX.md exists
+  // to be touched -- missing, utimesSync threw ENOENT and the etag then
+  // matched identically forever -- and the decade cache is inside its own
+  // window, or its rows refreshed only when draft-2026 republished (log
+  // Stage 14, decision 11). Only then is the stored etag worth offering as
+  // If-None-Match: a 304 carries no body, and the artifact is ~935 KB, which
+  // was being downloaded up to four times a day to learn it had not changed.
+  const stored: string | null =
+    !force && indexWrittenAt !== undefined && cacheIsFresh(dataDir, now())
+      ? readEtag(dataDir)
+      : null;
+
   let artifact: unknown;
   let etag: string | null;
   try {
@@ -93,39 +119,27 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
       ASK.ARTIFACT_URL,
       fetchFn,
       'The artifact fetch',
-      deps.timeoutMs
+      {
+        timeoutMs: deps.timeoutMs,
+        ...(stored === null ? {} : { headers: { 'If-None-Match': `"${stored}"` } }),
+      }
     );
-    if (!response.ok) {
+    if (!response.ok && response.status !== 304) {
       return failed(`the artifact URL returned HTTP ${response.status}`);
     }
-    etag = normalizeEtag(response.headers?.get('etag'));
+    etag = response.status === 304 ? stored : normalizeEtag(response.headers?.get('etag'));
 
-    // The etag alone is not enough to short-circuit on: this branch is only
-    // reached when INDEX.md is missing or stale, and touching a file that is
-    // not there threw ENOENT into the catch below. The etag matched again on
-    // the next call, so it failed identically forever and nothing re-shredded.
-    //
-    // Nor is an unchanged artifact enough on its own any more. The decade
-    // cache has a window of its own, and when it has lapsed the full path
-    // runs even though the artifact is the same build: a second's download
-    // and a five-millisecond shred, against the thirteen fetches that are the
-    // point. The cache used to refresh only when draft-2026 republished.
-    if (
-      !force &&
-      etag !== null &&
-      etag === readEtag(dataDir) &&
-      indexWrittenAt !== undefined &&
-      cacheIsFresh(dataDir, now())
-    ) {
-      // Same build. Touch INDEX.md so the staleness window restarts rather
-      // than re-checking on every question for the next six hours.
+    // Same build, by a 304 or from a host that sent the body anyway. Touch
+    // INDEX.md so the staleness window restarts rather than re-checking on
+    // every question for the next six hours.
+    if (stored !== null && etag === stored) {
       fs.utimesSync(index, new Date(), new Date());
       return { kind: 'unchanged' };
     }
 
     artifact = await response.json();
   } catch (error: unknown) {
-    return failed(error instanceof Error ? error.message : String(error));
+    return failed(errorMessage(error));
   }
 
   // Build the whole new tree beside the live one and swap at the end, so a
@@ -155,11 +169,6 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
       }
     }
 
-    // What is on disk after the copy-back, not what the refresh set out to
-    // fetch: a source whose fetch failed may still be served from the previous
-    // cache, and one that was never fetched at all must not be advertised.
-    const cacheFiles: string[] = fs.existsSync(stagedCache) ? fs.readdirSync(stagedCache) : [];
-
     // The etag lands before INDEX.md is generated, because INDEX.md reads its
     // as-of dates back from the staged files -- the same reader the prompt
     // and /ask-admin use -- rather than from the artifact object. A carried-
@@ -170,14 +179,19 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
       generateIndex({
         shred: result,
         asOf: readAsOf(staging),
-        wpflCacheFiles: cacheFiles,
-        // Read from the files after the copy-back, so a carried-over source
-        // is described as accurately as one fetched this run.
-        wpflCacheExtents: cacheExtents(stagedCache),
+        // What is on disk after the copy-back, not what the refresh set out to
+        // fetch: a source whose fetch failed may still be served from the
+        // previous cache, and one never fetched at all must not be advertised.
+        wpflCache: cacheExtents(stagedCache),
       })
     );
 
     swap(dataDir, staging);
+    // The swap retired the materialized database, which is keyed on the
+    // shred. Rebuild it now, in the background, rather than inside the next
+    // member's turn -- here, because this is what retired it; every caller
+    // of ensureFresh used to have to remember.
+    warmSqlDatabase(dataDir);
     return { kind: 'reshredded', files: result.files.length, etag };
   } catch (error: unknown) {
     fs.rmSync(staging, { recursive: true, force: true });

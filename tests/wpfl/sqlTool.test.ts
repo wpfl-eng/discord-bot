@@ -3,10 +3,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { shred } from '../../wpfl/shredder.js';
+import { loadFixture } from './support.js';
 import {
   guardStatement,
   runSql,
-  tableNames,
   resetSqlDatabase,
   sqlTool,
   type SqlResult,
@@ -103,9 +103,7 @@ describe('sqlTool', () => {
 
     beforeAll(() => {
       dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-sql-'));
-      const artifact: unknown = JSON.parse(
-        fs.readFileSync(path.join(process.cwd(), 'tests/fixtures/postdraft-published.json'), 'utf8')
-      );
+      const artifact: unknown = loadFixture('postdraft-published.json');
       shred(artifact, dataDir);
 
       // A stand-in for the cached WPFL decade, so the cross-source join is real.
@@ -135,7 +133,11 @@ describe('sqlTool', () => {
     });
 
     test('materializes a table per shred file plus the cached decade', async () => {
-      const names: string[] = await tableNames(dataDir);
+      const result: SqlResult = await runSql(
+        'SELECT table_name FROM information_schema.tables',
+        dataDir
+      );
+      const names: string[] = result.rows.map((row) => String(row.table_name));
 
       expect(names).toContain('teams');
       expect(names).toContain('league_board');
@@ -404,7 +406,7 @@ describe('sqlTool', () => {
       // next caller materializes a new database and retires this one.
       const later = new Date(Date.now() + 60_000);
       fs.utimesSync(path.join(dataDir, 'meta.json'), later, later);
-      await tableNames(dataDir);
+      await runSql('SELECT 1', dataDir);
       order.push('rebuild');
 
       expect((await inFlight).rows).toEqual([{ c: '2000000000' }]);
