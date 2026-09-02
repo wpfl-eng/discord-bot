@@ -5,6 +5,16 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
   recordToolException: jest.fn(),
 }));
 
+// The week comes from ESPN in production. Nothing here reaches the network.
+jest.unstable_mockModule('../../helpers/espnPeriod.js', () => ({
+  getCurrentPeriod: jest.fn(async () => ({
+    seasonId: 2026,
+    scoringPeriodId: 7,
+    matchupPeriodId: 7,
+    source: 'espn',
+  })),
+}));
+
 const { runAsk } = await import('../../ask/askRunner.js');
 const { resetConcurrency, inFlight } = await import('../../ask/concurrency.js');
 const { ASK } = await import('../../ask/askConfig.js');
@@ -602,6 +612,14 @@ describe('askRunner', () => {
 
       expect(Array.isArray(prompt)).toBe(true);
       expect(prompt).toHaveLength(3);
+    });
+
+    test('tells the agent the week ESPN reports, resolved once per run', async () => {
+      const prompt = (await capture()).options.systemPrompt as string[];
+
+      expect(prompt[2]).toMatch(/week 7\b/i);
+      expect(prompt[2]).toContain('2026 season');
+      expect(prompt[2]).toMatch(/from ESPN/i);
     });
   });
 

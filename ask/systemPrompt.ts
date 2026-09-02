@@ -17,7 +17,7 @@ import path from 'node:path';
 import { formatInTimeZone } from 'date-fns-tz';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from './askConfig.js';
-import { getCurrentNFLWeek, getCurrentNFLSeason } from '../helpers/utils.js';
+import type { NFLPeriod } from '../helpers/espnPeriod.js';
 
 /**
  * The league's timezone. One definition, in the config file.
@@ -41,6 +41,13 @@ export interface PromptContext {
   readonly owner: string | null;
   readonly espnId: number | null;
   readonly now?: Date;
+  /**
+   * The week and season, resolved once per run by the runner from ESPN with a
+   * calendar fallback (helpers/espnPeriod.ts). Passed in rather than computed
+   * here so this builder stays pure, and so the prompt, the ESPN tools'
+   * defaults and /median all say the same week.
+   */
+  readonly period: NFLPeriod;
   readonly asOf: AsOf;
 }
 
@@ -114,16 +121,20 @@ function dynamicHalf(context: PromptContext): string {
       ? 'The person asking is not mapped to a league member, so you do not know whose team is theirs. If the question depends on that, ask which team they mean.'
       : `You are answering ${context.owner}, ESPN team ${context.espnId}. "My team", "I" and "me" mean them. Name them in the footer.`;
 
+  const { period } = context;
+  // The grounding rule asks the agent to say when a source is shaky. The
+  // week is a source like any other, so its provenance rides with it.
+  const weekSource: string =
+    period.source === 'espn'
+      ? 'from ESPN'
+      : 'estimated from the calendar, because ESPN was unreachable; treat the week as approximate';
+
   return [
     '# This request',
     '',
     who,
     '',
-    // The season is getCurrentNFLSeason(), not the calendar year. In January
-    // and February -- the fantasy playoffs and the championship -- the calendar
-    // year is one ahead of the season being played, so this told the agent it
-    // was the 2027 season while every espn_* tool fetched seasonId 2026.
-    `Today is ${formatInTimeZone(now, LEAGUE_TZ, 'yyyy-MM-dd')}. It is NFL week ${getCurrentNFLWeek(now)} of the ${getCurrentNFLSeason(now)} season.`,
+    `Today is ${formatInTimeZone(now, LEAGUE_TZ, 'yyyy-MM-dd')}. It is NFL week ${period.scoringPeriodId} of the ${period.seasonId} season (${weekSource}).`,
     '',
     'Your data is as of:',
     `- Draft artifact generated: ${orUnknown(asOf.generated)}`,

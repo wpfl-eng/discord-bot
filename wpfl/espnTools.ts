@@ -30,12 +30,10 @@ import type {
   Team,
 } from 'espn-fantasy-football-api/node.js';
 import { getWpflMemberByEspnId } from '../constants/wpflMembers.js';
-// getCurrentNFLSeason, not getFullYear(): the latter would name the wrong season
-// for all of January and February -- the weeks that carry the fantasy playoffs
-// and the championship. ESPN would return nothing for the season that has not
-// started, and the agent would tell the league in public that it has no data for
-// the game they just played.
-import { getCurrentNFLWeek, getCurrentNFLSeason } from '../helpers/utils.js';
+// The week and season come from ESPN, with the calendar as the fallback --
+// the same helper /median reads, so the default week here, the week the
+// prompt states and the week /median prints are one number (log Stage 14).
+import { getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
 import { toToolResult } from './wpflApiTools.js';
 
 const { Client } = pkg;
@@ -216,15 +214,17 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
         .optional()
         .describe('Scoring period. Defaults to the current NFL week.'),
     },
-    async (args): Promise<CallToolResult> =>
-      toToolResult(
+    async (args): Promise<CallToolResult> => {
+      const period: NFLPeriod = await getCurrentPeriod();
+      return toToolResult(
         toTeams(
           await espnClient().getTeamsAtWeek({
-            seasonId: getCurrentNFLSeason(),
-            scoringPeriodId: args.week ?? getCurrentNFLWeek(),
+            seasonId: period.seasonId,
+            scoringPeriodId: args.week ?? period.scoringPeriodId,
           })
         )
-      )
+      );
+    }
   ),
 
   tool(
@@ -234,13 +234,15 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
       week: z.number().int().optional().describe('Week. Defaults to the current NFL week.'),
     },
     async (args): Promise<CallToolResult> => {
-      const week: number = args.week ?? getCurrentNFLWeek();
+      const period: NFLPeriod = await getCurrentPeriod();
+      // ESPN reports both periods; with one-week matchups they agree, and an
+      // explicit week from the agent names both.
       return toToolResult(
         toBoxscores(
           await espnClient().getBoxscoreForWeek({
-            seasonId: getCurrentNFLSeason(),
-            matchupPeriodId: week,
-            scoringPeriodId: week,
+            seasonId: period.seasonId,
+            matchupPeriodId: args.week ?? period.matchupPeriodId,
+            scoringPeriodId: args.week ?? period.scoringPeriodId,
           })
         )
       );
@@ -261,25 +263,29 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
         .optional()
         .describe('Scoring period. Defaults to the current NFL week.'),
     },
-    async (args): Promise<CallToolResult> =>
-      toToolResult(
+    async (args): Promise<CallToolResult> => {
+      const period: NFLPeriod = await getCurrentPeriod();
+      return toToolResult(
         toFreeAgents(
           await espnClient().getFreeAgents({
-            seasonId: getCurrentNFLSeason(),
-            scoringPeriodId: args.week ?? getCurrentNFLWeek(),
+            seasonId: period.seasonId,
+            scoringPeriodId: args.week ?? period.scoringPeriodId,
           }),
           args.position
         )
-      )
+      );
+    }
   ),
 
   tool(
     'espn_transactions',
     `Recent adds, drops and trades, with who moved whom, when, and the waiver bid. **Current season only** — ESPN serves this endpoint for the current season and 404s for every prior one, so do not reach for it to answer a historical question; use the sql tool for those. ${CURRENT_SEASON_ONLY}`,
     {},
-    async (): Promise<CallToolResult> =>
-      toToolResult(
-        toTransactions(await espnClient().getRecentActivity({ seasonId: getCurrentNFLSeason() }))
-      )
+    async (): Promise<CallToolResult> => {
+      const period: NFLPeriod = await getCurrentPeriod();
+      return toToolResult(
+        toTransactions(await espnClient().getRecentActivity({ seasonId: period.seasonId }))
+      );
+    }
   ),
 ];

@@ -26,6 +26,7 @@ import { recordUsage } from './askDb.js';
 import { logError } from '../errors/errorHandler.js';
 import { wpflServer } from '../wpfl/mcpServer.js';
 import { borrowShred } from '../wpfl/liveShred.js';
+import { getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
 import type { Release } from './generations.js';
 
 export interface AskRequest {
@@ -120,6 +121,12 @@ export async function runAsk(
   const shred: Release = borrowShred();
   const started: number = Date.now();
 
+  // Once per run, before the prompt is built: the prompt states the week and
+  // the ESPN tools default to it, and both have to agree with /median, which
+  // reads the same helper. Cached bot-wide for fifteen minutes; it falls back
+  // to the calendar on its own and never throws.
+  const period: NFLPeriod = await getCurrentPeriod();
+
   let text = '';
   let sessionId: string | null = request.sessionId ?? null;
   // From the stream, not from the request: a resumed session id proves
@@ -132,7 +139,7 @@ export async function runAsk(
   try {
     for await (const message of queryFn({
       prompt: request.prompt,
-      options: buildOptions(request, deadline.signal),
+      options: buildOptions(request, deadline.signal, period),
     })) {
       const result: TerminalResult | null = consume(message, sink, (chunk) => {
         text += chunk;
@@ -279,7 +286,7 @@ function firstLine(content: unknown): string {
   return text.split('\n')[0].trim() || 'Tool returned an error.';
 }
 
-function buildOptions(request: AskRequest, signal: AbortSignal): Options {
+function buildOptions(request: AskRequest, signal: AbortSignal, period: NFLPeriod): Options {
   // Typed as Options rather than asserted into it. A blanket `as Options` on
   // the whole object would let a renamed or removed SDK field typecheck clean
   // forever, and this is the object where that matters most.
@@ -317,6 +324,7 @@ function buildOptions(request: AskRequest, signal: AbortSignal): Options {
     systemPrompt: buildSystemPrompt({
       owner: request.owner,
       espnId: request.espnId,
+      period,
       asOf: readAsOf(),
     }),
     mcpServers: { wpfl: wpflServer },

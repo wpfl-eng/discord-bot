@@ -4,8 +4,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
 import { buildSystemPrompt, readAsOf, STATIC_PROMPT, type AsOf } from '../../ask/systemPrompt.js';
+import type { NFLPeriod } from '../../helpers/espnPeriod.js';
 
 const SEPT = new Date('2026-09-15T18:00:00Z');
+
+/** The week as ESPN reports it, resolved once per run by the runner. */
+const WEEK_1: NFLPeriod = {
+  seasonId: 2026,
+  scoringPeriodId: 1,
+  matchupPeriodId: 1,
+  source: 'espn',
+};
 
 const AS_OF: AsOf = {
   generated: '2026-08-28 21:20',
@@ -22,6 +31,7 @@ describe('systemPrompt', () => {
         owner: 'AJ Boorde',
         espnId: 4,
         now: SEPT,
+        period: WEEK_1,
         asOf: AS_OF,
       });
 
@@ -34,12 +44,14 @@ describe('systemPrompt', () => {
         owner: 'AJ Boorde',
         espnId: 4,
         now: SEPT,
+        period: WEEK_1,
         asOf: AS_OF,
       });
       const two: string[] = buildSystemPrompt({
         owner: 'Neill Bullock',
         espnId: 11,
         now: new Date('2026-12-01T00:00:00Z'),
+        period: { ...WEEK_1, scoringPeriodId: 13, matchupPeriodId: 13, source: 'calendar' },
         asOf: { ...AS_OF, newsAsOf: '2026-11-30' },
       });
 
@@ -52,6 +64,7 @@ describe('systemPrompt', () => {
         owner: 'AJ Boorde',
         espnId: 4,
         now: SEPT,
+        period: WEEK_1,
         asOf: AS_OF,
       });
 
@@ -96,7 +109,14 @@ describe('systemPrompt', () => {
 
   describe('the per-request half', () => {
     const dynamic = (over: Partial<Parameters<typeof buildSystemPrompt>[0]> = {}): string =>
-      buildSystemPrompt({ owner: 'AJ Boorde', espnId: 4, now: SEPT, asOf: AS_OF, ...over })[2];
+      buildSystemPrompt({
+        owner: 'AJ Boorde',
+        espnId: 4,
+        now: SEPT,
+        period: WEEK_1,
+        asOf: AS_OF,
+        ...over,
+      })[2];
 
     test('names the caller and their ESPN team, so "my team" needs no round trip', () => {
       const text: string = dynamic();
@@ -112,30 +132,47 @@ describe('systemPrompt', () => {
       expect(text).toMatch(/not.*(mapped|member)|don't know who/i);
     });
 
-    // Labor Day 2026 is 7 September, so the season opens Thursday the 10th and
-    // the 15th is still week 1. Two dates, so this asserts the week is computed
-    // rather than merely printed.
-    test('carries the date and the NFL week', () => {
+    /**
+     * The week and season come from the period the runner resolved, not from
+     * arithmetic over `now`. Main's helpers/espnPeriod.ts asks ESPN, which
+     * publishes the week directly, and falls back to the calendar; /median and
+     * /closestscores already use it, and principle five says /ask must not
+     * disagree with them (log Stage 14, decision 10). The date is still `now`,
+     * in the league timezone.
+     */
+    test('carries the date, and the NFL week and season it was given', () => {
       const text: string = dynamic();
 
       expect(text).toContain('2026-09-15');
       expect(text).toMatch(/week 1\b/i);
+      expect(text).toContain('2026 season');
 
-      const later: string = dynamic({ now: new Date('2026-09-22T18:00:00Z') });
+      const later: string = dynamic({
+        now: new Date('2026-09-22T18:00:00Z'),
+        period: { ...WEEK_1, scoringPeriodId: 2, matchupPeriodId: 2 },
+      });
       expect(later).toContain('2026-09-22');
       expect(later).toMatch(/week 2\b/i);
     });
 
-    test('names the season the ESPN tools query, not the calendar year', () => {
-      // January and February are the fantasy playoffs and the championship, and
-      // they belong to the previous NFL season. This line used the calendar
-      // year, so it told the agent it was the 2027 season while espn_teams and
-      // every other espn_* tool fetched seasonId 2026 -- the exact boundary the
-      // rest of the feature was already careful about.
-      const text: string = dynamic({ now: new Date('2027-01-15T12:00:00Z') });
+    test('names the season the ESPN tools query, whatever the calendar year says', () => {
+      // January is the fantasy playoffs; the season being played is still 2026.
+      const text: string = dynamic({
+        now: new Date('2027-01-15T12:00:00Z'),
+        period: { ...WEEK_1, scoringPeriodId: 18, matchupPeriodId: 18 },
+      });
 
+      expect(text).toContain('2027-01-15');
       expect(text).toContain('2026 season');
       expect(text).not.toContain('2027 season');
+    });
+
+    test('says where the week came from, so the agent hedges on the fallback', () => {
+      expect(dynamic()).toMatch(/from ESPN/i);
+
+      const fallback: string = dynamic({ period: { ...WEEK_1, source: 'calendar' } });
+      expect(fallback).toMatch(/calendar/i);
+      expect(fallback).toMatch(/ESPN (was|is) unreachable|could not reach ESPN/i);
     });
 
     /**
@@ -154,12 +191,11 @@ describe('systemPrompt', () => {
       expect(text).not.toContain('2026-09-15');
     });
 
-    test('names the season from the league timezone too', () => {
+    test('keeps the date in the league timezone across the year boundary', () => {
       // 03:00Z on 1 January is still 31 December in New York.
       const text: string = dynamic({ now: new Date('2027-01-01T03:00:00Z') });
 
       expect(text).toContain('2026-12-31');
-      expect(text).toMatch(/2026 season/);
     });
 
     test('carries every as-of date and the artifact etag', () => {
