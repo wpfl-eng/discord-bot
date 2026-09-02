@@ -84,12 +84,12 @@ export async function checkCaps(
 }
 
 /** Midnight in New York on the calendar day containing `now`. */
-function startOfDay(now: Date): Date {
+export function startOfDay(now: Date): Date {
   return fromZonedTime(`${formatInTimeZone(now, LEAGUE_TZ, 'yyyy-MM-dd')} 00:00:00`, LEAGUE_TZ);
 }
 
 /** Midnight in New York on the first of the calendar month containing `now`. */
-function startOfMonth(now: Date): Date {
+export function startOfMonth(now: Date): Date {
   return fromZonedTime(`${formatInTimeZone(now, LEAGUE_TZ, 'yyyy-MM')}-01 00:00:00`, LEAGUE_TZ);
 }
 

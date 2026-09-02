@@ -22,6 +22,7 @@ import { ASK } from '../../ask/askConfig.js';
 import { checkCaps, type CapDecision } from '../../ask/caps.js';
 import { credentialConfigured } from '../../ask/askAuth.js';
 import { isAskPaused } from '../../ask/pause.js';
+import { NO_MENTIONS } from '../../ask/mentions.js';
 import { runAsk, type AskOutcome } from '../../ask/askRunner.js';
 import { enqueueInThread, type Admitted } from '../../ask/threadQueue.js';
 import {
@@ -61,15 +62,7 @@ export type AskTarget =
   | { readonly kind: 'new-thread' }
   | { readonly kind: 'in-place'; readonly resume: string | null };
 
-/**
- * Every /ask send and edit that carries text somebody else wrote -- the
- * member's question, the model's tool inputs, the model's prose, a fetched
- * page quoted in it -- parses no mentions. The casino renderers do the same
- * on every payload, and for the same reason: an unescaped <@id> in real
- * message content pings. Refusal replies carry bot text only and keep the
- * default, so the person refused is still pinged.
- */
-export const NO_MENTIONS = { parse: [] } as const;
+export { NO_MENTIONS };
 
 /**
  * The reasons a question is refused before anything is looked up. Paused is

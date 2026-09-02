@@ -147,6 +147,92 @@ export async function recordUsage(usage: UsageRecord): Promise<void> {
   `;
 }
 
+// ============ Admin views ============
+// Read by /ask-admin usage. Read-only, filtered the way the caps are.
+
+export interface UserCount {
+  readonly userId: string;
+  readonly count: number;
+}
+
+export async function countByUserSince(since: Date): Promise<UserCount[]> {
+  const result = await sql<{ user_id: string; count: string }>`
+    SELECT user_id, COUNT(*) AS count FROM ask_usage
+    WHERE counted
+      AND created_at >= ${since.toISOString()}
+    GROUP BY user_id
+    ORDER BY count DESC
+  `;
+  return result.rows.map((row) => ({ userId: row.user_id, count: Number(row.count) }));
+}
+
+export interface RecentRun {
+  readonly userId: string;
+  readonly threadId: string | null;
+  readonly prompt: string;
+  readonly subtype: string | null;
+  readonly costUsd: number;
+  readonly durationMs: number | null;
+  readonly counted: boolean;
+  readonly error: string | null;
+  readonly createdAt: Date;
+}
+
+export async function recentRuns(limit: number): Promise<RecentRun[]> {
+  const result = await sql<{
+    user_id: string;
+    thread_id: string | null;
+    prompt: string;
+    subtype: string | null;
+    cost_usd: string | number;
+    duration_ms: number | null;
+    counted: boolean;
+    error: string | null;
+    created_at: Date;
+  }>`
+    SELECT user_id, thread_id, prompt, subtype, cost_usd, duration_ms, counted, error, created_at
+    FROM ask_usage ORDER BY created_at DESC LIMIT ${limit}
+  `;
+  return result.rows.map((row) => ({
+    userId: row.user_id,
+    threadId: row.thread_id,
+    prompt: row.prompt,
+    subtype: row.subtype,
+    // NUMERIC arrives as a string from node-postgres.
+    costUsd: Number(row.cost_usd),
+    durationMs: row.duration_ms,
+    counted: row.counted,
+    error: row.error,
+    createdAt: new Date(row.created_at),
+  }));
+}
+
+export interface RecentThumbsDown {
+  readonly messageId: string;
+  readonly threadId: string | null;
+  readonly userId: string;
+  readonly updatedAt: Date;
+}
+
+export async function recentThumbsDown(limit: number): Promise<RecentThumbsDown[]> {
+  const result = await sql<{
+    message_id: string;
+    thread_id: string | null;
+    user_id: string;
+    updated_at: Date;
+  }>`
+    SELECT message_id, thread_id, user_id, updated_at
+    FROM ask_feedback WHERE rating = -1
+    ORDER BY updated_at DESC LIMIT ${limit}
+  `;
+  return result.rows.map((row) => ({
+    messageId: row.message_id,
+    threadId: row.thread_id,
+    userId: row.user_id,
+    updatedAt: new Date(row.updated_at),
+  }));
+}
+
 // ============ Feedback ============
 
 /** One vote per person per answer; a changed mind overwrites. */

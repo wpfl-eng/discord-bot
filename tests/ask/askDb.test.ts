@@ -98,6 +98,76 @@ describe('askDb', () => {
     });
   });
 
+  /** What /ask-admin usage reads. All read-only, all filtered the way the caps are. */
+  describe('the admin views', () => {
+    test('counts by member since a moment, most first, counted rows only', async () => {
+      responses = [
+        {
+          rows: [
+            { user_id: 'u1', count: '4' },
+            { user_id: 'u2', count: '1' },
+          ],
+        },
+      ];
+
+      const counts = await askDb.countByUserSince(new Date());
+
+      expect(counts).toEqual([
+        { userId: 'u1', count: 4 },
+        { userId: 'u2', count: 1 },
+      ]);
+      expect(log[0].text).toMatch(/GROUP BY user_id/);
+      expect(log[0].text).toMatch(/\bcounted\b/);
+      expect(log[0].text).toMatch(/ORDER BY .*DESC/);
+    });
+
+    test('lists the most recent runs with what an admin triages on', async () => {
+      responses = [
+        {
+          rows: [
+            {
+              user_id: 'u1',
+              thread_id: 't1',
+              prompt: 'why did Jimmy get an A+?',
+              subtype: 'success',
+              cost_usd: '0.1473',
+              duration_ms: 42000,
+              counted: true,
+              error: null,
+              created_at: new Date('2026-09-02T12:00:00Z'),
+            },
+          ],
+        },
+      ];
+
+      const runs = await askDb.recentRuns(5);
+
+      expect(runs[0]).toMatchObject({
+        userId: 'u1',
+        threadId: 't1',
+        prompt: 'why did Jimmy get an A+?',
+        subtype: 'success',
+        costUsd: 0.1473,
+        durationMs: 42000,
+        counted: true,
+        error: null,
+      });
+      expect(log[0].text).toMatch(/FROM ask_usage ORDER BY created_at DESC LIMIT/);
+      expect(log[0].values).toContain(5);
+    });
+
+    test('lists the most recent thumbs-downs with their threads', async () => {
+      responses = [
+        { rows: [{ message_id: 'm1', thread_id: 't1', user_id: 'u2', updated_at: new Date() }] },
+      ];
+
+      const downs = await askDb.recentThumbsDown(5);
+
+      expect(downs[0]).toMatchObject({ messageId: 'm1', threadId: 't1', userId: 'u2' });
+      expect(log[0].text).toMatch(/FROM ask_feedback WHERE rating = -1/);
+    });
+  });
+
   describe('feedback', () => {
     test('is an upsert on the message and the person, so a changed mind overwrites', async () => {
       await askDb.recordFeedback('m1', 't1', 'u1', -1);
