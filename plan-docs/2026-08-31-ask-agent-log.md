@@ -35,6 +35,8 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 12 | — | `feat/ask` | Adversarial review — eight fixes, each with tests | DONE |
 | 13 | — | `feat/ask` | The two lifetime races — deferred teardown for shred and SQL | DONE |
 | 14 | — | `feat/ask` | Second adversarial review with AJ — nineteen decisions, first live runs | DONE |
+| 15 | — | `feat/ask` | Simplification review — 27 applied, 9 skipped | DONE |
+| 16 | — | `feat/ask` | Second simplification pass, the commish gate, merge-readiness review and its nine fixes | DONE |
 
 **AJ's, not the build's** (design §17.5): applying migration 014, merging to
 `main`, `git push`, `deploy-commands.ts`, and the pre-launch re-run of
@@ -1689,6 +1691,203 @@ branch; findings deduped to 27 applied and 9 skipped, each with its reason.
   beside `RenderedMessage`; `void`-ing the ledger write: low value or outside
   the branch's diff.
 - A client-wide `allowedMentions` default: decision 8 deferred it on purpose.
+
+---
+
+## Stage 16 — Second simplification pass, the commish gate, and the merge-readiness review — `feat/ask` — 2026-09-02 — DONE
+
+Three commits on `feat/ask`, in this order: `fb9563b` (simplification pass,
+47 files), `43df2e1` (`/ask-admin` answers one user id), `a9e6e35` (the nine
+fixes the merge-readiness review asked for). AJ asked for each; nothing pushed,
+`main` untouched. Suite at the start: 65 suites, 1,441 tests. At the end: 65
+suites, **1,456 tests**, typecheck 0, lint 0, no Prettier warning in any file
+this stage touched (the repo-wide count predates the branch).
+
+### Simplification pass (`fb9563b`)
+
+Four reviewers again -- reuse, simplification, efficiency, altitude -- over
+the branch's source diff against `main`, one more over the tests. Two things
+Stage 15 skipped as low value were done here with a reason attached, and one
+thing it kept was removed:
+
+- `NO_MENTIONS` moved beside `RenderedMessage` in `interactions/`, and the
+  casino renderer and roulette now use it (three inline copies became one).
+- The hook audit writes are no longer awaited. The decision never depended on
+  the write, and a serverless round trip on every denied call -- each `sql`
+  refusal the model retries -- was paid inside the agent loop while a member
+  watched the ticker.
+- `HistoryCacheResult` is gone. Its only production caller discarded it and
+  read the files back from disk; the tests now assert on the files too.
+
+The rest, by angle:
+
+- **Reuse.** `plural()` from `casinoFormat` in the ticker; `button()` and
+  `row()` from `casinoRender` for the feedback row; discord.js's own
+  `Constants.ThreadChannelTypes`; `errorMessage()` in `errors/` for three
+  copies of the instanceof ternary; one `tests/wpfl/support.ts` for five
+  fixture loaders and three fake responses; `wpfl/toolResult.ts` holds the
+  one tool-collection type (`AnyTool`, taken from the SDK's `tools` option --
+  an alias of `SdkMcpToolDefinition<any>` resolved the handler argument to an
+  index signature and nothing was assignable) and the result builders, so
+  three eslint-disabled `any`s and the SQL tool's inline copy went.
+- **Simplification.** `sqlTool` drops a test-only table list and merges the
+  build-tracking pair into one record; `Deadline.signal`,
+  `AskSession.question`, `AskUsage.monthCap` and the optional tool id with its
+  "oldest unsettled step" fallback are gone (no producer outside tests);
+  `AskRequest` carries one `member` and a nullable `sessionId`; `RecentRun` is
+  a `Pick` of `UsageRecord`; INDEX.md takes one cache map instead of a file
+  list and a parallel extents map; the ticker's early returns are template
+  literals; "buttons on the last part" is written once; `OPS_FAILURES` and
+  `newsAsOfFile` are no longer exported.
+- **Efficiency.** `artifactSync` offers the stored etag as `If-None-Match`
+  when an unchanged build could be served and takes a 304 as `unchanged`
+  (`fetchWithTimeout` takes an options object with headers); `/ask` in a text
+  channel no longer looks up a session it then ignored.
+- **Altitude.** New `ask/thread.ts` owns the answer pipeline and the gateway
+  handlers; `index.ts` no longer imports a command folder and
+  `discordCommands/ask/ask.ts` is slash transport only; `askFeedback.ts`
+  moved with it. The closed-session rule has one owner in `answer()`, so the
+  slash path posts `CONTEXT_LOST` too -- it used to start fresh in silence
+  while a typed message said so. The sync warms the SQL database after its
+  own reshred (`warmSqlDatabase(dataDir)`), where three callers used to
+  remember. `PER_OWNER_BODIES` comes from the shred plan, so `sqlTool` and
+  INDEX.md no longer spell `teams`. A forced resync that meets an in-flight
+  sync waits for it and runs its own; `renderSync`'s apology for the old
+  behaviour is gone. ESPN transaction dates go through a new
+  `leagueInstant()`.
+
+Skipped, with reasons: consolidating `truncate`, `fetchWithTimeout`, the WPFL
+fetch functions, `toTransactions`, `espnClientFromEnv`, the timezone literal
+and the two member tables with their pre-existing copies in other commands
+(outside the diff; the `/ewins` versus `expected_wins` query drift is the one
+to do first, since the prompt promises the numbers agree); caching thread
+lookups per guild message; compact JSON in tool results; running the sync off
+the member's turn; a message-handler registry; table-driven WebFetch guarding;
+the `renderFinal` second render path; the synthesized ledger `subtype` and
+`model`; merging the feedback upsert and count into one CTE (Postgres would
+count the snapshot before the insert).
+
+### The commish gate (`43df2e1`)
+
+`ASK.ADMIN_USER_IDS = ['120231673722830849']`, checked first thing in
+`/ask-admin`'s `execute`, before `deferReply`; anyone else is refused
+ephemerally and logged. Administrator only hid the command, and any server
+admin can widen that from the UI. A constant rather than an environment
+variable: a variable missing on the host would have locked out the pause
+switch exactly when an incident needed it, and the id is the one the identity
+mapping already carries. The Administrator default stays so the command is
+still hidden from members.
+
+### Merge-readiness review (`a9e6e35`)
+
+Asked: is the branch ready to merge, and what are the risks. Mechanical
+checks first: 90 commits ahead of `main`, 0 behind, `git merge-tree` clean;
+no CI workflow, so the pre-existing Prettier warnings gate nothing; the
+gateway intents are unchanged from `main` and already cover thread messages
+and the member fetch; no Node API newer than the pinned engine; both native
+packages present for linux-x64 and Node-API, so Node 20 on the host is fine.
+Then three reviewers for correctness -- the runtime, the data layer, the
+Discord and database surface -- with the design doc for intent and read-only
+experiments allowed. No blocker. Nine should-fixes, all applied here:
+
+1. **The SQL statement guard was bypassable.** It strips string literals
+   before comments, so an apostrophe inside a comment paired with a later one
+   and everything between vanished as a "string". Measured through the real
+   tool on a temp shred:
+   `SELECT 1 /* ' */ ) LIMIT 1; DROP TABLE alpha; SELECT 1 FROM (SELECT 1 -- '`
+   dropped the table. The lockdown held (no file or config access), but the
+   database is shared by every member and keyed on the shred, so it would
+   have stayed broken until the next reshred. DuckDB's own parser is the
+   control now (`assertSingleSelect`: exactly one extracted statement,
+   classified SELECT, which DESCRIBE, SUMMARIZE and SHOW are to it); the regex
+   is the fast refusal. The test runs the payload and counts `teams` after.
+2. **One shared DuckDB connection.** Queries on it serialize and
+   `interrupt()` kills whichever is running, so a member's 20 s clock included
+   time queued behind another's join, and the timer that fired killed the
+   wrong query (measured). `Materialized` holds the instance; each query opens
+   its own connection and closes it in `finally`; the retire disposer closes
+   the instance. The lockdown is instance-wide (verified on 1.5.5).
+3. **`@here`, `@everyone` and any role the bot holds counted as a mention**
+   (`MessageMentions.has()` defaults, confirmed in discord.js source), and
+   thread-rename system messages passed the continuation filter with the new
+   name as their content. Explicit mentions only now, and `message.system` is
+   refused.
+4. **A throw after the public defer stranded a "thinking" placeholder.** The
+   preflight is caught and routed to `refuse()`; a failure posting in the
+   destination tells the member to check the bot's thread permissions.
+   `ready` checks the four `/ask` tables with `to_regclass` and logs which
+   are missing, with the migration command -- nothing runs migrations.
+5. **Dead threads.** No follow-up hint when the first run produced no session
+   (a thread with no row ignores every message), and a resume that never
+   reached the SDK's init -- transcript pruned, `HOME` changed -- closes the
+   session, so the next message starts fresh with `CONTEXT_LOST` instead of
+   failing the same way until the thread archived.
+6. **The ESPN week lookup ran after the slot, deadline and shred pin were
+   taken.** The fork has no request timeout, so a hung socket held one of the
+   two slots and the deadline could not end it. It runs first now.
+7. **Glob brace patterns escaped the path guard**: `{/etc/host*,INDEX.md}` has
+   an empty static prefix, which resolved to the data directory. Refused
+   outright with their own reason; the shred is flat.
+8. **`/ask-admin usage` could pass 2,000 characters** on five runs with long
+   errors. Each run's error and prompt are cut, and a listing that still runs
+   long is paged with its code block kept intact.
+9. The gate commit above, which was uncommitted when the review ran.
+
+Verified by the reviewers and worth keeping on record: every `Options` field
+the runner sets exists in SDK 0.3.252 (`thinking.display`, `effort`,
+`settingSources`, `strictMcpConfig`, `settings.cleanupPeriodDays`,
+`maxBudgetUsd`, `permissionMode: 'dontAsk'`, `alwaysLoad`,
+`SYSTEM_PROMPT_DYNAMIC_BOUNDARY`); `env` **replaces** the child environment
+and the SDK spawns the native binary directly, so `PATH` + `HOME` + one
+credential is enough; `break` and abort both close the transport (SIGTERM at
+2 s, SIGKILL at 5 s), so no subprocess leak; the two-rename swap, the
+deferred teardown, `sweepLitter` and the per-directory sync lock hold; the
+DuckDB lockdown blocks `read_*`, `glob`, `ATTACH`, `COPY`, `INSTALL`, `LOAD`,
+`httpfs` and every `SET` on a second connection too; the artifact host
+answers `If-None-Match` with a 304 for both etag forms; `askDb`'s columns,
+types and indexes match migration 014; the component router carries the
+feedback buttons across restarts.
+
+### Verified
+
+- `tsc --noEmit` 0 and `eslint .` 0 after each of the three commits.
+- Jest: 1,441 → 1,444 (pass) → 1,447 (gate) → **1,456** (fixes). New tests
+  cover the 304 path and the header offered only when a 304 could be served,
+  the SQL bypass payload and two concurrent queries, brace patterns, system
+  messages, the missing-hint and dead-resume paths through `execute()`, the
+  schema check's SQL, the usage truncation and paging, the forced resync
+  waiting rather than joining, and the sync warming the SQL database.
+- The measured facts above -- the guard bypass, the shared-connection
+  interrupt, the 304 from the host, the lockdown on a second connection --
+  came from read-only scratchpad experiments against DuckDB 1.5.5-r.4 and the
+  live host, not from reading.
+
+### Open
+
+- **Design doc drift**, not edited here: §3.4 still says the history API
+  "stops at 2025" (the generator prints per-table extents); §4.3 describes
+  the regex guard as the control (it is now DuckDB's parser); §6.2's mention
+  rule should say explicit mentions only; §10.2 should mention brace
+  patterns; §11's file list lacks `ask/thread.ts`, `wpfl/toolResult.ts`,
+  `tests/wpfl/support.ts` and the moved `askFeedback.ts`; §12 lacks
+  `ADMIN_USER_IDS`. The next pass makes those edits.
+- Follow-ups the review left, none blocking: the cache marker is written on a
+  partial refresh, so a failed season defers its retry by a day rather than
+  six hours; `league/rivalries.json` is described as bidding history but
+  holds matchup records; the ticker prints absolute host paths in public;
+  feedback clicks acknowledge only after two database round trips; a crash in
+  the microseconds between the two swap renames plus an artifact-host outage
+  on the next boot would leave no data directory; `counted` flips on the
+  SDK's init rather than on reaching the model; `capped()` can split a
+  surrogate pair or a code fence.
+- The Discord layer is still unexercised in a real guild. Same as Stage 14:
+  it needs the migration applied and the commands deployed, both AJ's.
+- Host checklist beyond the handoff block: install without `--omit=optional`;
+  the pm2 environment must carry `HOME` and `PATH`; the `claude` binary needs
+  glibc 2.26 or newer; the bot needs Create Public Threads and Send Messages
+  in Threads; `~/.claude` and the parent of `WPFL_DATA_DIR` must be writable;
+  the on-disk shred here predates this generator and both windows have
+  lapsed, so the first boot after merge pays a full sync.
 
 ---
 
