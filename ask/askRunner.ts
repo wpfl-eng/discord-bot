@@ -62,6 +62,14 @@ export const OPS_FAILURE_CODES = [
   'billing_error',
   'rate_limit',
   'overloaded',
+  // Nothing a 1,000-character question can cause: a rejected request is a
+  // config or context problem, a missing model is a config problem, and a
+  // server error is Anthropic's. `unknown` and `max_output_tokens` stay
+  // counted -- the first may wrap this bot's own deadline abort, and a
+  // four-minute run that timed out is exactly the consumption the caps count.
+  'invalid_request',
+  'model_not_found',
+  'server_error',
 ] as const satisfies readonly SDKAssistantMessageError[];
 
 export type OpsFailure = (typeof OPS_FAILURE_CODES)[number];
@@ -196,7 +204,7 @@ export async function runAsk(
     timedOut: deadline.expired(),
     counted: sessionObserved && opsFailure === null,
     opsFailure,
-    error: failure,
+    error: failure ?? terminal?.error,
   };
 
   await writeLedger(request, outcome);
@@ -217,6 +225,8 @@ interface TerminalResult {
   readonly model: string | null;
   /** The final answer text on a success; empty on an error result, which carries none. */
   readonly result: string;
+  /** The API error text a `success` result carried in place of an answer. */
+  readonly error?: string;
 }
 
 /** What the stream has said so far. Thinking is the current block only. */
@@ -230,6 +240,11 @@ type UserMessage = Extract<SDKMessage, { type: 'user' }>;
 /** @returns the terminal result when this message was one, else null. */
 function consume(message: SDKMessage, sink: AskSink, state: StreamState): TerminalResult | null {
   if (message.type === 'result') {
+    // A `success` result with `is_error` set carries the API error text in
+    // `result`, not an answer -- the SDK's own typing says so. Taken as prose,
+    // a member read "API Error: 500" under the trace line and paid a cap slot
+    // for it.
+    const text: string = message.subtype === 'success' ? message.result : '';
     return {
       subtype: message.subtype,
       // Never `usage`: the docs are explicit that it excludes subagent tokens.
@@ -237,8 +252,24 @@ function consume(message: SDKMessage, sink: AskSink, state: StreamState): Termin
       numTurns: message.num_turns,
       durationMs: message.duration_ms,
       model: Object.keys(message.modelUsage ?? {})[0] ?? null,
-      result: message.subtype === 'success' ? message.result : '',
+      result: message.is_error ? '' : text,
+      error: message.is_error && text !== '' ? text : undefined,
     };
+  }
+
+  if (message.type === 'system' && message.subtype === 'init') {
+    // `alwaysLoad` waits for the server to connect, capped at five seconds.
+    // Past that the model runs with no league tools, answers from the files
+    // alone, and nothing else in the logs says so.
+    const server = message.mcp_servers.find(
+      (s: { name: string }): boolean => s.name === WPFL_SERVER
+    );
+    if (server?.status !== 'connected') {
+      console.warn(
+        `[ASK] The ${WPFL_SERVER} MCP server is ${server?.status ?? 'missing'} at init; the agent has no league tools this run.`
+      );
+    }
+    return null;
   }
 
   // A tool settles when its result arrives, which the SDK delivers as a user

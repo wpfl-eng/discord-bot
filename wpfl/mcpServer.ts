@@ -9,6 +9,7 @@
  */
 
 import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import { ASK } from '../ask/askConfig.js';
 import { sqlTool } from './sqlTool.js';
 import { wpflApiTools } from './wpflApiTools.js';
 import { espnTools } from './espnTools.js';
@@ -35,6 +36,7 @@ export const wpflServer = createSdkMcpServer({
   name: WPFL_SERVER,
   version: '1.0.0',
   alwaysLoad: true,
+  timeout: ASK.MCP_TOOL_TIMEOUT_MS,
   instructions:
     "Tools for the WPFL fantasy football league. `sql` reaches ten years of rows and the 2026 draft artifact; the espn_* tools are the only source for the season in progress; expected_wins, optimal_coaching and drafted_points are computed by the league's own history API and must never be worked out by hand.",
   tools: wpflTools,

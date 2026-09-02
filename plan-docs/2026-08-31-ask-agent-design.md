@@ -957,10 +957,18 @@ in §9 count queries rather than dollars.
 result and is `counted` only when the run reached the model: a session id was
 observed and no assistant message carried one of `authentication_failed`,
 `oauth_org_not_allowed`, `account_on_hold`, `billing_error`, `rate_limit`,
-`overloaded`. The caps count counted rows; the row itself, with what it died
-of, stays for observability. The token this bot runs on expires in a year,
-which makes the first of those a certainty rather than an edge case; a member
-gets a line naming it, not "Something went wrong".
+`overloaded`, `invalid_request`, `model_not_found`, `server_error`. The caps
+count counted rows; the row itself, with what it died of, stays for
+observability. The token this bot runs on expires in a year, which makes the
+first of those a certainty rather than an edge case; a member gets a line
+naming it, not "Something went wrong". `unknown` and `max_output_tokens` stay
+counted: the first may wrap this bot's own deadline abort, and a run that
+timed out is exactly the consumption the caps count.
+
+A `success` result with `is_error` set carries the API error text in `result`,
+not an answer (the SDK's typing says so). The runner publishes nothing as the
+answer and keeps that text as the run's error, so the ledger and the
+member-facing line both say what happened.
 
 **Three runtime guards wrap the call** (§9):
 
@@ -1132,7 +1140,10 @@ also logs a line with the thread id. Triage, not learning.
 | --- | --- |
 | No credential configured | `ready` logs it; `/ask` refuses before anything is looked up or spawned, saying the bot isn't configured |
 | `/ask-admin pause` | Every question refused with one line until `resume` or a restart |
-| Expired login, rate limit, overloaded, billing, org, hold | One member-facing line each; the run is not charged to anyone |
+| Expired login, rate limit, overloaded, server error, rejected request, missing model, billing, org, hold | One member-facing line each; the run is not charged to anyone |
+| API error on a `success` result (`is_error`) | Nothing published as the answer; the ops line when the code is known, else the generic one |
+| A `wpfl` tool call runs past 60 s | The SDK hands the model a timeout error for that call; the run continues |
+| The `wpfl` MCP server is not connected at init | Logged; the run continues on the files alone |
 | Artifact fetch fails | Non-fatal; continue on the previous shred |
 | Required body missing / reshaped | Hard error, previous shred retained, admin-visible log |
 | Unknown body in artifact | `WARN`, shredded generically, flagged in `INDEX.md`, run continues |

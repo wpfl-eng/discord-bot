@@ -215,7 +215,7 @@ describe('askRunner', () => {
       error.mockRestore();
     });
 
-    test('every one of the six ops-failure codes is uncounted', async () => {
+    test('every one of the nine ops-failure codes is uncounted', async () => {
       for (const code of [
         'authentication_failed',
         'oauth_org_not_allowed',
@@ -223,6 +223,9 @@ describe('askRunner', () => {
         'billing_error',
         'rate_limit',
         'overloaded',
+        'invalid_request',
+        'model_not_found',
+        'server_error',
       ]) {
         const { sink } = recorder();
         const outcome = await runAsk(
@@ -235,7 +238,7 @@ describe('askRunner', () => {
       }
     });
 
-    test('an assistant error outside those six still counts -- the model was reached', async () => {
+    test('an assistant error outside those nine still counts -- the model was reached', async () => {
       const { sink } = recorder();
 
       const outcome = await runAsk(
@@ -248,12 +251,86 @@ describe('askRunner', () => {
       expect(outcome.opsFailure).toBeNull();
     });
 
+    /**
+     * The SDK's typing is explicit: a `success` result with `is_error` set
+     * carries the API error text in `result`. Taken as the answer, a member
+     * read "API Error: 500" under the trace line and paid a cap slot for it.
+     */
+    test('a success result flagged is_error is an API error, not an answer', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          { ...assistant(), error: 'server_error' },
+          success({ is_error: true, result: 'API Error: 500 {"type":"error"}' }),
+        ])
+      );
+
+      expect(outcome.text).toBe('');
+      expect(outcome.error).toMatch(/API Error: 500/);
+      expect(outcome.opsFailure).toBe('server_error');
+      expect(outcome.counted).toBe(false);
+    });
+
+    test('an is_error result with no known code publishes nothing and still counts', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([success({ is_error: true, result: 'API Error: 400 bad request' })])
+      );
+
+      expect(outcome.text).toBe('');
+      expect(outcome.error).toMatch(/400/);
+      expect(outcome.counted).toBe(true);
+      expect(mockRecordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringMatching(/400/) })
+      );
+    });
+
     test('the ledger row carries the answer message id, so feedback can join to it', async () => {
       const { sink } = recorder();
 
       await runAsk({ ...REQUEST, messageId: 'm42' }, sink, stream([success()]));
 
       expect(mockRecordUsage).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'm42' }));
+    });
+  });
+
+  /**
+   * `alwaysLoad` waits for the server to connect, capped at five seconds; a
+   * server that missed it leaves the model with no league tools and, before
+   * this, no log line saying so.
+   */
+  describe('the init message', () => {
+    const init = (status: string): Message => ({
+      type: 'system',
+      subtype: 'init',
+      session_id: 's1',
+      mcp_servers: [{ name: 'wpfl', status }],
+    });
+
+    test('warns when the wpfl server is not connected', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const { sink } = recorder();
+
+      await runAsk(REQUEST, sink, stream([init('failed'), success()]));
+
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/wpfl.*failed/));
+      warn.mockRestore();
+    });
+
+    test('says nothing when it is connected', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const { sink } = recorder();
+
+      await runAsk(REQUEST, sink, stream([init('connected'), success()]));
+
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
     });
   });
 
@@ -472,7 +549,7 @@ describe('askRunner', () => {
         REQUEST,
         sink,
         stream([
-          { type: 'system', subtype: 'init', session_id: 's1' },
+          { type: 'system', subtype: 'status', session_id: 's1' },
           { type: 'user', session_id: 's1', message: { content: [] } },
           { type: 'stream_event', session_id: 's1', event: { type: 'message_start' } },
           delta({ type: 'text_delta', text: 'ok' }),

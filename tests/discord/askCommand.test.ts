@@ -406,8 +406,8 @@ describe('the /ask command', () => {
   /**
    * The design's §6.4 promised a "not configured" reply and the runner had the
    * text written -- and publish() showed "Something went wrong" instead, for
-   * that and for the expired login that a one-year token guarantees. The six
-   * SDK ops-failure codes each get a line a member can act on (decision 12).
+   * that and for the expired login that a one-year token guarantees. Each
+   * SDK ops-failure code gets a line a member can act on (decision 12).
    */
   describe('what the answer says when the run failed', () => {
     const outcome = (over: Record<string, unknown> = {}) =>
@@ -431,8 +431,8 @@ describe('the /ask command', () => {
       expect(lines.join(' ')).toMatch(/commish/i);
     });
 
-    test('tells a member to try again on the two transient failures', () => {
-      for (const code of ['rate_limit', 'overloaded']) {
+    test('tells a member to try again on the three transient failures', () => {
+      for (const code of ['rate_limit', 'overloaded', 'server_error']) {
         const lines: string[] = suffixLines(outcome({ opsFailure: code }));
         expect(lines.join(' ')).toMatch(/try again/i);
       }
@@ -446,6 +446,9 @@ describe('the /ask command', () => {
         'billing_error',
         'rate_limit',
         'overloaded',
+        'invalid_request',
+        'model_not_found',
+        'server_error',
       ]) {
         const lines: string[] = suffixLines(outcome({ opsFailure: code, error: 'x' }));
         expect(lines).toHaveLength(1);
@@ -453,7 +456,7 @@ describe('the /ask command', () => {
       }
     });
 
-    test('keeps the generic line for a failure that is not one of the six', () => {
+    test('keeps the generic line for a failure that is not an ops failure', () => {
       const lines: string[] = suffixLines(outcome({ error: 'subprocess died' }));
 
       expect(lines.join(' ')).toMatch(/something went wrong/i);

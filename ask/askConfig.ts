@@ -109,6 +109,11 @@ export const ASK = {
   // the timeout keeps a runaway join from holding a semaphore slot.
   SQL_ROW_LIMIT: 200,
   SQL_TIMEOUT_MS: 20 * 1000,
+  // Every wpfl tool call, enforced by the SDK; its default is unbounded.
+  // Above the SQL and history-API timeouts so those still report their own
+  // reason, and well under QUERY_TIMEOUT_MS so a hung ESPN lookup -- the fork
+  // has no request timeout -- costs the model one tool call, not the slot.
+  MCP_TOOL_TIMEOUT_MS: 60 * 1000,
 
   // ---- Discord surface (design §6.3) ----
   TICKER_EDIT_THROTTLE_MS: 1500, // Discord allows ~5 edits / 5 s per channel

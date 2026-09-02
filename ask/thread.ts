@@ -366,10 +366,10 @@ async function persist(
 
 /**
  * One line per SDK ops-failure code, written for the member who is reading
- * it. The first four need the commissioner; the last two pass on their own.
- * No person is named in source: it goes stale, and "the commish" does not.
- * Keyed by the runner's type, so a code added there without a line here does
- * not compile.
+ * it. Most need the commissioner; a rate limit, an overload and a server
+ * error pass on their own. No person is named in source: it goes stale, and
+ * "the commish" does not. Keyed by the runner's type, so a code added there
+ * without a line here does not compile.
  */
 const OPS_LINES: Readonly<Record<OpsFailure, string>> = {
   authentication_failed:
@@ -381,6 +381,10 @@ const OPS_LINES: Readonly<Record<OpsFailure, string>> = {
     '_The Claude account I run on has a billing problem. The commish needs to look at it._',
   rate_limit: '_Claude is rate-limiting me right now. Try again in a few minutes._',
   overloaded: '_Claude is overloaded right now. Try again in a minute._',
+  invalid_request: '_Claude rejected the request I built. The commish needs to look at it._',
+  model_not_found:
+    "_The Claude model I'm set up to use isn't available. The commish needs to look at it._",
+  server_error: '_Claude had a server error. Try again in a minute._',
 };
 
 /**
