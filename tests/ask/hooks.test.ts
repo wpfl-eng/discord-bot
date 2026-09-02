@@ -116,6 +116,57 @@ describe('hooks', () => {
       expect(denied(await call(guard(), 'Glob', { pattern: '*', path: '/etc' }))).toBe(true);
     });
 
+    /**
+     * Measured live on 2026-09-02 (log Stage 14): with no `path`, the CLI's
+     * Glob honours an absolute pattern. `/etc/host*` came back with
+     * /etc/hosts, /etc/hostname and five more, straight through a hook that
+     * only ever looked at `path` and `file_path`. Names rather than contents,
+     * but an agent that can list the host is not what §10.2 promises.
+     */
+    describe("Glob's pattern is a path too", () => {
+      test('denies an absolute pattern that escapes, with no path argument', async () => {
+        expect(denied(await call(guard(), 'Glob', { pattern: '/etc/host*' }))).toBe(true);
+      });
+
+      test('denies a pattern that climbs out with ..', async () => {
+        expect(denied(await call(guard(), 'Glob', { pattern: '../secrets/*' }))).toBe(true);
+      });
+
+      test('denies a pattern anchored at the home directory', async () => {
+        expect(denied(await call(guard(), 'Glob', { pattern: '~/discord-bot/.env' }))).toBe(
+          true
+        );
+      });
+
+      test('denies an absolute pattern outside even when the path argument is inside', async () => {
+        expect(
+          denied(await call(guard(), 'Glob', { pattern: `${outside}/**`, path: dataDir }))
+        ).toBe(true);
+      });
+
+      // The model, told its working directory, sometimes writes the absolute
+      // form of a pattern that never leaves it. A flat deny on absolute
+      // patterns would refuse that.
+      test('allows an absolute pattern that stays inside the data directory', async () => {
+        expect(
+          denied(await call(guard(), 'Glob', { pattern: `${dataDir}/teams/*.json` }))
+        ).toBe(false);
+      });
+
+      test('allows relative patterns, which cannot leave a confined search root', async () => {
+        expect(denied(await call(guard(), 'Glob', { pattern: 'teams/*.json' }))).toBe(false);
+        expect(denied(await call(guard(), 'Glob', { pattern: '**/*.jsonl' }))).toBe(false);
+      });
+
+      test('records the denial as the path guard, like every other escape', async () => {
+        await call(guard(), 'Glob', { pattern: '/etc/host*' });
+
+        expect(mockRecord).toHaveBeenCalledWith(
+          expect.objectContaining({ toolName: 'Glob', deniedBy: 'path_guard' })
+        );
+      });
+    });
+
     test('allows a Grep with no path, which searches the working directory', async () => {
       expect(denied(await call(guard(), 'Grep', { pattern: 'Boorde' }))).toBe(false);
     });
