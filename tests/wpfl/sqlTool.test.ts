@@ -132,6 +132,32 @@ describe('sqlTool', () => {
       fs.rmSync(dataDir, { recursive: true, force: true });
     });
 
+    /**
+     * The regex guard strips string literals before comments, so an apostrophe
+     * inside a comment pairs with a later one and hides a `); DROP TABLE ...`
+     * between them. DuckDB's own parser is the control now; the guard is the
+     * fast refusal.
+     */
+    test('refuses a second statement smuggled past the regex guard inside a comment', async () => {
+      const payload = "SELECT 1 /* ' */ ) LIMIT 1; DROP TABLE teams; SELECT 1 FROM (SELECT 1 -- '";
+      expect(guardStatement(payload)).toBeNull();
+
+      await expect(runSql(payload, dataDir)).rejects.toThrow();
+
+      const after: SqlResult = await runSql('SELECT count(*) AS c FROM teams', dataDir);
+      expect(Number(after.rows[0].c)).toBeGreaterThan(0);
+    });
+
+    test('runs two queries at once, each on its own connection', async () => {
+      const [a, b] = await Promise.all([
+        runSql('SELECT count(*) AS c FROM teams', dataDir),
+        runSql('SELECT 1 AS one', dataDir),
+      ]);
+
+      expect(Number(a.rows[0].c)).toBeGreaterThan(0);
+      expect(b.rows).toEqual([{ one: 1 }]);
+    });
+
     test('materializes a table per shred file plus the cached decade', async () => {
       const result: SqlResult = await runSql(
         'SELECT table_name FROM information_schema.tables',

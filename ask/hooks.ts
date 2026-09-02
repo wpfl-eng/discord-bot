@@ -83,6 +83,14 @@ export function createPathGuard(
     // Grep and Glob without a path search the working directory, which is the
     // data directory, so an empty list passes.
     for (const candidate of requested) {
+      // Brace expansion happens before a base directory is chosen, so
+      // `{/etc/host*,INDEX.md}` has an empty static prefix and every
+      // alternative is honoured. Refused outright: the shred is flat and
+      // nothing in it needs one.
+      if (candidate.includes('{')) {
+        void record(context, input.tool_name, input.tool_input, 'path_guard', null);
+        return deny("Brace patterns aren't allowed. Use one plain pattern at a time.");
+      }
       if (inside(candidate)) continue;
       void record(context, input.tool_name, input.tool_input, 'path_guard', null);
       return deny('I can only read the WPFL data directory.');
@@ -193,7 +201,8 @@ function pathArguments(toolName: string, toolInput: unknown): string[] | null {
   for (const { key, prefix } of spec) {
     const value: unknown = args?.[key];
     if (typeof value !== 'string' || value === '') continue;
-    found.push(prefix === true ? globPrefix(value) : value);
+    // A pattern with a brace is passed whole, so the guard sees the brace.
+    found.push(prefix === true && !value.includes('{') ? globPrefix(value) : value);
   }
   return found;
 }

@@ -156,6 +156,19 @@ describe('hooks', () => {
         expect(denied(await call(guard(), 'Glob', { pattern: '**/*.jsonl' }))).toBe(false);
       });
 
+      // Brace alternatives are expanded before the base directory is chosen,
+      // so the static prefix of `{/etc/host*,INDEX.md}` is empty and the guard
+      // used to pass it. Names only, but the same hole as the absolute pattern.
+      test('refuses brace expansion, whose alternatives escape the static prefix', async () => {
+        expect(denied(await call(guard(), 'Glob', { pattern: '{/etc/host*,INDEX.md}' }))).toBe(
+          true
+        );
+        expect(
+          denied(await call(guard(), 'Glob', { pattern: `{${outside}/.env,teams/*.json}` }))
+        ).toBe(true);
+        expect(denied(await call(guard(), 'Glob', { pattern: '{../.env,INDEX.md}' }))).toBe(true);
+      });
+
       test('records the denial as the path guard, like every other escape', async () => {
         await call(guard(), 'Glob', { pattern: '/etc/host*' });
 

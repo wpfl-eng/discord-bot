@@ -14,9 +14,13 @@
  *    agent SQL cannot read a file, glob, COPY, ATTACH, INSTALL, LOAD, or turn
  *    either setting back on, and the lockdown covers every connection on the
  *    instance.
- * 2. **A statement guard.** Not belt-and-braces: DuckDB executes *every*
- *    statement it is handed, so `SELECT 1; DELETE FROM t` deletes. The
- *    one-statement rule is the control.
+ * 2. **One statement, and a SELECT.** DuckDB executes *every* statement it is
+ *    handed, so `SELECT 1; DELETE FROM t` deletes. The regex guard below is
+ *    the fast, legible refusal; DuckDB's own parser is the control
+ *    (`assertSingleSelect`), because the regex was beaten: it strips string
+ *    literals before comments, so an apostrophe inside a comment paired with
+ *    a later one and everything between -- `); DROP TABLE ...` -- vanished
+ *    as a "string". Measured: the table dropped.
  */
 
 import fs from 'node:fs';
@@ -24,7 +28,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
+import { DuckDBInstance, StatementType, type DuckDBConnection } from '@duckdb/node-api';
 import { ASK } from '../ask/askConfig.js';
 import { createGenerations, type Generations, type Release } from '../ask/generations.js';
 import { logError } from '../errors/errorHandler.js';
@@ -136,7 +140,8 @@ function stripLiteralsAndComments(sql: string): string {
 }
 
 interface Materialized {
-  readonly connection: DuckDBConnection;
+  /** Owns the in-memory database. Each query opens its own connection on it. */
+  readonly instance: DuckDBInstance;
   /** `<dataDir>:<shred mtime>` -- what this database was built from. */
   readonly key: string;
 }
@@ -144,15 +149,15 @@ interface Materialized {
 let current: Materialized | null = null;
 
 /**
- * Readers inside the live connection.
+ * Readers inside the live instance.
  *
- * The connection owns a native DuckDB instance holding the whole materialized
- * dataset and the bot process is long-lived, so a rebuild has to close the one
- * it replaces or it leaks ~11 MB of native memory per reshred. It used to close
- * it on the spot -- which is `closeSync()` under an in-flight `runAndReadAll`,
- * on whichever query happened to be running when somebody else's question
- * triggered a reshred. Retiring it instead closes it when its last reader
- * leaves, which is the same guarantee without the use-after-close.
+ * The instance holds the whole materialized dataset in native memory and the
+ * bot process is long-lived, so a rebuild has to close the one it replaces or
+ * it leaks ~11 MB per reshred. It used to close it on the spot -- under an
+ * in-flight `runAndReadAll`, on whichever query happened to be running when
+ * somebody else's question triggered a reshred. Retiring it instead closes it
+ * when its last reader leaves, which is the same guarantee without the
+ * use-after-close.
  */
 const connections: Generations = createGenerations('sql');
 
@@ -205,9 +210,9 @@ export function resetSqlDatabase(): void {
 function close(materialized: Materialized | null): void {
   if (materialized === null) return;
   try {
-    materialized.connection.closeSync();
+    materialized.instance.closeSync();
   } catch (error: unknown) {
-    console.warn('[ASK] sql: could not close the previous connection:', error);
+    console.warn('[ASK] sql: could not close the previous database:', error);
   }
 }
 
@@ -229,16 +234,22 @@ export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promi
   if (refusal !== null) throw new Error(refusal);
 
   const held: Held = await database(dataDir);
-  const { connection } = held.materialized;
-
-  // One row past the cap, so truncation is detected rather than guessed at.
-  // The newlines are load-bearing: a statement ending in a `--` comment would
-  // otherwise swallow the closing paren and the LIMIT onto the same line, and
-  // DuckDB reports `syntax error at end of input`.
-  const limited = `SELECT * FROM (\n${sql.replace(/;\s*$/, '')}\n) LIMIT ${ASK.SQL_ROW_LIMIT + 1}`;
+  // A connection per query. Queries on one connection run one after another,
+  // and interrupt() stops whichever is running -- so on a shared connection a
+  // member's 20 s clock included time spent queued behind somebody else's
+  // join, and the timer that fired killed the wrong query (measured).
+  const connection: DuckDBConnection = await held.materialized.instance.connect();
 
   const timer = setTimeout(() => connection.interrupt(), ASK.SQL_TIMEOUT_MS);
   try {
+    await assertSingleSelect(connection, sql);
+
+    // One row past the cap, so truncation is detected rather than guessed at.
+    // The newlines are load-bearing: a statement ending in a `--` comment would
+    // otherwise swallow the closing paren and the LIMIT onto the same line, and
+    // DuckDB reports `syntax error at end of input`.
+    const limited = `SELECT * FROM (\n${sql.replace(/;\s*$/, '')}\n) LIMIT ${ASK.SQL_ROW_LIMIT + 1}`;
+
     const reader = await connection.runAndReadAll(limited);
     // getRowObjectsJson converts DuckDB's own value types -- BIGINT, DECIMAL,
     // DATE, STRUCT, LIST -- into plain JSON. Without it a count comes back as a
@@ -248,7 +259,31 @@ export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promi
     return { rows: truncated ? rows.slice(0, ASK.SQL_ROW_LIMIT) : rows, truncated };
   } finally {
     clearTimeout(timer);
+    connection.closeSync();
     held.release();
+  }
+}
+
+/**
+ * DuckDB's own parser, as the opinion the regex guard cannot give: what
+ * DuckDB would actually execute is exactly one statement, and one it
+ * classifies as a SELECT -- which DESCRIBE, SUMMARIZE and SHOW are to it.
+ * Anything else is refused in the guard's own words.
+ */
+async function assertSingleSelect(connection: DuckDBConnection, sql: string): Promise<void> {
+  const extracted = await connection.extractStatements(sql);
+  if (extracted.count !== 1) {
+    throw new Error(
+      'Send one statement at a time. Multiple statements separated by `;` are not allowed.'
+    );
+  }
+  const prepared = await extracted.prepare(0);
+  try {
+    if (prepared.statementType !== StatementType.SELECT) {
+      throw new Error(`Only read-only queries are allowed. Start with ${STARTERS_PROSE}.`);
+    }
+  } finally {
+    prepared.destroySync();
   }
 }
 
@@ -290,31 +325,38 @@ async function build(dataDir: string, key: string): Promise<void> {
   // ~11 MB read off the live shred, a file at a time. A reshred landing
   // half-way through would otherwise unlink the sources under the loop.
   const shred: Release = liveShred.enter();
-  let connection: DuckDBConnection;
+  let instance: DuckDBInstance;
 
   try {
-    const instance = await DuckDBInstance.create(':memory:');
-    connection = await instance.connect();
-
-    for (const [table, source] of queryableSources(dataDir)) {
-      try {
-        await connection.run(
-          `CREATE TABLE ${table} AS SELECT * FROM read_json_auto('${source.replace(/'/g, "''")}', union_by_name = true)`
-        );
-      } catch (error: unknown) {
-        // A body that is not table-shaped is not an error -- it is simply not a
-        // table. The agent can still Read the file.
-        console.warn(`[ASK] sql: skipping ${source} (${(error as Error).message.split('\n')[0]})`);
+    instance = await DuckDBInstance.create(':memory:');
+    const connection: DuckDBConnection = await instance.connect();
+    try {
+      for (const [table, source] of queryableSources(dataDir)) {
+        try {
+          await connection.run(
+            `CREATE TABLE ${table} AS SELECT * FROM read_json_auto('${source.replace(/'/g, "''")}', union_by_name = true)`
+          );
+        } catch (error: unknown) {
+          // A body that is not table-shaped is not an error -- it is simply
+          // not a table. The agent can still Read the file.
+          console.warn(
+            `[ASK] sql: skipping ${source} (${(error as Error).message.split('\n')[0]})`
+          );
+        }
       }
-    }
 
-    await connection.run('SET enable_external_access=false');
-    await connection.run('SET lock_configuration=true');
+      // Instance-wide: a connection opened later inherits both (verified on
+      // DuckDB 1.5.5), which is what lets each query have its own.
+      await connection.run('SET enable_external_access=false');
+      await connection.run('SET lock_configuration=true');
+    } finally {
+      connection.closeSync();
+    }
   } finally {
     shred();
   }
 
-  install({ connection, key });
+  install({ instance, key });
 }
 
 /**

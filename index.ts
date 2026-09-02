@@ -22,6 +22,7 @@ import { continueThread, checkIdentityMapping, onThreadArchived } from './ask/th
 import { ensureFresh } from './wpfl/artifactSync.js';
 import { warmSqlDatabase } from './wpfl/sqlTool.js';
 import { credentialConfigured } from './ask/askAuth.js';
+import { missingAskTables } from './ask/askDb.js';
 import { logError } from './errors/errorHandler.js';
 
 // Create a new client instance
@@ -77,8 +78,23 @@ client.once('ready', async () => {
         '/ask will refuse every question until one is.'
     );
   }
-  await Promise.all([verifyIdentityMapping(client), syncArtifactAtBoot()]);
+  await Promise.all([verifyIdentityMapping(client), verifyAskSchema(), syncArtifactAtBoot()]);
 });
+
+/** Nothing runs migrations. Say at boot which /ask tables are missing, not on the first question. */
+async function verifyAskSchema(): Promise<void> {
+  try {
+    const missing: string[] = await missingAskTables();
+    if (missing.length > 0) {
+      console.warn(
+        `[ASK] Migration 014 is not applied: missing ${missing.join(', ')}. Every /ask will fail until it is: ` +
+          'npx tsx scripts/runMigration.ts migrations/014_ask_agent.sql'
+      );
+    }
+  } catch (error) {
+    logError('ask', 'Could not check the /ask tables', error);
+  }
+}
 
 /** Resolve all 14 league snowflakes. An unresolved one only costs that member their implicit "my team". */
 async function verifyIdentityMapping(bot: Client): Promise<void> {

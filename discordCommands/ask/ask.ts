@@ -56,26 +56,50 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // itself holds is beside the point and is not looked up. In a thread, the
   // session decides whether this continues a conversation.
   const newThread: boolean = opensThread(channel.type);
-  const flight: Preflight = await preflight(
-    interaction.user.id,
-    newThread
-      ? async (): Promise<AskSession | null> => null
-      : (): Promise<AskSession | null> => getSession(channel.id)
-  );
+  let flight: Preflight;
+  try {
+    flight = await preflight(
+      interaction.user.id,
+      newThread
+        ? async (): Promise<AskSession | null> => null
+        : (): Promise<AskSession | null> => getSession(channel.id)
+    );
+  } catch (error: unknown) {
+    // The preflight is the first thing that touches Postgres. Left to the
+    // generic handler, a failure here -- migration 014 not applied, a cold
+    // database timing out -- stranded a public "thinking" placeholder.
+    logError('ask', 'The preflight failed', error);
+    await refuse(
+      interaction,
+      '_Something went wrong before I could start. The commish has the details._'
+    );
+    return;
+  }
   if (!flight.ok) {
     await refuse(interaction, flight.refusal);
     return;
   }
 
   const opened: Opened = await openDestination(interaction, newThread, question, channel);
-  await answer({
-    user: interaction.user,
-    destination: opened.destination,
-    question,
-    session: flight.session,
-    openedThread: opened.botThread,
-    notice: flight.notice,
-  });
+  try {
+    await answer({
+      user: interaction.user,
+      destination: opened.destination,
+      question,
+      session: flight.session,
+      openedThread: opened.botThread,
+      notice: flight.notice,
+    });
+  } catch (error: unknown) {
+    // The anchor already shows the question; what failed is posting where the
+    // answer goes -- most likely a missing Send Messages in Threads.
+    logError('ask', 'Could not post in the destination', error);
+    await interaction.followUp({
+      content:
+        "_I couldn't post the answer. Check that I can send messages in this channel and its threads._",
+      ephemeral: true,
+    });
+  }
 }
 
 /**

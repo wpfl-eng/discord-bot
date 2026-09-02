@@ -102,10 +102,13 @@ export async function checkIdentityMapping(guild: Guild): Promise<string[]> {
 export function isAskThreadMessage(message: {
   channelType: ChannelType;
   authorIsBot: boolean;
+  /** A rename, a pin, a join: Discord fills `content` for some of these. */
+  system: boolean;
   content: string;
 }): boolean {
   return (
     !message.authorIsBot &&
+    !message.system &&
     THREAD_TYPES.includes(message.channelType) &&
     message.content.trim() !== ''
   );
@@ -148,6 +151,7 @@ export async function continueThread(message: Message): Promise<void> {
     !isAskThreadMessage({
       channelType: message.channel.type,
       authorIsBot: message.author.bot,
+      system: message.system === true,
       content: message.content,
     })
   ) {
@@ -164,8 +168,16 @@ export async function continueThread(message: Message): Promise<void> {
     !continuesConversation(
       {
         authorId: message.author.id,
+        // An explicit @mention only. By default `has()` is also true for
+        // @everyone and @here, and for any role the bot happens to hold, so
+        // "@here look at this" spawned a run on the speaker's cap.
         mentionsBot:
-          (bot !== null && message.mentions.has(bot)) ||
+          (bot !== null &&
+            message.mentions.has(bot, {
+              ignoreEveryone: true,
+              ignoreRoles: true,
+              ignoreRepliedUser: true,
+            })) ||
           (botRoleId !== null && message.mentions.roles.has(botRoleId)),
         repliedToBot: repliedTo !== null && bot !== null && repliedTo.id === bot.id,
         repliedToPerson: repliedTo !== null && !repliedTo.bot,
@@ -304,7 +316,10 @@ export async function answer(request: AnswerRequest): Promise<void> {
   await editor.settle();
   const trailer: string[] = [];
   if (notice !== undefined) trailer.push(notice);
-  if (openedThread) trailer.push(FOLLOW_UP_HINT);
+  // Only when there is a session to follow up in. A run that died before the
+  // SDK issued one writes no row, and a thread with no row ignores every
+  // message -- the hint would be an invitation nobody could take.
+  if (openedThread && outcome.sessionId !== null) trailer.push(FOLLOW_UP_HINT);
   // The session row and the final post depend on nothing of each other's.
   await Promise.all([
     // A resumed thread keeps whatever it was; only a thread the bot opened
@@ -335,6 +350,12 @@ async function persist(
     // ledger has to record a run that died before it ever had a session id.
     if (resume === null && outcome.sessionId !== null) {
       await openSession(threadId, outcome.sessionId, userId, question, botThread);
+    } else if (resume !== null && !outcome.counted && outcome.opsFailure === null) {
+      // A resume that never reached the SDK's init: the transcript is gone --
+      // a thread kept alive past SESSION_RETENTION_DAYS, a changed HOME.
+      // Left open, every later message retried the same dead id until the
+      // thread archived. Closed, the next one starts fresh and says so.
+      await closeSession(threadId);
     } else if (resume !== null) {
       await recordTurn(threadId, outcome.costUsd);
     }

@@ -14,7 +14,7 @@ jest.unstable_mockModule('../../wpfl/artifactSync.js', () => ({
   ensureFresh: jest.fn(async () => ({ kind: 'reshredded', files: 53, etag: 'abc' })),
 }));
 
-const { data, execute, renderStatus, renderUsage, renderSync } =
+const { data, execute, renderStatus, renderUsage, renderSync, pages } =
   await import('../../discordCommands/askadmin/askadmin.js');
 const { isAskPaused, setAskPaused } = await import('../../ask/pause.js');
 const { ASK } = await import('../../ask/askConfig.js');
@@ -104,6 +104,47 @@ describe('/ask-admin', () => {
       expect(text).toMatch(/42\s?s/);
       expect(text).toContain('t9');
       expect(text).toContain('Nixon Ball');
+    });
+
+    // A run's error is whatever the SDK or Postgres said, which can be a
+    // multi-line stderr; five of them plus the prompts used to pass 2,000
+    // characters and the whole reply failed with the generic error line.
+    test("cuts each run's error and prompt so five runs stay under a Discord message", () => {
+      const text: string = renderUsage({
+        monthTotal: 312,
+        today: [],
+        runs: Array.from({ length: 5 }, (_, i) => ({
+          userId: '120231673722830849',
+          threadId: `t${i}`,
+          prompt: 'x'.repeat(200),
+          subtype: 'error_during_execution',
+          costUsd: 0,
+          durationMs: 1000,
+          counted: false,
+          error: 'stderr '.repeat(60),
+          createdAt: new Date('2026-09-02T12:00:00Z'),
+        })),
+        thumbsDown: [],
+      });
+
+      expect(text.length).toBeLessThanOrEqual(2000);
+      expect(text).not.toContain('x'.repeat(100));
+      expect(text).not.toContain('stderr '.repeat(20));
+    });
+
+    test('a listing that still runs long is paged, each page its own code block', () => {
+      const lines: string[] = Array.from(
+        { length: 200 },
+        (_, i) => `  line ${i} of a long listing`
+      );
+      const paged: string[] = pages(['**/ask usage**', '```', ...lines, '```'].join('\n'));
+
+      expect(paged.length).toBeGreaterThan(1);
+      for (const page of paged) {
+        expect(page.length).toBeLessThanOrEqual(2000);
+        expect((page.match(/```/g) ?? []).length % 2).toBe(0);
+      }
+      expect(paged.join('\n')).toContain('line 199 of a long listing');
     });
 
     test('sync outcomes read as one line each', () => {

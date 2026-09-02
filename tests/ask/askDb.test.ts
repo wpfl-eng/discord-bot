@@ -24,6 +24,27 @@ describe('askDb', () => {
     responses = [];
   });
 
+  describe('the schema check at boot', () => {
+    test('names the tables migration 014 would have created and are not there', async () => {
+      responses = [
+        {
+          rows: [
+            { name: 'ask_sessions', present: 'ask_sessions' },
+            { name: 'ask_usage', present: null },
+            { name: 'ask_tool_calls', present: 'ask_tool_calls' },
+            { name: 'ask_feedback', present: null },
+          ],
+        },
+      ];
+
+      expect(await askDb.missingAskTables()).toEqual(['ask_usage', 'ask_feedback']);
+      expect(log[0].text).toMatch(/to_regclass/);
+      for (const table of ['ask_sessions', 'ask_usage', 'ask_tool_calls', 'ask_feedback']) {
+        expect(log[0].text).toContain(`'${table}'`);
+      }
+    });
+  });
+
   describe('the caps count what a member is charged for', () => {
     test('both counts come from one query, and both ignore uncounted rows', async () => {
       responses = [{ rows: [{ asked: '3', league_total: '312' }] }];

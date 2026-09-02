@@ -127,6 +127,14 @@ export async function runAsk(
   sink: AskSink,
   queryFn: QueryFn = query
 ): Promise<AskOutcome> {
+  // Once per run, before the prompt is built: the prompt states the week and
+  // the ESPN tools default to it, and both have to agree with /median, which
+  // reads the same helper. Cached bot-wide for fifteen minutes; it falls back
+  // to the calendar on its own and never throws. Before the slot, because the
+  // ESPN fork has no request timeout: a hung lookup must not hold one of the
+  // two slots, and the deadline below could not have ended it.
+  const period: NFLPeriod = await getCurrentPeriod();
+
   const { queuePosition, slot } = requestSlot();
   if (queuePosition > 0) sink.onQueued(queuePosition);
 
@@ -141,12 +149,6 @@ export async function runAsk(
   // open that it has not started reading.
   const shred: Release = liveShred.enter();
   const started: number = Date.now();
-
-  // Once per run, before the prompt is built: the prompt states the week and
-  // the ESPN tools default to it, and both have to agree with /median, which
-  // reads the same helper. Cached bot-wide for fifteen minutes; it falls back
-  // to the calendar on its own and never throws.
-  const period: NFLPeriod = await getCurrentPeriod();
 
   const state: StreamState = { text: '', thinking: '' };
   let sessionId: string | null = request.sessionId;

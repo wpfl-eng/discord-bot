@@ -51,6 +51,21 @@ export interface ToolException {
   readonly error: string | null;
 }
 
+// ============ Schema ============
+
+/**
+ * Which of the four tables migration 014 creates are missing. Nothing runs
+ * migrations, so `ready` asks this and says so in the log, rather than the
+ * first question of the season finding out.
+ */
+export async function missingAskTables(): Promise<string[]> {
+  const result = await sql<{ name: string; present: string | null }>`
+    SELECT name, to_regclass(name)::text AS present
+    FROM unnest(ARRAY['ask_sessions', 'ask_usage', 'ask_tool_calls', 'ask_feedback']) AS name
+  `;
+  return result.rows.filter((row) => row.present === null).map((row) => row.name);
+}
+
 // ============ Caps ============
 
 export interface QuestionCounts {

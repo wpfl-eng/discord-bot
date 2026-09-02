@@ -308,6 +308,70 @@ describe('the /ask command', () => {
         expect(edits[edits.length - 1]).toContain('Reply or @ me');
       });
 
+      test('offers no follow-up hint when the first run never produced a session', async () => {
+        (askRunner.runAsk as jest.Mock).mockImplementation((() =>
+          Promise.resolve({
+            text: '',
+            sessionId: null,
+            subtype: 'error_during_execution',
+            model: null,
+            costUsd: 0,
+            numTurns: 0,
+            durationMs: 5,
+            timedOut: false,
+            counted: false,
+            opsFailure: null,
+            error: 'spawn failed',
+          })) as never);
+        const { interaction: i, message } = posting();
+
+        await execute(i);
+
+        const last = message.edit.mock.calls[message.edit.mock.calls.length - 1][0] as {
+          content: string;
+        };
+        expect(last.content).not.toContain('Reply or @ me');
+        expect(askDb.openSession).not.toHaveBeenCalled();
+      });
+
+      /**
+       * A resume whose transcript the SDK has pruned fails before init. Left
+       * open, the session made every later message fail the same way until
+       * the thread archived; closed, the next message starts fresh and says so.
+       */
+      test('a resume that never reached the SDK closes the session instead of counting a turn', async () => {
+        (askRunner.runAsk as jest.Mock).mockImplementation((() =>
+          Promise.resolve({
+            text: '',
+            sessionId: 's1',
+            subtype: 'error_during_execution',
+            model: null,
+            costUsd: 0,
+            numTurns: 0,
+            durationMs: 5,
+            timedOut: false,
+            counted: false,
+            opsFailure: null,
+            error: 'No conversation found with session ID: s1',
+          })) as never);
+        (askDb.getSession as jest.Mock).mockImplementation(async () => live);
+        const message = { id: 'm1', edit: jest.fn(async () => undefined) };
+        const i = interaction({
+          channel: {
+            id: 't1',
+            type: ChannelType.PublicThread,
+            isSendable: (): boolean => true,
+            send: jest.fn(async () => message),
+          },
+          editReply: jest.fn(async () => ({})),
+        });
+
+        await execute(i);
+
+        expect(askDb.closeSession).toHaveBeenCalledWith('t1');
+        expect(askDb.recordTurn).not.toHaveBeenCalled();
+      });
+
       /**
        * The closed-session rule used to live in two places: a message in the
        * thread said the context was lost, the slash command in the same thread
@@ -440,6 +504,7 @@ describe('the /ask command', () => {
     const message = (over: Record<string, unknown> = {}) => ({
       channelType: ChannelType.PublicThread,
       authorIsBot: false,
+      system: false,
       content: 'what about Neill?',
       ...over,
     });
@@ -454,6 +519,12 @@ describe('the /ask command', () => {
 
     test('the bot never answers itself', () => {
       expect(isAskThreadMessage(message({ authorIsBot: true }))).toBe(false);
+    });
+
+    // Discord fills `content` for some system messages: a thread rename
+    // arrives as the new name, authored by whoever renamed it.
+    test('a system message -- a rename, a pin, a join -- is not a question', () => {
+      expect(isAskThreadMessage(message({ system: true, content: 'renamed thread' }))).toBe(false);
     });
 
     test('a message outside a thread is not a continuation', () => {

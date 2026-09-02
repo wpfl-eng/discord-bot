@@ -40,6 +40,7 @@ import { cacheDir, readAsOf, type AsOf } from '../../wpfl/layout.js';
 import { getWpflMemberByDiscordId } from '../../constants/wpflMembers.js';
 import { NO_MENTIONS } from '../../interactions/renderedMessage.js';
 import { truncate } from '../../helpers/utils.js';
+import { splitForDiscord } from '../../ask/ticker.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ask-admin')
@@ -121,7 +122,25 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       content = 'Unknown subcommand.';
   }
 
-  await interaction.editReply({ content, allowedMentions: NO_MENTIONS });
+  const [first, ...rest] = pages(content);
+  await interaction.editReply({ content: first, allowedMentions: NO_MENTIONS });
+  for (const page of rest) {
+    await interaction.followUp({ content: page, ephemeral: true, allowedMentions: NO_MENTIONS });
+  }
+}
+
+/**
+ * Discord caps a message at 2,000 characters, and `usage` at five runs with
+ * long errors could pass it. Split on lines; a code block a split opened is
+ * closed and reopened so each page still renders as one.
+ */
+export function pages(content: string): string[] {
+  const parts: string[] = splitForDiscord(content, 1900);
+  if (parts.length === 1) return parts;
+  return parts.map(
+    (part: string, index: number): string =>
+      `${index === 0 ? '' : '```\n'}${part}${index === parts.length - 1 ? '' : '\n```'}`
+  );
 }
 
 function gatherStatus(): AskStatus {
@@ -198,7 +217,7 @@ export function renderUsage(usage: AskUsage): string {
       ? ['  none']
       : usage.runs.map(
           (run) =>
-            `  ${leagueDateTime(run.createdAt)} ${memberName(run.userId)} · ${run.subtype ?? '?'} · ${seconds(run.durationMs)} · $${run.costUsd.toFixed(2)} est${run.counted ? '' : ' · uncounted'}${run.error === null ? '' : ` · ${run.error}`}\n    "${truncate(run.prompt, 80)}"`
+            `  ${leagueDateTime(run.createdAt)} ${memberName(run.userId)} · ${run.subtype ?? '?'} · ${seconds(run.durationMs)} · $${run.costUsd.toFixed(2)} est${run.counted ? '' : ' · uncounted'}${run.error === null ? '' : ` · ${truncate(run.error, 80)}`}\n    "${truncate(run.prompt.replace(/`/g, "'"), 80)}"`
         );
 
   const downs: string[] =
