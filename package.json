@@ -18,8 +18,9 @@
     "emoji:upload": "tsx scripts/uploadEmoji.ts"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.252",
-    "@duckdb/node-api": "^1.5.5-r.4",
+    "@anthropic-ai/claude-agent-sdk": "0.3.252",
+    "@duckdb/node-api": "1.5.5-r.4",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@vercel/postgres": "^0.10.0",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.1.3",
