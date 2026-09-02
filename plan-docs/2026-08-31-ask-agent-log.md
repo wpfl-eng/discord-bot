@@ -32,6 +32,9 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 9 | 5 | `feat/ask-runner` | Runner — system prompt, `askRunner`, concurrency, hooks | DONE |
 | 10 | 6 | `feat/ask-discord` | Discord surface — `/ask`, threads, ticker, continuation | DONE |
 | 11 | 7 | `feat/ask` | Integration and handoff — docs, full suite, conditional smoke test | DONE |
+| 12 | — | `feat/ask` | Adversarial review — eight fixes, each with tests | DONE |
+| 13 | — | `feat/ask` | The two lifetime races — deferred teardown for shred and SQL | DONE |
+| 14 | — | `feat/ask` | Second adversarial review with AJ — nineteen decisions, first live runs | IN PROGRESS |
 
 **AJ's, not the build's** (design §17.5): applying migration 009, merging to
 `main`, `git push`, `deploy-commands.ts`, and the pre-launch re-run of
@@ -1401,6 +1404,102 @@ old value on the spot, with nothing recording that a reader is still inside it.
   `ASK.DATA_DIR`.
 
 ---
+
+---
+
+## Stage 14 — Second adversarial review, with AJ — `feat/ask` — 2026-09-02 — IN PROGRESS
+
+Not a build stage. A second adversarial read of the whole branch, this time as
+an interview: every finding put to AJ as one question with a recommendation,
+each recommendation attacked on request before AJ confirmed it, decisions
+resolved in dependency order. Nineteen decisions. Two recommendations reversed
+under their own review (3 became hygiene rather than a defect; 18 was dropped).
+A Claude credential was provided for this stage, so it also carries the
+branch's first live `query()` calls.
+
+### The probe that ran before any fix
+
+`Glob` with pattern `/etc/host*` and no `path`, through the shipped hook, via
+`runAsk` directly (the ledger insert failed on the unapplied migration, as
+expected, and was logged):
+
+```
+RESULT: /etc/avahi/hosts /etc/nvme/hostnqn /etc/nvme/hostid /etc/hostname
+        /etc/host.conf /etc/hosts /etc/ansible/hosts
+success · 2 turns · 3,593 ms · $0.0826 estimated
+```
+
+So §15.5 closes measured rather than assumed, and not the way the design hoped:
+the hook inspected only `path` and `file_path`, and the CLI's Glob honours an
+absolute pattern. Names, not contents — a Read of anything it found is still
+denied — but an agent that can list the host is not what §10.2 promised. It
+was also the first proof that the auth, the permission configuration, the
+hooks and the built-in tools work together on a real model. The ticker's
+`[settled]` fired before the Glob result arrived, confirming decision 6.
+
+### Decisions (the design sections each rewrites are in parentheses)
+
+1. Credential in `.env` on the dev box; live runs after the fixes, except the
+   probe above.
+2. All eight MCP tools always loaded via the server-level `alwaysLoad`; the
+   per-tool flags deleted. The docs advise upfront loading under ten tools and
+   say deferral costs a round trip; the design had that backwards (§4.2).
+3. `DATA_DIR` resolved absolute with `~` expanded; the Read rule built as `//`
+   plus the path without its leading slash. The CLI's parser drops one
+   character after `//` and normalises, so `///home/…` worked by accident;
+   hygiene, plus a real fix for a `~/` override (§10.2).
+4. Migration renamed `014_ask_agent.sql`; two 009s existed (§8, §17.6).
+5. Per-thread serialisation inside `answer()`, ahead of the global slot, depth
+   cap two, a waiting line on the ticker (§5.3, §6.2).
+6. Ticker steps settle on the matching `tool_result`, by `tool_use` id; ✗ with
+   a one-line reason on `is_error`; `assistant` is no longer a signal (§5.3).
+7. `deferReply()` before the session lookup and cap check; refusals delete
+   the placeholder and follow up ephemerally (§6.1).
+8. `{ parse: [] }` on every `/ask` send and edit that carries foreign text;
+   refusal replies untouched (§6.3).
+9. Glob's pattern treated as a path: containment on its static prefix, `~` and
+   `..` denied (§10.2).
+10. The NFL week from `helpers/espnPeriod.ts`, resolved once per run, stated
+    with its source; tools default through `resolvePeriod` (§5.2, §4.2).
+11. The decade cache refreshes on its own twenty-four-hour window, decoupled
+    from the artifact etag; the index reports each source's season and week
+    extents; every literal year removed from prompt, index and descriptions.
+    Evidence for in-season loading: commit `c95de89`, 2025-11-04, bumped
+    `/ewins` and `/optimal` to 2025 mid-season (§3.7).
+12. `ask_usage.counted` and `ask_usage.error`; a run is uncounted when no
+    session id was observed or an assistant message carried one of the six
+    ops-failure codes; caps count counted rows; a `ready` log line and an
+    early "not configured" refusal; six member-facing error lines (§6.4, §9).
+13. A message continues a thread when it mentions the bot, replies to it, or
+    comes from the opener in a bot-created thread; replies to people never
+    do; `ask_sessions.bot_thread`; bind everywhere; one hint on a thread's
+    first answer (§6.2).
+14. Exact pins on the SDK and DuckDB; `@modelcontextprotocol/sdk` a direct
+    dependency; the fork at `b8c2e61` returns real team and owner names, so
+    §4.2's "only mapping available" is rewritten; no owner cross-check.
+15. Opus 5 at `high`, summarised thinking, unchanged.
+16. 👍/👎 buttons with in-place counts; `ask_feedback`; `ask_usage.message_id`.
+17. `/ask-admin` with `status`, `resync`, `usage`, `pause`, `resume`, gated by
+    `Administrator` on the builder; `force` on `ensureFresh`.
+18. No elapsed time on answers. Duration stays in the ledger and `usage`.
+19. Nothing returns from the out-of-scope list. Follow-ups recorded below.
+
+### Changed
+- (filled in as the work lands)
+
+### Verified
+- The Glob probe above.
+
+### Follow-ups, deliberately not built here
+- `private` answers: an ephemeral mode for strategy questions. First follow-up.
+- Same-author coalescing in the per-thread queue.
+- A client-wide `allowedMentions` default for the other commands.
+- An ESPN `ownerName` cross-check in the startup identity check.
+- A migration tracking table for the whole repo.
+- `maxTurns` as a third bound, if the ledger ever shows a run that needed it.
+
+### Open
+- (filled in at the end)
 
 ---
 
