@@ -48,7 +48,10 @@ export interface IndexInput {
 const CACHED_DECADE: readonly (readonly [file: string, table: string, description: string])[] = (
   [
     [CACHE_SOURCES.draftHistory, 'Every auction pick, one row per player per season.'],
-    [CACHE_SOURCES.matchups, 'Every head-to-head result, with both scores and the margin.'],
+    [
+      CACHE_SOURCES.matchups,
+      'Every regular-season head-to-head result, with both scores and the margin. The API publishes no playoff games.',
+    ],
     [
       CACHE_SOURCES.playerScores,
       'Every weekly player score, with roster slot — the only way to ask what a drafted player went on to do.',
@@ -168,6 +171,7 @@ export function generateIndex(input: IndexInput): string {
   const sections: string[] = [
     header(asOf),
     fileMap(shred),
+    tables(),
     cachedDecade(asOf.cacheFetchedAt, input.wpflCache),
     skipped(shred),
     undocumented(shred),
@@ -204,14 +208,64 @@ function fileMap(shred: ShredResult): string {
 
   for (const file of [...shred.files].sort((a, b) => a.path.localeCompare(b.path))) {
     const dir: string = path.dirname(file.path);
+    const perOwner: boolean = PER_OWNER_BODIES.includes(dir);
     if (dir !== directory) {
       directory = dir;
       lines.push('', `### ${dir === '.' ? 'root' : `${dir}/`}`, '');
+      const note: string | undefined = DIRECTORY_NOTES[dir];
+      if (note !== undefined) lines.push(note, '');
+      if (perOwner) {
+        // Fourteen files, one shape: the table and its columns are said once
+        // above them rather than fourteen times beside them.
+        lines.push(
+          `One \`sql\` table, \`${tableName(null, dir)}\`, with one row per file below. Columns: ${columnList(file.columns)}.`,
+          ''
+        );
+      }
     }
-    lines.push(`- \`${file.path}\` — ${bytes(file.bytes)} — ${describeFile(file.path)}`);
+    const columns: string =
+      perOwner || file.columns.length === 0 ? '' : ` — columns: ${columnList(file.columns)}`;
+    lines.push(`- \`${file.path}\` — ${bytes(file.bytes)} — ${describeFile(file.path)}${columns}`);
   }
 
   return lines.join('\n');
+}
+
+/** Wide tables are cut here; the rest is a DESCRIBE away, and the point is the common names. */
+const COLUMNS_SHOWN = 24;
+
+function columnList(columns: readonly string[]): string {
+  const shown: readonly string[] = columns.slice(0, COLUMNS_SHOWN);
+  const rest: number = columns.length - shown.length;
+  return `\`${shown.join(', ')}\`${rest > 0 ? ` and ${rest} more (DESCRIBE the table)` : ''}`;
+}
+
+/** A line under a directory heading, for what its files share and no file line can say. */
+const DIRECTORY_NOTES: Record<string, string> = {
+  history:
+    'Auction era only: these files start with the first auction season, 2016. For anything earlier, `wpfl_matchups` and `wpfl_draft_history` reach back to 2010.',
+};
+
+/**
+ * The naming rule the `sql` tool applies, stated where the agent reads first.
+ * It lived only in the tool description, and the first live question guessed
+ * `teams_aj_boorde` from the file listing.
+ */
+function tables(): string {
+  const perOwner: string = PER_OWNER_BODIES.map((body: string): string => `\`${body}/\``).join(
+    ', '
+  );
+  return [
+    '## Every file is also a table',
+    '',
+    'The `sql` tool loads every file above as a DuckDB table named `<directory>_<file>`',
+    'without the extension: `league/board.json` is `league_board`, `news/players.jsonl` is',
+    `\`news_players\`, \`meta.json\` is \`meta\`. The per-owner directories (${perOwner}) are one`,
+    'table each, named for the directory, with one row per owner. Column names are the ones',
+    'listed beside each file, exactly; nested objects are STRUCTs, reached with a dot',
+    '(`grade.letter`). When a column is not listed, `DESCRIBE <table>` before selecting it --',
+    'a guessed name is a failed call and a wasted turn.',
+  ].join('\n');
 }
 
 function describeFile(relative: string): string {
@@ -257,14 +311,16 @@ function cachedDecade(
   lines.push(
     `${fetchedAt === null ? 'Fetched' : `Fetched ${fetchedAt}`} from the league's history API and written`,
     'to `wpfl/` as JSONL. Reachable **only through the `sql` tool** — one table each,',
-    'and far too many rows to read as files. The last column is where each',
-    "table's rows actually end, read from the file:",
+    'and far too many rows to read as files. `season` and `week` are integers in',
+    'every table, and positions and NFL team codes are trimmed and upper-cased,',
+    'whatever the API sent. Where the rows end, and the columns, are read from the',
+    'files:',
     '',
-    '| Table | What it holds | Rows run |',
-    '| --- | --- | --- |',
+    '| Table | What it holds | Rows run | Columns |',
+    '| --- | --- | --- | --- |',
     ...present.map(
       ([file, table, description]) =>
-        `| \`${table}\` | ${description} | ${describeExtents(cache[file])} |`
+        `| \`${table}\` | ${description} | ${describeExtents(cache[file])} | ${columnsCell(cache[file])} |`
     )
   );
 
@@ -366,6 +422,12 @@ function routing(): string {
     '   `drafted_points`. The league already publishes these figures through',
     '   `/ewins` and `/optimal`, and yours must be the same figure.',
   ].join('\n');
+}
+
+function columnsCell(extents: SourceExtents | null | undefined): string {
+  return extents === null || extents === undefined || extents.columns.length === 0
+    ? 'unknown'
+    : `\`${extents.columns.join(', ')}\``;
 }
 
 function bytes(count: number): string {

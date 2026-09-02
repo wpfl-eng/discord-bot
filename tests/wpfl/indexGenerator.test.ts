@@ -200,15 +200,53 @@ describe('indexGenerator', () => {
         shred: result,
         asOf,
         wpflCache: {
-          'draft_history.jsonl': { seasonMin: 2010, seasonMax: 2025, latestWeek: null },
-          'matchups.jsonl': { seasonMin: 2015, seasonMax: 2025, latestWeek: 17 },
-          'player_scores.jsonl': { seasonMin: 2015, seasonMax: 2026, latestWeek: 3 },
+          'draft_history.jsonl': {
+            seasonMin: 2010,
+            seasonMax: 2025,
+            latestWeek: null,
+            columns: [],
+          },
+          'matchups.jsonl': { seasonMin: 2015, seasonMax: 2025, latestWeek: 17, columns: [] },
+          'player_scores.jsonl': { seasonMin: 2015, seasonMax: 2026, latestWeek: 3, columns: [] },
         },
       });
 
       expect(index).toMatch(/wpfl_draft_history.*2010.*2025/);
       expect(index).toMatch(/wpfl_matchups.*2015.*2025.*week 17/);
       expect(index).toMatch(/wpfl_player_scores.*2015.*2026.*week 3/);
+    });
+
+    test("lists each cached table's columns, read from its file", () => {
+      const index: string = generateIndex({
+        shred: result,
+        asOf,
+        wpflCache: {
+          'matchups.jsonl': {
+            seasonMin: 2010,
+            seasonMax: 2025,
+            latestWeek: 14,
+            columns: ['week', 'season', 'teamA'],
+          },
+        },
+      });
+
+      expect(index).toMatch(/wpfl_matchups.*\| `week, season, teamA` \|/);
+      expect(index).toMatch(/regular-season/);
+    });
+
+    /**
+     * The first five live questions cost seven failed `sql` calls between
+     * them, every one a guessed column name and each a paid turn. The columns
+     * come from the shred, so the file map can say them.
+     */
+    test('says the table rule, and the columns beside every file', () => {
+      expect(index).toContain('## Every file is also a table');
+      expect(index).toMatch(/`<directory>_<file>`/);
+      expect(index).toMatch(/- `league\/board\.json` — .* — columns: `/);
+      expect(index).toMatch(
+        /One `sql` table, `teams`, with one row per file below\. Columns: `.*owner/
+      );
+      expect(index).toMatch(/### history\/\n\nAuction era only/);
     });
 
     test('does not advertise a table whose file was never written', () => {

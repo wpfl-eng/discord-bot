@@ -347,6 +347,16 @@ Generated on every shred, never hand-edited, so it cannot drift. Contains:
 The agent reads this first. It is the single highest-leverage artifact in the
 design: it is what lets the agent open two files instead of forty.
 
+**Columns and table names.** Every file line carries the columns the `sql` tool
+exposes for it, read from the value as the shredder wrote it (`ShredFile.columns`);
+a per-owner directory names its table and columns once, above its files, and a
+section "Every file is also a table" states the `<directory>_<file>` rule and that
+per-owner directories collapse to one table. Added after the first five live
+questions produced seven failed `sql` calls, every one a guessed column name and
+each a paid turn. The `history/` heading notes that those files start with the
+first auction season while the cached tables reach back to 2010, because one answer
+mixed the two windows in a single sentence.
+
 ### 3.5 Sync and Freshness
 
 No timers anywhere. `wpfl/artifactSync.ts`:
@@ -501,6 +511,16 @@ the cache refreshes on its own daily window (§3.5) and `INDEX.md` states where
 each table's rows actually end, scanned from the files (`cacheExtents`), rather
 than naming a year. Nothing in the prompt, the index or a tool description
 carries a literal year for the API's ceiling any more.
+
+**Normalisation.** `fantasyMatchupWinners` serialises `season` and `week` as
+strings, and the older draft rows carry `"RB  "` and `Pit` beside `RB` and `PIT`.
+`normalizeRow` fixes both at write time -- digit strings in `season` and `week`
+become numbers, `playerNflPosition` and `playerNflTeam` are trimmed and upper-cased,
+every other string is trimmed -- so `WHERE season >= 2016` binds and a GROUP BY sees
+one position. The endpoint returns regular-season games only (weeks 1-14;
+`includePlayoffs` changes nothing, measured), which `INDEX.md` and the tool
+description say. Each cached table's columns are read from its first line
+(`SourceExtents.columns`) and listed beside its extents.
 
 ### 3.8 What the Bot Cannot See
 
@@ -920,6 +940,12 @@ static part first so it caches.
   without a clarifying round trip.
 - Today's date and the current NFL week (`helpers/utils.ts:getCurrentNFLWeek`).
 - The shred's as-of dates and the WPFL cache's fetch date.
+
+Two rules were added after the first live questions. Injury designations are
+ESPN's `injuryStatus` verbatim, and neither a news flag nor a lineup slot is one:
+the model called an ACTIVE player questionable because the news layer flagged him.
+Rankings over more than a handful of numbers are done in `sql` or listed rather
+than by eye: it called the fifth-best week on a schedule the third-best.
 
 ### 5.3 Message Stream Handling
 

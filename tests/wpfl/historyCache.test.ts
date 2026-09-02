@@ -140,6 +140,54 @@ describe('historyCache', () => {
       expect(Date.parse(marker)).toBeLessThanOrEqual(Date.now());
     });
 
+    /**
+     * fantasyMatchupWinners sends season and week as strings, so
+     * `season >= 2016` was a binder error and `MAX(week)` came back "9"; old
+     * draft rows carry `"RB  "` and `Pit` beside `RB` and `PIT`, so a GROUP BY
+     * split a position in two. Found by the first five live questions.
+     */
+    test('normalises what the API sends inconsistently, at write time', async () => {
+      const row: Row = {
+        week: '3',
+        season: '2021',
+        teamA: ' Mike Simpson ',
+        playerNflPosition: 'RB  ',
+        playerNflTeam: 'Pit',
+        points: 87.04,
+        isPlayoffs: false,
+      };
+      await refreshWpflCache(
+        dir,
+        fakeFetch(() => ({ rows: [row] })),
+        2015
+      );
+
+      expect(JSON.parse(lines('matchups.jsonl')[0])).toEqual({
+        week: 3,
+        season: 2021,
+        teamA: 'Mike Simpson',
+        playerNflPosition: 'RB',
+        playerNflTeam: 'PIT',
+        points: 87.04,
+        isPlayoffs: false,
+      });
+      // The extents scanner reads the numbers back as it did the strings.
+      expect(cacheExtents(dir)['matchups.jsonl']).toEqual({
+        seasonMin: 2021,
+        seasonMax: 2021,
+        latestWeek: 3,
+        columns: [
+          'week',
+          'season',
+          'teamA',
+          'playerNflPosition',
+          'playerNflTeam',
+          'points',
+          'isPlayoffs',
+        ],
+      });
+    });
+
     test('an empty season is not a failure -- the API returns [] for a season not yet played', async () => {
       await refreshWpflCache(
         dir,
@@ -181,11 +229,13 @@ describe('historyCache', () => {
         seasonMin: 2015,
         seasonMax: 2025,
         latestWeek: 3,
+        columns: ['week', 'season', 'teamA'],
       });
       expect(extents['draft_history.jsonl']).toEqual({
         seasonMin: 2010,
         seasonMax: 2025,
         latestWeek: null,
+        columns: ['owner', 'season'],
       });
     });
 
@@ -199,6 +249,7 @@ describe('historyCache', () => {
         seasonMin: 2015,
         seasonMax: 2025,
         latestWeek: 18,
+        columns: ['week', 'season'],
       });
     });
 

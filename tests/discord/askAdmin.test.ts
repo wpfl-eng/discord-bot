@@ -54,7 +54,7 @@ describe('/ask-admin', () => {
           cacheFetchedAt: '2026-09-02',
         },
         extents: {
-          'player_scores.jsonl': { seasonMin: 2015, seasonMax: 2025, latestWeek: 18 },
+          'player_scores.jsonl': { seasonMin: 2015, seasonMax: 2025, latestWeek: 18, columns: [] },
         },
         inFlight: 1,
         activeThreads: 2,

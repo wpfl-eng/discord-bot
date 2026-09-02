@@ -26,6 +26,8 @@ export interface SourceExtents {
   readonly seasonMax: number;
   /** The latest week present in the newest season; null for a source without weeks. */
   readonly latestWeek: number | null;
+  /** The first row's keys: what the `sql` table's columns are, read from the file rather than assumed. */
+  readonly columns: readonly string[];
 }
 
 const {
@@ -155,7 +157,53 @@ function scanExtents(text: string): SourceExtents | null {
   }
 
   if (seasonMax === Number.NEGATIVE_INFINITY) return null;
-  return { seasonMin, seasonMax, latestWeek: latestWeekBySeason.get(seasonMax) ?? null };
+  return {
+    seasonMin,
+    seasonMax,
+    latestWeek: latestWeekBySeason.get(seasonMax) ?? null,
+    columns: firstRowKeys(text),
+  };
+}
+
+/** The keys of the first JSONL line, or none when it does not parse. */
+function firstRowKeys(text: string): string[] {
+  const end: number = text.indexOf('\n');
+  const line: string = (end === -1 ? text : text.slice(0, end)).trim();
+  try {
+    const row: unknown = JSON.parse(line);
+    return row !== null && typeof row === 'object' && !Array.isArray(row) ? Object.keys(row) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Fields the API sends as strings on one endpoint and numbers on another. */
+const NUMERIC_FIELDS: ReadonlySet<string> = new Set(['season', 'week']);
+/** Codes, which a GROUP BY must see one spelling of. */
+const CODE_FIELDS: ReadonlySet<string> = new Set(['playerNflPosition', 'playerNflTeam']);
+
+/**
+ * The API is inconsistent in ways that break SQL. `fantasyMatchupWinners`
+ * serialises `season` and `week` as strings, so `WHERE season >= 2016` is a
+ * binder error and `MAX(week)` is "9"; the older draft rows carry `"RB  "`
+ * and `Pit` beside `RB` and `PIT`, so a naive GROUP BY splits a position in
+ * two. Normalised once, at write time, so every table agrees with itself and
+ * the agent never has to know. Exported for its test.
+ */
+export function normalizeRow(row: unknown): unknown {
+  if (row === null || typeof row !== 'object' || Array.isArray(row)) return row;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+    if (typeof value !== 'string') {
+      out[key] = value;
+      continue;
+    }
+    const trimmed: string = value.trim();
+    if (NUMERIC_FIELDS.has(key) && /^\d+$/.test(trimmed)) out[key] = Number(trimmed);
+    else if (CODE_FIELDS.has(key)) out[key] = trimmed.toUpperCase();
+    else out[key] = trimmed;
+  }
+  return out;
 }
 
 /**
@@ -174,7 +222,7 @@ async function fetchJsonl(
 ): Promise<string | null> {
   try {
     const rows: unknown[] = await fetchJsonArray<unknown>(endpoint, params, fetchFn);
-    return rows.map((row: unknown): string => JSON.stringify(row)).join('\n');
+    return rows.map((row: unknown): string => JSON.stringify(normalizeRow(row))).join('\n');
   } catch (error: unknown) {
     logError(
       'ask',

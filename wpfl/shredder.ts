@@ -70,6 +70,14 @@ export interface ShredFile {
   /** Path relative to the shred root, e.g. `teams/aj-boorde.json`. */
   readonly path: string;
   readonly bytes: number;
+  /**
+   * The column names the `sql` tool exposes for this file, read from the
+   * value as it was written so INDEX.md can list them. Five live questions
+   * cost seven failed `sql` calls between them, every one a guessed column --
+   * `player` for `name`, `position` for `playerNflPosition` -- and each guess
+   * is a paid model turn on a ticker somebody is watching.
+   */
+  readonly columns: readonly string[];
 }
 
 export interface ShredResult {
@@ -110,7 +118,12 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
    * sites instead meant six independent places had to remember -- and one of
    * them, the owner slug, never did.
    */
-  const write = (components: readonly string[], extension: string, contents: string): void => {
+  const write = (
+    components: readonly string[],
+    extension: string,
+    contents: string,
+    columns: readonly string[]
+  ): void => {
     const relative = `${components.map(safeName).join('/')}.${extension}`;
     const full: string = path.resolve(root, relative);
     // Now genuinely an assertion rather than the only thing standing behind
@@ -120,7 +133,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
     }
     fs.mkdirSync(path.dirname(full), { recursive: true });
     fs.writeFileSync(full, contents);
-    files.push({ path: relative, bytes: Buffer.byteLength(contents) });
+    files.push({ path: relative, bytes: Buffer.byteLength(contents), columns });
   };
 
   for (const [body, value] of Object.entries(artifact)) {
@@ -142,7 +155,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
     switch (plan.kind) {
       case 'single':
         requireDict(body, value);
-        write([body], 'json', JSON.stringify(value));
+        write([body], 'json', JSON.stringify(value), columnsOf(value));
         break;
 
       case 'list-by-owner':
@@ -154,7 +167,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
               `A \`${body}\` entry has no string \`owner\` to name its file after.`
             );
           }
-          write([body, slug(owner)], 'json', JSON.stringify(entry));
+          write([body, slug(owner)], 'json', JSON.stringify(entry), columnsOf(entry));
         }
         break;
 
@@ -167,9 +180,9 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
             continue;
           }
           if (asJsonl.has(key) && isDict(member)) {
-            write([body, key], 'jsonl', toJsonl(member));
+            write([body, key], 'jsonl', toJsonl(member), jsonlColumns(member));
           } else {
-            write([body, key], 'json', JSON.stringify(member));
+            write([body, key], 'json', JSON.stringify(member), columnsOf(member));
           }
         }
         break;
@@ -184,15 +197,41 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
 function shredGenerically(
   body: string,
   value: Json,
-  write: (components: readonly string[], extension: string, contents: string) => void
+  write: (
+    components: readonly string[],
+    extension: string,
+    contents: string,
+    columns: readonly string[]
+  ) => void
 ): void {
   if (isDict(value)) {
     for (const [key, member] of Object.entries(value)) {
-      write([body, key], 'json', JSON.stringify(member));
+      write([body, key], 'json', JSON.stringify(member), columnsOf(member));
     }
     return;
   }
-  write([body], 'json', JSON.stringify(value));
+  write([body], 'json', JSON.stringify(value), columnsOf(value));
+}
+
+/**
+ * The columns DuckDB's `read_json_auto` gives a file: an object's keys, or the
+ * union of keys across the first rows of a list of objects. A scalar -- the
+ * two-byte prose intros -- has none.
+ */
+export function columnsOf(value: Json): string[] {
+  if (isDict(value)) return Object.keys(value);
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const row of value.slice(0, 20)) {
+    if (isDict(row)) for (const key of Object.keys(row)) seen.add(key);
+  }
+  return [...seen];
+}
+
+/** A JSONL collection's columns: `key`, then whatever its first member carries (toJsonl's shape). */
+function jsonlColumns(collection: JsonDict): string[] {
+  const first: Json | undefined = Object.values(collection)[0];
+  return ['key', ...(first !== undefined && isDict(first) ? Object.keys(first) : ['value'])];
 }
 
 /**
