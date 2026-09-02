@@ -53,8 +53,10 @@ describe('indexGenerator', () => {
       for (const line of index.split('\n')) {
         const match: RegExpMatchArray | null = line.match(/^- `([^`]+\.jsonl?)`(.*)$/);
         if (match === null) continue;
-        // "<size> B" plus prose, on the same line as the path.
         expect(match[2]).toMatch(/\d[\d,]* B/);
+        // The fourteen per-owner files share one shape and are described once
+        // above the list (below); every other file carries prose on its line.
+        if (match[1].startsWith('teams/')) continue;
         expect(
           match[2]
             .replace(/[\d,]+ B/, '')
@@ -62,6 +64,31 @@ describe('indexGenerator', () => {
             .trim().length
         ).toBeGreaterThan(10);
       }
+    });
+
+    // The description used to ride on all fourteen lines: 3 KB of the same
+    // sentence in a file the agent reads on every question.
+    test('describes the per-owner files once, above them, not fourteen times', () => {
+      const teamsSection: string = index.slice(index.indexOf('### teams/'));
+      const lines: string[] = teamsSection.split('\n');
+
+      const described: number = lines.filter((line) => line.includes('post-draft file')).length;
+      expect(described).toBe(1);
+      expect(teamsSection).toMatch(/^Each file: One owner’s full post-draft file/m);
+      const teamFiles: number = result.files.filter((f) => f.path.startsWith('teams/')).length;
+      expect(teamFiles).toBeGreaterThan(1);
+      expect(lines.filter((line) => line.startsWith('- `teams/'))).toHaveLength(teamFiles);
+      expect(lines.some((line) => /^- `teams\/[a-z-]+\.json` — [\d,]+ B$/.test(line))).toBe(true);
+    });
+
+    // `news/reads.json` is an object keyed by player name, so its "columns"
+    // were 24 names and "33 more" -- 700 characters saying nothing DESCRIBE
+    // would not.
+    test('says a name-keyed file is keyed by name instead of listing the names', () => {
+      expect(index).toMatch(/`news\/reads\.json` — .* — columns: keyed by name, \d+ keys/);
+      expect(index).not.toMatch(/`news\/reads\.json` — .*Ja'Marr Chase/);
+      // A real column list is untouched.
+      expect(index).toMatch(/- `league\/board\.json` — .* — columns: `sale_order/);
     });
   });
 
@@ -170,6 +197,14 @@ describe('indexGenerator', () => {
       expect(index).toContain('expected_wins');
       expect(index).toContain('optimal_coaching');
       expect(index).toMatch(/never|do not|don't/i);
+    });
+
+    // The first live matchup question pulled the whole week's boxscores --
+    // seven matchups of zeroes, before kickoff -- for an opponent and a win
+    // probability that sit in the artifact's schedule.
+    test('routes the schedule and the sim odds to the artifact, not to ESPN', () => {
+      expect(index).toMatch(/\| Who an owner plays each week.*\| `teams\.schedule`/);
+      expect(index).toMatch(/espn_boxscores` is for scores once a week is played/);
     });
   });
   /**

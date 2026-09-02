@@ -28,7 +28,7 @@ import type {
   Player,
   Team,
 } from 'espn-fantasy-football-api/node.js';
-import { getWpflMemberByEspnId } from '../constants/wpflMembers.js';
+import { getWpflMemberByEspnId, wpflMembers } from '../constants/wpflMembers.js';
 // The week and season come from ESPN, with the calendar as the fallback --
 // the same helper /median reads, so the default week here, the week the
 // prompt states and the week /median prints are one number (log Stage 14).
@@ -61,6 +61,13 @@ export interface LineupEntry {
   /** Lineup slot, e.g. 'WR' or 'Bench' — not necessarily the player's position. */
   readonly position: string;
   readonly points: number;
+  /**
+   * ESPN's designation, exactly as a roster entry carries it. Without it the
+   * first live matchup question had to fetch every roster in the league --
+   * fourteen of them, the largest result in the run -- to learn the status of
+   * the eighteen players in its one matchup.
+   */
+  readonly injuryStatus: string | null;
 }
 
 export interface MatchupSummary {
@@ -122,29 +129,84 @@ function positionOf(player: {
   return BARE_POSITIONS.find((position) => eligible.has(position)) ?? player.defaultPosition;
 }
 
-export function toTeams(teams: readonly Team[]): TeamSummary[] {
-  return teams.map((team) => ({
-    espnId: team.id,
-    owner: ownerFor(team.id),
-    wins: team.wins,
-    losses: team.losses,
-    ties: team.ties,
-    playoffSeed: team.playoffSeed,
-    pointsFor: team.regularSeasonPointsFor ?? 0,
-    pointsAgainst: team.regularSeasonPointsAgainst ?? 0,
-    roster: (team.roster ?? []).map(toRosterEntry),
-  }));
+/**
+ * The canonical owners a call asked for, or undefined for the whole league.
+ *
+ * Measured on the first live matchup question: `espn_teams` returned all
+ * fourteen rosters, about 30 KB and the largest thing in the run's context, to
+ * answer for two of them, and `espn_boxscores` the whole slate for one game.
+ * Matching is exact on the canonical spelling, case-insensitively -- INDEX.md
+ * and the prompt both insist on those spellings -- and a near miss is refused
+ * with the list rather than answered with an empty result the agent would
+ * read as "no such team".
+ */
+export function resolveOwners(
+  names: readonly string[] | undefined
+): ReadonlySet<string> | undefined {
+  if (names === undefined || names.length === 0) return undefined;
+
+  const canonical = new Map<string, string>(
+    wpflMembers.map((member): [string, string] => [member.owner.toLowerCase(), member.owner])
+  );
+  const resolved = new Set<string>();
+  const unknown: string[] = [];
+  for (const name of names) {
+    const owner: string | undefined = canonical.get(name.trim().toLowerCase());
+    if (owner === undefined) unknown.push(name);
+    else resolved.add(owner);
+  }
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown owner${unknown.length === 1 ? '' : 's'}: ${unknown.join(', ')}. ` +
+        `Use the canonical spellings: ${wpflMembers.map((member) => member.owner).join(', ')}.`
+    );
+  }
+  return resolved;
 }
 
-export function toBoxscores(matchups: readonly Boxscore[]): MatchupSummary[] {
-  return matchups.map((matchup) => ({
-    homeOwner: ownerFor(matchup.homeTeamId),
-    awayOwner: matchup.awayTeamId === undefined ? null : ownerFor(matchup.awayTeamId),
-    homeScore: matchup.homeScore,
-    awayScore: matchup.awayScore ?? null,
-    home: (matchup.homeRoster ?? []).map(toLineupEntry),
-    away: (matchup.awayRoster ?? []).map(toLineupEntry),
-  }));
+/** True when no filter was given, or this owner is in it. A missing owner (no away team) never matches. */
+function wanted(owners: ReadonlySet<string> | undefined, owner: string | null): boolean {
+  if (owners === undefined) return true;
+  return owner !== null && owners.has(owner);
+}
+
+export function toTeams(teams: readonly Team[], owners?: ReadonlySet<string>): TeamSummary[] {
+  return teams
+    .map(
+      (team): TeamSummary => ({
+        espnId: team.id,
+        owner: ownerFor(team.id),
+        wins: team.wins,
+        losses: team.losses,
+        ties: team.ties,
+        playoffSeed: team.playoffSeed,
+        pointsFor: team.regularSeasonPointsFor ?? 0,
+        pointsAgainst: team.regularSeasonPointsAgainst ?? 0,
+        roster: (team.roster ?? []).map(toRosterEntry),
+      })
+    )
+    .filter((team: TeamSummary): boolean => wanted(owners, team.owner));
+}
+
+export function toBoxscores(
+  matchups: readonly Boxscore[],
+  owners?: ReadonlySet<string>
+): MatchupSummary[] {
+  return matchups
+    .map(
+      (matchup): MatchupSummary => ({
+        homeOwner: ownerFor(matchup.homeTeamId),
+        awayOwner: matchup.awayTeamId === undefined ? null : ownerFor(matchup.awayTeamId),
+        homeScore: matchup.homeScore,
+        awayScore: matchup.awayScore ?? null,
+        home: (matchup.homeRoster ?? []).map(toLineupEntry),
+        away: (matchup.awayRoster ?? []).map(toLineupEntry),
+      })
+    )
+    .filter(
+      (matchup: MatchupSummary): boolean =>
+        wanted(owners, matchup.homeOwner) || wanted(owners, matchup.awayOwner)
+    );
 }
 
 /**
@@ -209,7 +271,12 @@ function toRosterEntry(player: Player): RosterEntry {
 // A BoxscorePlayer extends Player on the fork: the name is `fullName` directly
 // and the lineup slot is `rosteredPosition`.
 function toLineupEntry(slot: BoxscorePlayer): LineupEntry {
-  return { name: slot.fullName, position: slot.rosteredPosition, points: slot.totalPoints };
+  return {
+    name: slot.fullName,
+    position: slot.rosteredPosition,
+    points: slot.totalPoints,
+    injuryStatus: slot.injuryStatus ?? null,
+  };
 }
 
 function ownerFor(espnId: number): string {
@@ -227,11 +294,19 @@ function espnClient(): EspnClient {
 const CURRENT_SEASON_ONLY =
   'This is the live ESPN league and the only source of truth for the season in progress — the WPFL history API returns nothing for it and the draft artifact froze on draft night.';
 
+const OWNERS_ARG = z
+  .array(z.string())
+  .optional()
+  .describe(
+    'Only these owners, by canonical spelling (INDEX.md lists all 14). Omit for the whole league.'
+  );
+
 export const espnTools: AnyTool[] = [
   tool(
     'espn_teams',
-    `Every team in the live ESPN league: owner, record, playoff seed, points for and against, and the full roster with each player's injury status. Use this for standings, for who owns a player right now, and for injuries on a roster. ${CURRENT_SEASON_ONLY}`,
+    `Every team in the live ESPN league: owner, record, playoff seed, points for and against, and the full roster with each player's injury status. Use this for standings, for who owns a player right now, and for injuries on a roster. Pass \`owners\` to get only the rosters a question is about: the whole league is fourteen rosters, the largest result any tool returns. ${CURRENT_SEASON_ONLY}`,
     {
+      owners: OWNERS_ARG,
       week: z
         .number()
         .int()
@@ -239,13 +314,16 @@ export const espnTools: AnyTool[] = [
         .describe('Scoring period. Defaults to the current NFL week.'),
     },
     async (args): Promise<CallToolResult> => {
+      // Validated before the network call, so a misspelling fails fast.
+      const owners: ReadonlySet<string> | undefined = resolveOwners(args.owners);
       const period: NFLPeriod = await getCurrentPeriod();
       return toToolResult(
         toTeams(
           await espnClient().getTeamsAtWeek({
             seasonId: period.seasonId,
             scoringPeriodId: args.week ?? period.scoringPeriodId,
-          })
+          }),
+          owners
         )
       );
     }
@@ -253,11 +331,13 @@ export const espnTools: AnyTool[] = [
 
   tool(
     'espn_boxscores',
-    `Head-to-head matchups for one week: both owners, both scores, and each lineup with per-player points. ${CURRENT_SEASON_ONLY}`,
+    `Head-to-head matchups for one week: both owners, both scores, and each lineup with per-player points and injury status. Before a week's games are played every score is 0 and each lineup is the roster as currently set; for who plays whom and the sim's win odds, the artifact's \`teams.schedule\` already has every week. Pass \`owners\` for one matchup rather than the whole slate. ${CURRENT_SEASON_ONLY}`,
     {
+      owners: OWNERS_ARG,
       week: z.number().int().optional().describe('Week. Defaults to the current NFL week.'),
     },
     async (args): Promise<CallToolResult> => {
+      const owners: ReadonlySet<string> | undefined = resolveOwners(args.owners);
       const period: NFLPeriod = await getCurrentPeriod();
       // ESPN reports both periods; with one-week matchups they agree, and an
       // explicit week from the agent names both.
@@ -267,7 +347,8 @@ export const espnTools: AnyTool[] = [
             seasonId: period.seasonId,
             matchupPeriodId: args.week ?? period.matchupPeriodId,
             scoringPeriodId: args.week ?? period.scoringPeriodId,
-          })
+          }),
+          owners
         )
       );
     }

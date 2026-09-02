@@ -414,7 +414,8 @@ export const sqlTool: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(
       ? `\n\n(Truncated at ${ASK.SQL_ROW_LIMIT} rows. Narrow the query or aggregate.)`
       : '';
     return textResult(
-      result.rows.length === 0 ? 'No rows.' : `${JSON.stringify(result.rows, null, 1)}${notice}`
+      // Compact, like every other tool result (wpfl/toolResult.ts says why).
+      result.rows.length === 0 ? 'No rows.' : `${JSON.stringify(result.rows)}${notice}`
     );
   }
 );

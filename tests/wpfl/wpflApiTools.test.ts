@@ -187,12 +187,14 @@ describe('wpflApiTools', () => {
     // The handlers themselves are two-line adapters over the fetch functions
     // above; testing them would mean a live call, which §13.3 keeps out of CI.
     // The part with any logic in it is the formatting, tested here directly.
-    test('rows are handed to the agent as JSON text, not as a stringified object', () => {
+    // Compact: the indentation this used to carry was a fifth of every
+    // character the tools returned on the first live matchup question.
+    test('rows are handed to the agent as compact JSON text', () => {
       const result = toToolResult([{ owner: 'AJ Boorde', expectedWins: 9.06 }]);
 
       expect(result.content[0]).toEqual({
         type: 'text',
-        text: JSON.stringify([{ owner: 'AJ Boorde', expectedWins: 9.06 }], null, 1),
+        text: '[{"owner":"AJ Boorde","expectedWins":9.06}]',
       });
       expect(result.isError).toBeUndefined();
     });

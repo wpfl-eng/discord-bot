@@ -20,9 +20,12 @@ export function textResult(text: string): CallToolResult {
   return { content: [{ type: 'text', text }] };
 }
 
-/** Rows as indented JSON. An empty result says so, so it is not read as zeroes. */
+/**
+ * Rows as compact JSON. This was indented, and on the first live matchup
+ * question the indentation was a fifth of every character the tools returned --
+ * paid for on every later turn of the run, and read by nobody. An empty result
+ * says so, so it is not read as zeroes.
+ */
 export function toToolResult(rows: readonly unknown[]): CallToolResult {
-  return textResult(
-    rows.length === 0 ? 'No rows for those parameters.' : JSON.stringify(rows, null, 1)
-  );
+  return textResult(rows.length === 0 ? 'No rows for those parameters.' : JSON.stringify(rows));
 }

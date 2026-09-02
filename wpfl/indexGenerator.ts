@@ -215,17 +215,22 @@ function fileMap(shred: ShredResult): string {
       const note: string | undefined = DIRECTORY_NOTES[dir];
       if (note !== undefined) lines.push(note, '');
       if (perOwner) {
-        // Fourteen files, one shape: the table and its columns are said once
-        // above them rather than fourteen times beside them.
+        // Fourteen files, one shape: the table, its columns and what a file
+        // holds are said once above them rather than fourteen times beside
+        // them. The description alone was 3 KB of repetition in a file the
+        // agent reads on every question.
         lines.push(
           `One \`sql\` table, \`${tableName(null, dir)}\`, with one row per file below. Columns: ${columnList(file.columns)}.`,
+          '',
+          `Each file: ${describeFile(file.path)}`,
           ''
         );
       }
     }
+    const description: string = perOwner ? '' : ` — ${describeFile(file.path)}`;
     const columns: string =
       perOwner || file.columns.length === 0 ? '' : ` — columns: ${columnList(file.columns)}`;
-    lines.push(`- \`${file.path}\` — ${bytes(file.bytes)} — ${describeFile(file.path)}${columns}`);
+    lines.push(`- \`${file.path}\` — ${bytes(file.bytes)}${description}${columns}`);
   }
 
   return lines.join('\n');
@@ -235,6 +240,12 @@ function fileMap(shred: ShredResult): string {
 const COLUMNS_SHOWN = 24;
 
 function columnList(columns: readonly string[]): string {
+  // A "column" with a space in it is a player's or an owner's name: the file
+  // is an object keyed by name, and listing 24 of 57 names told the agent
+  // nothing a DESCRIBE would not, at 700 characters a line.
+  if (columns.some((column: string): boolean => /\s/.test(column))) {
+    return `keyed by name, ${columns.length} keys (DESCRIBE the table)`;
+  }
   const shown: readonly string[] = columns.slice(0, COLUMNS_SHOWN);
   const rest: number = columns.length - shown.length;
   return `\`${shown.join(', ')}\`${rest > 0 ? ` and ${rest} more (DESCRIBE the table)` : ''}`;
@@ -405,6 +416,7 @@ function routing(): string {
     '| Question is about | Source |',
     '| --- | --- |',
     '| The 2026 draft, prices, grades, rosters as drafted | These files |',
+    "| Who an owner plays each week, and the sim's win odds for it | `teams.schedule`, a list per owner: UNNEST it in the `sql` tool. `espn_boxscores` is for scores once a week is played |",
     '| League history, past seasons | These files, or the `sql` tool |',
     '| Ten years of prices, matchups or player scores | The `sql` tool |',
     '| Expected wins, optimal coaching, drafted points | `expected_wins`, `optimal_coaching`, `drafted_points` |',

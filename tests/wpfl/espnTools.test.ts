@@ -6,6 +6,7 @@ import {
   toBoxscores,
   toFreeAgents,
   toTransactions,
+  resolveOwners,
   espnTools,
   FREE_AGENT_LIMIT,
 } from '../../wpfl/espnTools.js';
@@ -101,10 +102,81 @@ describe('espnTools', () => {
       expect(matchups[1]).toMatchObject({ homeOwner: 'Neill Bullock', awayOwner: 'Ryan Salchert' });
     });
 
-    test('projects each lineup to name, slot and points', () => {
+    // The status rides on the lineup so a matchup question is one call. The
+    // first live one fetched all fourteen rosters to learn eighteen statuses.
+    test('projects each lineup to name, slot, points and injury status', () => {
       const matchups = toBoxscores(recording);
 
-      expect(matchups[0].home[0]).toEqual({ name: 'Puka Nacua', position: 'WR', points: 0 });
+      expect(matchups[0].home[0]).toEqual({
+        name: 'Puka Nacua',
+        position: 'WR',
+        points: 0,
+        injuryStatus: 'QUESTIONABLE',
+      });
+    });
+
+    test('a player the feed gives no status for is null, not undefined', () => {
+      const { injuryStatus, ...noStatus } = recording[0].homeRoster[0];
+      expect(injuryStatus).toBeDefined();
+      const matchups = toBoxscores([{ ...recording[0], homeRoster: [noStatus] }]);
+
+      expect(matchups[0].home[0].injuryStatus).toBeNull();
+    });
+  });
+
+  /**
+   * Measured on the first live matchup question: espn_teams returned all
+   * fourteen rosters, ~30 KB and the largest result in the run, to answer for
+   * two of them, and espn_boxscores the whole slate for one game.
+   */
+  describe('the owners filter', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teams = loadFixture<any[]>('espn-teams.json');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const boxscores = loadFixture<any[]>('espn-boxscores.json');
+
+    test('no filter means the whole league', () => {
+      expect(resolveOwners(undefined)).toBeUndefined();
+      expect(resolveOwners([])).toBeUndefined();
+      expect(toTeams(teams)).toHaveLength(teams.length);
+    });
+
+    test('keeps only the rosters asked for', () => {
+      const kept = toTeams(teams, resolveOwners(['Forrest Britton']));
+
+      expect(kept.map((t) => t.owner)).toEqual(['Forrest Britton']);
+    });
+
+    test('keeps a matchup when either side was asked for', () => {
+      const mine = toBoxscores(boxscores, resolveOwners(['Nixon Ball']));
+
+      expect(mine).toHaveLength(1);
+      expect(mine[0]).toMatchObject({ homeOwner: 'Mike Simpson', awayOwner: 'Nixon Ball' });
+      expect(toBoxscores(boxscores, resolveOwners(['Ryan Salchert']))[0].homeOwner).toBe(
+        'Neill Bullock'
+      );
+    });
+
+    test('matches the canonical spelling case-insensitively', () => {
+      expect([...(resolveOwners(['forrest britton', ' NIXON BALL ']) ?? [])].sort()).toEqual([
+        'Forrest Britton',
+        'Nixon Ball',
+      ]);
+    });
+
+    // An empty result would read as "no such team". A refusal that lists the
+    // spellings costs one retry instead of a wrong answer.
+    test('refuses a spelling that is not canonical, and says which ones are', () => {
+      expect(() => resolveOwners(['Forrest'])).toThrow(/Unknown owner: Forrest/);
+      expect(() => resolveOwners(['Forrest', 'Nixon Ball'])).toThrow(/Forrest Britton/);
+      expect(() => resolveOwners(['Forrest', 'AJ'])).toThrow(/Unknown owners: Forrest, AJ/);
+    });
+
+    test('a matchup with no away team never matches a filter', () => {
+      const bye = { ...boxscores[0], awayTeamId: undefined };
+
+      expect(toBoxscores([bye], resolveOwners(['Nixon Ball']))).toEqual([]);
+      expect(toBoxscores([bye])).toHaveLength(1);
     });
   });
 
@@ -349,6 +421,17 @@ describe('espnTools', () => {
 
       expect(teams?.description).toMatch(/live/i);
       expect(teams?.description).toMatch(/season in progress|current season/i);
+    });
+
+    test('the two big tools say how to ask for less than the whole league', () => {
+      const teams = espnTools.find((t) => t.name === 'espn_teams');
+      const boxscores = espnTools.find((t) => t.name === 'espn_boxscores');
+
+      expect(teams?.description).toContain('`owners`');
+      expect(boxscores?.description).toContain('`owners`');
+      // Before kickoff the slate is fourteen lineups of zeroes; the schedule
+      // and the sim odds are in the artifact.
+      expect(boxscores?.description).toContain('teams.schedule');
     });
 
     test('every ESPN description distinguishes itself from the historical sources', () => {
