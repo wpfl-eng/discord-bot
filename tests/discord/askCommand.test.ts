@@ -30,6 +30,7 @@ const live = {
   question: 'q',
   turns: 3,
   closed: false,
+  bot_thread: true,
 };
 const closed = { ...live, closed: true };
 

@@ -115,7 +115,7 @@ describe('askRunner', () => {
     process.env = { ...originalEnv };
   });
 
-  test('a missing credential fails the run visibly, and still writes the ledger', async () => {
+  test('a missing credential fails the run visibly, and writes an uncounted ledger row', async () => {
     const error = jest.spyOn(console, 'error').mockImplementation(() => {});
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
@@ -126,8 +126,109 @@ describe('askRunner', () => {
     expect(outcome.text).toBe('');
     expect(outcome.subtype).toBe('error_during_execution');
     expect(outcome.error).toBeDefined();
-    expect(mockRecordUsage).toHaveBeenCalled();
+    expect(outcome.counted).toBe(false);
+    expect(mockRecordUsage).toHaveBeenCalledWith(expect.objectContaining({ counted: false }));
     error.mockRestore();
+  });
+
+  /**
+   * What a member is charged for (log Stage 14, decision 12). A row counts
+   * against the caps when the run reached the model: a session id was seen
+   * and the SDK reported no ops failure. A subprocess that never spawned, a
+   * missing credential, an expired login or a rate limit is not the member's
+   * consumption, and the token that runs this bot expires in a year.
+   */
+  describe('what counts against the caps', () => {
+    test('a run that reached the model counts, even when it hits the budget', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([success({ subtype: 'error_max_budget_usd', is_error: true })])
+      );
+
+      expect(outcome.counted).toBe(true);
+      expect(mockRecordUsage).toHaveBeenCalledWith(expect.objectContaining({ counted: true }));
+    });
+
+    test('a run that never produced a session id does not count', async () => {
+      const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const { sink } = recorder();
+
+      const outcome = await runAsk(REQUEST, sink, stream([], new Error('spawn failed')));
+
+      expect(outcome.counted).toBe(false);
+      expect(mockRecordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ counted: false, error: expect.stringMatching(/spawn failed/) })
+      );
+      error.mockRestore();
+    });
+
+    test('an expired login is reported by name and does not count', async () => {
+      const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream(
+          [
+            { ...assistant(), error: 'authentication_failed' },
+            success({ subtype: 'error_during_execution', is_error: true, num_turns: 0 }),
+          ],
+          new Error('auth')
+        )
+      );
+
+      expect(outcome.counted).toBe(false);
+      expect(outcome.opsFailure).toBe('authentication_failed');
+      expect(mockRecordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ counted: false, error: 'authentication_failed' })
+      );
+      error.mockRestore();
+    });
+
+    test('every one of the six ops-failure codes is uncounted', async () => {
+      for (const code of [
+        'authentication_failed',
+        'oauth_org_not_allowed',
+        'account_on_hold',
+        'billing_error',
+        'rate_limit',
+        'overloaded',
+      ]) {
+        const { sink } = recorder();
+        const outcome = await runAsk(
+          REQUEST,
+          sink,
+          stream([{ ...assistant(), error: code }, success({ num_turns: 0 })])
+        );
+        expect(outcome.counted).toBe(false);
+        expect(outcome.opsFailure).toBe(code);
+      }
+    });
+
+    test('an assistant error outside those six still counts -- the model was reached', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([{ ...assistant(), error: 'max_output_tokens' }, success()])
+      );
+
+      expect(outcome.counted).toBe(true);
+      expect(outcome.opsFailure).toBeNull();
+    });
+
+    test('the ledger row carries the answer message id, so feedback can join to it', async () => {
+      const { sink } = recorder();
+
+      await runAsk({ ...REQUEST, messageId: 'm42' }, sink, stream([success()]));
+
+      expect(mockRecordUsage).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'm42' }));
+    });
   });
 
   describe('the message stream', () => {

@@ -11,7 +11,12 @@
  * arrived before the throw, and from a synthesised one if none did.
  */
 
-import { query, type Options, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import {
+  query,
+  type Options,
+  type SDKAssistantMessageError,
+  type SDKMessage,
+} from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from './askConfig.js';
 import { agentEnv } from './askAuth.js';
 import { buildSystemPrompt, readAsOf } from './systemPrompt.js';
@@ -32,7 +37,26 @@ export interface AskRequest {
   readonly espnId: number | null;
   /** Present only when continuing an existing thread. */
   readonly sessionId?: string;
+  /** The Discord message the answer lands in, so the ledger row can be joined to feedback. */
+  readonly messageId?: string;
 }
+
+/**
+ * SDK-reported failures that are not the member's consumption: the run never
+ * got an answer from the model, and nothing the member did caused it. A run
+ * that ends in one of these is written to the ledger and not counted against
+ * anyone's cap. The token this bot runs on expires in a year, which makes the
+ * first of these a certainty rather than an edge case.
+ */
+export const OPS_FAILURES: ReadonlySet<SDKAssistantMessageError> =
+  new Set<SDKAssistantMessageError>([
+    'authentication_failed',
+    'oauth_org_not_allowed',
+    'account_on_hold',
+    'billing_error',
+    'rate_limit',
+    'overloaded',
+  ]);
 
 /** Everything the runner emits while it works. The ticker renders these. */
 export interface AskSink {
@@ -53,6 +77,13 @@ export interface AskOutcome {
   readonly numTurns: number;
   readonly durationMs: number;
   readonly timedOut: boolean;
+  /**
+   * Whether the run counts against the caps: a session id was observed and no
+   * ops failure was reported. A run the SDK never started is not consumption.
+   */
+  readonly counted: boolean;
+  /** One of OPS_FAILURES when the SDK reported it, else null. */
+  readonly opsFailure: SDKAssistantMessageError | null;
   readonly error?: string;
 }
 
@@ -86,6 +117,10 @@ export async function runAsk(
 
   let text = '';
   let sessionId: string | null = request.sessionId ?? null;
+  // From the stream, not from the request: a resumed session id proves
+  // nothing about whether this run ever reached the model.
+  let sessionObserved = false;
+  let opsFailure: SDKAssistantMessageError | null = null;
   let terminal: TerminalResult | null = null;
   let failure: string | undefined;
 
@@ -97,7 +132,12 @@ export async function runAsk(
       const result: TerminalResult | null = consume(message, sink, (chunk) => {
         text += chunk;
       });
-      if (message.session_id !== undefined) sessionId = message.session_id;
+      if (message.session_id !== undefined) {
+        sessionId = message.session_id;
+        sessionObserved = true;
+      }
+      const reported: SDKAssistantMessageError | null = opsFailureOf(message);
+      if (reported !== null) opsFailure = reported;
       if (result !== null) terminal = result;
       if (deadline.expired()) break;
     }
@@ -120,11 +160,19 @@ export async function runAsk(
     numTurns: terminal?.numTurns ?? 0,
     durationMs: terminal?.durationMs ?? Date.now() - started,
     timedOut: deadline.expired(),
+    counted: sessionObserved && opsFailure === null,
+    opsFailure,
     ...(failure === undefined ? {} : { error: failure }),
   };
 
   await writeLedger(request, outcome, terminal?.model ?? null);
   return outcome;
+}
+
+/** The SDK reports an API-level failure as an `error` on an assistant message. */
+function opsFailureOf(message: SDKMessage): SDKAssistantMessageError | null {
+  if (message.type !== 'assistant' || message.error === undefined) return null;
+  return OPS_FAILURES.has(message.error) ? message.error : null;
 }
 
 interface TerminalResult {
@@ -264,6 +312,10 @@ async function writeLedger(
       costUsd: outcome.costUsd,
       subtype: outcome.subtype,
       durationMs: outcome.durationMs,
+      counted: outcome.counted,
+      // The SDK's own code names the failure better than a thrown message.
+      error: outcome.opsFailure ?? outcome.error ?? null,
+      messageId: request.messageId ?? null,
     });
   } catch (error: unknown) {
     // The answer is already produced; losing the bookkeeping must not lose it.

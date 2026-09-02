@@ -1,5 +1,5 @@
 // /ask Database Operations
-// ask_sessions / ask_usage / ask_tool_calls (migration 009)
+// ask_sessions / ask_usage / ask_tool_calls / ask_feedback (migration 014)
 
 import { sql } from '@vercel/postgres';
 
@@ -12,6 +12,8 @@ export interface AskSession {
   readonly question: string;
   readonly turns: number;
   readonly closed: boolean;
+  /** TRUE when /ask opened the thread itself; decides who may continue it by just typing. */
+  readonly bot_thread: boolean;
 }
 
 export interface UsageRecord {
@@ -24,6 +26,20 @@ export interface UsageRecord {
   readonly costUsd: number;
   readonly subtype: string | null;
   readonly durationMs: number | null;
+  /**
+   * Whether the row counts against the caps. FALSE when the run never reached
+   * the model or the SDK reported an ops failure -- not the member's consumption.
+   */
+  readonly counted: boolean;
+  /** What the run died of, when it did. */
+  readonly error: string | null;
+  /** The Discord message the answer landed in, so feedback can join to the run. */
+  readonly messageId: string | null;
+}
+
+export interface FeedbackCounts {
+  readonly up: number;
+  readonly down: number;
 }
 
 export interface ToolException {
@@ -38,21 +54,27 @@ export interface ToolException {
 
 // ============ Caps ============
 
-/** Questions this user has asked since `since`. Counts rows; never sums cost. */
+/**
+ * Questions this user is charged for since `since`. Counts rows; never sums
+ * cost. Uncounted rows -- a run that never reached the model, an expired login,
+ * a rate limit -- stay in the table for observability and are skipped here.
+ */
 export async function countUserQuestionsSince(userId: string, since: Date): Promise<number> {
   const result = await sql<{ count: string }>`
     SELECT COUNT(*) AS count FROM ask_usage
     WHERE user_id = ${userId}
+      AND counted
       AND created_at >= ${since.toISOString()}
   `;
   return Number(result.rows[0]?.count ?? 0);
 }
 
-/** Queries the whole league has run since `since`. */
+/** Queries the whole league is charged for since `since`. */
 export async function countAllQuestionsSince(since: Date): Promise<number> {
   const result = await sql<{ count: string }>`
     SELECT COUNT(*) AS count FROM ask_usage
-    WHERE created_at >= ${since.toISOString()}
+    WHERE counted
+      AND created_at >= ${since.toISOString()}
   `;
   return Number(result.rows[0]?.count ?? 0);
 }
@@ -61,7 +83,7 @@ export async function countAllQuestionsSince(since: Date): Promise<number> {
 
 export async function getSession(threadId: string): Promise<AskSession | null> {
   const result = await sql<AskSession>`
-    SELECT thread_id, session_id, opener_user_id, question, turns, closed
+    SELECT thread_id, session_id, opener_user_id, question, turns, closed, bot_thread
     FROM ask_sessions
     WHERE thread_id = ${threadId}
   `;
@@ -77,15 +99,17 @@ export async function openSession(
   threadId: string,
   sessionId: string,
   openerUserId: string,
-  question: string
+  question: string,
+  botThread: boolean
 ): Promise<void> {
   await sql`
-    INSERT INTO ask_sessions (thread_id, session_id, opener_user_id, question)
-    VALUES (${threadId}, ${sessionId}, ${openerUserId}, ${question})
+    INSERT INTO ask_sessions (thread_id, session_id, opener_user_id, question, bot_thread)
+    VALUES (${threadId}, ${sessionId}, ${openerUserId}, ${question}, ${botThread})
     ON CONFLICT (thread_id) DO UPDATE
       SET session_id = EXCLUDED.session_id,
           opener_user_id = EXCLUDED.opener_user_id,
           question = EXCLUDED.question,
+          bot_thread = EXCLUDED.bot_thread,
           turns = 1,
           closed = FALSE,
           last_used_at = NOW()
@@ -115,10 +139,40 @@ export async function closeSession(threadId: string): Promise<void> {
 /** Written on every terminal result, success or error. */
 export async function recordUsage(usage: UsageRecord): Promise<void> {
   await sql`
-    INSERT INTO ask_usage (user_id, thread_id, prompt, model, num_turns, cost_usd, subtype, duration_ms)
+    INSERT INTO ask_usage (user_id, thread_id, prompt, model, num_turns, cost_usd, subtype,
+                           duration_ms, counted, error, message_id)
     VALUES (${usage.userId}, ${usage.threadId}, ${usage.prompt}, ${usage.model},
-            ${usage.numTurns}, ${usage.costUsd}, ${usage.subtype}, ${usage.durationMs})
+            ${usage.numTurns}, ${usage.costUsd}, ${usage.subtype}, ${usage.durationMs},
+            ${usage.counted}, ${usage.error}, ${usage.messageId})
   `;
+}
+
+// ============ Feedback ============
+
+/** One vote per person per answer; a changed mind overwrites. */
+export async function recordFeedback(
+  messageId: string,
+  threadId: string | null,
+  userId: string,
+  rating: 1 | -1
+): Promise<void> {
+  await sql`
+    INSERT INTO ask_feedback (message_id, thread_id, user_id, rating)
+    VALUES (${messageId}, ${threadId}, ${userId}, ${rating})
+    ON CONFLICT (message_id, user_id) DO UPDATE
+      SET rating = EXCLUDED.rating,
+          updated_at = NOW()
+  `;
+}
+
+export async function feedbackCounts(messageId: string): Promise<FeedbackCounts> {
+  const result = await sql<{ up: string; down: string }>`
+    SELECT COUNT(*) FILTER (WHERE rating = 1) AS up,
+           COUNT(*) FILTER (WHERE rating = -1) AS down
+    FROM ask_feedback
+    WHERE message_id = ${messageId}
+  `;
+  return { up: Number(result.rows[0]?.up ?? 0), down: Number(result.rows[0]?.down ?? 0) };
 }
 
 /** Denials and failures only. A row here is a signal, not a log line. */

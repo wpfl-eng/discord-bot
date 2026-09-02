@@ -180,6 +180,7 @@ export async function continueThread(message: Message): Promise<void> {
     destination: message.channel as SendableChannels,
     question: message.content,
     resume: session.closed ? null : session.session_id,
+    botThread: session.bot_thread,
     ...(decision.notice === undefined ? {} : { notice: decision.notice }),
   });
 }
@@ -233,20 +234,24 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await ensureFresh();
 
   const target: AskTarget = resolveTarget(channel.type, existing);
-  const destination: SendableChannels = await openDestination(
-    interaction,
-    target,
-    question,
-    channel
-  );
+  const opened: Opened = await openDestination(interaction, target, question, channel);
 
   await answer({
     user: interaction.user,
-    destination,
+    destination: opened.destination,
     question,
     resume: target.kind === 'in-place' ? target.resume : null,
+    // A resumed thread keeps whatever it was; only a fresh thread the bot
+    // opened itself is the bot's.
+    botThread: existing?.bot_thread ?? opened.botThread,
     ...(decision.notice === undefined ? {} : { notice: decision.notice }),
   });
+}
+
+interface Opened {
+  readonly destination: SendableChannels;
+  /** True only when /ask created the thread it is about to answer in. */
+  readonly botThread: boolean;
 }
 
 async function openDestination(
@@ -254,22 +259,23 @@ async function openDestination(
   target: AskTarget,
   question: string,
   channel: SendableChannels
-): Promise<SendableChannels> {
+): Promise<Opened> {
   if (target.kind !== 'new-thread') {
     await interaction.editReply({ content: `**${question}**` });
-    return channel;
+    return { destination: channel, botThread: false };
   }
 
   const anchor: Message = await interaction.editReply({ content: `**${question}**` });
   try {
-    return await anchor.startThread({
+    const thread = await anchor.startThread({
       name: threadName(question),
       autoArchiveDuration: ASK.THREAD_AUTO_ARCHIVE,
     });
+    return { destination: thread, botThread: true };
   } catch (error: unknown) {
     // Missing "Create Public Threads" degrades to answering in the channel.
     logError('ask', 'Could not open a thread; answering in the channel instead', error);
-    return channel;
+    return { destination: channel, botThread: false };
   }
 }
 
@@ -278,11 +284,13 @@ interface AnswerRequest {
   readonly destination: SendableChannels;
   readonly question: string;
   readonly resume: string | null;
+  /** Whether /ask opened this thread itself; recorded on a fresh session. */
+  readonly botThread: boolean;
   readonly notice?: string;
 }
 
 async function answer(request: AnswerRequest): Promise<void> {
-  const { user, destination, question, resume, notice } = request;
+  const { user, destination, question, resume, botThread, notice } = request;
   const member: WpflMember | undefined = getWpflMemberByDiscordId(user.id);
 
   const ticker: Ticker = createTicker();
@@ -302,13 +310,14 @@ async function answer(request: AnswerRequest): Promise<void> {
       threadId: destination.id,
       owner: member?.owner ?? null,
       espnId: member?.espnId ?? null,
+      messageId: message.id,
       ...(resume === null ? {} : { sessionId: resume }),
     },
     ticker
   );
 
   await editor.flush();
-  await persist(destination.id, user.id, question, outcome, resume);
+  await persist(destination.id, user.id, question, outcome, resume, botThread);
   await publish(message, destination, ticker, outcome, notice);
 }
 
@@ -317,14 +326,15 @@ async function persist(
   userId: string,
   question: string,
   outcome: AskOutcome,
-  resume: string | null
+  resume: string | null,
+  botThread: boolean
 ): Promise<void> {
   try {
     // Runs after runAsk() has already written the ledger row. That ordering is
     // fine and is why ask_usage carries no foreign key onto this table: the
     // ledger has to record a run that died before it ever had a session id.
     if (resume === null && outcome.sessionId !== null) {
-      await openSession(threadId, outcome.sessionId, userId, question);
+      await openSession(threadId, outcome.sessionId, userId, question, botThread);
     } else if (resume !== null) {
       await recordTurn(threadId, outcome.costUsd);
     }
