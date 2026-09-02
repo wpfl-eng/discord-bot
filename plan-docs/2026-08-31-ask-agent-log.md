@@ -1485,7 +1485,27 @@ hooks and the built-in tools work together on a real model. The ticker's
 19. Nothing returns from the out-of-scope list. Follow-ups recorded below.
 
 ### Changed
-- (filled in as the work lands)
+Landed so far, one commit each, each test-first and each behind the green gate:
+- `ask/hooks.ts` — Glob's pattern checked as a path (decision 9).
+- `wpfl/mcpServer.ts`, the three tool modules — `alwaysLoad` on the server,
+  per-tool flags gone (2).
+- `ask/askConfig.ts`, `ask/askRunner.ts` — `resolveDataDir`, the Read rule in
+  the documented form (3).
+- `migrations/014_ask_agent.sql` — renamed from 009; `counted`, `error`,
+  `message_id` on the ledger, `bot_thread` on sessions, `ask_feedback`;
+  applied twice on Postgres 16 in a container (4, 12, 13, 16).
+- `ask/askDb.ts`, `ask/askRunner.ts` — the counting rule, the six ops-failure
+  codes, feedback upsert and counts; `askDb` gains its first test (12).
+- `ask/ticker.ts`, `ask/askRunner.ts` — settle by `tool_use` id on the tool
+  result; ✗ with the first line of an error (6).
+- `ask/systemPrompt.ts`, `ask/askRunner.ts`, `wpfl/espnTools.ts` — the week
+  from `helpers/espnPeriod.ts`, once per run, with its source (10).
+- `wpfl/artifactSync.ts`, `wpfl/historyCache.ts`, `wpfl/indexGenerator.ts`,
+  prompt and descriptions — the cache window, `force`, `cacheExtents`, no
+  literal year (11).
+- Still to land: defer-first and refusals (7), mentions (8), the per-thread
+  queue (5), the continuation rule (13), feedback buttons (16), `/ask-admin`
+  (17), the dependency commit (14), the live runs, the doc pass.
 
 ### Verified
 - The Glob probe above.
