@@ -67,13 +67,15 @@ const formatActivityResponse = (data: ActivityAction[][]): string => {
 };
 
 const getActivityResponse = (action: ActivityAction): string => {
-  const { team, ids, player, bidAmount, date } = action;
+  const { team, ids, bidAmount, date } = action;
   // `team` and `player` are both lookups the fork can miss: a message naming a team no longer in
   // the league, or a player neither on a roster nor returned by the player-card endpoint. The
-  // 'Unknown' fallbacks were always here; the accesses reaching them were not guarded.
+  // 'Unknown' fallbacks were always here.
   const memberName = espnMembers.find((member) => member.id === team?.id)?.name ?? 'Unknown';
-  const playerName =
-    player?.playerPoolEntry?.player.fullName ?? player?.player?.fullName ?? 'Unknown Player';
+  // The fork resolves the name now, across both shapes an activity player can arrive in. Reading
+  // it by hand here meant `playerPoolEntry?.player.fullName` -- unguarded at `.player`, so a
+  // playerPoolEntry without a player threw inside the command.
+  const playerName = action.playerName ?? 'Unknown Player';
   const activityTime = format(new Date(date), "MMM d, yyyy 'at' h:mm a");
   const timeAgo = formatDistanceToNow(new Date(date), { addSuffix: true });
 

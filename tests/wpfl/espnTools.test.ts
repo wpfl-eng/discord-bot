@@ -292,21 +292,22 @@ describe('espnTools', () => {
       });
     });
 
-    test('reads the player name from playerPoolEntry, which is where it actually is', () => {
+    // The fork resolves the name across both shapes now and hands it over as `playerName`, so this
+    // no longer reaches into the raw player itself. The raw assertions stay: they document why the
+    // resolution is needed at all -- an FA ADDED action carries `playerPoolEntry` and no `player`.
+    test('takes the resolved playerName the fork supplies', () => {
       const action = recording[0][0];
       expect(action.player.player).toBeUndefined();
       expect(action.player.playerPoolEntry.player.fullName).toBe('Jaylen Wright');
+      expect(action.playerName).toBe('Jaylen Wright');
 
       expect(toTransactions(recording)[0].player).toBe('Jaylen Wright');
     });
 
-    test('falls back to player.player when playerPoolEntry is absent', () => {
-      const action = {
-        ...recording[0][0],
-        player: { player: { fullName: 'Somebody Else' } },
-      };
+    test('reports Unknown Player when the fork could not resolve a name', () => {
+      const action = { ...recording[0][0], playerName: undefined, player: null };
 
-      expect(toTransactions([[action]])[0].player).toBe('Somebody Else');
+      expect(toTransactions([[action]])[0].player).toBe('Unknown Player');
     });
 
     test('leaves toOwner null on a move with no destination', () => {

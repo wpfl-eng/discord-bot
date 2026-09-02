@@ -95,13 +95,20 @@ export interface TransactionSummary {
 /**
  * A player's bare position, from `eligiblePositions`.
  *
- * Measured live (log Stage 14): the fork's `defaultPosition` is the *slot*
- * whose id happens to equal the player's position id, so a real WR arrives
- * labelled RB/WR, a real TE labelled WR, a kicker WR/TE and a QB TQB. The
- * first live question asked for wide receivers and was handed four tight
- * ends. The eligible-slot list still carries the bare position -- a TE's
- * has TE and never a bare WR -- so it is read in a fixed order, with the
- * label as the fallback for a shape nobody has seen.
+ * This began as a workaround. The fork used to read `defaultPositionId`
+ * through the *slot* enum, so a real WR arrived labelled RB/WR, a real TE
+ * labelled WR, a kicker WR/TE and a QB TQB -- the first live question asked
+ * for wide receivers and was handed four tight ends. The fork fixed that at
+ * f66c9af: `defaultPosition` is now the player's actual position.
+ *
+ * The eligible-slot scan is kept anyway, because it is the more robust of
+ * the two. It does not depend on the fork's id map being complete, and that
+ * map covers only the six standard positions -- an IDP id resolves to
+ * `undefined` there while the eligible list still names the position.
+ *
+ * Worth revisiting once the fixtures below are re-recorded against the fixed
+ * fork: `defaultPosition` is authoritative for a player eligible at several
+ * bare positions, where this fixed scan order just takes the first it finds.
  */
 const BARE_POSITIONS: readonly string[] = ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST'];
 
@@ -181,11 +188,10 @@ export function toTransactions(topics: readonly ActivityAction[][]): Transaction
     action: action.action,
     owner: action.team === undefined ? 'Unknown' : ownerFor(action.team.id),
     toOwner: action.ids.to === undefined ? null : ownerFor(action.ids.to),
-    // Measured: an FA ADDED action carries playerPoolEntry and no `player`.
-    player:
-      action.player?.playerPoolEntry?.player.fullName ??
-      action.player?.player?.fullName ??
-      'Unknown Player',
+    // An FA ADDED action carries playerPoolEntry and no `player`; a player off a roster carries
+    // the other shape. The fork reads both now, so this no longer reaches through
+    // `playerPoolEntry?.player.fullName` -- which was unguarded at `.player`.
+    player: action.playerName ?? 'Unknown Player',
     bidAmount: action.bidAmount ?? 0,
   }));
 }

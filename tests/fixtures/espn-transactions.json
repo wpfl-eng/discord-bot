@@ -23,7 +23,9 @@
         },
         "divisionId": 0,
         "draftDayProjectedRank": 8,
-        "draftStrategy": { "keeperPlayerIds": [] },
+        "draftStrategy": {
+          "keeperPlayerIds": []
+        },
         "eliminated": false,
         "eliminationMatchupPeriod": 0,
         "id": 5,
@@ -32,7 +34,9 @@
         "logo": "https://mystique-api.fantasy.espn.com/apis/v1/domains/lm/images/20a84590-9c0e-11f1-9b94-67d561221a90",
         "logoType": "CUSTOM_UPLOAD",
         "name": "WPFL Youth Academy ",
-        "owners": ["{00000000-0000-0000-0000-000000000000}"],
+        "owners": [
+          "{00000000-0000-0000-0000-000000000000}"
+        ],
         "playoffClinchType": "UNKNOWN",
         "playoffSeed": 11,
         "points": 0,
@@ -142,7 +146,9 @@
                     }
                   },
                   "droppable": false,
-                  "eligibleSlots": [2],
+                  "eligibleSlots": [
+                    2
+                  ],
                   "firstName": "Bijan",
                   "fullName": "Bijan Robinson",
                   "id": 4430807,
@@ -203,7 +209,9 @@
                       "seasonId": 2026,
                       "statSourceId": 1,
                       "statSplitTypeId": 1,
-                      "stats": { "23": 16.40747939 }
+                      "stats": {
+                        "23": 16.40747939
+                      }
                     }
                   ],
                   "universeId": 2
@@ -230,7 +238,9 @@
           "teamCharges": 0,
           "trades": 0
         },
-        "valuesByStat": { "3": 0 },
+        "valuesByStat": {
+          "3": 0
+        },
         "waiverRank": 3
       },
       "action": "FA ADDED",
@@ -286,7 +296,9 @@
               }
             },
             "droppable": true,
-            "eligibleSlots": [2],
+            "eligibleSlots": [
+              2
+            ],
             "firstName": "Jaylen",
             "fullName": "Jaylen Wright",
             "id": 4682745,
@@ -347,7 +359,9 @@
                 "seasonId": 2026,
                 "statSourceId": 1,
                 "statSplitTypeId": 1,
-                "stats": { "23": 3.701678236 }
+                "stats": {
+                  "23": 3.701678236
+                }
               }
             ],
             "universeId": 1
@@ -361,7 +375,10 @@
       "bidAmount": 0,
       "date": 1788201276058,
       "targetId": 4682745,
-      "ids": { "to": 5 }
+      "ids": {
+        "to": 5
+      },
+      "playerName": "Jaylen Wright"
     }
   ]
 ]
