@@ -29,6 +29,8 @@ export interface Ticker extends AskSink {
   render(): string;
   hasProse(): boolean;
   prose(): string;
+  /** This message is waiting for earlier ones in its own thread to finish. */
+  onWaiting(behind: number): void;
   /**
    * Called after every sink event. Set once, by whoever owns the editor.
    *
@@ -54,11 +56,12 @@ export function createTicker(): Ticker {
   let reasoning: string | null = null;
   let text = '';
   let queuedAt: number | null = null;
+  let waitingBehind: number | null = null;
   let notify: () => void = (): void => {};
 
   const render = (): string => {
     if (text.trim() !== '') return `${trace(steps)}\n\n${text}`;
-    return working(steps, reasoning, queuedAt);
+    return working(steps, reasoning, queuedAt, waitingBehind);
   };
 
   return {
@@ -102,6 +105,11 @@ export function createTicker(): Ticker {
       notify();
     },
 
+    onWaiting(behind: number): void {
+      waitingBehind = behind;
+      notify();
+    },
+
     hasProse(): boolean {
       return text.trim() !== '';
     },
@@ -140,8 +148,24 @@ function capped(rendered: string): string {
   return `${rendered.slice(rendered.length - room)}${marker}`;
 }
 
-function working(steps: Step[], reasoning: string | null, queuedAt: number | null): string {
+function working(
+  steps: Step[],
+  reasoning: string | null,
+  queuedAt: number | null,
+  waitingBehind: number | null
+): string {
   const lines: string[] = ['🤖 **CommishBot**'];
+
+  // Its own thread first: a message behind another in the same thread has not
+  // asked for a slot yet, so the global queue line would be wrong.
+  if (waitingBehind !== null && steps.length === 0) {
+    lines.push(
+      waitingBehind === 1
+        ? '> ⏳ waiting for the answer above to finish.'
+        : `> ⏳ waiting for the ${waitingBehind} answers above to finish.`
+    );
+    return lines.join('\n');
+  }
 
   if (queuedAt !== null && steps.length === 0) {
     lines.push(`> ⏳ ${queuedAt} question${queuedAt === 1 ? '' : 's'} ahead in the queue.`);

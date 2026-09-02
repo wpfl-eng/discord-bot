@@ -32,6 +32,10 @@ export const ASK = {
   MONTHLY_QUERIES_TOTAL: 1500, // league-wide, ~50/day across 14 members
   MAX_BUDGET_USD: 1.0, // per query; SDK-enforced
   MAX_CONCURRENT_QUERIES: 2,
+  // Runs in one thread go one at a time, or two resumes of one SDK session
+  // race and one is forgotten. This many may wait behind the one in flight;
+  // past it a message is refused with a reply rather than queued.
+  THREAD_QUEUE_DEPTH: 2,
   QUERY_TIMEOUT_MS: 4 * 60 * 1000,
   SOFT_TURN_CAP: 15,
   HARD_TURN_CAP: 20,

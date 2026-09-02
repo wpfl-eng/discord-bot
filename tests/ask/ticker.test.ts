@@ -89,6 +89,26 @@ describe('ticker', () => {
       expect(ticker.render()).toContain('2');
     });
 
+    test('says it is waiting for the answer above in its own thread', () => {
+      const ticker: Ticker = createTicker();
+
+      ticker.onWaiting(1);
+      expect(ticker.render()).toMatch(/waiting for the answer above/i);
+
+      ticker.onWaiting(2);
+      expect(ticker.render()).toMatch(/2 answers above/i);
+    });
+
+    test('the waiting line gives way once the run starts', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onWaiting(1);
+
+      ticker.onToolCall('Read', 'a');
+
+      expect(ticker.render()).not.toMatch(/waiting for/i);
+      expect(ticker.render()).toContain('Read');
+    });
+
     test('says something even before the first tool call', () => {
       expect(createTicker().render().trim().length).toBeGreaterThan(0);
     });

@@ -23,6 +23,7 @@ import { checkCaps, type CapDecision } from '../../ask/caps.js';
 import { credentialConfigured } from '../../ask/askAuth.js';
 import { isAskPaused } from '../../ask/pause.js';
 import { runAsk, type AskOutcome } from '../../ask/askRunner.js';
+import { enqueueInThread, type Admitted } from '../../ask/threadQueue.js';
 import {
   createTicker,
   createThrottledEditor,
@@ -369,18 +370,34 @@ async function answer(request: AnswerRequest): Promise<void> {
   // actually going out.
   ticker.onChange((): void => editor.update((): string => ticker.render()));
 
-  const outcome: AskOutcome = await runAsk(
-    {
-      prompt: question,
-      userId: user.id,
-      threadId: destination.id,
-      owner: member?.owner ?? null,
-      espnId: member?.espnId ?? null,
-      messageId: message.id,
-      ...(resume === null ? {} : { sessionId: resume }),
-    },
-    ticker
+  // One run at a time in this thread, ahead of the global slot (§6.2). The
+  // ticker is already posted, so a wait is visible rather than dead air.
+  const admitted: Admitted<AskOutcome> | null = enqueueInThread(destination.id, () =>
+    runAsk(
+      {
+        prompt: question,
+        userId: user.id,
+        threadId: destination.id,
+        owner: member?.owner ?? null,
+        espnId: member?.espnId ?? null,
+        messageId: message.id,
+        ...(resume === null ? {} : { sessionId: resume }),
+      },
+      ticker
+    )
   );
+  if (admitted === null) {
+    // Past the waiting cap. No run, so no ledger row and no cap slot spent.
+    await message.edit({
+      content:
+        "_One at a time — I'm still on the last one in this thread. Ask again when it lands._",
+      allowedMentions: NO_MENTIONS,
+    });
+    return;
+  }
+  if (admitted.position > 0) ticker.onWaiting(admitted.position);
+
+  const outcome: AskOutcome = await admitted.result;
 
   await editor.flush();
   await persist(destination.id, user.id, question, outcome, resume, botThread);
