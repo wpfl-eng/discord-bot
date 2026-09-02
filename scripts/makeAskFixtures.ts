@@ -86,6 +86,29 @@ function trim(value: Json, depth: number, keep: number = KEEP): Json {
   return value;
 }
 
+/**
+ * ESPN member ids are `{GUID}` strings -- the SWID half of ESPN's cookie pair,
+ * and a persistent identifier of one league member -- and they ride on every
+ * team object the fork returns, as `owners` and `primaryOwner`. Nothing in the
+ * bot reads them, and a fixture in a public repository must not carry one.
+ * Every string of that shape, anywhere in a recording, becomes the zero GUID,
+ * so the shape the parsers see is unchanged.
+ */
+const MEMBER_ID =
+  /^\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}$/;
+const REDACTED_MEMBER_ID = '{00000000-0000-0000-0000-000000000000}';
+
+function redact(value: Json): Json {
+  if (typeof value === 'string') return MEMBER_ID.test(value) ? REDACTED_MEMBER_ID : value;
+  if (Array.isArray(value)) return value.map(redact);
+  if (value !== null && typeof value === 'object') {
+    const out: { [key: string]: Json } = {};
+    for (const [key, member] of Object.entries(value)) out[key] = redact(member);
+    return out;
+  }
+  return value;
+}
+
 async function fetchPublished(): Promise<Json> {
   const response: HttpResponse = await fetchWithTimeout(ARTIFACT_URL, fetch, 'The artifact fetch');
   if (!response.ok) {
@@ -110,8 +133,9 @@ async function write(name: string, artifact: Json): Promise<void> {
   // Formatted rather than minified, so a shape change is legible in a diff --
   // a fixture nobody can read is a fixture nobody notices drifting. Run through
   // prettier with the repo's own config so regenerating never dirties the tree.
+  // Redacted first, every recording, so no source can reintroduce a member id.
   const config: prettier.Options | null = await prettier.resolveConfig(target);
-  const formatted: string = await prettier.format(JSON.stringify(artifact), {
+  const formatted: string = await prettier.format(JSON.stringify(redact(artifact)), {
     ...config,
     filepath: target,
   });

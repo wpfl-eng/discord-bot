@@ -1,4 +1,6 @@
 import { describe, test, expect } from '@jest/globals';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   toTeams,
   toBoxscores,
@@ -7,7 +9,7 @@ import {
   espnTools,
   FREE_AGENT_LIMIT,
 } from '../../wpfl/espnTools.js';
-import { loadFixture } from './support.js';
+import { fixturePath, loadFixture } from './support.js';
 
 describe('espnTools', () => {
   describe('espn_teams', () => {
@@ -249,6 +251,22 @@ describe('espnTools', () => {
         expect(kept[0].percentOwned).toBeGreaterThanOrEqual(kept[1].percentOwned ?? 0);
       });
     });
+  });
+
+  /**
+   * ESPN member ids -- the SWID half of the cookie pair -- ride on every team
+   * object the fork returns. The recording script redacts them to the zero
+   * GUID; this holds every fixture to it, because the repository is public.
+   */
+  test('no fixture carries an ESPN member id', () => {
+    const dir: string = path.dirname(fixturePath('espn-teams.json'));
+    const guid = /\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/g;
+    for (const file of fs.readdirSync(dir)) {
+      const found: string[] = (
+        fs.readFileSync(path.join(dir, file), 'utf8').match(guid) ?? []
+      ).filter((id: string): boolean => id !== '{00000000-0000-0000-0000-000000000000}');
+      expect({ file, found }).toEqual({ file, found: [] });
+    }
   });
 
   describe('espn_transactions', () => {
