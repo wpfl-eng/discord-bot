@@ -21,15 +21,29 @@ describe('mcpServer', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  // Tool search defers SDK MCP schemas by default, which costs an extra round
-  // trip. The three the agent needs on nearly every question ride along.
-  test('exactly three schemas ride in the initial prompt', () => {
-    const always: string[] = wpflTools
-      .filter((t) => t._meta?.['anthropic/alwaysLoad'] === true)
-      .map((t) => t.name)
-      .sort();
+  /**
+   * Tool search is on by default and defers every MCP schema it is not told
+   * to keep, and loading a deferred one costs a model round trip. The SDK's
+   * own guidance: with fewer than ten tools, load everything upfront. The
+   * server-level flag stamps every registered tool, which is where the SDK
+   * reads it from, so that is what is asserted -- not the definitions.
+   */
+  test('every schema rides in the initial prompt, none deferred behind tool search', () => {
+    const registered = (
+      wpflServer.instance as unknown as {
+        _registeredTools: Record<string, { _meta?: Record<string, unknown> }>;
+      }
+    )._registeredTools;
 
-    expect(always).toEqual(['espn_teams', 'expected_wins', 'sql']);
+    for (const definition of wpflTools) {
+      expect(registered[definition.name]?._meta?.['anthropic/alwaysLoad']).toBe(true);
+    }
+  });
+
+  test('no definition carries its own alwaysLoad flag, so there is one place to look', () => {
+    for (const definition of wpflTools) {
+      expect(definition._meta?.['anthropic/alwaysLoad']).toBeUndefined();
+    }
   });
 
   test('every tool has a description substantial enough to route on', () => {

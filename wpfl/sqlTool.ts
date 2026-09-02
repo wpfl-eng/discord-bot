@@ -386,6 +386,5 @@ export const sqlTool: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(
         },
       ],
     };
-  },
-  { alwaysLoad: true }
+  }
 );

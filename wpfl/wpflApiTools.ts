@@ -125,8 +125,7 @@ export const wpflApiTools: SdkMcpToolDefinition<any>[] = [
         .optional()
         .describe('Include playoff weeks. Defaults to false, i.e. the regular season.'),
     },
-    async (args): Promise<CallToolResult> => toToolResult(await fetchExpectedWins(args)),
-    { alwaysLoad: true }
+    async (args): Promise<CallToolResult> => toToolResult(await fetchExpectedWins(args))
   ),
 
   tool(
@@ -142,8 +141,7 @@ export const wpflApiTools: SdkMcpToolDefinition<any>[] = [
           'Cumulative through this week. The API aggregates weeks 1..week, so week 5 is the season to date, not week 5 alone. Omit for the full season.'
         ),
     },
-    async (args): Promise<CallToolResult> => toToolResult(await fetchOptimalCoaching(args)),
-    { alwaysLoad: false }
+    async (args): Promise<CallToolResult> => toToolResult(await fetchOptimalCoaching(args))
   ),
 
   tool(
@@ -158,7 +156,6 @@ export const wpflApiTools: SdkMcpToolDefinition<any>[] = [
         .optional()
         .describe('Only count points through this week. Omit for the whole season.'),
     },
-    async (args): Promise<CallToolResult> => toToolResult(await fetchDraftedPoints(args)),
-    { alwaysLoad: false }
+    async (args): Promise<CallToolResult> => toToolResult(await fetchDraftedPoints(args))
   ),
 ];

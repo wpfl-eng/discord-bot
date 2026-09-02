@@ -339,9 +339,11 @@ describe('sqlTool', () => {
   });
 
   describe('the MCP tool definition', () => {
-    test('is named sql and always rides in the initial prompt', () => {
+    // The per-tool alwaysLoad this once asserted moved to the server in Stage
+    // 14, where it covers all eight (tests/wpfl/mcpServer.test.ts).
+    test('is named sql and carries no alwaysLoad of its own', () => {
       expect(sqlTool.name).toBe('sql');
-      expect(sqlTool._meta?.['anthropic/alwaysLoad']).toBe(true);
+      expect(sqlTool._meta?.['anthropic/alwaysLoad']).toBeUndefined();
     });
 
     test('the description lists the tables, so the agent never guesses a name', () => {

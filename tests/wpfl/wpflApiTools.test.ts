@@ -167,14 +167,13 @@ describe('wpflApiTools', () => {
       ]);
     });
 
-    // tool() does not expose alwaysLoad as a property -- it writes
-    // _meta['anthropic/alwaysLoad'], which is what the API actually reads.
-    test('only expected_wins rides in the initial prompt', () => {
-      const always: string[] = wpflApiTools
-        .filter((t) => t._meta?.['anthropic/alwaysLoad'] === true)
-        .map((t) => t.name);
-
-      expect(always).toEqual(['expected_wins']);
+    // This asserted that only expected_wins rode in the initial prompt. Stage
+    // 14 reversed the split: every schema loads upfront, declared once on the
+    // server (tests/wpfl/mcpServer.test.ts), so no definition carries a flag.
+    test('carries no alwaysLoad of its own; the server declares it for all eight', () => {
+      for (const definition of wpflApiTools) {
+        expect(definition._meta?.['anthropic/alwaysLoad']).toBeUndefined();
+      }
     });
 
     test('every description warns that the API stops before the current season', () => {

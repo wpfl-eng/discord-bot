@@ -224,8 +224,7 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
             scoringPeriodId: args.week ?? getCurrentNFLWeek(),
           })
         )
-      ),
-    { alwaysLoad: true }
+      )
   ),
 
   tool(
@@ -245,8 +244,7 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
           })
         )
       );
-    },
-    { alwaysLoad: false }
+    }
   ),
 
   tool(
@@ -272,8 +270,7 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
           }),
           args.position
         )
-      ),
-    { alwaysLoad: false }
+      )
   ),
 
   tool(
@@ -283,7 +280,6 @@ export const espnTools: SdkMcpToolDefinition<any>[] = [
     async (): Promise<CallToolResult> =>
       toToolResult(
         toTransactions(await espnClient().getRecentActivity({ seasonId: getCurrentNFLSeason() }))
-      ),
-    { alwaysLoad: false }
+      )
   ),
 ];

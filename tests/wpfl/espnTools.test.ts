@@ -232,12 +232,13 @@ describe('espnTools', () => {
       ]);
     });
 
-    test('only espn_teams rides in the initial prompt', () => {
-      const always: string[] = espnTools
-        .filter((t) => t._meta?.['anthropic/alwaysLoad'] === true)
-        .map((t) => t.name);
-
-      expect(always).toEqual(['espn_teams']);
+    // This asserted that only espn_teams rode in the initial prompt. Stage 14
+    // reversed the split: every schema loads upfront, declared once on the
+    // server (tests/wpfl/mcpServer.test.ts), so no definition carries a flag.
+    test('carries no alwaysLoad of its own; the server declares it for all eight', () => {
+      for (const definition of espnTools) {
+        expect(definition._meta?.['anthropic/alwaysLoad']).toBeUndefined();
+      }
     });
 
     test('espn_transactions says it is current-season only', () => {
