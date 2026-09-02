@@ -752,7 +752,7 @@ That remains AJ's.
 
 ## Stage 7 — Tools, API (Phase 3) — `feat/ask-tools` — 2026-08-31 — DONE
 
-Merged to `feat/ask` as **`515b161`** (`--no-ff`); branch deleted.
+Merged to `feat/ask` as **`fb51dff`** (`--no-ff`); branch deleted.
 
 ### Changed
 - `wpfl/wpflApiTools.ts` — **new.** The three computed aggregates.
@@ -838,7 +838,7 @@ could not honestly be designed before the payload was known.
 
 ## Stage 8 — SQL and MCP (Phase 4) — `feat/ask-sql` — 2026-08-31 — DONE
 
-Merged to `feat/ask` as **`618b220`** (`--no-ff`); branch deleted.
+Merged to `feat/ask` as **`bf7670b`** (`--no-ff`); branch deleted.
 
 ### Changed
 - `wpfl/sqlTool.ts` — **new.** In-memory DuckDB, statement guard, row cap.
@@ -932,7 +932,7 @@ reading a nested struct field (`t.grade.letter`) straight out of the shred.
 
 ## Stage 9 — Runner (Phase 5) — `feat/ask-runner` — 2026-08-31 — DONE
 
-Merged to `feat/ask` as **`08ccdbc`** (`--no-ff`); branch deleted.
+Merged to `feat/ask` as **`28b6b48`** (`--no-ff`); branch deleted.
 
 ### Changed
 - `ask/concurrency.ts` — **new.** Semaphore and wall-clock deadline.
@@ -1038,7 +1038,7 @@ on two different dates, and carries none of the varying values.
 
 ## Stage 10 — Discord surface (Phase 6) — `feat/ask-discord` — 2026-09-01 — DONE
 
-Merged to `feat/ask` as **`e9f301f`** (`--no-ff`); branch deleted.
+Merged to `feat/ask` as **`056224d`** (`--no-ff`); branch deleted.
 
 ### Changed
 - `ask/ticker.ts` — **new.** Ticker, edit throttle, Discord length splitting.
@@ -1698,14 +1698,14 @@ branch; findings deduped to 27 applied and 9 skipped, each with its reason.
 
 ## Stage 16 — Second simplification pass, the commish gate, and the merge-readiness review — `feat/ask` — 2026-09-02 — DONE
 
-Three commits on `feat/ask`, in this order: `fb9563b` (simplification pass,
-47 files), `43df2e1` (`/ask-admin` answers one user id), `a9e6e35` (the nine
+Three commits on `feat/ask`, in this order: `f67aab6` (simplification pass,
+47 files), `96bc513` (`/ask-admin` answers one user id), `6c642a0` (the nine
 fixes the merge-readiness review asked for). AJ asked for each; nothing pushed,
 `main` untouched. Suite at the start: 65 suites, 1,441 tests. At the end: 65
 suites, **1,456 tests**, typecheck 0, lint 0, no Prettier warning in any file
 this stage touched (the repo-wide count predates the branch).
 
-### Simplification pass (`fb9563b`)
+### Simplification pass (`f67aab6`)
 
 Four reviewers again -- reuse, simplification, efficiency, altitude -- over
 the branch's source diff against `main`, one more over the tests. Two things
@@ -1769,7 +1769,7 @@ the `renderFinal` second render path; the synthesized ledger `subtype` and
 `model`; merging the feedback upsert and count into one CTE (Postgres would
 count the snapshot before the insert).
 
-### The commish gate (`43df2e1`)
+### The commish gate (`96bc513`)
 
 `ASK.ADMIN_USER_IDS = ['120231673722830849']`, checked first thing in
 `/ask-admin`'s `execute`, before `deferReply`; anyone else is refused
@@ -1780,7 +1780,7 @@ switch exactly when an incident needed it, and the id is the one the identity
 mapping already carries. The Administrator default stays so the command is
 still hidden from members.
 
-### Merge-readiness review (`a9e6e35`)
+### Merge-readiness review (`6c642a0`)
 
 Asked: is the branch ready to merge, and what are the risks. Mechanical
 checks first: 90 commits ahead of `main`, 0 behind, `git merge-tree` clean;
@@ -1866,7 +1866,7 @@ feedback buttons across restarts.
 
 ### Open
 
-- **Design doc drift** -- resolved in `d9afc9b`, after this entry was
+- **Design doc drift** -- resolved in `5cc09e6`, after this entry was
   written: §3.4 still said the history API
   "stops at 2025" (the generator prints per-table extents); §4.3 describes
   the regex guard as the control (it is now DuckDB's parser); §6.2's mention
@@ -1894,12 +1894,12 @@ feedback buttons across restarts.
 
 ## Stage 17 — Docs review, then five live questions — `feat/ask` — 2026-09-02 — DONE
 
-Five commits on `feat/ask`, all asked for by AJ, nothing pushed: `2f20db2` and
-`102fb52` (what the docs review found), `9eb8456` (what the live questions
+Five commits on `feat/ask`, all asked for by AJ, nothing pushed: `0d876d1` and
+`5c7b85a` (what the docs review found), `ea67081` (what the live questions
 found), plus two docs-only commits between them. Suite at the start: 65 suites,
 1,456 tests. At the end: 65 suites, **1,465 tests**, typecheck 0, `eslint .` 0.
 
-### The docs review (`2f20db2`, `102fb52`)
+### The docs review (`0d876d1`, `5c7b85a`)
 
 The code's claims about the Agent SDK, discord.js 14.27 and the Discord API were
 checked against the current docs and the installed typings by two research
@@ -1932,7 +1932,7 @@ the command now logs a refusal that lands in public, and the comment no longer
 says Discord permits it. The "5 edits / 5 s" figure appears in no Discord doc,
 which says not to hard-code one; the comments call the throttle what it is.
 
-### The five questions (`9eb8456`)
+### The five questions (`ea67081`)
 
 Run through `runAsk` directly against the real model, as AJ Boorde, after a
 forced resync: the 2026 draft (winners, losers, biggest overpay and best
@@ -2018,11 +2018,11 @@ DuckDB reserved words used as aliases without `AS`.
 - Carried from Stage 16, unchanged: the partial-refresh cache marker, the
   rivalries description, host paths in the ticker, the swap-crash window,
   `counted` on init, `capped()` and surrogates. The feedback ordering item
-  from that list is closed by `102fb52`.
+  from that list is closed by `5c7b85a`.
 
 ## Stage 18 — Both entry points answer the 14 owners only — `feat/ask` — 2026-09-02 — DONE
 
-One commit on `feat/ask`, `edb029c`, asked for by AJ after asking whether
+One commit on `feat/ask`, `07f6652`, asked for by AJ after asking whether
 `/ask` was locked to the 14 owners' Discord ids. It was not: the slash command
 had no membership check and no default member permission, a caller with no
 mapping was a supported case the system prompt handled ("not mapped to a league
