@@ -74,7 +74,9 @@ const success = (over: Message = {}): Message => ({
   total_cost_usd: 0.1473,
   usage: {},
   modelUsage: { 'claude-opus-5': { inputTokens: 18000, outputTokens: 2400 } },
-  result: 'done',
+  // No `result` by default: most tests stream their text and expect it back.
+  // A real success result carries the final answer, which the one test that
+  // sets it asserts is preferred over the stream.
   is_error: false,
   ...over,
 });
@@ -354,6 +356,93 @@ describe('askRunner', () => {
         'tool:mcp__wpfl__sql:tu1',
         'settled:tu1:Parser Error: syntax error at end of input',
       ]);
+    });
+
+    /**
+     * Measured live (log Stage 14): the model wrote "I'll start with INDEX.md
+     * and the table list." before its first tool call, and the runner glued
+     * that onto the answer. The SDK's result message carries the final text
+     * on its own, so that is what is published on success; the accumulated
+     * stream stays the live preview and the fallback for a run that ended
+     * without one.
+     */
+    test('publishes the result text, not the narration before the tools', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          delta({ type: 'text_delta', text: "I'll start with INDEX.md." }),
+          toolStart('Read'),
+          toolResult('tu1', '# index'),
+          delta({ type: 'text_delta', text: 'Jimmy paid $54.' }),
+          success({ result: 'Jimmy paid $54.' }),
+        ])
+      );
+
+      expect(outcome.text).toBe('Jimmy paid $54.');
+    });
+
+    test('falls back to the accumulated stream when the result carries no text', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([delta({ type: 'text_delta', text: 'as far as I got' }), success({ result: '' })])
+      );
+
+      expect(outcome.text).toBe('as far as I got');
+    });
+
+    test('keeps the stream on an error result, whose text is an error and not an answer', async () => {
+      const { sink } = recorder();
+
+      const outcome = await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          delta({ type: 'text_delta', text: 'as far as I got' }),
+          success({
+            subtype: 'error_max_budget_usd',
+            is_error: true,
+            result: 'Budget of $1.00 exceeded',
+          }),
+        ])
+      );
+
+      expect(outcome.text).toBe('as far as I got');
+    });
+
+    /**
+     * Also measured live: summarised thinking arrives as fragments -- "I",
+     * then " notice the WR filter…" -- and the ticker replaces its reasoning
+     * line per delta, so a member saw "I". Deltas accumulate within one
+     * thinking block and the buffer resets when the next block starts.
+     */
+    test('accumulates thinking within a block and resets at the next one', async () => {
+      const { events, sink } = recorder();
+      const thinkingStart = (): Message => ({
+        type: 'stream_event',
+        session_id: 's1',
+        event: { type: 'content_block_start', index: 0, content_block: { type: 'thinking' } },
+      });
+
+      await runAsk(
+        REQUEST,
+        sink,
+        stream([
+          thinkingStart(),
+          delta({ type: 'thinking_delta', thinking: 'I' }),
+          delta({ type: 'thinking_delta', thinking: ' notice the WR filter' }),
+          thinkingStart(),
+          delta({ type: 'thinking_delta', thinking: 'Second thought' }),
+          success(),
+        ])
+      );
+
+      expect(events).toEqual(['think:I', 'think:I notice the WR filter', 'think:Second thought']);
     });
 
     test('returns the prose it accumulated from text deltas', async () => {

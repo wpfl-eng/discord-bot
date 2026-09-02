@@ -128,6 +128,7 @@ export async function runAsk(
   const period: NFLPeriod = await getCurrentPeriod();
 
   let text = '';
+  let thinking = '';
   let sessionId: string | null = request.sessionId ?? null;
   // From the stream, not from the request: a resumed session id proves
   // nothing about whether this run ever reached the model.
@@ -141,8 +142,19 @@ export async function runAsk(
       prompt: request.prompt,
       options: buildOptions(request, deadline.signal, period),
     })) {
-      const result: TerminalResult | null = consume(message, sink, (chunk) => {
-        text += chunk;
+      const result: TerminalResult | null = consume(message, sink, {
+        text: (chunk: string): void => {
+          text += chunk;
+        },
+        // Summarised thinking streams as fragments; the ticker shows the whole
+        // of the current block, so the runner keeps the block.
+        thinkingStart: (): void => {
+          thinking = '';
+        },
+        thinking: (fragment: string): string => {
+          thinking += fragment;
+          return thinking;
+        },
       });
       if (message.session_id !== undefined) {
         sessionId = message.session_id;
@@ -165,7 +177,16 @@ export async function runAsk(
   }
 
   const outcome: AskOutcome = {
-    text,
+    // The SDK's result message carries the final answer on its own. The
+    // accumulated stream includes whatever the model said before its first
+    // tool call -- "I'll start with INDEX.md" -- which the live preview may
+    // show and the published answer must not. Measured, log Stage 14.
+    text:
+      terminal?.subtype === 'success' &&
+      terminal.result !== undefined &&
+      terminal.result.trim() !== ''
+        ? terminal.result
+        : text,
     sessionId,
     subtype: terminal?.subtype ?? 'error_during_execution',
     costUsd: terminal?.costUsd ?? 0,
@@ -193,15 +214,21 @@ interface TerminalResult {
   readonly numTurns: number;
   readonly durationMs: number;
   readonly model: string | null;
+  /** The final answer text, when the result carried one. */
+  readonly result?: string;
+}
+
+interface Accumulators {
+  text(chunk: string): void;
+  thinkingStart(): void;
+  /** @returns the whole of the current thinking block so far. */
+  thinking(fragment: string): string;
 }
 
 /** @returns the terminal result when this message was one, else null. */
-function consume(
-  message: SDKMessage,
-  sink: AskSink,
-  appendText: (chunk: string) => void
-): TerminalResult | null {
+function consume(message: SDKMessage, sink: AskSink, into: Accumulators): TerminalResult | null {
   if (message.type === 'result') {
+    const result: unknown = (message as { result?: unknown }).result;
     return {
       subtype: message.subtype,
       // Never `usage`: the docs are explicit that it excludes subagent tokens.
@@ -209,6 +236,7 @@ function consume(
       numTurns: message.num_turns,
       durationMs: message.duration_ms,
       model: Object.keys(message.modelUsage ?? {})[0] ?? null,
+      ...(typeof result === 'string' ? { result } : {}),
     };
   }
 
@@ -231,8 +259,12 @@ function consume(
     delta?: { type?: string; partial_json?: string; thinking?: string; text?: string };
   };
 
-  if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-    sink.onToolCall(event.content_block.name ?? 'tool', event.content_block.id ?? null);
+  if (event.type === 'content_block_start') {
+    if (event.content_block?.type === 'tool_use') {
+      sink.onToolCall(event.content_block.name ?? 'tool', event.content_block.id ?? null);
+    } else if (event.content_block?.type === 'thinking') {
+      into.thinkingStart();
+    }
     return null;
   }
 
@@ -241,10 +273,10 @@ function consume(
     if (delta?.type === 'input_json_delta' && delta.partial_json !== undefined) {
       sink.onToolInput(delta.partial_json);
     } else if (delta?.type === 'thinking_delta' && delta.thinking !== undefined) {
-      sink.onReasoning(delta.thinking);
+      sink.onReasoning(into.thinking(delta.thinking));
     } else if (delta?.type === 'text_delta' && delta.text !== undefined) {
       sink.onText(delta.text);
-      appendText(delta.text);
+      into.text(delta.text);
     }
   }
 
