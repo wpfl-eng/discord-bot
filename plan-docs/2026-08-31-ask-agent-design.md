@@ -1385,17 +1385,20 @@ ask/
   askAuth.ts            swappable credential resolution + minimal subprocess env (§10.1)
   askDb.ts              ask_sessions / ask_usage / ask_tool_calls / ask_feedback
   askRunner.ts          query() invocation + message-stream consumption
+  preflight.ts          pause, credential, caps, freshness -- shared by both entry points
   concurrency.ts        semaphore + wall-clock deadline (§5.3)
   threadQueue.ts        one run at a time per thread (§5.3)
   generations.ts        deferred teardown for state readers hold across an await
   systemPrompt.ts       static + per-request prompt assembly
   ticker.ts             ticker state machine + Discord render
-  caps.ts               daily cap, monthly cap, turn caps
+  caps.ts               daily cap, monthly cap, turn caps (pure decision + one usage query)
+  leagueTime.ts         every date the feature shows, in ASK.LEAGUE_TZ
   hooks.ts              PreToolUse path guard, PreToolUse WebFetch guard, PostToolUse audit
   pause.ts              the in-memory kill switch behind /ask-admin pause
   mentions.ts           NO_MENTIONS, for every send carrying foreign text
 
 wpfl/
+  layout.ts             every path and marker in the data directory; the as-of reader
   artifactSync.ts       fetch, etag check, atomic swap
   liveShred.ts          the live shred's generation: borrowed by readers, retired by the swap
   shredder.ts           BODY_PLANS, DEAD_KEYS, tolerant-and-loud shred

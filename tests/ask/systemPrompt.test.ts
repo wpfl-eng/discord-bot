@@ -1,10 +1,8 @@
-import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import { describe, test, expect } from '@jest/globals';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
-import { buildSystemPrompt, readAsOf, STATIC_PROMPT, type AsOf } from '../../ask/systemPrompt.js';
+import { buildSystemPrompt, STATIC_PROMPT } from '../../ask/systemPrompt.js';
 import type { NFLPeriod } from '../../helpers/espnPeriod.js';
+import type { AsOf } from '../../wpfl/layout.js';
 
 const SEPT = new Date('2026-09-15T18:00:00Z');
 
@@ -222,46 +220,6 @@ describe('systemPrompt', () => {
       expect(text).not.toContain('undefined');
       expect(text).not.toContain('null');
       expect(text).toMatch(/unknown/i);
-    });
-  });
-
-  describe('readAsOf', () => {
-    let dataDir: string;
-
-    beforeAll(() => {
-      dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-asof-'));
-      fs.mkdirSync(path.join(dataDir, 'news'), { recursive: true });
-      fs.mkdirSync(path.join(dataDir, 'wpfl'), { recursive: true });
-      fs.writeFileSync(
-        path.join(dataDir, 'meta.json'),
-        JSON.stringify({ generated: '2026-08-28 21:20', facts_as_of: '2026-08-28' })
-      );
-      fs.writeFileSync(path.join(dataDir, 'news', 'as_of.json'), '"2026-08-28"');
-      fs.writeFileSync(path.join(dataDir, '.etag'), 'abc123\n');
-      fs.writeFileSync(path.join(dataDir, 'wpfl', '.fetched'), '2026-08-31T03:17:32.028Z\n');
-    });
-
-    afterAll(() => {
-      fs.rmSync(dataDir, { recursive: true, force: true });
-    });
-
-    test('reads the dates out of the shred it was given', () => {
-      const asOf: AsOf = readAsOf(dataDir);
-
-      expect(asOf).toEqual({
-        generated: '2026-08-28 21:20',
-        factsAsOf: '2026-08-28',
-        newsAsOf: '2026-08-28',
-        etag: 'abc123',
-        cacheFetchedAt: '2026-08-31',
-      });
-    });
-
-    test('returns nulls rather than throwing when there is no shred yet', () => {
-      const asOf: AsOf = readAsOf(path.join(dataDir, 'nope'));
-
-      expect(asOf.generated).toBeNull();
-      expect(asOf.etag).toBeNull();
     });
   });
 });

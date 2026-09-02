@@ -24,6 +24,7 @@ import {
   onThreadArchived,
 } from './discordCommands/ask/ask.js';
 import { ensureFresh } from './wpfl/artifactSync.js';
+import { warmSqlDatabase } from './wpfl/sqlTool.js';
 import { credentialConfigured } from './ask/askAuth.js';
 import { logError } from './errors/errorHandler.js';
 
@@ -72,35 +73,41 @@ client.once('ready', async () => {
   // their own channels, and the hub's standing summary was noise in the casino channel.
   // To bring it back, import { startHub } from './casino/casinoHub.js' and call it here.
 
-  // /ask setup. Both are non-fatal: a stale shred still answers, and an
-  // unresolved snowflake only costs that member their implicit "my team".
-  // They share nothing, and the sync can take seconds, so they run together
-  // rather than holding boot one behind the other.
+  // /ask setup. Both are non-fatal, they share nothing, and the sync can take
+  // seconds, so they run together rather than holding boot one behind the other.
   if (!credentialConfigured()) {
     console.warn(
       '[ASK] No Claude credential is set (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN). ' +
         '/ask will refuse every question until one is.'
     );
   }
-  const guildId: string | undefined = process.env.DISCORD_GUILD_ID;
-  await Promise.all([
-    (async (): Promise<void> => {
-      if (guildId === undefined) return;
-      try {
-        await checkIdentityMapping(await client.guilds.fetch(guildId));
-      } catch (error) {
-        logError('ask', 'Could not verify the league identity mapping', error);
-      }
-    })(),
-    (async (): Promise<void> => {
-      try {
-        console.log('[ASK] Artifact sync:', JSON.stringify(await ensureFresh()));
-      } catch (error) {
-        logError('ask', 'Artifact sync failed at startup', error);
-      }
-    })(),
-  ]);
+  await Promise.all([verifyIdentityMapping(client), syncArtifactAtBoot()]);
 });
+
+/** Resolve all 14 league snowflakes. An unresolved one only costs that member their implicit "my team". */
+async function verifyIdentityMapping(bot: Client): Promise<void> {
+  const guildId: string | undefined = process.env.DISCORD_GUILD_ID;
+  if (guildId === undefined) return;
+  try {
+    await checkIdentityMapping(await bot.guilds.fetch(guildId));
+  } catch (error) {
+    logError('ask', 'Could not verify the league identity mapping', error);
+  }
+}
+
+/**
+ * Fetch the artifact if the shred is stale, then build the SQL database in the
+ * background so the first question after a boot does not pay for it. A stale
+ * shred still answers.
+ */
+async function syncArtifactAtBoot(): Promise<void> {
+  try {
+    console.log('[ASK] Artifact sync:', JSON.stringify(await ensureFresh()));
+  } catch (error) {
+    logError('ask', 'Artifact sync failed at startup', error);
+  }
+  warmSqlDatabase();
+}
 
 client.commands = new Collection();
 
@@ -277,9 +284,7 @@ client.on('messageCreate', async (message) => {
 // An archived thread's session is closed rather than resumed (design §6.2):
 // the SDK prunes its transcript on its own schedule, so resuming one that has
 // aged out fails instead of starting fresh.
-client.on(Events.ThreadUpdate, async (before, after) => {
-  await onThreadArchived(before, after);
-});
+client.on(Events.ThreadUpdate, onThreadArchived);
 
 client.on('ready', () => {
   client.user?.setActivity('Jaguars Highlights', {

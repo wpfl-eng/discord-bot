@@ -8,7 +8,7 @@ import {
   wpflApiTools,
   toToolResult,
 } from '../../wpfl/wpflApiTools.js';
-import type { FetchFn, HttpResponse } from '../../wpfl/historyCache.js';
+import type { FetchFn, HttpResponse } from '../../wpfl/wpflHttp.js';
 
 const load = (name: string): unknown =>
   JSON.parse(fs.readFileSync(path.join(process.cwd(), 'tests/fixtures', name), 'utf8'));

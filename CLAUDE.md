@@ -118,13 +118,16 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `wordle/`, `stock/`, `polymarket/` - config + DB + API client per feature
 - `blackjack/`, `craps/`, `redzone/`, `videopoker/` - per-game stats DB modules
 - `ask/` - the `/ask` agent: `askConfig.ts` (all tuning, including model), `askAuth.ts`,
-  `askDb.ts`, `askRunner.ts`, `caps.ts`, `concurrency.ts` (the global slots), `threadQueue.ts`
-  (one run at a time per thread), `hooks.ts`, `systemPrompt.ts`, `ticker.ts`, `pause.ts` (the
-  in-memory kill switch), `mentions.ts`. `discordCommands/ask/askFeedback.ts` holds the 👍/👎
-  buttons and `discordCommands/askadmin/` the `/ask-admin` command
-- `wpfl/` - the data layer behind `/ask`: artifact fetch and shred, `INDEX.md` generation, the
-  cached WPFL decade, the read-only DuckDB SQL tool, the ESPN and WPFL API tools, and the
-  in-process MCP server that exposes all eight
+  `askDb.ts`, `askRunner.ts`, `preflight.ts` (pause, credential, caps and freshness, shared by
+  both entry points), `caps.ts`, `leagueTime.ts` (every date the feature shows, in one
+  timezone), `concurrency.ts` (the global slots), `threadQueue.ts` (one run at a time per
+  thread), `hooks.ts`, `systemPrompt.ts`, `ticker.ts`, `pause.ts` (the in-memory kill switch),
+  `mentions.ts`. `discordCommands/ask/askFeedback.ts` holds the 👍/👎 buttons and
+  `discordCommands/askadmin/` the `/ask-admin` command
+- `wpfl/` - the data layer behind `/ask`: `layout.ts` (every path and marker in the data
+  directory, and the as-of reader), artifact fetch and shred, `INDEX.md` generation, the cached
+  WPFL decade, the read-only DuckDB SQL tool, the ESPN and WPFL API tools, and the in-process
+  MCP server that exposes all eight
 - `errors/`, `helpers/`, `constants/`, `types/` - shared support code
 
 Some features keep their config next to the command instead: `discordCommands/roulette/`,

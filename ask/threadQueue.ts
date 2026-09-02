@@ -57,7 +57,7 @@ export function enqueueInThread<T>(threadId: string, work: () => Promise<T>): Ad
   return { position, result };
 }
 
-/** Runs in flight or waiting in this thread. */
+/** Tests only: runs in flight or waiting in this thread. */
 export function threadQueueDepth(threadId: string): number {
   return lanes.get(threadId)?.depth ?? 0;
 }

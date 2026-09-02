@@ -25,16 +25,21 @@ describe('askDb', () => {
   });
 
   describe('the caps count what a member is charged for', () => {
-    test('the daily count ignores uncounted rows', async () => {
-      responses = [{ rows: [{ count: '3' }] }];
+    test('both counts come from one query, and both ignore uncounted rows', async () => {
+      responses = [{ rows: [{ asked: '3', league_total: '312' }] }];
+      const day = new Date('2026-09-15T04:00:00Z');
+      const month = new Date('2026-09-01T04:00:00Z');
 
-      const count: number = await askDb.countUserQuestionsSince('u1', new Date());
+      const counts = await askDb.questionCounts('u1', day, month);
 
-      expect(count).toBe(3);
+      expect(counts).toEqual({ asked: 3, leagueTotal: 312 });
+      expect(log).toHaveLength(1);
+      expect(log[0].text).toMatch(/FILTER \(WHERE user_id = \$/);
       expect(log[0].text).toMatch(/FROM ask_usage WHERE .*\bcounted\b/);
+      expect(log[0].values).toEqual(['u1', day.toISOString(), month.toISOString()]);
     });
 
-    test('the monthly count ignores uncounted rows', async () => {
+    test("the admin's monthly count ignores uncounted rows too", async () => {
       responses = [{ rows: [{ count: '1200' }] }];
 
       await askDb.countAllQuestionsSince(new Date());

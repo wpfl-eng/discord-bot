@@ -32,6 +32,33 @@ export type FetchFn = (url: string, init?: { signal?: AbortSignal }) => Promise<
 export type Query = Record<string, string | number | boolean | undefined>;
 
 /**
+ * One request with a deadline. Maps the abort onto a readable error and
+ * always clears the timer -- the part every inline copy forgot once.
+ *
+ * @param what names the request in the timeout message, e.g. "The artifact fetch".
+ * @throws {Error} on a timeout. A non-2xx response is returned, not thrown.
+ */
+export async function fetchWithTimeout(
+  url: string,
+  fetchFn: FetchFn,
+  what: string,
+  timeoutMs: number = ASK.WPFL_FETCH_TIMEOUT_MS
+): Promise<HttpResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchFn(url, { signal: controller.signal });
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`${what} timed out.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * @throws {Error} on a non-2xx status, a body that is not a list, or a timeout.
  */
 export async function fetchJsonArray<T>(
@@ -44,27 +71,19 @@ export async function fetchJsonArray<T>(
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ASK.WPFL_FETCH_TIMEOUT_MS);
-
-  try {
-    const response: HttpResponse = await fetchFn(url.toString(), { signal: controller.signal });
-    if (!response.ok) {
-      throw new Error(`The WPFL history API returned HTTP ${response.status} for ${endpoint}.`);
-    }
-    const body: unknown = await response.json();
-    // Every one of these endpoints returns a list. Anything else is the API
-    // reporting a problem in a shape the agent would otherwise render as data.
-    if (!Array.isArray(body)) {
-      throw new Error(`The WPFL history API returned an unexpected shape for ${endpoint}.`);
-    }
-    return body as T[];
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`The WPFL history API timed out on ${endpoint}.`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
+  const response: HttpResponse = await fetchWithTimeout(
+    url.toString(),
+    fetchFn,
+    `The WPFL history API request to ${endpoint}`
+  );
+  if (!response.ok) {
+    throw new Error(`The WPFL history API returned HTTP ${response.status} for ${endpoint}.`);
   }
+  const body: unknown = await response.json();
+  // Every one of these endpoints returns a list. Anything else is the API
+  // reporting a problem in a shape the agent would otherwise render as data.
+  if (!Array.isArray(body)) {
+    throw new Error(`The WPFL history API returned an unexpected shape for ${endpoint}.`);
+  }
+  return body as T[];
 }

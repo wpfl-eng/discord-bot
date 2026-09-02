@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { shred, type ShredResult } from '../../wpfl/shredder.js';
 import { generateIndex } from '../../wpfl/indexGenerator.js';
+import { readAsOf, type AsOf } from '../../wpfl/layout.js';
 import { wpflMembers } from '../../constants/wpflMembers.js';
 
 type Artifact = Record<string, unknown>;
@@ -14,6 +15,7 @@ describe('indexGenerator', () => {
   let dir: string;
   let artifact: Artifact;
   let result: ShredResult;
+  let asOf: AsOf;
   let index: string;
 
   beforeEach(() => {
@@ -22,12 +24,10 @@ describe('indexGenerator', () => {
       fs.readFileSync(path.join(process.cwd(), 'tests/fixtures/postdraft-published.json'), 'utf8')
     ) as Artifact;
     result = shred(artifact, dir);
-    index = generateIndex({
-      shred: result,
-      artifact,
-      etag: ETAG,
-      wpflCacheFetchedAt: new Date('2026-08-31T12:00:00Z'),
-    });
+    // As the sync does: the dates come back off the shredded files, through
+    // the same reader the prompt and /ask-admin use.
+    asOf = { ...readAsOf(dir), etag: ETAG, cacheFetchedAt: '2026-08-31' };
+    index = generateIndex({ shred: result, asOf });
   });
 
   afterEach(() => {
@@ -82,9 +82,7 @@ describe('indexGenerator', () => {
     test('reports an unknown etag rather than printing null', () => {
       const withoutEtag: string = generateIndex({
         shred: result,
-        artifact,
-        etag: null,
-        wpflCacheFetchedAt: null,
+        asOf: { ...asOf, etag: null, cacheFetchedAt: null },
       });
 
       expect(withoutEtag).not.toContain('null');
@@ -118,9 +116,7 @@ describe('indexGenerator', () => {
         const raceResult: ShredResult = shred(withRace, fresh);
         const raceIndex: string = generateIndex({
           shred: raceResult,
-          artifact: withRace,
-          etag: ETAG,
-          wpflCacheFetchedAt: null,
+          asOf: { ...readAsOf(fresh), etag: ETAG },
         });
 
         expect(raceIndex).toContain('race');
@@ -187,13 +183,7 @@ describe('indexGenerator', () => {
     const ALL_CACHED: string[] = ['draft_history.jsonl', 'matchups.jsonl', 'player_scores.jsonl'];
 
     test('names the three cached sources and the table each becomes', () => {
-      const index: string = generateIndex({
-        shred: result,
-        artifact,
-        etag: ETAG,
-        wpflCacheFetchedAt: new Date('2026-08-31T12:00:00Z'),
-        wpflCacheFiles: ALL_CACHED,
-      });
+      const index: string = generateIndex({ shred: result, asOf, wpflCacheFiles: ALL_CACHED });
 
       expect(index).toContain('wpfl_draft_history');
       expect(index).toContain('wpfl_matchups');
@@ -204,9 +194,7 @@ describe('indexGenerator', () => {
     test("says where each table's rows end, read from the files themselves", () => {
       const index: string = generateIndex({
         shred: result,
-        artifact,
-        etag: ETAG,
-        wpflCacheFetchedAt: new Date('2026-08-31T12:00:00Z'),
+        asOf,
         wpflCacheFiles: ALL_CACHED,
         wpflCacheExtents: {
           'draft_history.jsonl': { seasonMin: 2010, seasonMax: 2025, latestWeek: null },
@@ -228,9 +216,7 @@ describe('indexGenerator', () => {
       // what is actually on disk.
       const index: string = generateIndex({
         shred: result,
-        artifact,
-        etag: ETAG,
-        wpflCacheFetchedAt: new Date('2026-08-31T12:00:00Z'),
+        asOf,
         wpflCacheFiles: ['draft_history.jsonl', 'matchups.jsonl'],
       });
 
@@ -243,9 +229,7 @@ describe('indexGenerator', () => {
     test('says so plainly when the cache has never been built', () => {
       const index: string = generateIndex({
         shred: result,
-        artifact,
-        etag: null,
-        wpflCacheFetchedAt: null,
+        asOf: { ...asOf, etag: null, cacheFetchedAt: null },
         wpflCacheFiles: [],
       });
 

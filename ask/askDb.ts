@@ -54,22 +54,38 @@ export interface ToolException {
 
 // ============ Caps ============
 
-/**
- * Questions this user is charged for since `since`. Counts rows; never sums
- * cost. Uncounted rows -- a run that never reached the model, an expired login,
- * a rate limit -- stay in the table for observability and are skipped here.
- */
-export async function countUserQuestionsSince(userId: string, since: Date): Promise<number> {
-  const result = await sql<{ count: string }>`
-    SELECT COUNT(*) AS count FROM ask_usage
-    WHERE user_id = ${userId}
-      AND counted
-      AND created_at >= ${since.toISOString()}
-  `;
-  return Number(result.rows[0]?.count ?? 0);
+export interface QuestionCounts {
+  /** This member's questions since the start of the day. */
+  readonly asked: number;
+  /** The league's questions since the start of the month. */
+  readonly leagueTotal: number;
 }
 
-/** Queries the whole league is charged for since `since`. */
+/**
+ * Both numbers the caps compare against, in one round trip. Counts rows; never
+ * sums cost. Uncounted rows -- a run that never reached the model, an expired
+ * login, a rate limit -- stay in the table for observability and are skipped
+ * here. The day starts inside the month, so the month is the outer filter.
+ */
+export async function questionCounts(
+  userId: string,
+  dayStart: Date,
+  monthStart: Date
+): Promise<QuestionCounts> {
+  const result = await sql<{ asked: string; league_total: string }>`
+    SELECT COUNT(*) FILTER (WHERE user_id = ${userId} AND created_at >= ${dayStart.toISOString()}) AS asked,
+           COUNT(*) AS league_total
+    FROM ask_usage
+    WHERE counted
+      AND created_at >= ${monthStart.toISOString()}
+  `;
+  return {
+    asked: Number(result.rows[0]?.asked ?? 0),
+    leagueTotal: Number(result.rows[0]?.league_total ?? 0),
+  };
+}
+
+/** Queries the whole league is charged for since `since`. For /ask-admin usage. */
 export async function countAllQuestionsSince(since: Date): Promise<number> {
   const result = await sql<{ count: string }>`
     SELECT COUNT(*) AS count FROM ask_usage

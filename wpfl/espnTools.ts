@@ -19,7 +19,6 @@
 import { z } from 'zod';
 import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import pkg from 'espn-fantasy-football-api/node.js';
 import type {
   ActivityAction,
   Boxscore,
@@ -33,10 +32,8 @@ import { getWpflMemberByEspnId } from '../constants/wpflMembers.js';
 // The week and season come from ESPN, with the calendar as the fallback --
 // the same helper /median reads, so the default week here, the week the
 // prompt states and the week /median prints are one number (log Stage 14).
-import { getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
+import { espnClientFromEnv, getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
 import { toToolResult } from './wpflApiTools.js';
-
-const { Client } = pkg;
 
 export interface RosterEntry {
   readonly name: string;
@@ -212,12 +209,10 @@ function ownerFor(espnId: number): string {
 }
 
 function espnClient(): EspnClient {
-  const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
-  if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) {
+  const client: EspnClient | null = espnClientFromEnv();
+  if (client === null) {
     throw new Error('ESPN credentials are not configured (LEAGUE_ID, ESPN_S2, SWID).');
   }
-  const client = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
-  client.setCookies({ espnS2: ESPN_S2, SWID });
   return client;
 }
 

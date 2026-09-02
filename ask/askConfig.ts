@@ -23,6 +23,13 @@ export function resolveDataDir(raw: string | undefined, home: string): string {
   return path.resolve(expanded);
 }
 
+/** One argument of a file tool that names a path. */
+export interface PathArgument {
+  readonly key: string;
+  /** A glob pattern: only the part before its first wildcard is a path. */
+  readonly prefix?: boolean;
+}
+
 export const ASK = {
   // ---- Limits and accounting (design §9) ----
   // Deliberately generous. A new feature dies if the first week feels
@@ -53,12 +60,20 @@ export const ASK = {
   THINKING_DISPLAY: 'summarized',
 
   // ---- The agent's tool surface (design §5.3, §10.2) ----
-  // Declared once, because it has to agree in three places: `tools` (what the
-  // agent can see), `allowedTools` (what `dontAsk` will permit), and the
-  // PreToolUse matcher that confines the file tools to DATA_DIR. Stage 12's
-  // worst defect -- every Grep and Glob denied -- was these lists disagreeing,
-  // and only two of the three were then covered by a test.
-  FILE_TOOLS: ['Read', 'Grep', 'Glob'],
+  // Every built-in file tool the agent may use, with the arguments that name
+  // a path. Declared once because it has to agree in four places: `tools`
+  // (what the agent can see), `allowedTools` (what `dontAsk` will permit),
+  // the PreToolUse matcher that routes each tool to the path guard, and the
+  // guard itself, which checks exactly these arguments. Stage 12's worst
+  // defect -- every Grep and Glob denied -- was the first two disagreeing; a
+  // guard that knew only `file_path` and `path` let an absolute Glob pattern
+  // straight through (log Stage 14). `prefix` marks a glob, checked up to its
+  // first wildcard. A tool with no entry here is denied, not waved through.
+  PATH_ARGUMENTS: {
+    Read: [{ key: 'file_path' }],
+    Grep: [{ key: 'path' }],
+    Glob: [{ key: 'path' }, { key: 'pattern', prefix: true }],
+  } as Readonly<Record<string, readonly PathArgument[]>>,
   WEB_TOOLS: ['WebSearch', 'WebFetch'],
 
   // ---- Time ----
@@ -121,3 +136,6 @@ export const ASK = {
     'wpfl-receipts-694ed0.pages.dev',
   ],
 } as const;
+
+/** The file tools, derived from the table: a tool cannot be listed without its path arguments. */
+export const FILE_TOOLS: readonly string[] = Object.keys(ASK.PATH_ARGUMENTS);

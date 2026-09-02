@@ -214,14 +214,36 @@ describe('ticker', () => {
       expect(ticker.render()).toMatch(/2 (tool calls|steps)|Read.*sql/i);
     });
 
-    test('reports the prose separately from the rendering', () => {
+    /**
+     * The stream includes what the model said before its first tool call --
+     * "I'll start with INDEX.md" -- and the SDK's result does not. The
+     * published post is built from the result, in the same shape as the live
+     * render so the trace line carries over (log Stage 14; the fix in the
+     * runner never reached publish(), which kept rendering the stream).
+     */
+    test('the final render takes the answer it is given, not the streamed prose', () => {
       const ticker: Ticker = createTicker();
+      ticker.onToolCall('Read');
+      ticker.onToolSettled();
+      ticker.onText("I'll start with INDEX.md. ");
+      ticker.onText('Jimmy paid $54.');
 
-      ticker.onText('part one. ');
-      ticker.onText('part two.');
+      const final: string = ticker.renderFinal('Jimmy paid $54.');
 
-      expect(ticker.prose()).toBe('part one. part two.');
-      expect(ticker.hasProse()).toBe(true);
+      expect(final).toContain('Jimmy paid $54.');
+      expect(final).not.toContain("I'll start with INDEX.md");
+      expect(final).toMatch(/1 tool call/);
+      // The live render still shows the whole stream.
+      expect(ticker.render()).toContain("I'll start with INDEX.md");
+    });
+
+    test('with no answer, the final render is the working view, so a failed run shows its steps', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onToolCall('Read');
+      ticker.onToolInput('{"file_path":"INDEX.md"}');
+
+      expect(ticker.renderFinal('')).toContain('INDEX.md');
+      expect(ticker.renderFinal('   ')).toBe(ticker.renderFinal(''));
     });
   });
 
@@ -238,7 +260,7 @@ describe('ticker', () => {
         await Promise.resolve();
 
         expect(sent).toEqual(['one']);
-        await editor.flush();
+        await editor.settle();
       } finally {
         jest.useRealTimers();
       }
@@ -272,7 +294,15 @@ describe('ticker', () => {
       }
     });
 
-    test('flush sends the final state even mid-window', async () => {
+    /**
+     * The last live state used to be flushed on settle, and the final post
+     * then replaced it within the same second -- one wasted edit out of the
+     * five-per-five-seconds bucket, at exactly the moment the final edit and
+     * any continuation sends need it. Settling drops what is pending and only
+     * waits for the edit already on the wire, which is what keeps the final
+     * post from being overtaken by a stale one.
+     */
+    test('settle drops the pending edit rather than sending it', async () => {
       jest.useFakeTimers();
       try {
         const sent: string[] = [];
@@ -282,17 +312,50 @@ describe('ticker', () => {
 
         editor.update(() => 'one');
         await Promise.resolve();
-        editor.update(() => 'final');
+        editor.update(() => 'stale');
 
-        await editor.flush();
+        await editor.settle();
+        jest.advanceTimersByTime(ASK.TICKER_EDIT_THROTTLE_MS * 2);
+        await Promise.resolve();
 
-        expect(sent[sent.length - 1]).toBe('final');
+        expect(sent).toEqual(['one']);
       } finally {
         jest.useRealTimers();
       }
     });
 
-    test('flush sends nothing when nothing changed since the last edit', async () => {
+    test('settle waits for the edit in flight, so the final post lands after it', async () => {
+      jest.useFakeTimers();
+      try {
+        const sent: string[] = [];
+        let finish: () => void = (): void => {};
+        const editor = createThrottledEditor(
+          (c: string) =>
+            new Promise<void>((resolve) => {
+              finish = (): void => {
+                sent.push(c);
+                resolve();
+              };
+            })
+        );
+
+        editor.update(() => 'one');
+        let settled = false;
+        const settling: Promise<void> = editor.settle().then(() => {
+          settled = true;
+        });
+        await Promise.resolve();
+        expect(settled).toBe(false);
+
+        finish();
+        await settling;
+        expect(sent).toEqual(['one']);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('settling twice is harmless', async () => {
       jest.useFakeTimers();
       try {
         const sent: string[] = [];
@@ -302,8 +365,8 @@ describe('ticker', () => {
 
         editor.update(() => 'one');
         await Promise.resolve();
-        await editor.flush();
-        await editor.flush();
+        await editor.settle();
+        await editor.settle();
 
         expect(sent).toEqual(['one']);
       } finally {
@@ -328,9 +391,12 @@ describe('ticker', () => {
         editor.update(() => 'one');
         await Promise.resolve();
         editor.update(() => 'two');
-        await editor.flush();
+        jest.advanceTimersByTime(ASK.TICKER_EDIT_THROTTLE_MS);
+        await Promise.resolve();
+        await Promise.resolve();
 
         expect(sent).toEqual(['two']);
+        await editor.settle();
         error.mockRestore();
       } finally {
         jest.useRealTimers();
@@ -356,11 +422,12 @@ describe('ticker', () => {
         for (let i = 0; i < 500; i += 1) editor.update(render);
         await Promise.resolve();
 
-        // One for the edit that opened the window; the other 499 are coalesced.
+        // One for the edit that opened the window; the other 499 are coalesced,
+        // and settling drops the last of them unrendered.
         expect(rendered).toBe(1);
 
-        await editor.flush();
-        expect(rendered).toBe(2);
+        await editor.settle();
+        expect(rendered).toBe(1);
       } finally {
         jest.useRealTimers();
       }
@@ -488,11 +555,10 @@ describe('ticker', () => {
       expect(splitForDiscord(ticker.render()).length).toBeGreaterThan(1);
     });
 
-    test('prose() still returns everything, so the final post is complete', () => {
+    test('the final render is uncapped too, so the final post is complete', () => {
       const ticker: Ticker = createTicker();
-      ticker.onText('z'.repeat(5000));
 
-      expect(ticker.prose().length).toBe(5000);
+      expect(ticker.renderFinal('z'.repeat(5000))).toContain('z'.repeat(5000));
     });
 
     test('a short answer is untouched', () => {

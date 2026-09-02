@@ -8,16 +8,19 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
   closeSession: jest.fn(),
   recordUsage: jest.fn(),
   recordToolException: jest.fn(),
-  countUserQuestionsSince: jest.fn(),
-  countAllQuestionsSince: jest.fn(),
+  questionCounts: jest.fn(),
   recordFeedback: jest.fn(),
   feedbackCounts: jest.fn(),
 }));
 
 // Neither the network nor a model: execute() is exercised up to the point a
-// run would start, which is where every decision under test here lives.
+// run would start, which is where every decision under test here lives, and
+// once past it with a scripted run.
 jest.unstable_mockModule('../../wpfl/artifactSync.js', () => ({
   ensureFresh: jest.fn(async () => ({ kind: 'fresh' })),
+}));
+jest.unstable_mockModule('../../wpfl/sqlTool.js', () => ({
+  warmSqlDatabase: jest.fn(),
 }));
 jest.unstable_mockModule('../../ask/askRunner.js', () => ({
   runAsk: jest.fn(),
@@ -32,6 +35,9 @@ jest.unstable_mockModule('../../ask/askRunner.js', () => ({
 }));
 
 const askDb = await import('../../ask/askDb.js');
+const askRunner = await import('../../ask/askRunner.js');
+const sqlTool = await import('../../wpfl/sqlTool.js');
+const artifactSync = await import('../../wpfl/artifactSync.js');
 const {
   resolveTarget,
   threadName,
@@ -41,10 +47,10 @@ const {
   onThreadArchived,
   execute,
   suffixLines,
-  earlyRefusal,
-  NO_MENTIONS,
   data,
 } = await import('../../discordCommands/ask/ask.js');
+const { earlyRefusal } = await import('../../ask/preflight.js');
+const { NO_MENTIONS } = await import('../../ask/mentions.js');
 const { setAskPaused } = await import('../../ask/pause.js');
 const { wpflMembers } = await import('../../constants/wpflMembers.js');
 const { ASK } = await import('../../ask/askConfig.js');
@@ -172,10 +178,10 @@ describe('the /ask command', () => {
         return null;
       });
       // At the daily limit, so every path below ends in a refusal.
-      (askDb.countUserQuestionsSince as jest.Mock).mockImplementation(
-        async () => ASK.DAILY_QUESTIONS_PER_USER
-      );
-      (askDb.countAllQuestionsSince as jest.Mock).mockImplementation(async () => 0);
+      (askDb.questionCounts as jest.Mock).mockImplementation(async () => ({
+        asked: ASK.DAILY_QUESTIONS_PER_USER,
+        leagueTotal: 0,
+      }));
     });
 
     afterEach(() => {
@@ -247,6 +253,80 @@ describe('the /ask command', () => {
     test('earlyRefusal is null when the bot is ready to answer', () => {
       expect(earlyRefusal()).toBeNull();
     });
+
+    /**
+     * The runner switched to the SDK result's final text in Stage 14, and the
+     * test on the runner passed -- while publish() went on rendering the
+     * ticker's own streamed prose, preamble included. Found by the
+     * simplification review, which noticed `outcome.text` had no consumer.
+     */
+    describe('what gets published', () => {
+      const scripted = (text: string): void => {
+        (askRunner.runAsk as jest.Mock).mockImplementation(((
+          _request: unknown,
+          sink: { onText(chunk: string): void }
+        ) => {
+          sink.onText("I'll start with INDEX.md. ");
+          return Promise.resolve({
+            text,
+            sessionId: 's1',
+            subtype: 'success',
+            model: 'claude-opus-5',
+            costUsd: 0.1,
+            numTurns: 2,
+            durationMs: 5,
+            timedOut: false,
+            counted: true,
+            opsFailure: null,
+          });
+        }) as never);
+      };
+
+      const posting = (): {
+        interaction: never;
+        message: { id: string; edit: jest.Mock };
+      } => {
+        const message = { id: 'm1', edit: jest.fn(async () => undefined) };
+        const thread = { id: 'thread-1', send: jest.fn(async () => message) };
+        const anchor = { startThread: jest.fn(async () => thread) };
+        return { interaction: interaction({ editReply: jest.fn(async () => anchor) }), message };
+      };
+
+      beforeEach(() => {
+        (askDb.questionCounts as jest.Mock).mockImplementation(async () => ({
+          asked: 0,
+          leagueTotal: 0,
+        }));
+      });
+
+      test('publishes the answer the runner settled on, not the streamed preamble', async () => {
+        scripted('Jimmy paid $54.');
+        const { interaction: i, message } = posting();
+
+        await execute(i);
+
+        const edits: string[] = message.edit.mock.calls.map(
+          (call) => (call[0] as { content: string }).content
+        );
+        expect(edits[edits.length - 1]).toContain('Jimmy paid $54.');
+        expect(edits[edits.length - 1]).not.toContain("I'll start with INDEX.md");
+        expect(edits[edits.length - 1]).toContain('Reply or @ me');
+      });
+
+      test("a reshred during the preflight warms the SQL database off the member's turn", async () => {
+        scripted('ok');
+        (artifactSync.ensureFresh as jest.Mock).mockImplementationOnce(async () => ({
+          kind: 'reshredded',
+          files: 53,
+          etag: 'x',
+        }));
+        const { interaction: i } = posting();
+
+        await execute(i);
+
+        expect(sqlTool.warmSqlDatabase).toHaveBeenCalledTimes(1);
+      });
+    });
   });
 
   /**
@@ -271,7 +351,7 @@ describe('the /ask command', () => {
       }) as never;
 
     test('names an expired login and who has to fix it', () => {
-      const lines: string[] = suffixLines(outcome({ opsFailure: 'authentication_failed' }), false);
+      const lines: string[] = suffixLines(outcome({ opsFailure: 'authentication_failed' }));
 
       expect(lines.join(' ')).toMatch(/login/i);
       expect(lines.join(' ')).toMatch(/commish/i);
@@ -279,7 +359,7 @@ describe('the /ask command', () => {
 
     test('tells a member to try again on the two transient failures', () => {
       for (const code of ['rate_limit', 'overloaded']) {
-        const lines: string[] = suffixLines(outcome({ opsFailure: code }), false);
+        const lines: string[] = suffixLines(outcome({ opsFailure: code }));
         expect(lines.join(' ')).toMatch(/try again/i);
       }
     });
@@ -293,26 +373,25 @@ describe('the /ask command', () => {
         'rate_limit',
         'overloaded',
       ]) {
-        const lines: string[] = suffixLines(outcome({ opsFailure: code, error: 'x' }), false);
+        const lines: string[] = suffixLines(outcome({ opsFailure: code, error: 'x' }));
         expect(lines).toHaveLength(1);
         expect(lines[0]).not.toMatch(/something went wrong/i);
       }
     });
 
     test('keeps the generic line for a failure that is not one of the six', () => {
-      const lines: string[] = suffixLines(outcome({ error: 'subprocess died' }), false);
+      const lines: string[] = suffixLines(outcome({ error: 'subprocess died' }));
 
       expect(lines.join(' ')).toMatch(/something went wrong/i);
     });
 
     test('says nothing about an error when the answer still arrived', () => {
-      expect(suffixLines(outcome({ error: 'late failure' }), true)).toEqual([]);
+      expect(suffixLines(outcome({ error: 'late failure', text: 'the answer' }))).toEqual([]);
     });
 
     test('reports the time limit, the budget, and a notice', () => {
       const lines: string[] = suffixLines(
-        outcome({ timedOut: true, subtype: 'error_max_budget_usd' }),
-        true,
+        outcome({ timedOut: true, subtype: 'error_max_budget_usd', text: 'partial' }),
         '_a notice_'
       );
 
@@ -430,13 +509,15 @@ describe('the /ask command', () => {
   });
 
   describe('the startup identity check', () => {
+    // One gateway request for every id; whatever does not resolve is absent
+    // from the collection that comes back, rather than a thrown REST call each.
+    const resolving = (ids: readonly string[]): Map<string, { displayName: string }> =>
+      new Map(ids.map((id: string) => [id, { displayName: 'someone' }]));
     const guildWith = (ids: string[]): never =>
       ({
         members: {
-          fetch: async (id: string): Promise<{ displayName: string }> => {
-            if (!ids.includes(id)) throw new Error('Unknown Member');
-            return { displayName: 'someone' };
-          },
+          fetch: async ({ user }: { user: string[] }): Promise<Map<string, unknown>> =>
+            resolving(user.filter((id: string): boolean => ids.includes(id))),
         },
       }) as never;
 
@@ -467,21 +548,21 @@ describe('the /ask command', () => {
       warn.mockRestore();
     });
 
-    test('checks all 14 members', async () => {
+    test('asks for all 14 members in one request', async () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      const seen: string[] = [];
+      const requests: string[][] = [];
 
       await checkIdentityMapping({
         members: {
-          fetch: async (id: string): Promise<{ displayName: string }> => {
-            seen.push(id);
-            return { displayName: 'x' };
+          fetch: async ({ user }: { user: string[] }): Promise<Map<string, unknown>> => {
+            requests.push(user);
+            return resolving(user);
           },
         },
       } as never);
 
-      expect(seen).toHaveLength(14);
-      expect(new Set(seen).size).toBe(14);
+      expect(requests).toHaveLength(1);
+      expect(new Set(requests[0]).size).toBe(14);
       warn.mockRestore();
     });
   });

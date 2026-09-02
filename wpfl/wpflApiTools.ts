@@ -19,24 +19,16 @@ import { tool, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ASK } from '../ask/askConfig.js';
 import { fetchJsonArray, type FetchFn } from './wpflHttp.js';
+// The row shapes are `types/api.ts`'s, not this module's own. /ewins and
+// /optimal read the same three endpoints through those interfaces, and the
+// system prompt promises the agent's number is the same number those commands
+// publish. A second declaration of the payload is exactly how that promise
+// would come apart quietly.
 import type {
   ExpectedWinsResponse,
   OptimalCoachingResponse,
   DraftedPointsResponse,
 } from '../types/api.js';
-
-/**
- * The row shapes are `types/api.ts`'s, not this module's own.
- *
- * /ewins and /optimal read the same three endpoints through those interfaces,
- * and the system prompt promises the agent's number is the same number those
- * commands publish. Two independent declarations of the payload is exactly how
- * that promise comes apart quietly, so there is one declaration and these are
- * aliases for it.
- */
-export type ExpectedWinsRow = ExpectedWinsResponse;
-export type OptimalCoachingRow = OptimalCoachingResponse;
-export type DraftedPointsRow = DraftedPointsResponse;
 
 /** Every description says this, so the agent reaches for ESPN rather than retrying an empty season. */
 const HISTORY_ONLY =
@@ -50,9 +42,9 @@ export async function fetchExpectedWins(
     includePlayoffs?: boolean;
   },
   fetchFn: FetchFn = fetch
-): Promise<ExpectedWinsRow[]> {
+): Promise<ExpectedWinsResponse[]> {
   // The endpoint takes a range; a single season is that season on both bounds.
-  return fetchJsonArray<ExpectedWinsRow>(
+  return fetchJsonArray<ExpectedWinsResponse>(
     `${ASK.WPFL_API_BASE}/expectedwins`,
     {
       seasonMin: params.season,
@@ -68,8 +60,8 @@ export async function fetchExpectedWins(
 export async function fetchOptimalCoaching(
   params: { season: number; week?: number },
   fetchFn: FetchFn = fetch
-): Promise<OptimalCoachingRow[]> {
-  return fetchJsonArray<OptimalCoachingRow>(
+): Promise<OptimalCoachingResponse[]> {
+  return fetchJsonArray<OptimalCoachingResponse>(
     `${ASK.WPFL_API_BASE}/optimalcoaching/pointsfor/${params.season}`,
     { week: params.week },
     fetchFn
@@ -79,8 +71,8 @@ export async function fetchOptimalCoaching(
 export async function fetchDraftedPoints(
   params: { seasonMin: number; seasonMax: number; weekMax?: number },
   fetchFn: FetchFn = fetch
-): Promise<DraftedPointsRow[]> {
-  return fetchJsonArray<DraftedPointsRow>(
+): Promise<DraftedPointsResponse[]> {
+  return fetchJsonArray<DraftedPointsResponse>(
     `${ASK.WPFL_API_BASE}/draft/draftedpoints`,
     { seasonMin: params.seasonMin, seasonMax: params.seasonMax, weekMax: params.weekMax },
     fetchFn

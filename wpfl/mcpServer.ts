@@ -26,8 +26,15 @@ import { espnTools } from './espnTools.js';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const wpflTools: SdkMcpToolDefinition<any>[] = [sqlTool, ...wpflApiTools, ...espnTools];
 
+/**
+ * The server's name is also the `mcpServers` key the runner registers it under
+ * and the prefix of every tool's full name (`mcp__wpfl__sql`), which is what
+ * the allow rule matches. One constant, so the three cannot disagree.
+ */
+export const WPFL_SERVER = 'wpfl';
+
 export const wpflServer = createSdkMcpServer({
-  name: 'wpfl',
+  name: WPFL_SERVER,
   version: '1.0.0',
   alwaysLoad: true,
   instructions:

@@ -12,29 +12,10 @@
  * applies here, and it is large.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { formatInTimeZone } from 'date-fns-tz';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
-import { ASK } from './askConfig.js';
+import { leagueDate } from './leagueTime.js';
 import type { NFLPeriod } from '../helpers/espnPeriod.js';
-
-/**
- * The league's timezone. One definition, in the config file.
- *
- * This half of the prompt used toISOString() (UTC) and getFullYear() (the
- * host's local zone). From 8pm ET onwards that told the agent tomorrow's date,
- * which it then put in the source footer of a public answer.
- */
-const LEAGUE_TZ: string = ASK.LEAGUE_TZ;
-
-export interface AsOf {
-  readonly generated: string | null;
-  readonly factsAsOf: string | null;
-  readonly newsAsOf: string | null;
-  readonly etag: string | null;
-  readonly cacheFetchedAt: string | null;
-}
+import type { AsOf } from '../wpfl/layout.js';
 
 export interface PromptContext {
   /** Canonical WPFL spelling, or null for a Discord user with no mapping. */
@@ -135,7 +116,10 @@ function dynamicHalf(context: PromptContext): string {
     '',
     who,
     '',
-    `Today is ${formatInTimeZone(now, LEAGUE_TZ, 'yyyy-MM-dd')}. It is NFL week ${period.scoringPeriodId} of the ${period.seasonId} season (${weekSource}).`,
+    // In the league timezone. This used toISOString(), which is UTC, so from
+    // 8pm ET onwards the agent was told tomorrow's date and footed it into a
+    // public answer.
+    `Today is ${leagueDate(now)}. It is NFL week ${period.scoringPeriodId} of the ${period.seasonId} season (${weekSource}).`,
     '',
     'Your data is as of:',
     `- Draft artifact generated: ${orUnknown(asOf.generated)}`,
@@ -144,43 +128,6 @@ function dynamicHalf(context: PromptContext): string {
     `- Ten-year history cache fetched: ${orUnknown(asOf.cacheFetchedAt)}`,
     `- Artifact version: ${orUnknown(asOf.etag)}`,
   ].join('\n');
-}
-
-/** The dates the shred actually carries, read from what was written. */
-export function readAsOf(dataDir: string = ASK.DATA_DIR): AsOf {
-  const meta = readJson(path.join(dataDir, 'meta.json')) as {
-    generated?: unknown;
-    facts_as_of?: unknown;
-  } | null;
-
-  return {
-    generated: asString(meta?.generated),
-    factsAsOf: asString(meta?.facts_as_of),
-    newsAsOf: asString(readJson(path.join(dataDir, 'news', 'as_of.json'))),
-    etag: readText(path.join(dataDir, '.etag')),
-    // The marker holds a full ISO timestamp; the date is what anyone reads.
-    cacheFetchedAt: readText(path.join(dataDir, 'wpfl', '.fetched'))?.slice(0, 10) ?? null,
-  };
-}
-
-function readJson(file: string): unknown {
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-function readText(file: string): string | null {
-  try {
-    return fs.readFileSync(file, 'utf8').trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value !== '' ? value : null;
 }
 
 function orUnknown(value: string | null): string {

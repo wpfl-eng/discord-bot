@@ -14,21 +14,27 @@
 
 import type { AskSink } from './askRunner.js';
 import { ASK } from './askConfig.js';
+import { truncate } from '../helpers/utils.js';
 import { logError } from '../errors/errorHandler.js';
 
 const DISCORD_LIMIT = 2000;
+const HEADER = '🤖 **CommishBot**';
 
 export interface Ticker extends AskSink {
   /**
-   * The whole ticker, uncapped.
+   * The whole ticker as it stands, uncapped, with whatever prose has streamed.
    *
    * Capping is the throttled editor's job, because the editor is what pushes a
-   * string into a single Discord message. The final post is continued by
-   * splitForDiscord rather than truncated, so it needs this whole.
+   * string into a single Discord message.
    */
   render(): string;
-  hasProse(): boolean;
-  prose(): string;
+  /**
+   * The ticker with the answer the runner settled on in place of the streamed
+   * prose. The stream includes what the model said before its first tool
+   * call; the SDK's result does not, and that is what gets published. Same
+   * shape as `render()`, so the trace line carries over.
+   */
+  renderFinal(prose: string): string;
   /** This message is waiting for earlier ones in its own thread to finish. */
   onWaiting(behind: number): void;
   /**
@@ -59,8 +65,8 @@ export function createTicker(): Ticker {
   let waitingBehind: number | null = null;
   let notify: () => void = (): void => {};
 
-  const render = (): string => {
-    if (text.trim() !== '') return `${trace(steps)}\n\n${text}`;
+  const compose = (prose: string): string => {
+    if (prose.trim() !== '') return `${trace(steps)}\n\n${prose}`;
     return working(steps, reasoning, queuedAt, waitingBehind);
   };
 
@@ -110,15 +116,9 @@ export function createTicker(): Ticker {
       notify();
     },
 
-    hasProse(): boolean {
-      return text.trim() !== '';
-    },
+    render: (): string => compose(text),
 
-    prose(): string {
-      return text;
-    },
-
-    render,
+    renderFinal: compose,
 
     onChange(handler: () => void): void {
       notify = handler;
@@ -154,7 +154,7 @@ function working(
   queuedAt: number | null,
   waitingBehind: number | null
 ): string {
-  const lines: string[] = ['🤖 **CommishBot**'];
+  const lines: string[] = [HEADER];
 
   // Its own thread first: a message behind another in the same thread has not
   // asked for a slot yet, so the global queue line would be wrong.
@@ -189,7 +189,7 @@ function working(
 
 /** Once prose starts, the whole tool list becomes one line of provenance. */
 function trace(steps: Step[]): string {
-  if (steps.length === 0) return '🤖 **CommishBot**';
+  if (steps.length === 0) return HEADER;
   const names: string = steps.map((s) => (s.error === null ? s.tool : `${s.tool} ✗`)).join(' → ');
   return `> _${steps.length} tool call${steps.length === 1 ? '' : 's'}: ${truncate(names, 180)}_`;
 }
@@ -228,22 +228,25 @@ function readableName(name: string): string {
   return name.replace(/^mcp__[^_]+__/, '');
 }
 
-function truncate(value: string, limit: number): string {
-  return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
-}
-
 export interface ThrottledEditor {
   /**
    * @param render called only if an edit is actually about to go out.
    */
   update(render: () => string): void;
-  flush(): Promise<void>;
+  /**
+   * Stop editing: drop whatever is pending and wait for the edit in flight.
+   *
+   * Nothing pending is sent. The final post replaces this message within the
+   * same second, and the edit budget is tightest exactly then; waiting for the
+   * in-flight edit is what keeps that post from being overtaken by a stale one.
+   */
+  settle(): Promise<void>;
 }
 
 /**
  * Discord allows roughly 5 edits per 5 s per channel. Edits are coalesced to
  * one per throttle window — whatever arrived in between is dropped, since only
- * the newest state matters — and the final state is always flushed.
+ * the newest state matters.
  *
  * `update` takes a thunk rather than a string because the caller is the agent's
  * event stream: a run emits on the order of 1,000-3,000 deltas, of which a
@@ -298,12 +301,12 @@ export function createThrottledEditor(
       pending = render;
     },
 
-    async flush(): Promise<void> {
+    async settle(): Promise<void> {
       if (timer !== null) {
         clearTimeout(timer);
         timer = null;
       }
-      sendPending();
+      pending = null;
       await inFlight;
     },
   };

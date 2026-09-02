@@ -5,7 +5,8 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
   recordToolException: jest.fn(),
 }));
 
-// The week comes from ESPN in production. Nothing here reaches the network.
+// The week comes from ESPN in production. Nothing here reaches the network,
+// and the ESPN tools the wpfl server registers get no client to reach it with.
 jest.unstable_mockModule('../../helpers/espnPeriod.js', () => ({
   getCurrentPeriod: jest.fn(async () => ({
     seasonId: 2026,
@@ -13,6 +14,7 @@ jest.unstable_mockModule('../../helpers/espnPeriod.js', () => ({
     matchupPeriodId: 7,
     source: 'espn',
   })),
+  espnClientFromEnv: jest.fn(() => null),
 }));
 
 const { runAsk } = await import('../../ask/askRunner.js');
@@ -74,9 +76,10 @@ const success = (over: Message = {}): Message => ({
   total_cost_usd: 0.1473,
   usage: {},
   modelUsage: { 'claude-opus-5': { inputTokens: 18000, outputTokens: 2400 } },
-  // No `result` by default: most tests stream their text and expect it back.
-  // A real success result carries the final answer, which the one test that
-  // sets it asserts is preferred over the stream.
+  // An empty `result` by default: most tests stream their text and expect it
+  // back. A real success result carries the final answer, which the one test
+  // that sets it asserts is preferred over the stream.
+  result: '',
   is_error: false,
   ...over,
 });

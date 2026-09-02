@@ -2,43 +2,20 @@ import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globa
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {
-  normalizeEtag,
-  ensureFresh,
-  type SyncOutcome,
-  type SyncDeps,
-} from '../../wpfl/artifactSync.js';
-import type { FetchFn, HttpResponse, HistoryCacheResult } from '../../wpfl/historyCache.js';
-import { borrowShred, retiredShreds } from '../../wpfl/liveShred.js';
+import { ensureFresh, type SyncOutcome, type SyncDeps } from '../../wpfl/artifactSync.js';
+import type { HistoryCacheResult } from '../../wpfl/historyCache.js';
+import type { FetchFn, HttpResponse } from '../../wpfl/wpflHttp.js';
+import { liveShred } from '../../wpfl/liveShred.js';
 import type { Release } from '../../ask/generations.js';
 import { ASK } from '../../ask/askConfig.js';
 
 const FIXTURE: string = path.join(process.cwd(), 'tests/fixtures/postdraft-published.json');
 
 // artifactSync is not in the design's mandatory red-green table -- it is I/O
-// orchestration. These tests cover the two parts that measurably can break:
-// etag normalization (Cloudflare returns a weak etag on a compressed response
-// and a strong one otherwise, so the raw strings differ for the same build)
-// and the swap, which must never leave a partial shred readable.
+// orchestration. These tests cover the parts that measurably can break: the
+// etag short-circuit (normalization itself is tested with wpfl/layout.ts) and
+// the swap, which must never leave a partial shred readable.
 describe('artifactSync', () => {
-  describe('normalizeEtag', () => {
-    test('strips the weak-validator prefix so the same build compares equal', () => {
-      expect(normalizeEtag('W/"75c67b38"')).toBe('75c67b38');
-      expect(normalizeEtag('"75c67b38"')).toBe('75c67b38');
-      expect(normalizeEtag('75c67b38')).toBe('75c67b38');
-    });
-
-    test('a weak and a strong etag for one build normalize to the same value', () => {
-      expect(normalizeEtag('W/"abc123"')).toBe(normalizeEtag('"abc123"'));
-    });
-
-    test('treats absent or empty as unknown', () => {
-      expect(normalizeEtag(null)).toBeNull();
-      expect(normalizeEtag('')).toBeNull();
-      expect(normalizeEtag('W/""')).toBeNull();
-    });
-  });
-
   describe('ensureFresh', () => {
     let dataDir: string;
     let parent: string;
@@ -291,7 +268,7 @@ describe('artifactSync', () => {
         await ensureFresh(deps());
         const before: string = fs.readFileSync(path.join(dataDir, 'meta.json'), 'utf8');
 
-        const reader: Release = borrowShred();
+        const reader: Release = liveShred.enter();
         expect((await reshred(Date.now() + 7 * 60 * 60 * 1000)).kind).toBe('reshredded');
 
         const retired: string[] = fs
@@ -302,17 +279,17 @@ describe('artifactSync', () => {
         // agent is reading by relative path.
         expect(fs.readFileSync(path.join(parent, retired[0], 'meta.json'), 'utf8')).toBe(before);
         expect(fs.existsSync(path.join(parent, retired[0], 'teams/aj-boorde.json'))).toBe(true);
-        expect(retiredShreds()).toBe(1);
+        expect(liveShred.pending()).toBe(1);
 
         reader();
 
         expect(fs.readdirSync(parent)).toEqual(['wpfl-data']);
-        expect(retiredShreds()).toBe(0);
+        expect(liveShred.pending()).toBe(0);
       });
 
       test('does not delay the swap', async () => {
         await ensureFresh(deps());
-        const reader: Release = borrowShred();
+        const reader: Release = liveShred.enter();
 
         // A four-minute query must never hold up a reshred, which is why the
         // teardown is deferred rather than the swap made to wait.
@@ -336,7 +313,7 @@ describe('artifactSync', () => {
         fs.writeFileSync(path.join(abandonedShred, 'meta.json'), '{}');
         fs.mkdirSync(abandonedStaging);
 
-        const reader: Release = borrowShred();
+        const reader: Release = liveShred.enter();
         await reshred(Date.now() + 7 * 60 * 60 * 1000);
 
         expect(fs.existsSync(abandonedShred)).toBe(false);

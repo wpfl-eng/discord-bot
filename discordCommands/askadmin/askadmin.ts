@@ -13,7 +13,6 @@
  * that per channel or role in Server Settings without a code change.
  */
 
-import path from 'node:path';
 import {
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -24,8 +23,7 @@ import { credentialConfigured } from '../../ask/askAuth.js';
 import { isAskPaused, setAskPaused } from '../../ask/pause.js';
 import { inFlight } from '../../ask/concurrency.js';
 import { activeThreads } from '../../ask/threadQueue.js';
-import { readAsOf, type AsOf } from '../../ask/systemPrompt.js';
-import { startOfDay, startOfMonth } from '../../ask/caps.js';
+import { leagueDateTime, startOfDay, startOfMonth } from '../../ask/leagueTime.js';
 import {
   countAllQuestionsSince,
   countByUserSince,
@@ -37,8 +35,11 @@ import {
 } from '../../ask/askDb.js';
 import { ensureFresh, type SyncOutcome } from '../../wpfl/artifactSync.js';
 import { cacheExtents, type SourceExtents } from '../../wpfl/historyCache.js';
+import { cacheDir, readAsOf, type AsOf } from '../../wpfl/layout.js';
+import { warmSqlDatabase } from '../../wpfl/sqlTool.js';
 import { getWpflMemberByDiscordId } from '../../constants/wpflMembers.js';
 import { NO_MENTIONS } from '../../ask/mentions.js';
+import { truncate } from '../../helpers/utils.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ask-admin')
@@ -94,9 +95,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     case 'status':
       content = renderStatus(gatherStatus());
       break;
-    case 'resync':
-      content = renderSync(await ensureFresh({ force: true }));
+    case 'resync': {
+      const outcome: SyncOutcome = await ensureFresh({ force: true });
+      // A reshred retires the materialized database; rebuild it now rather
+      // than inside the next member's turn.
+      if (outcome.kind === 'reshredded') warmSqlDatabase();
+      content = renderSync(outcome);
       break;
+    }
     case 'usage':
       content = renderUsage(await gatherUsage());
       break;
@@ -119,7 +125,7 @@ function gatherStatus(): AskStatus {
   return {
     dataDir: ASK.DATA_DIR,
     asOf: readAsOf(),
-    extents: cacheExtents(path.join(ASK.DATA_DIR, 'wpfl')),
+    extents: cacheExtents(cacheDir(ASK.DATA_DIR)),
     inFlight: inFlight(),
     activeThreads: activeThreads(),
     credential: credentialConfigured(),
@@ -177,7 +183,6 @@ export function renderSync(outcome: SyncOutcome): string {
 
 export function renderUsage(usage: AskUsage): string {
   const seconds = (ms: number | null): string => (ms === null ? '?' : `${Math.round(ms / 1000)} s`);
-  const when = (date: Date): string => date.toISOString().slice(5, 16).replace('T', ' ');
 
   const today: string[] =
     usage.today.length === 0
@@ -189,7 +194,7 @@ export function renderUsage(usage: AskUsage): string {
       ? ['  none']
       : usage.runs.map(
           (run) =>
-            `  ${when(run.createdAt)} ${memberName(run.userId)} · ${run.subtype ?? '?'} · ${seconds(run.durationMs)} · $${run.costUsd.toFixed(2)} est${run.counted ? '' : ' · uncounted'}${run.error === null ? '' : ` · ${run.error}`}\n    "${truncate(run.prompt, 80)}"`
+            `  ${leagueDateTime(run.createdAt)} ${memberName(run.userId)} · ${run.subtype ?? '?'} · ${seconds(run.durationMs)} · $${run.costUsd.toFixed(2)} est${run.counted ? '' : ' · uncounted'}${run.error === null ? '' : ` · ${run.error}`}\n    "${truncate(run.prompt, 80)}"`
         );
 
   const downs: string[] =
@@ -197,7 +202,7 @@ export function renderUsage(usage: AskUsage): string {
       ? ['  none']
       : usage.thumbsDown.map(
           (down) =>
-            `  ${when(down.updatedAt)} ${memberName(down.userId)} on message ${down.messageId} in thread ${down.threadId ?? 'unknown'}`
+            `  ${leagueDateTime(down.updatedAt)} ${memberName(down.userId)} on message ${down.messageId} in thread ${down.threadId ?? 'unknown'}`
         );
 
   return [
@@ -217,8 +222,4 @@ export function renderUsage(usage: AskUsage): string {
 /** A canonical owner name where there is one; a snowflake is never shown as a ping. */
 function memberName(userId: string): string {
   return getWpflMemberByDiscordId(userId)?.owner ?? `user ${userId}`;
-}
-
-function truncate(value: string, limit: number): string {
-  return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
 }

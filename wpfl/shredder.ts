@@ -111,7 +111,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
     }
     fs.mkdirSync(path.dirname(full), { recursive: true });
     fs.writeFileSync(full, contents);
-    files.push({ path: relative, bytes: fs.statSync(full).size });
+    files.push({ path: relative, bytes: Buffer.byteLength(contents) });
   };
 
   for (const [body, value] of Object.entries(artifact)) {

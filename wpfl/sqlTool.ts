@@ -27,7 +27,9 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { ASK } from '../ask/askConfig.js';
 import { createGenerations, type Generations, type Release } from '../ask/generations.js';
-import { borrowShred } from './liveShred.js';
+import { logError } from '../errors/errorHandler.js';
+import { liveShred } from './liveShred.js';
+import { metaFile, tableName } from './layout.js';
 
 export interface SqlResult {
   readonly rows: Record<string, unknown>[];
@@ -210,6 +212,7 @@ function close(materialized: Materialized | null): void {
   }
 }
 
+/** Tests only: what the shred became. */
 export async function tableNames(dataDir: string = ASK.DATA_DIR): Promise<string[]> {
   const held: Held = await database(dataDir);
   try {
@@ -217,6 +220,19 @@ export async function tableNames(dataDir: string = ASK.DATA_DIR): Promise<string
   } finally {
     held.release();
   }
+}
+
+/**
+ * Build the database for the live shred now, in the background, so the first
+ * `sql` call after a boot or a reshred does not pay the ~11 MB materialization
+ * inside a member's turn. A call that arrives mid-build joins it.
+ */
+export function warmSqlDatabase(): void {
+  database(ASK.DATA_DIR)
+    .then((held: Held): void => held.release())
+    .catch((error: unknown): void => {
+      logError('ask', 'Could not warm the SQL database', error);
+    });
 }
 
 export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promise<SqlResult> {
@@ -287,7 +303,7 @@ function ensureBuilt(dataDir: string, key: string): Promise<void> {
 async function build(dataDir: string, key: string): Promise<void> {
   // ~11 MB read off the live shred, a file at a time. A reshred landing
   // half-way through would otherwise unlink the sources under the loop.
-  const shred: Release = borrowShred();
+  const shred: Release = liveShred.enter();
   const tables: string[] = [];
   let connection: DuckDBConnection;
 
@@ -345,11 +361,6 @@ function queryableSources(dataDir: string): [string, string][] {
   return sources;
 }
 
-function tableName(directory: string | null, file: string): string {
-  const base: string = file.replace(/\.jsonl?$/, '').replace(/[^A-Za-z0-9_]/g, '_');
-  return directory === null ? base : `${directory}_${base}`;
-}
-
 /**
  * meta.json's mtime, not INDEX.md's.
  *
@@ -362,8 +373,7 @@ function tableName(directory: string | null, file: string): string {
  * by a real shred, and the swap is a rename, which preserves the new mtime.
  */
 function shredStamp(dataDir: string): number {
-  const meta: string = path.join(dataDir, 'meta.json');
-  return fs.existsSync(meta) ? fs.statSync(meta).mtimeMs : 0;
+  return fs.statSync(metaFile(dataDir), { throwIfNoEntry: false })?.mtimeMs ?? 0;
 }
 
 export const sqlTool: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(

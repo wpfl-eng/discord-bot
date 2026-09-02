@@ -5,10 +5,9 @@ import path from 'node:path';
 import {
   refreshWpflCache,
   cacheExtents,
-  type FetchFn,
-  type HttpResponse,
   type HistoryCacheResult,
 } from '../../wpfl/historyCache.js';
+import type { FetchFn, HttpResponse } from '../../wpfl/wpflHttp.js';
 
 type Row = Record<string, unknown>;
 

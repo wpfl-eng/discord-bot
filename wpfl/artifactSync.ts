@@ -13,13 +13,18 @@ import path from 'node:path';
 import { ASK } from '../ask/askConfig.js';
 import { shred, type ShredResult } from './shredder.js';
 import { generateIndex } from './indexGenerator.js';
+import { refreshWpflCache, cacheExtents } from './historyCache.js';
+import { fetchWithTimeout, type FetchFn, type HttpResponse } from './wpflHttp.js';
 import {
-  refreshWpflCache,
-  cacheExtents,
-  type FetchFn,
-  type HistoryCacheResult,
-} from './historyCache.js';
-import { retireShred } from './liveShred.js';
+  cacheDir,
+  etagFile,
+  indexFile,
+  normalizeEtag,
+  readAsOf,
+  readCacheFetchedAt,
+  readEtag,
+} from './layout.js';
+import { liveShred } from './liveShred.js';
 import { logError } from '../errors/errorHandler.js';
 
 export type SyncOutcome =
@@ -41,18 +46,6 @@ export interface SyncDeps {
    * republish. A forced call that finds a sync already in flight joins it.
    */
   readonly force?: boolean;
-}
-
-/**
- * Cloudflare returns a weak validator (`W/"abc"`) when it serves the artifact
- * compressed and a strong one (`"abc"`) when it does not, for the same build.
- * Comparing the raw header strings would therefore never match and the
- * unchanged short-circuit would be dead. Normalize both to the bare value.
- */
-export function normalizeEtag(raw: string | null | undefined): string | null {
-  if (raw === null || raw === undefined) return null;
-  const bare: string = raw.trim().replace(/^W\//i, '').replace(/^"|"$/g, '');
-  return bare === '' ? null : bare;
 }
 
 /**
@@ -84,22 +77,24 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
 
   const force: boolean = deps.force === true;
 
-  const index: string = path.join(dataDir, 'INDEX.md');
-  if (!force && fs.existsSync(index) && now() - fs.statSync(index).mtimeMs < ASK.STALE_AFTER_MS) {
+  const index: string = indexFile(dataDir);
+  const indexWrittenAt: number | undefined = fs.statSync(index, { throwIfNoEntry: false })?.mtimeMs;
+  if (!force && indexWrittenAt !== undefined && now() - indexWrittenAt < ASK.STALE_AFTER_MS) {
     return { kind: 'fresh' };
   }
 
-  // Every other fetch in this feature carries a deadline; this one used not to,
-  // so a hung artifact host stalled the question that triggered it -- after
-  // deferReply, with nothing yet on screen.
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), deps.timeoutMs ?? ASK.WPFL_FETCH_TIMEOUT_MS);
-
-  let response: Awaited<ReturnType<FetchFn>>;
   let artifact: unknown;
   let etag: string | null;
   try {
-    response = await fetchFn(ASK.ARTIFACT_URL, { signal: controller.signal });
+    // With a deadline, like every other fetch in this feature: a hung artifact
+    // host used to stall the question that triggered it -- after deferReply,
+    // with nothing yet on screen.
+    const response: HttpResponse = await fetchWithTimeout(
+      ASK.ARTIFACT_URL,
+      fetchFn,
+      'The artifact fetch',
+      deps.timeoutMs
+    );
     if (!response.ok) {
       return failed(`the artifact URL returned HTTP ${response.status}`);
     }
@@ -118,8 +113,8 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
     if (
       !force &&
       etag !== null &&
-      etag === lastSeenEtag(dataDir) &&
-      fs.existsSync(index) &&
+      etag === readEtag(dataDir) &&
+      indexWrittenAt !== undefined &&
       cacheIsFresh(dataDir, now())
     ) {
       // Same build. Touch INDEX.md so the staleness window restarts rather
@@ -130,10 +125,7 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
 
     artifact = await response.json();
   } catch (error: unknown) {
-    const timedOut: boolean = error instanceof Error && error.name === 'AbortError';
-    return failed(timedOut ? `the artifact fetch timed out` : String(error));
-  } finally {
-    clearTimeout(timeout);
+    return failed(error instanceof Error ? error.message : String(error));
   }
 
   // Build the whole new tree beside the live one and swap at the end, so a
@@ -151,9 +143,9 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
     // 8.4 MB), of which the happy path discards 100%. The copy was only ever
     // there to preserve a source whose fetch failed, and that is what this
     // preserves, at zero bytes when nothing failed.
-    const previousCache: string = path.join(dataDir, 'wpfl');
-    const stagedCache: string = path.join(staging, 'wpfl');
-    const cache: HistoryCacheResult = await refreshCache(stagedCache);
+    const previousCache: string = cacheDir(dataDir);
+    const stagedCache: string = cacheDir(staging);
+    await refreshCache(stagedCache);
     if (fs.existsSync(previousCache)) {
       for (const name of fs.readdirSync(previousCache)) {
         const target: string = path.join(stagedCache, name);
@@ -168,20 +160,22 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
     // cache, and one that was never fetched at all must not be advertised.
     const cacheFiles: string[] = fs.existsSync(stagedCache) ? fs.readdirSync(stagedCache) : [];
 
+    // The etag lands before INDEX.md is generated, because INDEX.md reads its
+    // as-of dates back from the staged files -- the same reader the prompt
+    // and /ask-admin use -- rather than from the artifact object. A carried-
+    // over cache marker is then described as accurately as a fresh one.
+    if (etag !== null) fs.writeFileSync(etagFile(staging), `${etag}\n`);
     fs.writeFileSync(
-      path.join(staging, 'INDEX.md'),
+      indexFile(staging),
       generateIndex({
         shred: result,
-        artifact,
-        etag,
-        wpflCacheFetchedAt: cache.sources.length > 0 ? cache.fetchedAt : null,
+        asOf: readAsOf(staging),
         wpflCacheFiles: cacheFiles,
         // Read from the files after the copy-back, so a carried-over source
         // is described as accurately as one fetched this run.
         wpflCacheExtents: cacheExtents(stagedCache),
       })
     );
-    if (etag !== null) fs.writeFileSync(path.join(staging, '.etag'), `${etag}\n`);
 
     swap(dataDir, staging);
     return { kind: 'reshredded', files: result.files.length, etag };
@@ -223,7 +217,7 @@ function swap(dataDir: string, staging: string): void {
   // into ENOENT, mid-answer. So the deletion waits for the last reader, and
   // the swap itself never does.
   retiring.add(retired);
-  retireShred((): void => {
+  liveShred.rotate((): void => {
     fs.rmSync(retired, { recursive: true, force: true });
     retiring.delete(retired);
   });
@@ -266,16 +260,8 @@ function sweepLitter(dataDir: string): void {
 
 /** The decade cache is fresh while its marker is inside its own window. */
 function cacheIsFresh(dataDir: string, now: number): boolean {
-  const marker: string = path.join(dataDir, 'wpfl', '.fetched');
-  if (!fs.existsSync(marker)) return false;
-  const fetchedAt: number = Date.parse(fs.readFileSync(marker, 'utf8').trim());
-  return Number.isFinite(fetchedAt) && now - fetchedAt < ASK.WPFL_CACHE_STALE_AFTER_MS;
-}
-
-function lastSeenEtag(dataDir: string): string | null {
-  const file: string = path.join(dataDir, '.etag');
-  if (!fs.existsSync(file)) return null;
-  return normalizeEtag(fs.readFileSync(file, 'utf8'));
+  const fetchedAt: Date | null = readCacheFetchedAt(dataDir);
+  return fetchedAt !== null && now - fetchedAt.getTime() < ASK.WPFL_CACHE_STALE_AFTER_MS;
 }
 
 function failed(reason: string): SyncOutcome {

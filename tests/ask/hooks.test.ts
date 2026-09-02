@@ -332,6 +332,32 @@ describe('hooks', () => {
     });
   });
 
+  /**
+   * The guard used to know `file_path`, `path` and Glob's `pattern` by name,
+   * in an if-chain, while the config promised that a tool added to the file
+   * tools was confined automatically. A fourth tool naming its path anything
+   * else would have matched the guard and passed on an empty list. The path
+   * arguments are a table now, the file tools derive from it, and a tool with
+   * no entry is refused rather than waved through.
+   */
+  describe('the path-argument table', () => {
+    test('denies a tool it has no entry for, rather than passing it on an empty list', async () => {
+      const decision = await call(createPathGuard(CONTEXT, dataDir), 'NotebookRead', {
+        notebook_path: '/etc/passwd',
+      });
+
+      expect(denied(decision)).toBe(true);
+      expect(decision.hookSpecificOutput?.permissionDecisionReason).toMatch(/NotebookRead/);
+    });
+
+    test('the file tools are exactly the table, in its order', async () => {
+      const { FILE_TOOLS, ASK } = await import('../../ask/askConfig.js');
+
+      expect(FILE_TOOLS).toEqual(Object.keys(ASK.PATH_ARGUMENTS));
+      expect(FILE_TOOLS).toEqual(['Read', 'Grep', 'Glob']);
+    });
+  });
+
   describe('the assembled hook configuration', () => {
     test('guards the three file tools and WebFetch before they run', () => {
       const hooks = createHooks(CONTEXT, dataDir);

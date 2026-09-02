@@ -32,11 +32,9 @@ import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import prettier from 'prettier';
-import pkg from 'espn-fantasy-football-api/node.js';
 import { ASK } from '../ask/askConfig.js';
+import { espnClientFromEnv } from '../helpers/espnPeriod.js';
 import { getCurrentNFLSeason } from '../helpers/utils.js';
-
-const { Client } = pkg;
 
 // The URLs come from askConfig rather than being restated here. The whole point
 // of this script is that the fixtures match what the bot actually fetches, and a
@@ -163,21 +161,17 @@ for (const [name, url] of WPFL_RECORDINGS) {
   await write(name, (await response.json()) as Json);
 }
 
-const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
-if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) {
+const client = espnClientFromEnv();
+if (client === null) {
   console.log('skipped the ESPN recordings: LEAGUE_ID, ESPN_S2 or SWID is not set');
 } else {
-  const client = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
-  client.setCookies({ espnS2: ESPN_S2, SWID });
   // Not getFullYear(): in January and February that names a season ESPN has no
   // data for, and the recording would be of an empty league.
   const seasonId: number = getCurrentNFLSeason();
 
-  // Trimmed to a few entries each: 837 free agents and 14 full rosters are the
-  // same shape repeated, and the interface is what these are recorded for.
-  // Two entries each. Enough to show that a field is a list; a transaction
-  // action carries the whole 13 KB team object, so three of everything is far
-  // more than the shape needs.
+  // Two entries each: 837 free agents and 14 full rosters are the same shape
+  // repeated, the interface is what these are recorded for, and a transaction
+  // action carries a whole team object.
   const KEEP_ESPN = 2;
   // The fork's typings are interfaces, which do not structurally satisfy the
   // recursive Json index signature. These payloads are plain JSON off the wire.

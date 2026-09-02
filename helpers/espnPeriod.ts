@@ -18,9 +18,23 @@
  */
 
 import { Client } from '../espnClient.cjs';
-import type { League } from 'espn-fantasy-football-api/node.js';
+import type { Client as EspnClient, League } from 'espn-fantasy-football-api/node.js';
 import { logError } from '../errors/index.js';
 import { getCurrentNFLSeason, getCurrentNFLWeek } from './utils.js';
+
+/**
+ * The league client, configured from LEAGUE_ID, ESPN_S2 and SWID, or null when
+ * any of the three is unset. The one place the fork is constructed for the
+ * /ask tools, the fixtures script and the week lookup below.
+ */
+export function espnClientFromEnv(): EspnClient | null {
+  const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
+  if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) return null;
+
+  const client = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
+  client.setCookies({ espnS2: ESPN_S2, SWID });
+  return client;
+}
 
 export interface NFLPeriod {
   readonly seasonId: number;
@@ -49,16 +63,12 @@ function fromCalendar(): NFLPeriod {
 }
 
 async function lookUpPeriod(): Promise<NFLPeriod> {
-  const { LEAGUE_ID, ESPN_S2, SWID } = process.env;
-  if (LEAGUE_ID === undefined || ESPN_S2 === undefined || SWID === undefined) {
-    return fromCalendar();
-  }
+  const client: EspnClient | null = espnClientFromEnv();
+  if (client === null) return fromCalendar();
 
   const seasonId: number = getCurrentNFLSeason();
 
   try {
-    const client = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
-    client.setCookies({ espnS2: ESPN_S2, SWID });
     const league: League = await client.getLeagueInfo({ seasonId });
 
     // A league mid-creation, or a season ESPN has not opened yet, reports no current period. That

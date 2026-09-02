@@ -16,16 +16,17 @@
 import path from 'node:path';
 import type { ShredResult } from './shredder.js';
 import type { SourceExtents } from './historyCache.js';
+import { CACHE_SOURCES, tableName, type AsOf } from './layout.js';
 import { wpflMembers } from '../constants/wpflMembers.js';
 
 export interface IndexInput {
   readonly shred: ShredResult;
-  /** The artifact itself, for the as-of dates in its header. */
-  readonly artifact: unknown;
-  /** Cloudflare etag of the build this shred came from, normalized. */
-  readonly etag: string | null;
-  /** When the WPFL history cache was last rebuilt, or null if it has not been. */
-  readonly wpflCacheFetchedAt: Date | null;
+  /**
+   * The as-of dates and the build's etag, read back from the staged files by
+   * the same reader the prompt and /ask-admin use -- not from the artifact
+   * object -- so the three can never disagree about what is on disk.
+   */
+  readonly asOf: AsOf;
   /**
    * The files actually present in the cache directory when this was generated.
    *
@@ -42,24 +43,21 @@ export interface IndexInput {
   readonly wpflCacheExtents?: Readonly<Record<string, SourceExtents>>;
 }
 
-/** The cache files this feature knows how to describe, and their table names. */
-const CACHED_DECADE: readonly (readonly [string, string, string])[] = [
+/**
+ * The cache files this feature knows how to describe. The table names are
+ * derived the way `sql` derives them, so INDEX.md cannot advertise a name the
+ * database would not have.
+ */
+const CACHED_DECADE: readonly (readonly [file: string, table: string, description: string])[] = (
   [
-    'draft_history.jsonl',
-    'wpfl_draft_history',
-    'Every auction pick, one row per player per season.',
-  ],
-  [
-    'matchups.jsonl',
-    'wpfl_matchups',
-    'Every head-to-head result, with both scores and the margin.',
-  ],
-  [
-    'player_scores.jsonl',
-    'wpfl_player_scores',
-    'Every weekly player score, with roster slot — the only way to ask what a drafted player went on to do.',
-  ],
-];
+    [CACHE_SOURCES.draftHistory, 'Every auction pick, one row per player per season.'],
+    [CACHE_SOURCES.matchups, 'Every head-to-head result, with both scores and the margin.'],
+    [
+      CACHE_SOURCES.playerScores,
+      'Every weekly player score, with roster slot — the only way to ask what a drafted player went on to do.',
+    ],
+  ] as const
+).map(([file, description]) => [file, tableName('wpfl', file), description] as const);
 
 /** One line per file, keyed by shred-relative path. Team files share a description. */
 const FILE_DESCRIPTIONS: Record<string, string> = {
@@ -162,14 +160,12 @@ const GLOSSARY: readonly (readonly [string, string])[] = [
 ];
 
 export function generateIndex(input: IndexInput): string {
-  const { shred, artifact, etag, wpflCacheFetchedAt } = input;
-  const meta: Record<string, unknown> = bodyOf(artifact, 'meta');
-  const news: Record<string, unknown> = bodyOf(artifact, 'news');
+  const { shred, asOf } = input;
 
   const sections: string[] = [
-    header(meta, news, etag, wpflCacheFetchedAt),
+    header(asOf),
     fileMap(shred),
-    cachedDecade(wpflCacheFetchedAt, input.wpflCacheFiles, input.wpflCacheExtents),
+    cachedDecade(asOf.cacheFetchedAt, input.wpflCacheFiles, input.wpflCacheExtents),
     skipped(shred),
     undocumented(shred),
     glossary(),
@@ -180,22 +176,17 @@ export function generateIndex(input: IndexInput): string {
   return sections.filter((section: string): boolean => section !== '').join('\n\n');
 }
 
-function header(
-  meta: Record<string, unknown>,
-  news: Record<string, unknown>,
-  etag: string | null,
-  wpflCacheFetchedAt: Date | null
-): string {
+function header(asOf: AsOf): string {
   return [
     '# WPFL data index',
     '',
     'Generated on every shred from what was actually written. Never hand-edited.',
     '',
-    `- Artifact generated: **${asText(meta.generated)}**`,
-    `- Facts as of: **${asText(meta.facts_as_of)}**`,
-    `- News as of: **${asText(news.as_of)}**`,
-    `- Artifact etag: **${etag ?? 'unknown'}**`,
-    `- WPFL history cache fetched: **${wpflCacheFetchedAt === null ? 'unknown' : wpflCacheFetchedAt.toISOString().slice(0, 10)}**`,
+    `- Artifact generated: **${asOf.generated ?? 'unknown'}**`,
+    `- Facts as of: **${asOf.factsAsOf ?? 'unknown'}**`,
+    `- News as of: **${asOf.newsAsOf ?? 'unknown'}**`,
+    `- Artifact etag: **${asOf.etag ?? 'unknown'}**`,
+    `- WPFL history cache fetched: **${asOf.cacheFetchedAt ?? 'unknown'}**`,
     '',
     'This artifact is a **post-draft** report. It froze on draft night, and the',
     'news layer stops on the date above. Anything about the 2026 season in',
@@ -242,26 +233,28 @@ function describeFile(relative: string): string {
  * impossible, and it was the one section not generated from what was written.
  */
 function cachedDecade(
-  fetchedAt: Date | null,
+  fetchedAt: string | null,
   files: readonly string[] = [],
   extents: Readonly<Record<string, SourceExtents>> = {}
 ): string {
   const present = CACHED_DECADE.filter(([file]) => files.includes(file));
   const missing = CACHED_DECADE.filter(([file]) => !files.includes(file));
+  const tables = (rows: typeof CACHED_DECADE): string =>
+    rows.map(([, table]) => `\`${table}\``).join(', ');
 
   const lines: string[] = ['## The cached WPFL decade', ''];
 
   if (present.length === 0) {
     lines.push(
-      'The ten-year history cache has not been built. `wpfl_draft_history`,',
-      '`wpfl_matchups` and `wpfl_player_scores` are unavailable this run — say so',
-      'rather than answering a ten-year question from the artifact alone.'
+      `The ten-year history cache has not been built. ${tables(CACHED_DECADE)}`,
+      'are unavailable this run — say so rather than answering a ten-year',
+      'question from the artifact alone.'
     );
     return lines.join('\n');
   }
 
   lines.push(
-    `${fetchedAt === null ? 'Fetched' : `Fetched ${fetchedAt.toISOString().slice(0, 10)}`} from the league's history API and written`,
+    `${fetchedAt === null ? 'Fetched' : `Fetched ${fetchedAt}`} from the league's history API and written`,
     'to `wpfl/` as JSONL. Reachable **only through the `sql` tool** — one table each,',
     'and far too many rows to read as files. The last column is where each',
     "table's rows actually end, read from the file:",
@@ -277,7 +270,7 @@ function cachedDecade(
   if (missing.length > 0) {
     lines.push(
       '',
-      `**Not available this run:** ${missing.map(([, table]) => `\`${table}\``).join(', ')}.`,
+      `**Not available this run:** ${tables(missing)}.`,
       'That fetch failed and the file was not written. Say so rather than',
       'answering as if the table were there.'
     );
@@ -372,16 +365,6 @@ function routing(): string {
     '   `drafted_points`. The league already publishes these figures through',
     '   `/ewins` and `/optimal`, and yours must be the same figure.',
   ].join('\n');
-}
-
-function bodyOf(artifact: unknown, name: string): Record<string, unknown> {
-  const root = artifact as Record<string, unknown> | null;
-  const body = root?.[name];
-  return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
-}
-
-function asText(value: unknown): string {
-  return typeof value === 'string' || typeof value === 'number' ? String(value) : 'unknown';
 }
 
 function bytes(count: number): string {

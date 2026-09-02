@@ -13,8 +13,9 @@
  * design §7 covers that asymmetry with a startup resolution check and owner
  * attribution in every answer footer.
  *
- * The ESPN fork returns a blank team.name and has no ownerName field, so this
- * is not merely the preferred owner mapping, it is the only one available.
+ * The ESPN fork does return team names and an ownerName, but those are
+ * whatever the owner typed into ESPN. This table is the canonical spelling
+ * the artifact and the WPFL API are keyed by, so it is the one the bot uses.
  */
 
 export interface WpflMember {

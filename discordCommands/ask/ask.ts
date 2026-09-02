@@ -6,6 +6,10 @@
  * interaction-token expiry entirely — a slow run cannot strand the reply — and
  * gives the ticker the thread's own rate-limit bucket rather than the parent
  * channel's (design §6.1).
+ *
+ * Only transport lives here. What stands between a question and a run -- the
+ * pause switch, the credential, the caps, the freshness of the shred -- is
+ * ask/preflight.ts, shared with the thread continuation below.
  */
 
 import {
@@ -17,13 +21,10 @@ import {
   type SendableChannels,
   type User,
 } from 'discord.js';
-import type { SDKAssistantMessageError } from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from '../../ask/askConfig.js';
-import { checkCaps, type CapDecision } from '../../ask/caps.js';
-import { credentialConfigured } from '../../ask/askAuth.js';
-import { isAskPaused } from '../../ask/pause.js';
 import { NO_MENTIONS } from '../../ask/mentions.js';
-import { runAsk, type AskOutcome } from '../../ask/askRunner.js';
+import { preflight, type Preflight } from '../../ask/preflight.js';
+import { runAsk, type AskOutcome, type OpsFailure } from '../../ask/askRunner.js';
 import { enqueueInThread, type Admitted } from '../../ask/threadQueue.js';
 import {
   createTicker,
@@ -38,12 +39,12 @@ import {
   closeSession,
   type AskSession,
 } from '../../ask/askDb.js';
-import { ensureFresh } from '../../wpfl/artifactSync.js';
 import {
   getWpflMemberByDiscordId,
   wpflMembers,
   type WpflMember,
 } from '../../constants/wpflMembers.js';
+import { truncate } from '../../helpers/utils.js';
 import { logError } from '../../errors/errorHandler.js';
 import { feedbackRow } from './askFeedback.js';
 
@@ -61,22 +62,6 @@ export const data = new SlashCommandBuilder()
 export type AskTarget =
   | { readonly kind: 'new-thread' }
   | { readonly kind: 'in-place'; readonly resume: string | null };
-
-export { NO_MENTIONS };
-
-/**
- * The reasons a question is refused before anything is looked up. Paused is
- * the incident switch; unconfigured is what the design's §6.4 promised and
- * publish() never showed, while a subprocess spawned to fail burned the
- * member's cap.
- */
-export function earlyRefusal(): string | null {
-  if (isAskPaused()) return '_/ask is paused by the commish for the moment. Try again later._';
-  if (!credentialConfigured()) {
-    return "_I'm not configured to answer questions yet — nobody has given me a Claude credential._";
-  }
-  return null;
-}
 
 const THREAD_TYPES: readonly ChannelType[] = [
   ChannelType.PublicThread,
@@ -113,8 +98,7 @@ export function resolveTarget(channelType: ChannelType, session: AskSession | nu
 /** Discord caps a thread name at 100 characters. */
 export function threadName(question: string): string {
   const trimmed: string = question.trim().replace(/\s+/g, ' ');
-  if (trimmed === '') return 'Question';
-  return trimmed.length <= 100 ? trimmed : `${trimmed.slice(0, 99)}…`;
+  return trimmed === '' ? 'Question' : truncate(trimmed, 100);
 }
 
 /**
@@ -124,18 +108,18 @@ export function threadName(question: string): string {
  * someone else's roster — and the grounding rule cannot catch it, because every
  * number it cites will be correctly sourced from the wrong file (§7).
  *
+ * One gateway request for all 14 ids rather than 14 REST round trips; an id
+ * that does not resolve is simply absent from what comes back.
+ *
  * @returns the canonical owner names that did not resolve.
  */
 export async function checkIdentityMapping(guild: Guild): Promise<string[]> {
-  const unresolved: string[] = [];
-
-  for (const member of wpflMembers) {
-    try {
-      await guild.members.fetch(member.discordId);
-    } catch {
-      unresolved.push(member.owner);
-    }
-  }
+  const found = await guild.members.fetch({
+    user: wpflMembers.map((member: WpflMember): string => member.discordId),
+  });
+  const unresolved: string[] = wpflMembers
+    .filter((member: WpflMember): boolean => !found.has(member.discordId))
+    .map((member: WpflMember): string => member.owner);
 
   if (unresolved.length > 0) {
     console.warn(
@@ -230,19 +214,15 @@ export async function continueThread(message: Message): Promise<void> {
     return;
   }
 
-  const early: string | null = earlyRefusal();
-  if (early !== null) {
-    await message.reply(early);
+  // The session is already in hand, so the preflight is handed it as is.
+  const flight: Preflight = await preflight(
+    message.author.id,
+    async (): Promise<AskSession | null> => session
+  );
+  if (!flight.ok) {
+    await message.reply(flight.refusal);
     return;
   }
-
-  const decision: CapDecision = await checkCaps(message.author.id, session.turns);
-  if (!decision.allowed) {
-    await message.reply(decision.refusal);
-    return;
-  }
-
-  await ensureFresh();
 
   if (session.closed) {
     await message.reply(
@@ -257,7 +237,7 @@ export async function continueThread(message: Message): Promise<void> {
     resume: session.closed ? null : session.session_id,
     botThread: session.bot_thread,
     firstAnswer: false,
-    ...(decision.notice === undefined ? {} : { notice: decision.notice }),
+    notice: flight.notice,
   });
 }
 
@@ -296,29 +276,22 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  // Discord gives three seconds for the first response, and the checks below
-  // are two serverless Postgres round trips that can wake a suspended database
-  // on the first question of the day. So the acknowledgement goes first, and a
+  // Discord gives three seconds for the first response, and the preflight is
+  // a serverless Postgres round trip that can wake a suspended database on
+  // the first question of the day. So the acknowledgement goes first, and a
   // refusal replaces the placeholder with an ephemeral follow-up (§6.1).
   await interaction.deferReply();
 
-  const early: string | null = earlyRefusal();
-  if (early !== null) {
-    await refuse(interaction, early);
+  const flight: Preflight = await preflight(
+    interaction.user.id,
+    (): Promise<AskSession | null> => getSession(channel.id)
+  );
+  if (!flight.ok) {
+    await refuse(interaction, flight.refusal);
     return;
   }
 
-  const existing: AskSession | null = await getSession(channel.id);
-  const decision: CapDecision = await checkCaps(interaction.user.id, existing?.turns ?? 0);
-  if (!decision.allowed) {
-    await refuse(interaction, decision.refusal);
-    return;
-  }
-
-  // Non-fatal: a failed fetch leaves the previous shred in place, and the
-  // answer's as-of dates report honestly what it had.
-  await ensureFresh();
-
+  const existing: AskSession | null = flight.session;
   const target: AskTarget = resolveTarget(channel.type, existing);
   const opened: Opened = await openDestination(interaction, target, question, channel);
 
@@ -331,7 +304,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     // opened itself is the bot's.
     botThread: existing?.bot_thread ?? opened.botThread,
     firstAnswer: opened.botThread,
-    ...(decision.notice === undefined ? {} : { notice: decision.notice }),
+    notice: flight.notice,
   });
 }
 
@@ -364,15 +337,12 @@ async function openDestination(
   question: string,
   channel: SendableChannels
 ): Promise<Opened> {
-  if (target.kind !== 'new-thread') {
-    await interaction.editReply({ content: `**${question}**`, allowedMentions: NO_MENTIONS });
-    return { destination: channel, botThread: false };
-  }
-
   const anchor: Message = await interaction.editReply({
     content: `**${question}**`,
     allowedMentions: NO_MENTIONS,
   });
+  if (target.kind !== 'new-thread') return { destination: channel, botThread: false };
+
   try {
     const thread = await anchor.startThread({
       name: threadName(question),
@@ -447,18 +417,21 @@ async function answer(request: AnswerRequest): Promise<void> {
 
   const outcome: AskOutcome = await admitted.result;
 
-  await editor.flush();
-  await persist(destination.id, user.id, question, outcome, resume, botThread);
+  await editor.settle();
   const trailer: string[] = [];
   if (notice !== undefined) trailer.push(notice);
   if (firstAnswer) trailer.push(FOLLOW_UP_HINT);
-  await publish(
-    message,
-    destination,
-    ticker,
-    outcome,
-    trailer.length === 0 ? undefined : trailer.join('\n')
-  );
+  // The session row and the final post depend on nothing of each other's.
+  await Promise.all([
+    persist(destination.id, user.id, question, outcome, resume, botThread),
+    publish(
+      message,
+      destination,
+      ticker,
+      outcome,
+      trailer.length === 0 ? undefined : trailer.join('\n')
+    ),
+  ]);
 }
 
 async function persist(
@@ -487,41 +460,32 @@ async function persist(
  * One line per SDK ops-failure code, written for the member who is reading
  * it. The first four need the commissioner; the last two pass on their own.
  * No person is named in source: it goes stale, and "the commish" does not.
+ * Keyed by the runner's type, so a code added there without a line here does
+ * not compile.
  */
-const OPS_LINES: ReadonlyMap<SDKAssistantMessageError, string> = new Map<
-  SDKAssistantMessageError,
-  string
->([
-  [
-    'authentication_failed',
+const OPS_LINES: Readonly<Record<OpsFailure, string>> = {
+  authentication_failed:
     '_My Claude login has expired or was rejected. The commish needs to renew it._',
-  ],
-  [
-    'oauth_org_not_allowed',
+  oauth_org_not_allowed:
     "_My Claude login isn't allowed to run this. The commish needs to look at it._",
-  ],
-  ['account_on_hold', '_The Claude account I run on is on hold. The commish needs to look at it._'],
-  [
-    'billing_error',
+  account_on_hold: '_The Claude account I run on is on hold. The commish needs to look at it._',
+  billing_error:
     '_The Claude account I run on has a billing problem. The commish needs to look at it._',
-  ],
-  ['rate_limit', '_Claude is rate-limiting me right now. Try again in a few minutes._'],
-  ['overloaded', '_Claude is overloaded right now. Try again in a minute._'],
-]);
+  rate_limit: '_Claude is rate-limiting me right now. Try again in a few minutes._',
+  overloaded: '_Claude is overloaded right now. Try again in a minute._',
+};
 
 /** The lines appended under an answer, or in place of one. Exported for its test. */
-export function suffixLines(outcome: AskOutcome, hasProse: boolean, notice?: string): string[] {
+export function suffixLines(outcome: AskOutcome, notice?: string): string[] {
   const lines: string[] = [];
   if (outcome.timedOut) lines.push('_I stopped at the time limit. Try a narrower question._');
   if (outcome.subtype === 'error_max_budget_usd') {
     lines.push('_I stopped at the per-question budget._');
   }
 
-  const ops: string | undefined =
-    outcome.opsFailure === null ? undefined : OPS_LINES.get(outcome.opsFailure);
-  if (ops !== undefined) {
-    lines.push(ops);
-  } else if (!hasProse && outcome.error !== undefined) {
+  if (outcome.opsFailure !== null) {
+    lines.push(OPS_LINES[outcome.opsFailure]);
+  } else if (outcome.text.trim() === '' && outcome.error !== undefined) {
     lines.push("_Something went wrong and I couldn't finish that one._");
   }
 
@@ -536,12 +500,13 @@ async function publish(
   outcome: AskOutcome,
   notice?: string
 ): Promise<void> {
-  const suffix: string[] = suffixLines(outcome, ticker.hasProse(), notice);
+  const suffix: string[] = suffixLines(outcome, notice);
 
-  // Uncapped on purpose: the final answer is continued into follow-up messages
-  // by splitForDiscord rather than truncated (§6.3). The live edits are capped
-  // by the throttled editor, which is what writes a single message.
-  const full: string = [ticker.render(), ...suffix].join('\n\n').trim();
+  // The runner's text, not the ticker's: the stream the ticker showed includes
+  // whatever the model said before its first tool call, and the SDK's result
+  // does not. Uncapped on purpose: the final answer is continued into follow-up
+  // messages by splitForDiscord rather than truncated (§6.3).
+  const full: string = [ticker.renderFinal(outcome.text), ...suffix].join('\n\n').trim();
   const parts: string[] = splitForDiscord(full);
 
   // The buttons ride on the last part, under the end of the answer.

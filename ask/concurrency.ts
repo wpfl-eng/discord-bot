@@ -66,6 +66,8 @@ export function resetConcurrency(): void {
 }
 
 export interface Deadline {
+  /** Handed to the SDK, which takes a controller rather than a signal. */
+  readonly controller: AbortController;
   readonly signal: AbortSignal;
   expired(): boolean;
   /** Stop the timer once the work has finished in time. */
@@ -82,6 +84,7 @@ export function startDeadline(ms: number = ASK.QUERY_TIMEOUT_MS): Deadline {
   }, ms);
 
   return {
+    controller,
     signal: controller.signal,
     expired: (): boolean => fired,
     clear: (): void => clearTimeout(timer),

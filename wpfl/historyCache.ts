@@ -18,8 +18,7 @@ import { ASK } from '../ask/askConfig.js';
 import { getCurrentNFLSeason } from '../helpers/utils.js';
 import { logError } from '../errors/errorHandler.js';
 import { fetchJsonArray, type FetchFn } from './wpflHttp.js';
-
-export type { HttpResponse, FetchFn } from './wpflHttp.js';
+import { CACHE_MARKER, CACHE_SOURCES } from './layout.js';
 
 export interface CachedSource {
   readonly path: string;
@@ -36,8 +35,6 @@ export interface HistoryCacheResult {
   readonly failedSources: string[];
 }
 
-type Row = unknown;
-
 /** Where one cached source's rows run, read from the file itself. */
 export interface SourceExtents {
   readonly seasonMin: number;
@@ -46,9 +43,11 @@ export interface SourceExtents {
   readonly latestWeek: number | null;
 }
 
-const DRAFT_HISTORY = 'draft_history.jsonl';
-const MATCHUPS = 'matchups.jsonl';
-const PLAYER_SCORES = 'player_scores.jsonl';
+const {
+  draftHistory: DRAFT_HISTORY,
+  matchups: MATCHUPS,
+  playerScores: PLAYER_SCORES,
+} = CACHE_SOURCES;
 
 /**
  * @param targetDir  the `wpfl/` directory inside the shred root
@@ -106,15 +105,15 @@ export async function refreshWpflCache(
 
   const write = (name: string, chunks: readonly Chunk[]): void => {
     const full: string = path.join(targetDir, name);
-    const body: string = chunks
+    const body: string = `${chunks
       .map((chunk: Chunk): string => chunk.text)
       .filter((text: string): boolean => text !== '')
-      .join('\n');
-    fs.writeFileSync(full, `${body}\n`);
+      .join('\n')}\n`;
+    fs.writeFileSync(full, body);
     sources.push({
       path: name,
       rows: chunks.reduce((total: number, chunk: Chunk): number => total + chunk.rows, 0),
-      bytes: fs.statSync(full).size,
+      bytes: Buffer.byteLength(body),
     });
   };
 
@@ -135,7 +134,7 @@ export async function refreshWpflCache(
 
   const fetchedAt = new Date();
   if (sources.length > 0) {
-    fs.writeFileSync(path.join(targetDir, '.fetched'), `${fetchedAt.toISOString()}\n`);
+    fs.writeFileSync(path.join(targetDir, CACHE_MARKER), `${fetchedAt.toISOString()}\n`);
   }
 
   return { sources, fetchedAt, failedSeasons, failedSources };
@@ -154,7 +153,7 @@ export async function refreshWpflCache(
  */
 export function cacheExtents(dir: string): Record<string, SourceExtents> {
   const extents: Record<string, SourceExtents> = {};
-  for (const name of [DRAFT_HISTORY, MATCHUPS, PLAYER_SCORES]) {
+  for (const name of Object.values(CACHE_SOURCES)) {
     const file: string = path.join(dir, name);
     if (!fs.existsSync(file)) continue;
     const found: SourceExtents | null = scanExtents(fs.readFileSync(file, 'utf8'));
@@ -206,10 +205,10 @@ async function fetchChunk(
   params: Record<string, number>,
   label: string
 ): Promise<Chunk | null> {
-  const rows: Row[] | null = await fetchRows(fetchFn, endpoint, params, label);
+  const rows: unknown[] | null = await fetchRows(fetchFn, endpoint, params, label);
   if (rows === null) return null;
   return {
-    text: rows.map((row: Row): string => JSON.stringify(row)).join('\n'),
+    text: rows.map((row: unknown): string => JSON.stringify(row)).join('\n'),
     rows: rows.length,
   };
 }
@@ -220,9 +219,9 @@ async function fetchRows(
   endpoint: string,
   params: Record<string, number>,
   label: string
-): Promise<Row[] | null> {
+): Promise<unknown[] | null> {
   try {
-    return await fetchJsonArray<Row>(endpoint, params, fetchFn);
+    return await fetchJsonArray<unknown>(endpoint, params, fetchFn);
   } catch (error: unknown) {
     const reason: string = error instanceof Error ? error.message : String(error);
     logError('ask', `WPFL cache: ${label} failed (${reason}). Keeping the previous file.`);

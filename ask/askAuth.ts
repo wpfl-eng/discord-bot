@@ -34,7 +34,14 @@ export function agentEnv(): Record<string, string> {
   const apiKey: string | undefined = process.env.ANTHROPIC_API_KEY;
   const credential: Record<string, string> = apiKey
     ? { ANTHROPIC_API_KEY: apiKey }
-    : { CLAUDE_CODE_OAUTH_TOKEN: requiredCredential() };
+    : {
+        CLAUDE_CODE_OAUTH_TOKEN: required(
+          'CLAUDE_CODE_OAUTH_TOKEN',
+          NOT_CONFIGURED,
+          // The log names both, since either would have done.
+          'Neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set'
+        ),
+      };
 
   return {
     PATH: required('PATH'),
@@ -46,26 +53,22 @@ export function agentEnv(): Record<string, string> {
   };
 }
 
-function requiredCredential(): string {
-  const token: string | undefined = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-  if (!token) {
-    throw new APIError(
-      "I'm not configured to answer questions yet — nobody has given me a Claude credential.",
-      { step: 'agentEnv' },
-      new Error('Neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set')
-    );
-  }
-  return token;
-}
+/** What a member reads when there is no credential: the refusal and the thrown error say the same thing. */
+export const NOT_CONFIGURED =
+  "I'm not configured to answer questions yet — nobody has given me a Claude credential.";
 
-function required(name: string): string {
+/**
+ * @param message what the member reads; never names a variable.
+ * @param cause what the log reads; does.
+ */
+function required(
+  name: string,
+  message: string = "I'm not configured to answer questions yet.",
+  cause: string = `${name} is not set`
+): string {
   const value: string | undefined = process.env[name];
   if (!value) {
-    throw new APIError(
-      "I'm not configured to answer questions yet.",
-      { step: 'agentEnv' },
-      new Error(`${name} is not set`)
-    );
+    throw new APIError(message, { step: 'agentEnv' }, new Error(cause));
   }
   return value;
 }

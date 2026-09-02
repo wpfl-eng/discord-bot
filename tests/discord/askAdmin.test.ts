@@ -13,11 +13,15 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
 jest.unstable_mockModule('../../wpfl/artifactSync.js', () => ({
   ensureFresh: jest.fn(async () => ({ kind: 'reshredded', files: 53, etag: 'abc' })),
 }));
+jest.unstable_mockModule('../../wpfl/sqlTool.js', () => ({
+  warmSqlDatabase: jest.fn(),
+}));
 
 const { data, execute, renderStatus, renderUsage, renderSync } =
   await import('../../discordCommands/askadmin/askadmin.js');
 const { isAskPaused, setAskPaused } = await import('../../ask/pause.js');
 const artifactSync = await import('../../wpfl/artifactSync.js');
+const sqlTool = await import('../../wpfl/sqlTool.js');
 
 /**
  * The one thing needed weekly in season is a resync after draft-2026's
@@ -144,6 +148,19 @@ describe('/ask-admin', () => {
       expect((i as { editReply: jest.Mock }).editReply).toHaveBeenCalledWith(
         expect.objectContaining({ content: expect.stringMatching(/53 files/) })
       );
+      // A reshred retired the materialized database; the rebuild starts now
+      // rather than inside the next member's turn.
+      expect(sqlTool.warmSqlDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    test('an unchanged resync leaves the SQL database alone', async () => {
+      (artifactSync.ensureFresh as jest.Mock).mockImplementationOnce(async () => ({
+        kind: 'unchanged',
+      }));
+
+      await execute(interaction('resync'));
+
+      expect(sqlTool.warmSqlDatabase).not.toHaveBeenCalled();
     });
 
     test('answers ephemerally, after deferring', async () => {

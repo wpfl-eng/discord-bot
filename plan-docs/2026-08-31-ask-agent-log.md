@@ -1599,6 +1599,99 @@ npx tsx deploy-commands.ts                                     # registers /ask 
 
 ---
 
+## Stage 15 — Simplification review of `feat/ask` — `feat/ask` — 2026-09-02 — DONE
+
+Uncommitted on `feat/ask` at the time of writing; AJ commits. Four reviewers
+(reuse, simplification, efficiency, altitude) over the 30 source files on the
+branch; findings deduped to 27 applied and 9 skipped, each with its reason.
+
+### Found, beyond cleanup
+
+- **The published answer still carried the pre-tool narration.** Stage 14's
+  fix switched `AskOutcome.text` to the SDK result's final turn, and the
+  runner test passed -- but `publish()` rendered `ticker.render()`, which is
+  the ticker's own streamed prose, and `outcome.text` had no consumer. The
+  efficiency reviewer noticed the dead accumulation. `publish()` now renders
+  `ticker.renderFinal(outcome.text)`; a command test drives `execute()`
+  through a scripted run and asserts the final edit carries the result and
+  not the preamble.
+
+### Changed
+
+- New: `ask/preflight.ts` (pause → credential → caps → freshness, shared by
+  the slash command and the thread continuation; the session lookup and the
+  usage counts go out together), `ask/leagueTime.ts` (every date the feature
+  shows, in one timezone), `wpfl/layout.ts` (every path and marker in the
+  data directory, `readAsOf`, `tableName`, `normalizeEtag`).
+- `askConfig.PATH_ARGUMENTS` replaces `FILE_TOOLS`, which is now derived from
+  it; the path guard iterates the table and denies a tool with no entry.
+- `askDb.questionCounts` is the caps' one query (two `FILTER` counts);
+  `checkCaps` became `loadUsage` + pure `decideCaps`.
+- `askRunner`: `OPS_FAILURE_CODES` tuple → `OpsFailure` type, and the
+  command's `OPS_LINES` is a `Record<OpsFailure, string>`; the SDK's own
+  result and stream-event unions replace the hand-written casts; `model`
+  rides on the outcome; the deadline hands over its controller; a plain
+  `{ text, thinking }` state replaces the accumulator closures.
+- `ticker`: `renderFinal(prose)`; `settle()` replaces `flush()` -- the last
+  live edit is dropped rather than spent, since the final post replaces it.
+- `ask.ts`: `openDestination` edits once; `persist` and `publish` run
+  together; `checkIdentityMapping` fetches all 14 ids in one gateway request;
+  `truncate` and `NOT_CONFIGURED` are shared rather than restated.
+- `wpflHttp.fetchWithTimeout` is the one deadline wrapper; `artifactSync`
+  uses it, reads its markers through `layout`, and generates INDEX.md from
+  `readAsOf(staging)` after writing `.etag` -- so INDEX.md, the prompt and
+  `/ask-admin status` read the same files the same way.
+- `sqlTool.warmSqlDatabase()`: the ~11 MB materialization now starts at boot,
+  after a reshred and after `/ask-admin resync`, off the member's turn.
+- `helpers/espnPeriod.espnClientFromEnv()` is the one place the fork is
+  constructed for /ask, the fixtures script and the week lookup.
+- `liveShred` is exported as the `Generations` object (the dead
+  `shredReaders` went with the wrappers); `historyCache` no longer re-exports
+  `wpflHttp`'s types; the three `*Row` aliases in `wpflApiTools` are gone;
+  `mcpServer.WPFL_SERVER` names the server once; byte counts come from the
+  buffer written rather than a `stat` after it.
+- Docs: CLAUDE.md and design §11 list the new modules.
+
+### Behaviour changes to know about
+
+- Every date a member reads is now in `ASK.LEAGUE_TZ`: the cache-fetched
+  date in INDEX.md, the prompt and `/ask-admin status`, and the timestamps
+  in `/ask-admin usage`. Before, those four were UTC.
+- INDEX.md's "cache fetched" is the marker on disk after the copy-back, so a
+  carried-over cache is dated rather than `unknown`.
+- A file tool the table does not describe is denied, not passed.
+- The hard turn cap no longer skips the usage query (it runs alongside the
+  session lookup instead); a thrown batch member fetch at boot is one logged
+  failure rather than a per-member list.
+
+### Verified
+
+- `tsc --noEmit` 0; `eslint .` 0; prettier clean on every touched file (the
+  three warnings left are scripts this branch never touched).
+- Jest: 65 suites, 1,441 tests, all passing (from 64 / 1,423). New:
+  `tests/wpfl/layout.test.ts`; the publish-path test in `askCommand.test.ts`;
+  `renderFinal`/`settle` in `ticker.test.ts`; the path-argument table in
+  `hooks.test.ts`; the prose-names-registered-tools check in
+  `mcpServer.test.ts`; `espnClientFromEnv` and `truncate` in `helpers/`.
+
+### Skipped, with reasons
+
+- An in-process session cache for `messageCreate` (one Postgres round trip
+  per human thread message): a second source of truth for sessions, for a
+  guild where thread messages are rare. Revisit if the query shows up.
+- Computing cache extents from the rows in hand and persisting them (a ~9 MB
+  re-read per reshred, and per `/ask-admin status`): the carried-over-file
+  path still needs a scan, and the merge is more code than the ~100 ms buys.
+- `failedSeasons`/`failedSources` on the cache result: read only by tests,
+  but the natural place a future `renderSync` reports them from.
+- `Step.settled` + `error` as a tri-state; `ThreadAutoArchiveDuration` in the
+  config; deriving `espnMembers` from `wpflMembers`; moving `NO_MENTIONS`
+  beside `RenderedMessage`; `void`-ing the ledger write: low value or outside
+  the branch's diff.
+- A client-wide `allowedMentions` default: decision 8 deferred it on purpose.
+
+---
+
 <!--
 Template for new entries:
 

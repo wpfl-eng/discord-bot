@@ -19,7 +19,7 @@ import type {
   HookEvent,
   HookJSONOutput,
 } from '@anthropic-ai/claude-agent-sdk';
-import { ASK } from './askConfig.js';
+import { ASK, FILE_TOOLS, type PathArgument } from './askConfig.js';
 import { recordToolException } from './askDb.js';
 import { logError } from '../errors/errorHandler.js';
 
@@ -72,10 +72,18 @@ export function createPathGuard(
   return async (input): Promise<HookJSONOutput> => {
     if (input.hook_event_name !== 'PreToolUse') return PASS;
 
+    const requested: string[] | null = pathArguments(input.tool_name, input.tool_input);
+    // A tool the table does not describe cannot be confined, so it is refused
+    // rather than passed on the strength of an empty list.
+    if (requested === null) {
+      await record(context, input.tool_name, input.tool_input, 'path_guard', null);
+      return deny(`I don't know where ${input.tool_name} reads from, so I can't allow it.`);
+    }
+
     // Grep and Glob without a path search the working directory, which is the
     // data directory, so an empty list passes.
-    for (const requested of pathArguments(input.tool_name, input.tool_input)) {
-      if (inside(requested)) continue;
+    for (const candidate of requested) {
+      if (inside(candidate)) continue;
       await record(context, input.tool_name, input.tool_input, 'path_guard', null);
       return deny('I can only read the WPFL data directory.');
     }
@@ -132,14 +140,14 @@ export function createAuditHook(context: HookContext): HookCallback {
     }
 
     if (input.hook_event_name === 'PostToolUse') {
-      const response = input.tool_response as { isError?: boolean } | null;
+      const response = input.tool_response as { isError?: boolean; content?: unknown } | null;
       if (response?.isError === true) {
         await record(
           context,
           input.tool_name,
           input.tool_input,
           null,
-          describeError(input.tool_response)
+          toolResultText(response.content)
         );
       }
     }
@@ -156,9 +164,9 @@ export function createHooks(
 
   return {
     PreToolUse: [
-      // Built from the same list askRunner exposes, so a file tool added there
-      // is confined here automatically rather than by anyone remembering.
-      { matcher: ASK.FILE_TOOLS.join('|'), hooks: [createPathGuard(context, dataDir)] },
+      // Built from the same table the runner's allowlist and the guard read,
+      // so a file tool added there is confined here without anyone remembering.
+      { matcher: FILE_TOOLS.join('|'), hooks: [createPathGuard(context, dataDir)] },
       { matcher: 'WebFetch', hooks: [createWebFetchGuard(context)] },
     ],
     PostToolUse: [{ hooks: [audit] }],
@@ -169,23 +177,24 @@ export function createHooks(
 }
 
 /**
- * Every path-like argument a call carries. Read names its file `file_path`,
- * Grep and Glob name their search root `path`, and Glob's `pattern` is a path
- * up to its first wildcard: `/etc/host*` searches `/etc`, and
- * `<data dir>/teams/*.json` searches inside. The static prefix is what is
+ * Every path-like argument a call carries, per ASK.PATH_ARGUMENTS. A glob
+ * pattern is a path up to its first wildcard: `/etc/host*` searches `/etc`,
+ * and `<data dir>/teams/*.json` searches inside. The static prefix is what is
  * checked, so an absolute pattern that stays inside still passes.
+ *
+ * @returns null for a tool the table does not describe.
  */
-function pathArguments(toolName: string, toolInput: unknown): string[] {
-  const args = toolInput as { file_path?: unknown; path?: unknown; pattern?: unknown } | null;
+function pathArguments(toolName: string, toolInput: unknown): string[] | null {
+  const spec: readonly PathArgument[] | undefined = ASK.PATH_ARGUMENTS[toolName];
+  if (spec === undefined) return null;
+
+  const args = toolInput as Record<string, unknown> | null;
   const found: string[] = [];
-
-  const explicit: unknown = args?.file_path ?? args?.path;
-  if (typeof explicit === 'string' && explicit !== '') found.push(explicit);
-
-  if (toolName === 'Glob' && typeof args?.pattern === 'string' && args.pattern !== '') {
-    found.push(globPrefix(args.pattern));
+  for (const { key, prefix } of spec) {
+    const value: unknown = args?.[key];
+    if (typeof value !== 'string' || value === '') continue;
+    found.push(prefix === true ? globPrefix(value) : value);
   }
-
   return found;
 }
 
@@ -234,12 +243,17 @@ async function record(
   }
 }
 
-function describeError(response: unknown): string {
-  const content = (response as { content?: { text?: string }[] } | null)?.content;
-  return (
-    content
-      ?.map((block) => block.text ?? '')
-      .join(' ')
-      .trim() || 'Tool returned an error.'
-  );
+/**
+ * A tool result's text: a string, or a list of text blocks joined. The same
+ * shape arrives on the PostToolUse hook and in the stream's tool_result
+ * blocks, so the runner reads it through this too.
+ */
+export function toolResultText(content: unknown): string {
+  const text: string =
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? (content as { text?: string }[]).map((block) => block.text ?? '').join(' ')
+        : '';
+  return text.trim() || 'Tool returned an error.';
 }
