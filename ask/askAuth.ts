@@ -10,6 +10,17 @@
 import { APIError } from '../errors/BotError.js';
 
 /**
+ * Whether a run could authenticate at all. Cheap, so both entry points check
+ * it before spawning anything, and `ready` logs when it is false.
+ */
+export function credentialConfigured(): boolean {
+  return (
+    (process.env.ANTHROPIC_API_KEY ?? '') !== '' ||
+    (process.env.CLAUDE_CODE_OAUTH_TOKEN ?? '') !== ''
+  );
+}
+
+/**
  * The Claude Code subprocess gets exactly these keys and nothing else.
  *
  * Spreading `process.env` would hand it DISCORD_TOKEN, POSTGRES_*, ESPN_S2 and

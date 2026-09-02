@@ -17,8 +17,11 @@ import {
   type SendableChannels,
   type User,
 } from 'discord.js';
+import type { SDKAssistantMessageError } from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from '../../ask/askConfig.js';
 import { checkCaps, type CapDecision } from '../../ask/caps.js';
+import { credentialConfigured } from '../../ask/askAuth.js';
+import { isAskPaused } from '../../ask/pause.js';
 import { runAsk, type AskOutcome } from '../../ask/askRunner.js';
 import {
   createTicker,
@@ -55,6 +58,30 @@ export const data = new SlashCommandBuilder()
 export type AskTarget =
   | { readonly kind: 'new-thread' }
   | { readonly kind: 'in-place'; readonly resume: string | null };
+
+/**
+ * Every /ask send and edit that carries text somebody else wrote -- the
+ * member's question, the model's tool inputs, the model's prose, a fetched
+ * page quoted in it -- parses no mentions. The casino renderers do the same
+ * on every payload, and for the same reason: an unescaped <@id> in real
+ * message content pings. Refusal replies carry bot text only and keep the
+ * default, so the person refused is still pinged.
+ */
+export const NO_MENTIONS = { parse: [] } as const;
+
+/**
+ * The reasons a question is refused before anything is looked up. Paused is
+ * the incident switch; unconfigured is what the design's §6.4 promised and
+ * publish() never showed, while a subprocess spawned to fail burned the
+ * member's cap.
+ */
+export function earlyRefusal(): string | null {
+  if (isAskPaused()) return '_/ask is paused by the commish for the moment. Try again later._';
+  if (!credentialConfigured()) {
+    return "_I'm not configured to answer questions yet — nobody has given me a Claude credential._";
+  }
+  return null;
+}
 
 const THREAD_TYPES: readonly ChannelType[] = [
   ChannelType.PublicThread,
@@ -161,6 +188,12 @@ export async function continueThread(message: Message): Promise<void> {
   const session: AskSession | null = await getSession(message.channel.id);
   if (session === null) return;
 
+  const early: string | null = earlyRefusal();
+  if (early !== null) {
+    await message.reply(early);
+    return;
+  }
+
   const decision: CapDecision = await checkCaps(message.author.id, session.turns);
   if (!decision.allowed) {
     await message.reply(decision.refusal);
@@ -220,14 +253,24 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
-  const existing: AskSession | null = await getSession(channel.id);
-  const decision: CapDecision = await checkCaps(interaction.user.id, existing?.turns ?? 0);
-  if (!decision.allowed) {
-    await interaction.reply({ content: decision.refusal, ephemeral: true });
+  // Discord gives three seconds for the first response, and the checks below
+  // are two serverless Postgres round trips that can wake a suspended database
+  // on the first question of the day. So the acknowledgement goes first, and a
+  // refusal replaces the placeholder with an ephemeral follow-up (§6.1).
+  await interaction.deferReply();
+
+  const early: string | null = earlyRefusal();
+  if (early !== null) {
+    await refuse(interaction, early);
     return;
   }
 
-  await interaction.deferReply();
+  const existing: AskSession | null = await getSession(channel.id);
+  const decision: CapDecision = await checkCaps(interaction.user.id, existing?.turns ?? 0);
+  if (!decision.allowed) {
+    await refuse(interaction, decision.refusal);
+    return;
+  }
 
   // Non-fatal: a failed fetch leaves the previous shred in place, and the
   // answer's as-of dates report honestly what it had.
@@ -248,6 +291,23 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   });
 }
 
+/**
+ * A refusal after a public defer: delete the placeholder and follow up
+ * ephemerally, which Discord permits. If the delete fails, a public refusal
+ * is the lesser cost -- a placeholder stuck on "thinking" reads as a broken
+ * bot.
+ */
+async function refuse(interaction: ChatInputCommandInteraction, text: string): Promise<void> {
+  try {
+    await interaction.deleteReply();
+  } catch (error: unknown) {
+    logError('ask', 'Could not delete the deferred reply; refusing in public instead', error);
+    await interaction.editReply({ content: text, allowedMentions: NO_MENTIONS });
+    return;
+  }
+  await interaction.followUp({ content: text, ephemeral: true });
+}
+
 interface Opened {
   readonly destination: SendableChannels;
   /** True only when /ask created the thread it is about to answer in. */
@@ -261,11 +321,14 @@ async function openDestination(
   channel: SendableChannels
 ): Promise<Opened> {
   if (target.kind !== 'new-thread') {
-    await interaction.editReply({ content: `**${question}**` });
+    await interaction.editReply({ content: `**${question}**`, allowedMentions: NO_MENTIONS });
     return { destination: channel, botThread: false };
   }
 
-  const anchor: Message = await interaction.editReply({ content: `**${question}**` });
+  const anchor: Message = await interaction.editReply({
+    content: `**${question}**`,
+    allowedMentions: NO_MENTIONS,
+  });
   try {
     const thread = await anchor.startThread({
       name: threadName(question),
@@ -294,9 +357,12 @@ async function answer(request: AnswerRequest): Promise<void> {
   const member: WpflMember | undefined = getWpflMemberByDiscordId(user.id);
 
   const ticker: Ticker = createTicker();
-  const message: Message = await destination.send(ticker.render());
+  const message: Message = await destination.send({
+    content: ticker.render(),
+    allowedMentions: NO_MENTIONS,
+  });
   const editor = createThrottledEditor(async (content: string): Promise<void> => {
-    await message.edit(content);
+    await message.edit({ content, allowedMentions: NO_MENTIONS });
   });
   // Wired after the editor exists, because the editor edits the message this
   // ticker's first render produced. The thunk is not called unless an edit is
@@ -343,6 +409,52 @@ async function persist(
   }
 }
 
+/**
+ * One line per SDK ops-failure code, written for the member who is reading
+ * it. The first four need the commissioner; the last two pass on their own.
+ * No person is named in source: it goes stale, and "the commish" does not.
+ */
+const OPS_LINES: ReadonlyMap<SDKAssistantMessageError, string> = new Map<
+  SDKAssistantMessageError,
+  string
+>([
+  [
+    'authentication_failed',
+    '_My Claude login has expired or was rejected. The commish needs to renew it._',
+  ],
+  [
+    'oauth_org_not_allowed',
+    "_My Claude login isn't allowed to run this. The commish needs to look at it._",
+  ],
+  ['account_on_hold', '_The Claude account I run on is on hold. The commish needs to look at it._'],
+  [
+    'billing_error',
+    '_The Claude account I run on has a billing problem. The commish needs to look at it._',
+  ],
+  ['rate_limit', '_Claude is rate-limiting me right now. Try again in a few minutes._'],
+  ['overloaded', '_Claude is overloaded right now. Try again in a minute._'],
+]);
+
+/** The lines appended under an answer, or in place of one. Exported for its test. */
+export function suffixLines(outcome: AskOutcome, hasProse: boolean, notice?: string): string[] {
+  const lines: string[] = [];
+  if (outcome.timedOut) lines.push('_I stopped at the time limit. Try a narrower question._');
+  if (outcome.subtype === 'error_max_budget_usd') {
+    lines.push('_I stopped at the per-question budget._');
+  }
+
+  const ops: string | undefined =
+    outcome.opsFailure === null ? undefined : OPS_LINES.get(outcome.opsFailure);
+  if (ops !== undefined) {
+    lines.push(ops);
+  } else if (!hasProse && outcome.error !== undefined) {
+    lines.push("_Something went wrong and I couldn't finish that one._");
+  }
+
+  if (notice !== undefined) lines.push(notice);
+  return lines;
+}
+
 async function publish(
   message: Message,
   destination: SendableChannels,
@@ -350,15 +462,7 @@ async function publish(
   outcome: AskOutcome,
   notice?: string
 ): Promise<void> {
-  const suffix: string[] = [];
-  if (outcome.timedOut) suffix.push('_I stopped at the time limit. Try a narrower question._');
-  if (outcome.subtype === 'error_max_budget_usd') {
-    suffix.push('_I stopped at the per-question budget._');
-  }
-  if (!ticker.hasProse() && outcome.error !== undefined) {
-    suffix.push("_Something went wrong and I couldn't finish that one._");
-  }
-  if (notice !== undefined) suffix.push(notice);
+  const suffix: string[] = suffixLines(outcome, ticker.hasProse(), notice);
 
   // Uncapped on purpose: the final answer is continued into follow-up messages
   // by splitForDiscord rather than truncated (§6.3). The live edits are capped
@@ -367,8 +471,10 @@ async function publish(
   const parts: string[] = splitForDiscord(full);
 
   try {
-    await message.edit(parts[0]);
-    for (const part of parts.slice(1)) await destination.send(part);
+    await message.edit({ content: parts[0], allowedMentions: NO_MENTIONS });
+    for (const part of parts.slice(1)) {
+      await destination.send({ content: part, allowedMentions: NO_MENTIONS });
+    }
   } catch (error: unknown) {
     logError('ask', 'Could not post the answer', error);
   }

@@ -24,6 +24,7 @@ import {
   onThreadArchived,
 } from './discordCommands/ask/ask.js';
 import { ensureFresh } from './wpfl/artifactSync.js';
+import { credentialConfigured } from './ask/askAuth.js';
 import { logError } from './errors/errorHandler.js';
 
 // Create a new client instance
@@ -75,6 +76,12 @@ client.once('ready', async () => {
   // unresolved snowflake only costs that member their implicit "my team".
   // They share nothing, and the sync can take seconds, so they run together
   // rather than holding boot one behind the other.
+  if (!credentialConfigured()) {
+    console.warn(
+      '[ASK] No Claude credential is set (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN). ' +
+        '/ask will refuse every question until one is.'
+    );
+  }
   const guildId: string | undefined = process.env.DISCORD_GUILD_ID;
   await Promise.all([
     (async (): Promise<void> => {

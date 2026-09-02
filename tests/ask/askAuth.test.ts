@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import { agentEnv } from '../../ask/askAuth.js';
+import { agentEnv, credentialConfigured } from '../../ask/askAuth.js';
 import { BotError } from '../../errors/BotError.js';
 
 // agentEnv() reads process.env at call time, so these tests set it directly
@@ -17,6 +17,31 @@ describe('askAuth', () => {
 
   afterEach(() => {
     process.env = { ...original };
+  });
+
+  /**
+   * The cheap check before a run: the `ready` log line and the early "not
+   * configured" refusal both read this, so a member is told plainly instead of
+   * a subprocess being spawned to fail (log Stage 14, decision 12).
+   */
+  describe('credentialConfigured', () => {
+    test('is false with neither credential', () => {
+      expect(credentialConfigured()).toBe(false);
+    });
+
+    test('is true with either one', () => {
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = 'oauth-test';
+      expect(credentialConfigured()).toBe(true);
+
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+      expect(credentialConfigured()).toBe(true);
+    });
+
+    test('treats an empty value as unset', () => {
+      process.env.ANTHROPIC_API_KEY = '';
+      expect(credentialConfigured()).toBe(false);
+    });
   });
 
   describe('agentEnv', () => {
