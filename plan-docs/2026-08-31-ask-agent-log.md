@@ -38,6 +38,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 15 | — | `feat/ask` | Simplification review — 27 applied, 9 skipped | DONE |
 | 16 | — | `feat/ask` | Second simplification pass, the commish gate, merge-readiness review and its nine fixes | DONE |
 | 17 | — | `feat/ask` | Docs review of both libraries, then five live questions -- column lists in INDEX.md, a normalised cache, two prompt rules | DONE |
+| 18 | — | `feat/ask` | Both entry points answer the 14 owners only | DONE |
 
 **AJ's, not the build's** (design §17.5): applying migration 014, merging to
 `main`, `git push`, `deploy-commands.ts`, and the pre-launch re-run of
@@ -2018,6 +2019,59 @@ DuckDB reserved words used as aliases without `AS`.
   rivalries description, host paths in the ticker, the swap-crash window,
   `counted` on init, `capped()` and surrogates. The feedback ordering item
   from that list is closed by `102fb52`.
+
+## Stage 18 — Both entry points answer the 14 owners only — `feat/ask` — 2026-09-02 — DONE
+
+One commit on `feat/ask`, `edb029c`, asked for by AJ after asking whether
+`/ask` was locked to the 14 owners' Discord ids. It was not: the slash command
+had no membership check and no default member permission, a caller with no
+mapping was a supported case the system prompt handled ("not mapped to a league
+member, ask which team they mean"), and anyone who @mentioned the bot in a
+thread got a run on their own daily cap. The design never said who may ask; the
+cap arithmetic assumed fourteen people. Suite at the start: 65 suites, 1,465
+tests. At the end: 65 suites, **1,467 tests**, typecheck 0, `eslint .` 0.
+
+### Changed
+
+- **One gate, in the preflight.** `preflight()` resolves the caller against
+  `constants/wpflMembers.ts` before the pause switch, the credential and the
+  caps, and refuses anyone else with `NOT_AN_OWNER` -- one line, no round trip.
+  Both entry points already funnel through the preflight, so the slash command
+  and the thread continuation got the gate together: ephemeral under `/ask`,
+  a reply to the message in a thread. Chosen over Discord's per-command
+  permissions for the same reason `/ask-admin` checks an id in code: any server
+  admin can widen those from the UI.
+- **The member rides the request.** The preflight returns the resolved owner on
+  `ok`. `AnswerRequest`, `AskRequest` and `PromptContext` now take a
+  `WpflMember` rather than a nullable one; `answer()` no longer looks the caller
+  up itself; the system prompt's unmapped branch is gone.
+- **The refusal names the fix.** An owner whose id is missing from the table
+  reads that the commish needs to map their Discord id. The boot-time identity
+  check, which warns about any of the 14 ids that do not resolve in the guild,
+  is now the one thing that would lock an owner out.
+- README and design §6.1 and §6.4 say who may ask.
+
+### Verified
+
+- `tsc --noEmit` 0, `eslint .` 0, Jest 1,465 → **1,467**. New tests: the slash
+  refusal before any database call (no session lookup, no usage count), the
+  same gate through `preflight()` for the thread path, and the run receiving
+  the owner the preflight resolved. The prompt test for the unmapped caller
+  was removed with the branch it tested.
+- Not exercised live: no non-owner id is available to this box, and the Discord
+  layer remains a guild-only check. The gate is a pure function of the id
+  table, covered by the tests above.
+
+### Open
+
+- Unchanged from Stage 17: bare reserved-word aliases in generated SQL, the
+  history side remark that mixes windows, per-question cost against the
+  design estimate, migration 014 unapplied on the configured database, the
+  Discord layer unexercised in a guild, and the Stage 16 follow-ups.
+- A guild member who is an owner but whose id is wrong in the table is refused
+  as a stranger with no log line naming them. The boot warning covers the case
+  from the other side; a refused id could be logged at `warn` if it ever comes
+  up.
 
 ---
 
