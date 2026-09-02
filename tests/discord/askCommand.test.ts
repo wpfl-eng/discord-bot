@@ -35,6 +35,7 @@ const {
   threadName,
   checkIdentityMapping,
   isAskThreadMessage,
+  continuesConversation,
   onThreadArchived,
   execute,
   suffixLines,
@@ -372,6 +373,57 @@ describe('the /ask command', () => {
     test('an empty message -- an image or a sticker -- is not a question', () => {
       expect(isAskThreadMessage(message({ content: '' }))).toBe(false);
       expect(isAskThreadMessage(message({ content: '   ' }))).toBe(false);
+    });
+  });
+
+  /**
+   * Once a thread is known to be an ask session, which messages in it are
+   * for the bot (design §6.2; log Stage 14, decision 13). Every non-bot
+   * message used to be. Fourteen people in a thread after a good answer talk
+   * to each other, and every "lol" spawned a subprocess, burned the sender's
+   * cap and ate one of the thread's twenty turns.
+   */
+  describe('which messages are for the bot', () => {
+    const inBotThread = { ...live, bot_thread: true };
+    const inForeignThread = { ...live, bot_thread: false };
+    const signal = (over: Record<string, unknown> = {}) => ({
+      authorId: 'someone-else',
+      mentionsBot: false,
+      repliedToBot: false,
+      repliedToPerson: false,
+      ...over,
+    });
+
+    test('the opener just types, in a thread the bot opened for them', () => {
+      expect(continuesConversation(signal({ authorId: 'u1' }), inBotThread)).toBe(true);
+    });
+
+    test('anyone else has to mention the bot or reply to it', () => {
+      expect(continuesConversation(signal(), inBotThread)).toBe(false);
+      expect(continuesConversation(signal({ mentionsBot: true }), inBotThread)).toBe(true);
+      expect(continuesConversation(signal({ repliedToBot: true }), inBotThread)).toBe(true);
+    });
+
+    test('a reply to a person is for that person, whoever wrote it', () => {
+      expect(
+        continuesConversation(signal({ authorId: 'u1', repliedToPerson: true }), inBotThread)
+      ).toBe(false);
+      expect(continuesConversation(signal({ repliedToPerson: true }), inBotThread)).toBe(false);
+    });
+
+    test('in a thread the bot did not open, even the opener has to address it', () => {
+      expect(continuesConversation(signal({ authorId: 'u1' }), inForeignThread)).toBe(false);
+      expect(
+        continuesConversation(signal({ authorId: 'u1', mentionsBot: true }), inForeignThread)
+      ).toBe(true);
+      expect(continuesConversation(signal({ repliedToBot: true }), inForeignThread)).toBe(true);
+    });
+
+    test('a mention beats a reply to a person -- the member said both', () => {
+      // Replying to a teammate while @-ing the bot is asking the bot about it.
+      expect(
+        continuesConversation(signal({ mentionsBot: true, repliedToPerson: true }), inBotThread)
+      ).toBe(true);
     });
   });
 

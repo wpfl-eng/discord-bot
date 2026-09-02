@@ -171,9 +171,37 @@ export function isAskThreadMessage(message: {
   );
 }
 
+/** What a message in a known ask thread says about who it is for. */
+export interface Addressing {
+  readonly authorId: string;
+  /** The bot's user or its managed role was mentioned. */
+  readonly mentionsBot: boolean;
+  /** A Discord reply to one of the bot's messages. */
+  readonly repliedToBot: boolean;
+  /** A Discord reply to a person's message. */
+  readonly repliedToPerson: boolean;
+}
+
 /**
- * Continue an /ask thread from an ordinary message in it (§6.2). Anyone in the
- * thread may continue it; each person's turn counts against their own daily cap.
+ * Whether a message in a known ask thread is for the bot (§6.2).
+ *
+ * A mention or a reply to the bot always is. A reply to a person never is,
+ * unless it also mentions the bot -- the member said both. Otherwise, in a
+ * thread the bot opened, the member who asked the question just types; anyone
+ * else, and everyone in a thread the bot did not open, has to address it.
+ * Fourteen people talking to each other after a good answer is the normal
+ * case, and each of those messages used to be a query.
+ */
+export function continuesConversation(message: Addressing, session: AskSession): boolean {
+  if (message.mentionsBot || message.repliedToBot) return true;
+  if (message.repliedToPerson) return false;
+  return session.bot_thread && message.authorId === session.opener_user_id;
+}
+
+/**
+ * Continue an /ask thread from an ordinary message in it (§6.2). Anyone may,
+ * by addressing the bot; the opener of a thread the bot created just types.
+ * Each person's turn counts against their own daily cap.
  */
 export async function continueThread(message: Message): Promise<void> {
   if (
@@ -188,6 +216,25 @@ export async function continueThread(message: Message): Promise<void> {
 
   const session: AskSession | null = await getSession(message.channel.id);
   if (session === null) return;
+
+  const bot: User | null = message.client.user;
+  const botRoleId: string | null = message.guild?.members.me?.roles.botRole?.id ?? null;
+  const repliedTo: User | null = message.mentions.repliedUser;
+  if (
+    !continuesConversation(
+      {
+        authorId: message.author.id,
+        mentionsBot:
+          (bot !== null && message.mentions.has(bot)) ||
+          (botRoleId !== null && message.mentions.roles.has(botRoleId)),
+        repliedToBot: repliedTo !== null && bot !== null && repliedTo.id === bot.id,
+        repliedToPerson: repliedTo !== null && !repliedTo.bot,
+      },
+      session
+    )
+  ) {
+    return;
+  }
 
   const early: string | null = earlyRefusal();
   if (early !== null) {
@@ -215,6 +262,7 @@ export async function continueThread(message: Message): Promise<void> {
     question: message.content,
     resume: session.closed ? null : session.session_id,
     botThread: session.bot_thread,
+    firstAnswer: false,
     ...(decision.notice === undefined ? {} : { notice: decision.notice }),
   });
 }
@@ -288,6 +336,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     // A resumed thread keeps whatever it was; only a fresh thread the bot
     // opened itself is the bot's.
     botThread: existing?.bot_thread ?? opened.botThread,
+    firstAnswer: opened.botThread,
     ...(decision.notice === undefined ? {} : { notice: decision.notice }),
   });
 }
@@ -350,11 +399,16 @@ interface AnswerRequest {
   readonly resume: string | null;
   /** Whether /ask opened this thread itself; recorded on a fresh session. */
   readonly botThread: boolean;
+  /** The first answer in a thread the bot just opened, which carries the follow-up hint once. */
+  readonly firstAnswer: boolean;
   readonly notice?: string;
 }
 
+/** Shown once, under the first answer of a thread the bot opened. Nobody has to learn a rule. */
+export const FOLLOW_UP_HINT = '_Reply or @ me to follow up._';
+
 async function answer(request: AnswerRequest): Promise<void> {
-  const { user, destination, question, resume, botThread, notice } = request;
+  const { user, destination, question, resume, botThread, firstAnswer, notice } = request;
   const member: WpflMember | undefined = getWpflMemberByDiscordId(user.id);
 
   const ticker: Ticker = createTicker();
@@ -401,7 +455,16 @@ async function answer(request: AnswerRequest): Promise<void> {
 
   await editor.flush();
   await persist(destination.id, user.id, question, outcome, resume, botThread);
-  await publish(message, destination, ticker, outcome, notice);
+  const trailer: string[] = [];
+  if (notice !== undefined) trailer.push(notice);
+  if (firstAnswer) trailer.push(FOLLOW_UP_HINT);
+  await publish(
+    message,
+    destination,
+    ticker,
+    outcome,
+    trailer.length === 0 ? undefined : trailer.join('\n')
+  );
 }
 
 async function persist(
