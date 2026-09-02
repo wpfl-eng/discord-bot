@@ -333,8 +333,22 @@ describe('askRunner', () => {
       expect(options.strictMcpConfig).toBe(true);
       expect(options.cwd).toBe(ASK.DATA_DIR);
       expect(options.tools).toEqual(['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch']);
-      expect(options.allowedTools).toContain(`Read(//${ASK.DATA_DIR}/**)`);
       expect(options.allowedTools).toContain('mcp__wpfl__*');
+    });
+
+    /**
+     * The docs' form is `Read(//home/…)`: two slashes, then the path without
+     * its own leading slash. DATA_DIR already starts with one, so the rule
+     * used to render with three. The CLI's parser happened to tolerate that
+     * (it drops one character after `//` and normalises), which is not a
+     * contract anybody wrote down (log Stage 14, decision 3).
+     */
+    test('scopes Read to the data directory in the documented absolute-path form', async () => {
+      const options = (await capture()).options;
+      const rules: string[] = options.allowedTools as string[];
+
+      expect(rules).toContain(`Read(//${ASK.DATA_DIR.replace(/^\/+/, '')}/**)`);
+      for (const rule of rules) expect(rule).not.toContain('///');
     });
 
     /**

@@ -205,9 +205,10 @@ function buildOptions(request: AskRequest, signal: AbortSignal): Options {
     // Derived from the same two lists rather than restated, so the two cannot
     // drift apart again.
     allowedTools: [
-      // The `//` prefix anchors at the filesystem root. A single slash would
-      // anchor at the session's working directory instead.
-      `Read(//${ASK.DATA_DIR}/**)`,
+      // The `//` prefix anchors at the filesystem root; a single slash would
+      // anchor at the session's working directory instead. The documented
+      // form is `//home/…`, so DATA_DIR sheds its own leading slash first.
+      `Read(//${ASK.DATA_DIR.replace(/^\/+/, '')}/**)`,
       // Bare, not path-qualified: `Grep(path)` and `Glob(path)` rules are
       // documented as accepted but never consulted (§10.2), so qualifying them
       // would pre-approve nothing and every grep would be denied -- which would

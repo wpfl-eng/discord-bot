@@ -4,7 +4,24 @@
 // concern -- "what model does this run" should be one file to open.
 
 import { homedir } from 'node:os';
+import path from 'node:path';
 import { ThreadAutoArchiveDuration } from 'discord.js';
+
+/**
+ * The data directory as an absolute path.
+ *
+ * It feeds three things that must agree -- the agent's cwd, the path guard's
+ * root and the `Read(//…)` allow rule -- and it used to be WPFL_DATA_DIR
+ * verbatim. dotenv expands neither `~` nor `$HOME`, so an override written
+ * the way .env.sample describes the default put the cwd in a literal `~`
+ * directory relative to wherever pm2 started the bot. Exported for its test.
+ */
+export function resolveDataDir(raw: string | undefined, home: string): string {
+  const value: string = raw === undefined || raw.trim() === '' ? '~/wpfl-data' : raw.trim();
+  const expanded: string =
+    value === '~' ? home : value.startsWith('~/') ? path.join(home, value.slice(2)) : value;
+  return path.resolve(expanded);
+}
 
 export const ASK = {
   // ---- Limits and accounting (design §9) ----
@@ -48,7 +65,7 @@ export const ASK = {
   // ---- Data and freshness (design §3.5) ----
   // Outside the bot's repo: cwd points here and the PreToolUse hook confines
   // every file tool to it.
-  DATA_DIR: process.env.WPFL_DATA_DIR ?? `${homedir()}/wpfl-data`,
+  DATA_DIR: resolveDataDir(process.env.WPFL_DATA_DIR, homedir()),
   ARTIFACT_URL: 'https://wpfl-receipts-694ed0.pages.dev/postdraft.json',
   STALE_AFTER_MS: 6 * 60 * 60 * 1000,
 
