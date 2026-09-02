@@ -1864,13 +1864,14 @@ feedback buttons across restarts.
 
 ### Open
 
-- **Design doc drift**, not edited here: §3.4 still says the history API
+- **Design doc drift** -- resolved in `d9afc9b`, after this entry was
+  written: §3.4 still said the history API
   "stops at 2025" (the generator prints per-table extents); §4.3 describes
   the regex guard as the control (it is now DuckDB's parser); §6.2's mention
   rule should say explicit mentions only; §10.2 should mention brace
   patterns; §11's file list lacks `ask/thread.ts`, `wpfl/toolResult.ts`,
   `tests/wpfl/support.ts` and the moved `askFeedback.ts`; §12 lacks
-  `ADMIN_USER_IDS`. The next pass makes those edits.
+  `ADMIN_USER_IDS`. All six sections now describe the code as committed.
 - Follow-ups the review left, none blocking: the cache marker is written on a
   partial refresh, so a failed season defers its retry by a day rather than
   six hours; `league/rivalries.json` is described as bidding history but
