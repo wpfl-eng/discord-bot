@@ -140,7 +140,9 @@ first-solver Lucky Letter, the only item with a live source. Tuning constants li
 | --- | --- | --- |
 | `/gamble` | `amount` (required, number or `all`) | Coin flip |
 | `/slots` | `amount` (required, number or `all`) | Football-themed slot machine |
-| `/blackjack` | `amount` (required), `table` (`classic` 1-deck S17 / `vegas` 6-deck H17) | Hit/stand/double/split via buttons |
+| `/blackjack sit` | `amount` (required), `pairs`, `plus3` | Take a seat at the shared multi-seat table |
+| `/blackjack leave` | | Stand up between rounds |
+| `/blackjack rules` | | House rules and side-bet paytables |
 | `/blackjackstats` | `user` | Personal blackjack stats |
 | `/blackjackleaderboard` | `category` (games, wins, winrate, blackjacks, profit, streak, biggest_win) | |
 | `/videopoker` | `amount` (required, number or `all`) | Jacks or Better |
@@ -383,11 +385,24 @@ Roughly 25 tables back the bot, grouped by feature: `economy_users`, `user_inven
 `pins` and `Bets`.
 
 Schemas are split between `sql/` (per-feature table definitions) and `migrations/` (numbered SQL
-files). There is no automated migration runner — apply them manually.
+files). There is no automated migration runner and no tracking table — apply them manually with:
 
-`migrations/008_remove_nflmon_rob_training.sql` has not been applied. It drops the retired NFLmon
-tables, the rob/padlock columns on `economy_users`, and the long-dead `training_grounds` /
-`training_slots` tables. The bot runs correctly either way; applying it is irreversible.
+```bash
+npx tsx scripts/runMigration.ts migrations/<file>.sql --dry-run   # print the SQL
+npx tsx scripts/runMigration.ts migrations/<file>.sql             # apply it
+```
+
+Because nothing records what has been applied, a migration's state is only knowable by checking
+the schema for its effects — 008 by whether the `nflmon_*` tables are gone, 009 by whether
+`economy_users.wallet` is `bigint`, 013 by whether `casino_table_state` exists. Check rather than
+assume, and don't write applied-state into this file: it said 008 was unapplied long after it had
+been applied.
+
+Two carry traps. `008_remove_nflmon_rob_training.sql` is irreversible — it drops NFLmon
+collections, stats and trade history (`scripts/backupMigration008.ts` dumps them first).
+`009_widen_economy_money_columns.sql` must be applied together with `db/pgTypes.ts`, because
+node-postgres returns BIGINT as a string and without that module `EconomyUser.wallet` silently
+becomes a string while TypeScript still calls it a number.
 
 ### Testing
 

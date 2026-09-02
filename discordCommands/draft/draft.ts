@@ -9,7 +9,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   // Define the draft time
-  const draftTime: Date = new Date('2024-09-03T20:00:00-04:00'); // Date in EST
+  const draftTime: Date = new Date('2026-08-28T20:00:00-04:00'); // Date in EST
   const draftTimeZone: string = 'America/New_York';
 
   // Get the current time in the draft's time zone

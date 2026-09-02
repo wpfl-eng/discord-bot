@@ -3,6 +3,7 @@ import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
 import type { ActivityAction } from 'espn-fantasy-football-api/node.js';
 import { espnMembers } from '../../constants/espnMembers.js';
+import { getCurrentNFLSeason } from '../../helpers/utils.js';
 import { formatDistanceToNow, subDays, format } from 'date-fns';
 
 export const data = new SlashCommandBuilder()
@@ -25,9 +26,12 @@ export const execute = async (interaction: ChatInputCommandInteraction): Promise
     const myClient = new Client({ leagueId: Number.parseInt(LEAGUE_ID, 10) });
     myClient.setCookies({ espnS2: ESPN_S2, SWID });
 
-    const currentYear = new Date().getFullYear();
+    // The season, not the calendar year. In January and February -- the
+    // fantasy playoffs and the championship -- they differ, and this asked
+    // ESPN for a season that had not started yet.
+    const currentSeason: number = getCurrentNFLSeason();
     const activityData: ActivityAction[][] = await myClient.getRecentActivity({
-      seasonId: currentYear,
+      seasonId: currentSeason,
     });
 
     const strResponse = formatActivityResponse(activityData);
@@ -64,9 +68,12 @@ const formatActivityResponse = (data: ActivityAction[][]): string => {
 
 const getActivityResponse = (action: ActivityAction): string => {
   const { team, ids, player, bidAmount, date } = action;
-  const memberName = espnMembers.find((member) => member.id === team.id)?.name ?? 'Unknown';
+  // `team` and `player` are both lookups the fork can miss: a message naming a team no longer in
+  // the league, or a player neither on a roster nor returned by the player-card endpoint. The
+  // 'Unknown' fallbacks were always here; the accesses reaching them were not guarded.
+  const memberName = espnMembers.find((member) => member.id === team?.id)?.name ?? 'Unknown';
   const playerName =
-    player.playerPoolEntry?.player.fullName ?? player.player?.fullName ?? 'Unknown Player';
+    player?.playerPoolEntry?.player.fullName ?? player?.player?.fullName ?? 'Unknown Player';
   const activityTime = format(new Date(date), "MMM d, yyyy 'at' h:mm a");
   const timeAgo = formatDistanceToNow(new Date(date), { addSuffix: true });
 

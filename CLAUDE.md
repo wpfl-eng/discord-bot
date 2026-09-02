@@ -81,7 +81,32 @@ through `/ask`, an agent built on the Claude Agent SDK. 48 slash commands are re
 - **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, routes button/autocomplete/DM interactions, runs Express health check server
 - **Commands**: Located in `/discordCommands/[commandname]/[commandname].ts`
 - **External APIs**: ESPN Fantasy Football (custom fork), WPFL history API, Polymarket Gamma API, Finnhub, Sleeper API, OpenAI
-- **Database**: PostgreSQL via @vercel/postgres (~25 tables; schemas in `/sql`, numbered migrations in `/migrations`, no automated runner). `migrations/008_remove_nflmon_rob_training.sql` is written but deliberately NOT applied - it drops retired NFLmon/rob/training tables and columns
+- **Database**: PostgreSQL via @vercel/postgres (~25 tables; schemas in `/sql`, numbered
+  migrations in `/migrations`). **There is no migration runner and no tracking table** -
+  nothing anywhere records which migrations have been applied.
+
+  That means applied-state is only knowable by inspecting the schema for a migration's
+  effects: 008 is applied iff the `nflmon_*` tables are gone, 009 iff
+  `economy_users.wallet` is `bigint` rather than `integer`, 013 iff `casino_table_state`
+  exists. Check before assuming - **do not record applied-state in this file.** This
+  bullet previously asserted 008 was "deliberately NOT applied" long after it had in fact
+  been applied, and that claim was repeated downstream as fact.
+
+  Apply one with `npx tsx scripts/runMigration.ts <file>` (`--dry-run` prints the SQL
+  without executing). Files are written to be idempotent (`IF EXISTS` / `IF NOT EXISTS`).
+
+  Two carry traps:
+  - `008_remove_nflmon_rob_training.sql` is **irreversible** - it drops NFLmon
+    collections, stats and trade history. `scripts/backupMigration008.ts` dumps the data
+    first. The bot runs correctly either way; no code references those tables.
+  - `009_widen_economy_money_columns.sql` must ship **with** `db/pgTypes.ts`.
+    node-postgres returns BIGINT as a *string*, so applying 009 without that module
+    silently turns `EconomyUser.wallet` into a string while TypeScript still declares it
+    a number, and `wallet + amount` concatenates instead of adding. `pgTypes` is
+    side-effect imported at the top of `index.ts`.
+
+  `010`-`013` (casino) carry no such trap - they only add stats columns and the
+  table-persistence table, and every game plays correctly without them.
 - **Misc Data**: `/data`
 
 ### Feature Modules
@@ -100,8 +125,15 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
   in-process MCP server that exposes all eight
 - `errors/`, `helpers/`, `constants/`, `types/` - shared support code
 
-Some features keep their config next to the command instead: `discordCommands/roulette/` and
-`discordCommands/craps/` each hold their own `*Config.ts`, `*State.ts` and engine files.
+Some features keep their config next to the command instead: `discordCommands/roulette/`,
+`discordCommands/craps/` and `discordCommands/blackjack/` each hold their own `*Config.ts`
+or `*Utils.ts`, `*State.ts`, `*Render.ts` and engine files.
+
+`casino/` holds what all three table games share: one palette (`casinoTheme`), one
+currency formatter (`casinoFormat`), the Components V2 builders and budget guards
+(`casinoRender`), board painting (`casinoPaint`), modals (`casinoModal`), result-frame
+pacing (`casinoPacing`), rendered hero images (`casinoHero`), the cross-game hub
+(`casinoHub`), and between-round persistence (`casinoPersistence`, `casinoBoot`).
 
 ### Command Loading
 Both `index.ts` and `deploy-commands.ts` scan `discordCommands/` and, for each folder, import **only**
@@ -121,6 +153,11 @@ and `mypredictions/` registers `/my-predictions`.
 - **Trivia scheduler** (`trivia/triviaService.ts:150`) - cron in `America/New_York`; posts at 9/11/13/15/17/19/21, auto-closes each 2h later, season rollover at midnight on the 1st
 - **Trivia DMs** - `messageCreate` handler accepts answers sent to the bot directly
 - **Roulette auto-spin** - rounds spin on a timer in `discordCommands/roulette/rouletteState.ts`
+- **Craps shooter** - the shooter throws with a ROLL button; the table rolls for them
+  after a grace period, and the dice pass on a seven-out only
+- **Blackjack table** - one shared multi-seat table; every seat acts at once on a shared
+  clock, and stakes ride between rounds until changed
+- **Casino hub** - a summary of all three tables refreshed in `ECONOMY_CASINO_CHANNEL_ID`
 - **Autocomplete** - `/craps`, `/roulette`, `/inventory`, `/triviaquestion` export an `autocomplete` handler dispatched by `index.ts`
 
 ### Command Pattern
@@ -149,7 +186,8 @@ Required environment variables (create `.env` from `.env.sample`):
   optional `WPFL_DATA_DIR` (defaults to `$HOME/wpfl-data`)
 - Stock: `FINNHUB_API_KEY`
 - Trivia: `TRIVIA_CHANNEL_ID`, `TRIVIA_ADMIN_USER_IDS` (comma-separated; gates `/triviaquestion`)
-- Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID`, `ROULETTE_CHANNEL_ID`, `CRAPS_CHANNEL_ID`
+- Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID` (casino hub),
+  `ROULETTE_CHANNEL_ID`, `CRAPS_CHANNEL_ID`, `BLACKJACK_CHANNEL_ID`
 - Other: `OPEN_API_KEY`, `PORT`, `API_KEY`, `BOT_ID`
 
 ### Key Dependencies

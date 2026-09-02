@@ -144,12 +144,11 @@ describe('espnTools', () => {
     // up -- so the cap keeps the useful end and says it truncated.
     describe('the pool is capped', () => {
       const many = Array.from({ length: 300 }, (_, i) => ({
-        player: {
-          id: i,
-          fullName: `Player ${i}`,
-          defaultPosition: 'RB',
-          percentOwned: i, // ascending, so the most-owned are last
-        },
+        ...recording[0],
+        id: i,
+        fullName: `Player ${i}`,
+        defaultPosition: 'RB',
+        percentOwned: i, // ascending, so the most-owned are last
       }));
 
       test('returns at most FREE_AGENT_LIMIT players', () => {

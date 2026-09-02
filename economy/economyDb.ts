@@ -2,6 +2,10 @@
 // User wallet, bank, transactions, and leaderboards
 
 import { sql } from '@vercel/postgres';
+// Side-effect import: registers the int8 parser so the BIGINT money columns
+// decode as numbers rather than strings. Must load before any query runs.
+import '../db/pgTypes.js';
+
 import type {
   EconomyUser,
   TransferResult,

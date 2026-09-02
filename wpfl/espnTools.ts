@@ -11,9 +11,9 @@
  * the raw shape would spend its context on ids and stat blocks nobody asked
  * about.
  *
- * Team names are never load-bearing: the fork returns `' '` for every
- * `team.name` and has no `ownerName`, so constants/wpflMembers.ts is not merely
- * the preferred owner mapping, it is the only one available.
+ * Team names are never load-bearing: owners come from constants/wpflMembers.ts,
+ * the mapping the rest of the bot already shares, not from whatever ESPN sends
+ * as `team.name` or `ownerName`.
  */
 
 import { z } from 'zod';
@@ -22,12 +22,12 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import pkg from 'espn-fantasy-football-api/node.js';
 import type {
   ActivityAction,
-  BoxscoreMatchup,
+  Boxscore,
   BoxscorePlayer,
   Client as EspnClient,
-  EspnPlayer,
-  EspnTeam,
-  FreeAgentEntry,
+  FreeAgentPlayer,
+  Player,
+  Team,
 } from 'espn-fantasy-football-api/node.js';
 import { getWpflMemberByEspnId } from '../constants/wpflMembers.js';
 // getCurrentNFLSeason, not getFullYear(): the latter would name the wrong season
@@ -95,7 +95,7 @@ export interface TransactionSummary {
   readonly bidAmount: number;
 }
 
-export function toTeams(teams: readonly EspnTeam[]): TeamSummary[] {
+export function toTeams(teams: readonly Team[]): TeamSummary[] {
   return teams.map((team) => ({
     espnId: team.id,
     owner: ownerFor(team.id),
@@ -109,7 +109,7 @@ export function toTeams(teams: readonly EspnTeam[]): TeamSummary[] {
   }));
 }
 
-export function toBoxscores(matchups: readonly BoxscoreMatchup[]): MatchupSummary[] {
+export function toBoxscores(matchups: readonly Boxscore[]): MatchupSummary[] {
   return matchups.map((matchup) => ({
     homeOwner: ownerFor(matchup.homeTeamId),
     awayOwner: matchup.awayTeamId === undefined ? null : ownerFor(matchup.awayTeamId),
@@ -129,44 +129,47 @@ export function toBoxscores(matchups: readonly BoxscoreMatchup[]): MatchupSummar
 export const FREE_AGENT_LIMIT = 50;
 
 export function toFreeAgents(
-  entries: readonly FreeAgentEntry[],
+  entries: readonly FreeAgentPlayer[],
   position?: string
 ): FreeAgentSummary[] {
   const wanted: string | undefined = position?.toLowerCase();
 
+  // A FreeAgentPlayer extends Player on the fork, so the player fields sit on
+  // the entry itself alongside its stat blocks.
   return entries
-    .filter(
-      (entry) => wanted === undefined || entry.player.defaultPosition.toLowerCase() === wanted
-    )
+    .filter((entry) => wanted === undefined || entry.defaultPosition.toLowerCase() === wanted)
     .map((entry) => ({
-      name: entry.player.fullName,
-      position: entry.player.defaultPosition,
-      proTeam: entry.player.proTeamAbbreviation ?? null,
-      percentOwned: entry.player.percentOwned ?? null,
-      percentChange: entry.player.percentChange ?? null,
-      auctionValueAverage: entry.player.auctionValueAverage ?? null,
-      isInjured: entry.player.isInjured === true,
+      name: entry.fullName,
+      position: entry.defaultPosition,
+      proTeam: entry.proTeamAbbreviation ?? null,
+      percentOwned: entry.percentOwned ?? null,
+      percentChange: entry.percentChange ?? null,
+      auctionValueAverage: entry.auctionValueAverage ?? null,
+      isInjured: entry.isInjured === true,
     }))
     .sort((a, b) => (b.percentOwned ?? 0) - (a.percentOwned ?? 0))
     .slice(0, FREE_AGENT_LIMIT);
 }
 
 export function toTransactions(topics: readonly ActivityAction[][]): TransactionSummary[] {
+  // `team` and `player` are both lookups the fork can miss: a message naming
+  // a team no longer in the league, or a player neither on a roster nor
+  // returned by the player-card endpoint.
   return topics.flat().map((action) => ({
     date: new Date(action.date).toISOString(),
     action: action.action,
-    owner: ownerFor(action.team.id),
+    owner: action.team === undefined ? 'Unknown' : ownerFor(action.team.id),
     toOwner: action.ids.to === undefined ? null : ownerFor(action.ids.to),
     // Measured: an FA ADDED action carries playerPoolEntry and no `player`.
     player:
-      action.player.playerPoolEntry?.player.fullName ??
-      action.player.player?.fullName ??
+      action.player?.playerPoolEntry?.player.fullName ??
+      action.player?.player?.fullName ??
       'Unknown Player',
     bidAmount: action.bidAmount ?? 0,
   }));
 }
 
-function toRosterEntry(player: EspnPlayer): RosterEntry {
+function toRosterEntry(player: Player): RosterEntry {
   return {
     name: player.fullName,
     position: player.defaultPosition,
@@ -176,8 +179,10 @@ function toRosterEntry(player: EspnPlayer): RosterEntry {
   };
 }
 
+// A BoxscorePlayer extends Player on the fork: the name is `fullName` directly
+// and the lineup slot is `rosteredPosition`.
 function toLineupEntry(slot: BoxscorePlayer): LineupEntry {
-  return { name: slot.player.fullName, position: slot.position, points: slot.totalPoints };
+  return { name: slot.fullName, position: slot.rosteredPosition, points: slot.totalPoints };
 }
 
 function ownerFor(espnId: number): string {

@@ -127,7 +127,9 @@ export const CONFIG: EconomyConfig = {
 
   // Blackjack
   BLACKJACK_MIN: 10,
-  BLACKJACK_MAX: 10000,
+  // Matches the roulette ceiling. Worst case across four doubled split hands plus
+  // insurance is 850,000 committed, which the wallet itself bounds.
+  BLACKJACK_MAX: 100000,
   BLACKJACK_COOLDOWN_SECONDS: 5,
   BLACKJACK_TIMEOUT_SECONDS: 120,
 

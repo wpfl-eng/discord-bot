@@ -1,9 +1,10 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
-import type { BoxscoreMatchup } from 'espn-fantasy-football-api/node.js';
+import type { Boxscore } from 'espn-fantasy-football-api/node.js';
 import { espnMembers } from '../../constants/espnMembers.js';
-import { getCurrentNFLWeek } from '../../helpers/utils.js';
+import { getCurrentNFLSeason } from '../../helpers/utils.js';
+import { resolvePeriod } from '../../helpers/espnPeriod.js';
 
 export const data = new SlashCommandBuilder()
   .setName('closestscores')
@@ -22,7 +23,7 @@ export const data = new SlashCommandBuilder()
       .setDescription('The year')
       .setRequired(false)
       .setMinValue(2018)
-      .setMaxValue(new Date().getFullYear())
+      .setMaxValue(getCurrentNFLSeason())
   );
 
 async function getMatchups(matchupWeek: number, matchupYear: number): Promise<string> {
@@ -42,7 +43,7 @@ async function getMatchups(matchupWeek: number, matchupYear: number): Promise<st
   });
 
   try {
-    const matchups: BoxscoreMatchup[] = await myClient.getBoxscoreForWeek({
+    const matchups: Boxscore[] = await myClient.getBoxscoreForWeek({
       seasonId: matchupYear,
       matchupPeriodId: matchupWeek,
       scoringPeriodId: matchupWeek,
@@ -54,7 +55,11 @@ async function getMatchups(matchupWeek: number, matchupYear: number): Promise<st
       const homeMemberName = homeMember?.name ?? 'Unknown';
       const awayMemberName = awayMember?.name ?? 'Unknown';
 
-      if (matchup.awayTeamId && matchup.awayScore !== undefined && matchup.homeScore !== undefined) {
+      if (
+        matchup.awayTeamId &&
+        matchup.awayScore !== undefined &&
+        matchup.homeScore !== undefined
+      ) {
         const diffScore = matchup.awayScore - matchup.homeScore;
 
         if ((-16 < diffScore && diffScore <= 0) || (0 <= diffScore && diffScore < 16)) {
@@ -73,12 +78,11 @@ async function getMatchups(matchupWeek: number, matchupYear: number): Promise<st
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  let matchupWeek = interaction.options.getInteger('week');
-  const matchupYear = interaction.options.getInteger('year') ?? new Date().getFullYear();
-
-  if (!matchupWeek) {
-    matchupWeek = getCurrentNFLWeek();
-  }
+  // ESPN publishes the current week directly; the calendar arithmetic is the fallback.
+  const { week: matchupWeek, season: matchupYear } = await resolvePeriod(
+    interaction.options.getInteger('week'),
+    interaction.options.getInteger('year')
+  );
 
   const response = await getMatchups(matchupWeek, matchupYear);
 

@@ -2,8 +2,10 @@ import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from '
 import pkg from 'espn-fantasy-football-api/node.js';
 const { Client } = pkg;
 import { espnMembers } from '../../constants/espnMembers.js';
+import { getCurrentNFLSeason } from '../../helpers/utils.js';
+import { resolvePeriod } from '../../helpers/espnPeriod.js';
 
-import type { BoxscoreMatchup } from 'espn-fantasy-football-api/node.js';
+import type { Boxscore } from 'espn-fantasy-football-api/node.js';
 
 interface Score {
   name: string;
@@ -24,10 +26,10 @@ export const data = new SlashCommandBuilder()
   .addIntegerOption((option) =>
     option
       .setName('year')
-      .setDescription('The year (default: 2025)')
+      .setDescription('The season (defaults to the current one)')
       .setRequired(false)
       .setMinValue(2018)
-      .setMaxValue(2025)
+      .setMaxValue(getCurrentNFLSeason())
   );
 
 async function getRankedScores(week: number, year: number): Promise<Score[]> {
@@ -44,7 +46,7 @@ async function getRankedScores(week: number, year: number): Promise<Score[]> {
     SWID,
   });
 
-  const matchups: BoxscoreMatchup[] = await myClient.getBoxscoreForWeek({
+  const matchups: Boxscore[] = await myClient.getBoxscoreForWeek({
     seasonId: year,
     matchupPeriodId: week,
     scoringPeriodId: week,
@@ -52,7 +54,7 @@ async function getRankedScores(week: number, year: number): Promise<Score[]> {
 
   const scores: Score[] = [];
 
-  matchups.forEach((matchup: BoxscoreMatchup) => {
+  matchups.forEach((matchup: Boxscore) => {
     const homeMember = espnMembers.find((member) => member.id === matchup.homeTeamId);
     if (homeMember) {
       scores.push({ name: homeMember.name, score: matchup.homeScore });
@@ -103,8 +105,15 @@ function createEmbed(scores: Score[], week: number, year: number): EmbedBuilder 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
 
-  const week: number = interaction.options.getInteger('week') || 13;
-  const year: number = interaction.options.getInteger('year') || 2025;
+  // Both used to be frozen literals -- week 13 of 2025 -- so the command
+  // answered about a season that had finished, and setMaxValue(2025) meant the
+  // current one could not even be asked for. The defaults now come from ESPN,
+  // which publishes the current week directly, falling back to the calendar
+  // arithmetic that got the January rollover wrong twice.
+  const { week, season: year } = await resolvePeriod(
+    interaction.options.getInteger('week'),
+    interaction.options.getInteger('year')
+  );
 
   try {
     const scores: Score[] = await getRankedScores(week, year);
