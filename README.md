@@ -77,23 +77,27 @@ npm run format:check
 
 ## Available Commands
 
-48 slash commands are registered. Each lives in `discordCommands/<name>/<name>.ts`.
+49 slash commands are registered. Each lives in `discordCommands/<name>/<name>.ts`.
 
 ### Ask
 
 | Command | Options | Notes |
 | --- | --- | --- |
 | `/ask` | `question` (required) | Open-ended questions about the league, answered in a public thread |
+| `/ask-admin` | `status` / `resync` / `usage` / `pause` / `resume` | Commissioner controls; hidden from everyone without Administrator |
 
 `/ask` opens a thread on the answer and streams a live ticker of what it is doing — which file it
 read, which query it ran, what it is currently reasoning about — then the answer itself, with a
-source footer. Anyone in the thread can keep talking to it; each person's questions count against
-their own daily limit. It reasons over five sources: the draft-2026 post-draft report (fetched and
-shredded to disk), a locally cached decade of WPFL history queried with read-only SQL, the WPFL
-history API's computed aggregates, the live ESPN season, and the web.
+source footer and 👍/👎 buttons. The member who asked keeps talking to it by just typing in the
+thread; anyone else joins by replying to the bot or mentioning it. Each person's questions count
+against their own daily limit, and only runs that reached the model count. It reasons over five
+sources: the draft-2026 post-draft report (fetched and shredded to disk), a locally cached decade
+of WPFL history queried with read-only SQL, the WPFL history API's computed aggregates, the live
+ESPN season, and the web.
 
 It needs `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`, and migration
-`migrations/014_ask_agent.sql`.
+`migrations/014_ask_agent.sql`. To keep `/ask` out of a channel, use Discord's per-command channel
+permissions in Server Settings; there is no channel setting in the bot.
 
 ### Fantasy Football
 

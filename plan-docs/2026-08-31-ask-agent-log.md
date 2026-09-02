@@ -34,7 +34,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 11 | 7 | `feat/ask` | Integration and handoff — docs, full suite, conditional smoke test | DONE |
 | 12 | — | `feat/ask` | Adversarial review — eight fixes, each with tests | DONE |
 | 13 | — | `feat/ask` | The two lifetime races — deferred teardown for shred and SQL | DONE |
-| 14 | — | `feat/ask` | Second adversarial review with AJ — nineteen decisions, first live runs | IN PROGRESS |
+| 14 | — | `feat/ask` | Second adversarial review with AJ — nineteen decisions, first live runs | DONE |
 
 **AJ's, not the build's** (design §17.5): applying migration 014, merging to
 `main`, `git push`, `deploy-commands.ts`, and the pre-launch re-run of
@@ -1407,7 +1407,7 @@ old value on the spot, with nothing recording that a reader is still inside it.
 
 ---
 
-## Stage 14 — Second adversarial review, with AJ — `feat/ask` — 2026-09-02 — IN PROGRESS
+## Stage 14 — Second adversarial review, with AJ — `feat/ask` — 2026-09-02 — DONE
 
 Not a build stage. A second adversarial read of the whole branch, this time as
 an interview: every finding put to AJ as one question with a recommendation,
@@ -1503,12 +1503,66 @@ Landed so far, one commit each, each test-first and each behind the green gate:
 - `wpfl/artifactSync.ts`, `wpfl/historyCache.ts`, `wpfl/indexGenerator.ts`,
   prompt and descriptions — the cache window, `force`, `cacheExtents`, no
   literal year (11).
-- Still to land: defer-first and refusals (7), mentions (8), the per-thread
-  queue (5), the continuation rule (13), feedback buttons (16), `/ask-admin`
-  (17), the dependency commit (14), the live runs, the doc pass.
+- `ask/pause.ts`, `ask/askAuth.ts`, `discordCommands/ask/ask.ts`, `index.ts` —
+  defer first, refusals as ephemeral follow-ups, `earlyRefusal()` for paused
+  and unconfigured, the six ops-failure lines, a `ready` log line (7, 12, 17).
+- `ask/mentions.ts` — `NO_MENTIONS` on every send and edit carrying foreign
+  text (8).
+- `ask/threadQueue.ts`, `ask/ticker.ts` — one run at a time per thread, a
+  waiting cap of two, a waiting line on the ticker (5).
+- `discordCommands/ask/ask.ts` — `continuesConversation()`, `bot_thread`
+  threaded through, the one-time follow-up hint (13).
+- `discordCommands/ask/askFeedback.ts` — the buttons, counts updated in place,
+  a log line on 👎 (16).
+- `discordCommands/askadmin/askadmin.ts`, `ask/askDb.ts` — `/ask-admin` and
+  the three read-only views it needs (17).
+- `package.json`, `package-lock.json` — exact pins on the SDK and DuckDB,
+  `@modelcontextprotocol/sdk` declared (14).
+- Two fixes the live runs found that no decision anticipated:
+  - `wpfl/espnTools.ts` — a player's position from `eligiblePositions`. The
+    fork's `defaultPosition` is the *slot* whose id equals the position id,
+    so the free-agent pool arrives as `TQB, RB, RB/WR, WR, WR/TE, D/ST` and
+    the first live question, asked for WRs, was handed four tight ends. The
+    recording had Baker Mayfield as `TQB` and a test asserted it.
+  - `ask/askRunner.ts` — the published text is the success result's own
+    `result`, not the accumulated stream, which carried "I'll start with
+    INDEX.md and the table list." from before the first tool call; and
+    thinking accumulates per block, because summarised thinking arrives as
+    fragments and the ticker showed "I".
+- Docs: this entry; the design rewritten where a decision changed it; README
+  and CLAUDE.md for `/ask-admin`, the continuation rule, the cache window,
+  the command count and the API's year range.
 
 ### Verified
-- The Glob probe above.
+
+Every slice landed test-first behind the green gate. Start of stage: 59
+suites, 1,313 tests. End: **64 suites, 1,423 tests**, typecheck 0, lint 0.
+Eighteen commits on `feat/ask`, nothing pushed, `main` untouched.
+
+Migration 014 applied twice on Postgres 16 in a throwaway container: both
+clean, the feedback upsert overwrites, the CHECK rejects a zero rating.
+
+**The live runs**, through `runAsk` directly (the ledger insert failed on
+the unapplied migration each time, logged and harmless):
+
+| Run | What it proved | Turns | Wall | Est. cost |
+| --- | --- | ---: | ---: | ---: |
+| Glob `/etc/host*` | The hole was real: seven `/etc` paths came back | 2 | 3.6 s | $0.083 |
+| Bogus token | `assistant.error = authentication_failed`; row uncounted, `opsFailure` set; init lists all eight `mcp__wpfl__` tools, none deferred | 1 | 2.0 s | $0 |
+| Free-agent WRs | `espn_free_agents` called directly, no search turn; ticker settled on the result by id; **returned tight ends** — the fork's slot-label bug, fixed above | 2 | 8.0 s | $0.134 |
+| Decade WR spend | Nine `sql` calls over `wpfl_draft_history` and `wpfl_player_scores`; a correct, footed answer (AJ Boorde, $971, CeeDee Lamb $75 in 2024, WR5); the answer text carried pre-tool narration — fixed above | 10 | 23.0 s | $0.181 |
+| Follow-up, resumed | Same session id back; answered from context, no tool re-call | 1 | 3.0 s | $0.014 |
+| Narration probe | `result.result` is `"done"` while the stream is `"Looking now.done"`: the result field is the final turn only | — | — | — |
+
+The cost column is `total_cost_usd`, the SDK's local estimate, recorded here
+for the first time. Thirty-five cents for a question, a ten-year SQL question
+and a follow-up, against the design's estimate of thirteen to sixteen cents
+per question. On the Max token it is a consumption proxy, not a bill.
+
+**Not verified here, and why.** The Discord layer — the ephemeral follow-up
+after a public defer, the buttons, `/ask-admin`, the per-thread queue under
+real messages — is covered by stub tests and needs a guild with the migration
+applied and the commands deployed, both of which are AJ's (§17.5).
 
 ### Follow-ups, deliberately not built here
 - `private` answers: an ephemeral mode for strategy questions. First follow-up.
@@ -1519,7 +1573,29 @@ Landed so far, one commit each, each test-first and each behind the green gate:
 - `maxTurns` as a third bound, if the ledger ever shows a run that needed it.
 
 ### Open
-- (filled in at the end)
+- **The fork's `defaultPosition` is a slot label.** Worked around in
+  `espnTools.ts`; the fix belongs in `aboorde/ESPN-Fantasy-Football-API`,
+  which is AJ's, and a repin would let the workaround go.
+- **`FILE_DESCRIPTIONS` in `indexGenerator.ts` carry the artifact's year**
+  ("Simulated 2026 season", "records through 2025"). Correct for this
+  artifact, stale next August. A pass each draft, or derive from `meta`.
+- The Stage 13 open item stands: a run reads its own directory generation by
+  relative path while `readAsOf()` and the guard resolve the live path.
+- `/standings`, `/activity` and `/trophies` on main still take the week from
+  the calendar helper. Not this branch's.
+- Follow-ups above: `private` answers first.
+
+### Handoff
+
+```bash
+npx tsx scripts/runMigration.ts migrations/014_ask_agent.sql   # apply 014
+# add CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY) to .env on the host
+git checkout main && git merge --no-ff feat/ask
+git push origin main                                           # deploys the bot
+npx tsx deploy-commands.ts                                     # registers /ask and /ask-admin
+# Server Settings → Integrations → CommishBot: restrict /ask to channels if wanted
+# and, in ../draft-2026:  scripts/deploy.sh                    # ship prerequisite, §3.1a
+```
 
 ---
 

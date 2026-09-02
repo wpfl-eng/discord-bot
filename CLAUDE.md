@@ -75,7 +75,7 @@ There is no build step — TypeScript runs directly through `tsx`.
 This is a Discord bot for fantasy football league management (CommishBot). It pulls league data from
 ESPN and the WPFL history API, and layers on a virtual economy: casino games, collectibles,
 prediction markets, stock trading, trivia, and Wordle. It also answers open-ended league questions
-through `/ask`, an agent built on the Claude Agent SDK. 48 slash commands are registered.
+through `/ask`, an agent built on the Claude Agent SDK. 49 slash commands are registered.
 
 ### Core Structure
 - **Entry point**: `index.ts` - Initializes Discord client, loads commands dynamically, routes button/autocomplete/DM interactions, runs Express health check server
@@ -118,8 +118,10 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `wordle/`, `stock/`, `polymarket/` - config + DB + API client per feature
 - `blackjack/`, `craps/`, `redzone/`, `videopoker/` - per-game stats DB modules
 - `ask/` - the `/ask` agent: `askConfig.ts` (all tuning, including model), `askAuth.ts`,
-  `askDb.ts`, `askRunner.ts`, `caps.ts`, `concurrency.ts`, `hooks.ts`, `systemPrompt.ts`,
-  `ticker.ts`
+  `askDb.ts`, `askRunner.ts`, `caps.ts`, `concurrency.ts` (the global slots), `threadQueue.ts`
+  (one run at a time per thread), `hooks.ts`, `systemPrompt.ts`, `ticker.ts`, `pause.ts` (the
+  in-memory kill switch), `mentions.ts`. `discordCommands/ask/askFeedback.ts` holds the 👍/👎
+  buttons and `discordCommands/askadmin/` the `/ask-admin` command
 - `wpfl/` - the data layer behind `/ask`: artifact fetch and shred, `INDEX.md` generation, the
   cached WPFL decade, the read-only DuckDB SQL tool, the ESPN and WPFL API tools, and the
   in-process MCP server that exposes all eight
@@ -148,8 +150,10 @@ and `mypredictions/` registers `/my-predictions`.
 
 ### Background Behavior
 - **`/ask` freshness and continuation** - no timers. The published artifact is re-fetched lazily
-  (etag check, 6h staleness window) on `ready` and at the top of every `/ask`; ordinary messages
-  in an `/ask` thread continue that agent session through `messageCreate`
+  (etag check, 6h staleness window) on `ready` and at the top of every `/ask`, and the cached
+  WPFL decade on its own 24h window; `/ask-admin resync` forces both. Messages in an `/ask`
+  thread continue that agent session through `messageCreate` when they address the bot, or
+  come from the opener in a thread the bot created
 - **Trivia scheduler** (`trivia/triviaService.ts:150`) - cron in `America/New_York`; posts at 9/11/13/15/17/19/21, auto-closes each 2h later, season rollover at midnight on the 1st
 - **Trivia DMs** - `messageCreate` handler accepts answers sent to the bot directly
 - **Roulette auto-spin** - rounds spin on a timer in `discordCommands/roulette/rouletteState.ts`
@@ -380,6 +384,6 @@ for optimalcoaching, the api returns the aggregate of the week prior, so week 1 
 ]
 
 Important information regarding data from these endpoints
--- 2010-2024 is the current data extractable from the endpoint
+-- 2010-2025 is the current data extractable from the endpoint; the current season is loaded in-season, days or weeks behind the games
 -- 2015 is the start of tracking player data
 -- 2016 is the first year of auction draft

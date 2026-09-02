@@ -18,7 +18,10 @@ describe('espnTools', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recording = load<any[]>('espn-teams.json');
 
-    test('names the owner from wpflMembers, because ESPN returns a blank team name', () => {
+    // The recording was taken on a fork build that returned a blank name; the
+    // current build returns real names and owners. The owner still comes from
+    // the canonical table, because ESPN's spellings drift (design §7).
+    test('names the owner from wpflMembers, not from whatever ESPN sends as the team name', () => {
       expect(recording[0].name).toBe(' ');
 
       const teams = toTeams(recording);

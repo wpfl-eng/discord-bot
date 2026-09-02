@@ -133,9 +133,7 @@ describe('hooks', () => {
       });
 
       test('denies a pattern anchored at the home directory', async () => {
-        expect(denied(await call(guard(), 'Glob', { pattern: '~/discord-bot/.env' }))).toBe(
-          true
-        );
+        expect(denied(await call(guard(), 'Glob', { pattern: '~/discord-bot/.env' }))).toBe(true);
       });
 
       test('denies an absolute pattern outside even when the path argument is inside', async () => {
@@ -148,9 +146,9 @@ describe('hooks', () => {
       // form of a pattern that never leaves it. A flat deny on absolute
       // patterns would refuse that.
       test('allows an absolute pattern that stays inside the data directory', async () => {
-        expect(
-          denied(await call(guard(), 'Glob', { pattern: `${dataDir}/teams/*.json` }))
-        ).toBe(false);
+        expect(denied(await call(guard(), 'Glob', { pattern: `${dataDir}/teams/*.json` }))).toBe(
+          false
+        );
       });
 
       test('allows relative patterns, which cannot leave a confined search root', async () => {
