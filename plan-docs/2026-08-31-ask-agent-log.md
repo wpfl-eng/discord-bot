@@ -37,6 +37,7 @@ happens on `feat/ask` or a `feat/ask-*` slice of it; nothing touches `main`.
 | 14 | — | `feat/ask` | Second adversarial review with AJ — nineteen decisions, first live runs | DONE |
 | 15 | — | `feat/ask` | Simplification review — 27 applied, 9 skipped | DONE |
 | 16 | — | `feat/ask` | Second simplification pass, the commish gate, merge-readiness review and its nine fixes | DONE |
+| 17 | — | `feat/ask` | Docs review of both libraries, then five live questions -- column lists in INDEX.md, a normalised cache, two prompt rules | DONE |
 
 **AJ's, not the build's** (design §17.5): applying migration 014, merging to
 `main`, `git push`, `deploy-commands.ts`, and the pre-launch re-run of
@@ -1889,6 +1890,134 @@ feedback buttons across restarts.
   in Threads; `~/.claude` and the parent of `WPFL_DATA_DIR` must be writable;
   the on-disk shred here predates this generator and both windows have
   lapsed, so the first boot after merge pays a full sync.
+
+## Stage 17 — Docs review, then five live questions — `feat/ask` — 2026-09-02 — DONE
+
+Five commits on `feat/ask`, all asked for by AJ, nothing pushed: `2f20db2` and
+`102fb52` (what the docs review found), `9eb8456` (what the live questions
+found), plus two docs-only commits between them. Suite at the start: 65 suites,
+1,456 tests. At the end: 65 suites, **1,465 tests**, typecheck 0, `eslint .` 0.
+
+### The docs review (`2f20db2`, `102fb52`)
+
+The code's claims about the Agent SDK, discord.js 14.27 and the Discord API were
+checked against the current docs and the installed typings by two research
+agents, then adversarially. Nothing the code assumes about the SDK is
+contradicted; the MCP wildcard form, the `//` path anchoring, hook precedence
+in bypass mode, the replaced child environment and the inline `settings` layer
+all hold. What the typings alone showed, and the docs did not:
+
+- A `success` result with `is_error` set carries the API error text in
+  `result`. The runner took `result` on every success subtype, so that text
+  would have been published as the answer and the run counted. Fixed; the text
+  becomes the run's error.
+- The assistant error union has eleven members, not six. `invalid_request`,
+  `model_not_found` and `server_error` join the ops failures with their own
+  lines; `unknown` and `max_output_tokens` stay counted, the first because it
+  may wrap this bot's own deadline abort.
+- `createSdkMcpServer` takes a per-call `timeout`, unbounded by default; the
+  wpfl server now has 60 s, above the SQL and history-API timeouts and well
+  under the four-minute deadline. The init message's MCP status is read and a
+  server not connected is logged.
+
+On the Discord side: `handleFeedback` ran two serverless round trips before
+answering a click, so a cold database made the vote show as failed; it defers
+first. `ephemeral: true` (deprecated since 14.17, warns) became
+`flags: MessageFlags.Ephemeral` at the six branch sites and `ready` (deprecated
+since 14.22, gone in v15) became `Events.ClientReady`. Discord documents the
+ephemeral follow-up after a public defer as the *opposite* of what the code
+relied on in the plain case, and says nothing about the delete-first sequence;
+the command now logs a refusal that lands in public, and the comment no longer
+says Discord permits it. The "5 edits / 5 s" figure appears in no Discord doc,
+which says not to hard-code one; the comments call the throttle what it is.
+
+### The five questions (`9eb8456`)
+
+Run through `runAsk` directly against the real model, as AJ Boorde, after a
+forced resync: the 2026 draft (winners, losers, biggest overpay and best
+value), a week 1 outlook, a Jefferson-for-Hall-and-Pickens trade, most
+regular-season wins and biggest margin in league history, and the RB/WR spend
+split since 2016. Every figure was then checked against the files, the same
+`sql` tool, the same ESPN tools and the API itself.
+
+| Question | Turns | Wall | Est. cost | Failed calls | Accuracy |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Draft | 9 | 29.6 s | $0.29 | 3 | Every grade, price and worth correct |
+| Week 1 | 8 | 37.5 s | $0.52 | 0 | Opponent, odds, lineup, news correct; **Worthy called Q (ESPN: ACTIVE)**; **"third-best week" (fifth)** |
+| Trade | 12 | 73.0 s | $0.61 | 2 | Every price, worth, edge, point total and the fragility figure correct |
+| History | 9 | 29.5 s | $0.25 | 1 | Leader and record margin correct; a side remark mixed the 2010+ log with the 2016+ record book |
+| Trends | 5 | 23.8 s | $0.13 | 1 | Every share and top-five price correct |
+
+Seven failed calls: five guessed column names (`player` for `name`, `market`,
+`pos`, `position` for `playerNflPosition`, `name` for `key`), one guessed table
+name (`teams_aj_boorde`), one syntax slip. Each is a paid turn on a ticker a
+member would be watching. Checking the ground truth found three more things the
+model never tripped on but would have:
+
+- `wpfl_matchups.season` and `week` were VARCHAR -- the API serialises them as
+  strings on that endpoint only -- so `WHERE season >= 2016` was a binder
+  error and `MAX(week)` for 2025 came back `"9"`.
+- 95 older draft rows carry `"RB  "`, `"WR  "` and the like, and team codes
+  come as `Pit` and `PIT`; a GROUP BY split every position in two.
+- The matchups endpoint publishes no playoff games: weeks 15-17 return
+  nothing and `includePlayoffs=true` returns the same 98 rows for 2024,
+  measured. Nothing said so.
+
+What changed: the shredder records each file's columns (`ShredFile.columns`)
+and INDEX.md lists them beside every file, names a per-owner directory's one
+table and its columns once above its files, states the `<directory>_<file>`
+rule in a section of its own, and notes that `history/` starts with the first
+auction season while the cached tables reach back to 2010. The cached tables'
+columns are read from each file's first line (`SourceExtents.columns`).
+`normalizeRow` fixes the types and the codes when the cache is written. The
+matchups table is described as regular season only in INDEX.md and the tool
+description. The system prompt says injury designations are ESPN's
+`injuryStatus` verbatim -- a news flag or a lineup slot is not one -- and that
+rankings over more than a handful of numbers are done in `sql` or listed.
+
+**Re-run after the fixes**, same four questions that had failed calls:
+
+| Question | Turns | Wall | Est. cost | Failed calls | Notes |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Week 1 | 7 | 24.5 s | $0.49 | 0 | Worthy ACTIVE, Charbonnet OUT; quotes the schedule line instead of ranking by eye |
+| Trade | 9 | 55.7 s | $0.47 | 0 | Same figures; every column named from INDEX.md |
+| History | 9 | 31.8 s | $0.21 | 2 | One path-guard denial of `/INDEX.md` (correct), one bare `owner` alias |
+| Trends | 8 | 32.6 s | $0.21 | 1 | One bare `share` alias |
+
+No guessed table or column name in any of the four. The remaining failures are
+DuckDB reserved words used as aliases without `AS`.
+
+### Verified
+
+- `tsc --noEmit` 0 and `eslint .` 0 after every commit; Jest 1,456 → 1,462
+  (docs review) → **1,465** (live questions). New tests cover the `is_error`
+  result, the nine ops codes, the init status warning, the deferred click, the
+  public-refusal log line, the flag replacements, the columns beside every
+  file and above `teams/`, the table-rule section, the cached tables'
+  columns, and the cache normalisation with its extents.
+- After the forced resync: `typeof(season)` and `typeof(week)` on
+  `wpfl_matchups` are BIGINT, `wpfl_draft_history` has six positions, and
+  INDEX.md carries the new sections with the real column lists.
+- Estimated spend for the stage's eleven runs: $3.17 on the Max token.
+
+### Open
+
+- Bare reserved-word aliases (`owner`, `share`) cost a turn in two of nine
+  runs. A clause in the `sql` description -- alias with `AS` -- would remove
+  it; not done here.
+- The history answer's side remark ("second-lowest team week") still mixes
+  the 2010+ log with the 2016+ record book when it does not query lows.
+- Cost per question ran $0.13-0.61 against the design's $0.13-0.16 estimate;
+  `espn_teams` is ~30 KB per call and two questions called it. Worth watching
+  in `/ask-admin usage` before tightening anything.
+- The ledger insert failed on every run here: migration 014 is confirmed
+  unapplied on the configured database (read-only check, all four tables
+  missing). The Discord layer remains unexercised in a real guild, and the
+  ephemeral refusal after a public defer needs one live check.
+- Carried from Stage 16, unchanged: the partial-refresh cache marker, the
+  rivalries description, host paths in the ticker, the swap-crash window,
+  `counted` on init, `capped()` and surrogates. The feedback ordering item
+  from that list is closed by `102fb52`.
 
 ---
 
