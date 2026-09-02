@@ -11,6 +11,7 @@ import {
 import type { FetchFn, HttpResponse, HistoryCacheResult } from '../../wpfl/historyCache.js';
 import { borrowShred, retiredShreds } from '../../wpfl/liveShred.js';
 import type { Release } from '../../ask/generations.js';
+import { ASK } from '../../ask/askConfig.js';
 
 const FIXTURE: string = path.join(process.cwd(), 'tests/fixtures/postdraft-published.json');
 
@@ -97,8 +98,15 @@ describe('artifactSync', () => {
 
     test('matches a stored strong etag against a weak one from the wire', async () => {
       await ensureFresh(deps());
-      // Simulate the previous shred having aged past the staleness window.
+      // Simulate the previous shred having aged past the staleness window,
+      // with the decade cache still inside its own window so that the etag
+      // is the only thing deciding.
       const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+      fs.mkdirSync(path.join(dataDir, 'wpfl'), { recursive: true });
+      fs.writeFileSync(
+        path.join(dataDir, 'wpfl', '.fetched'),
+        `${new Date(stale).toISOString()}\n`
+      );
 
       const outcome: SyncOutcome = await ensureFresh(
         deps({
@@ -342,6 +350,98 @@ describe('artifactSync', () => {
 
         reader();
         expect(fs.readdirSync(parent)).toEqual(['wpfl-data']);
+      });
+    });
+
+    /**
+     * The decade cache used to refresh only when the artifact's etag changed,
+     * so in season its 2026 rows appeared exactly as often as draft-2026 was
+     * republished, and never otherwise. It now has a window of its own: an
+     * unchanged etag is only "unchanged" while the cache is also fresh (log
+     * Stage 14, decision 11).
+     */
+    describe('the decade cache has its own window', () => {
+      const cacheMarker = (): string => path.join(dataDir, 'wpfl', '.fetched');
+      const cacheAt = (iso: string): void => {
+        fs.mkdirSync(path.dirname(cacheMarker()), { recursive: true });
+        fs.writeFileSync(cacheMarker(), `${iso}\n`);
+      };
+
+      test('an unchanged etag with a fresh cache is still unchanged', async () => {
+        await ensureFresh(deps());
+        const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+        cacheAt(new Date(stale - 60 * 60 * 1000).toISOString());
+        const refresh = jest.fn(async () => ({
+          sources: [],
+          fetchedAt: new Date(),
+          failedSeasons: [],
+          failedSources: [],
+        }));
+
+        const outcome: SyncOutcome = await ensureFresh(
+          deps({ now: () => stale, refreshCache: refresh as never })
+        );
+
+        expect(outcome.kind).toBe('unchanged');
+        expect(refresh).not.toHaveBeenCalled();
+      });
+
+      test('an unchanged etag with a stale cache takes the full path and refreshes it', async () => {
+        await ensureFresh(deps());
+        const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+        cacheAt(new Date(stale - 2 * ASK.WPFL_CACHE_STALE_AFTER_MS).toISOString());
+        const refresh = jest.fn(async (target: string) => {
+          fs.mkdirSync(target, { recursive: true });
+          fs.writeFileSync(path.join(target, '.fetched'), `${new Date(stale).toISOString()}\n`);
+          return { sources: [], fetchedAt: new Date(stale), failedSeasons: [], failedSources: [] };
+        });
+
+        const outcome: SyncOutcome = await ensureFresh(
+          deps({ now: () => stale, refreshCache: refresh as never })
+        );
+
+        expect(outcome.kind).toBe('reshredded');
+        expect(refresh).toHaveBeenCalledTimes(1);
+      });
+
+      test('a missing cache marker counts as stale', async () => {
+        await ensureFresh(deps());
+        fs.rmSync(path.join(dataDir, 'wpfl'), { recursive: true, force: true });
+        const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+
+        const outcome: SyncOutcome = await ensureFresh(deps({ now: () => stale }));
+
+        expect(outcome.kind).toBe('reshredded');
+      });
+    });
+
+    /** For /ask-admin resync: skip every window, honour nothing but the fetch. */
+    describe('force', () => {
+      test('re-syncs a young shred with an unchanged etag', async () => {
+        await ensureFresh(deps());
+        const fetchFn = jest.fn(async () => respond('W/"etag-1"')) as unknown as FetchFn;
+
+        const outcome: SyncOutcome = await ensureFresh(deps({ fetchFn, force: true }));
+
+        expect(fetchFn).toHaveBeenCalledTimes(1);
+        expect(outcome.kind).toBe('reshredded');
+      });
+
+      test('still reports a failed fetch honestly', async () => {
+        const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+        await ensureFresh(deps());
+
+        const outcome: SyncOutcome = await ensureFresh(
+          deps({
+            force: true,
+            fetchFn: (async () => {
+              throw new Error('network down');
+            }) as FetchFn,
+          })
+        );
+
+        expect(outcome.kind).toBe('failed');
+        error.mockRestore();
       });
     });
 

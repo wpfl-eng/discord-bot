@@ -162,8 +162,12 @@ describe('indexGenerator', () => {
   });
 
   describe('source routing', () => {
-    test('states that the WPFL history API stops at 2025', () => {
-      expect(index).toContain('2025');
+    // The literal year is gone: it was wrong the moment the API gained a
+    // 2026 row, and wrong again every August after (log Stage 14, decision 11).
+    test('says the history API lags the live season, without a hard-coded year', () => {
+      expect(index).not.toMatch(/stops at 20\d\d/i);
+      expect(index).toMatch(/lags the live season/i);
+      expect(index).toMatch(/season in progress/i);
       expect(index).toMatch(/2026/);
     });
 
@@ -195,6 +199,25 @@ describe('indexGenerator', () => {
       expect(index).toContain('wpfl_matchups');
       expect(index).toContain('wpfl_player_scores');
       expect(index).toMatch(/only through the `sql` tool/i);
+    });
+
+    test("says where each table's rows end, read from the files themselves", () => {
+      const index: string = generateIndex({
+        shred: result,
+        artifact,
+        etag: ETAG,
+        wpflCacheFetchedAt: new Date('2026-08-31T12:00:00Z'),
+        wpflCacheFiles: ALL_CACHED,
+        wpflCacheExtents: {
+          'draft_history.jsonl': { seasonMin: 2010, seasonMax: 2025, latestWeek: null },
+          'matchups.jsonl': { seasonMin: 2015, seasonMax: 2025, latestWeek: 17 },
+          'player_scores.jsonl': { seasonMin: 2015, seasonMax: 2026, latestWeek: 3 },
+        },
+      });
+
+      expect(index).toMatch(/wpfl_draft_history.*2010.*2025/);
+      expect(index).toMatch(/wpfl_matchups.*2015.*2025.*week 17/);
+      expect(index).toMatch(/wpfl_player_scores.*2015.*2026.*week 3/);
     });
 
     test('does not advertise a table whose file was never written', () => {

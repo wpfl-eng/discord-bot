@@ -13,7 +13,12 @@ import path from 'node:path';
 import { ASK } from '../ask/askConfig.js';
 import { shred, type ShredResult } from './shredder.js';
 import { generateIndex } from './indexGenerator.js';
-import { refreshWpflCache, type FetchFn, type HistoryCacheResult } from './historyCache.js';
+import {
+  refreshWpflCache,
+  cacheExtents,
+  type FetchFn,
+  type HistoryCacheResult,
+} from './historyCache.js';
 import { retireShred } from './liveShred.js';
 import { logError } from '../errors/errorHandler.js';
 
@@ -30,6 +35,12 @@ export interface SyncDeps {
   readonly refreshCache?: typeof refreshWpflCache;
   /** Overridden in tests; defaults to ASK.WPFL_FETCH_TIMEOUT_MS. */
   readonly timeoutMs?: number;
+  /**
+   * Skip every freshness window and the etag short-circuit: fetch, shred and
+   * refresh the cache now. For /ask-admin resync, after draft-2026's Tuesday
+   * republish. A forced call that finds a sync already in flight joins it.
+   */
+  readonly force?: boolean;
 }
 
 /**
@@ -71,8 +82,10 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
   const now: () => number = deps.now ?? Date.now;
   const refreshCache: typeof refreshWpflCache = deps.refreshCache ?? refreshWpflCache;
 
+  const force: boolean = deps.force === true;
+
   const index: string = path.join(dataDir, 'INDEX.md');
-  if (fs.existsSync(index) && now() - fs.statSync(index).mtimeMs < ASK.STALE_AFTER_MS) {
+  if (!force && fs.existsSync(index) && now() - fs.statSync(index).mtimeMs < ASK.STALE_AFTER_MS) {
     return { kind: 'fresh' };
   }
 
@@ -96,7 +109,19 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
     // reached when INDEX.md is missing or stale, and touching a file that is
     // not there threw ENOENT into the catch below. The etag matched again on
     // the next call, so it failed identically forever and nothing re-shredded.
-    if (etag !== null && etag === lastSeenEtag(dataDir) && fs.existsSync(index)) {
+    //
+    // Nor is an unchanged artifact enough on its own any more. The decade
+    // cache has a window of its own, and when it has lapsed the full path
+    // runs even though the artifact is the same build: a second's download
+    // and a five-millisecond shred, against the thirteen fetches that are the
+    // point. The cache used to refresh only when draft-2026 republished.
+    if (
+      !force &&
+      etag !== null &&
+      etag === lastSeenEtag(dataDir) &&
+      fs.existsSync(index) &&
+      cacheIsFresh(dataDir, now())
+    ) {
       // Same build. Touch INDEX.md so the staleness window restarts rather
       // than re-checking on every question for the next six hours.
       fs.utimesSync(index, new Date(), new Date());
@@ -151,6 +176,9 @@ async function sync(deps: SyncDeps): Promise<SyncOutcome> {
         etag,
         wpflCacheFetchedAt: cache.sources.length > 0 ? cache.fetchedAt : null,
         wpflCacheFiles: cacheFiles,
+        // Read from the files after the copy-back, so a carried-over source
+        // is described as accurately as one fetched this run.
+        wpflCacheExtents: cacheExtents(stagedCache),
       })
     );
     if (etag !== null) fs.writeFileSync(path.join(staging, '.etag'), `${etag}\n`);
@@ -234,6 +262,14 @@ function sweepLitter(dataDir: string): void {
       logError('ask', `Could not sweep the abandoned shred at ${full}`, error);
     }
   }
+}
+
+/** The decade cache is fresh while its marker is inside its own window. */
+function cacheIsFresh(dataDir: string, now: number): boolean {
+  const marker: string = path.join(dataDir, 'wpfl', '.fetched');
+  if (!fs.existsSync(marker)) return false;
+  const fetchedAt: number = Date.parse(fs.readFileSync(marker, 'utf8').trim());
+  return Number.isFinite(fetchedAt) && now - fetchedAt < ASK.WPFL_CACHE_STALE_AFTER_MS;
 }
 
 function lastSeenEtag(dataDir: string): string | null {

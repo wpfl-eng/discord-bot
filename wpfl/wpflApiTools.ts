@@ -38,9 +38,9 @@ export type ExpectedWinsRow = ExpectedWinsResponse;
 export type OptimalCoachingRow = OptimalCoachingResponse;
 export type DraftedPointsRow = DraftedPointsResponse;
 
-/** Every description says this, because the agent will otherwise retry 2026 until it gives up. */
+/** Every description says this, so the agent reaches for ESPN rather than retrying an empty season. */
 const HISTORY_ONLY =
-  'The WPFL history API is the archive and stops at 2025 — it returns an empty list for the current season on every endpoint. For anything in the season in progress, use the ESPN tools.';
+  'The WPFL history API lags the live season by days or weeks — complete for past seasons, partial or empty for the one in progress. For anything current, use the ESPN tools.';
 
 export async function fetchExpectedWins(
   params: {

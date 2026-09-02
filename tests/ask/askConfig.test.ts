@@ -1,6 +1,13 @@
 import { describe, test, expect } from '@jest/globals';
 import path from 'node:path';
-import { resolveDataDir } from '../../ask/askConfig.js';
+import { ASK, resolveDataDir } from '../../ask/askConfig.js';
+
+describe('the decade cache window', () => {
+  test('is a day: rows land weekly, and the artifact window is four times a day', () => {
+    expect(ASK.WPFL_CACHE_STALE_AFTER_MS).toBe(24 * 60 * 60 * 1000);
+    expect(ASK.WPFL_CACHE_STALE_AFTER_MS).toBeGreaterThan(ASK.STALE_AFTER_MS);
+  });
+});
 
 /**
  * DATA_DIR feeds three things that must agree: the agent's cwd, the path

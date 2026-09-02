@@ -176,9 +176,10 @@ describe('wpflApiTools', () => {
       }
     });
 
-    test('every description warns that the API stops before the current season', () => {
+    test('every description warns that the API lags the season in progress, without a year', () => {
       for (const definition of wpflApiTools) {
-        expect(definition.description).toMatch(/2025/);
+        expect(definition.description).toMatch(/lags the live season/i);
+        expect(definition.description).not.toMatch(/\b20\d\d\b/);
         expect(definition.description).toMatch(/ESPN/);
       }
     });

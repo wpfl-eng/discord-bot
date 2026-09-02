@@ -68,6 +68,12 @@ export const ASK = {
   DATA_DIR: resolveDataDir(process.env.WPFL_DATA_DIR, homedir()),
   ARTIFACT_URL: 'https://wpfl-receipts-694ed0.pages.dev/postdraft.json',
   STALE_AFTER_MS: 6 * 60 * 60 * 1000,
+  // The decade cache has its own window. In season its rows land weekly, so
+  // the artifact window above would re-fetch thirteen endpoints four times a
+  // day for nothing; and coupling it to the artifact's etag, which is what it
+  // used to do, meant it refreshed only when draft-2026 was republished and
+  // never otherwise (log Stage 14, decision 11).
+  WPFL_CACHE_STALE_AFTER_MS: 24 * 60 * 60 * 1000,
 
   // ---- WPFL history API (design §3.7) ----
   // The three row-shaped endpoints are cached locally and reachable only

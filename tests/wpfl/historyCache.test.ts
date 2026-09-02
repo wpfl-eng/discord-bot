@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   refreshWpflCache,
+  cacheExtents,
   type FetchFn,
   type HttpResponse,
   type HistoryCacheResult,
@@ -167,6 +168,62 @@ describe('historyCache', () => {
 
       expect(result.failedSeasons).toEqual([]);
       expect(lines('player_scores.jsonl')).toHaveLength(2);
+    });
+  });
+
+  /**
+   * INDEX.md stopped saying "the history API stops at 2025" and says instead
+   * where each table's rows actually end. Read from the files on disk, so a
+   * source carried over from a previous cache is described as accurately as
+   * one fetched this run (log Stage 14, decision 11).
+   */
+  describe('cacheExtents', () => {
+    test("reports each source's season range and the latest week of its newest season", () => {
+      fs.writeFileSync(
+        path.join(dir, 'matchups.jsonl'),
+        [
+          '{"week":"1","season":"2015","teamA":"a"}',
+          '{"week":"17","season":"2024","teamA":"a"}',
+          '{"week":"3","season":"2025","teamA":"a"}',
+          '{"week":"2","season":"2025","teamA":"a"}',
+        ].join('\n') + '\n'
+      );
+      fs.writeFileSync(
+        path.join(dir, 'draft_history.jsonl'),
+        ['{"owner":"x","season":2010}', '{"owner":"x","season":2025}'].join('\n') + '\n'
+      );
+
+      const extents = cacheExtents(dir);
+
+      expect(extents['matchups.jsonl']).toEqual({
+        seasonMin: 2015,
+        seasonMax: 2025,
+        latestWeek: 3,
+      });
+      expect(extents['draft_history.jsonl']).toEqual({
+        seasonMin: 2010,
+        seasonMax: 2025,
+        latestWeek: null,
+      });
+    });
+
+    test('accepts season and week as strings or numbers, as the three sources differ', () => {
+      fs.writeFileSync(
+        path.join(dir, 'player_scores.jsonl'),
+        ['{"week":1,"season":2015}', '{"week":18,"season":2025}'].join('\n') + '\n'
+      );
+
+      expect(cacheExtents(dir)['player_scores.jsonl']).toEqual({
+        seasonMin: 2015,
+        seasonMax: 2025,
+        latestWeek: 18,
+      });
+    });
+
+    test('omits a source whose file is absent or empty', () => {
+      fs.writeFileSync(path.join(dir, 'matchups.jsonl'), '\n');
+
+      expect(cacheExtents(dir)).toEqual({});
     });
   });
 

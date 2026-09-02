@@ -15,6 +15,7 @@
 
 import path from 'node:path';
 import type { ShredResult } from './shredder.js';
+import type { SourceExtents } from './historyCache.js';
 import { wpflMembers } from '../constants/wpflMembers.js';
 
 export interface IndexInput {
@@ -33,6 +34,12 @@ export interface IndexInput {
    * unwritten, and INDEX.md must not then advertise the table.
    */
   readonly wpflCacheFiles?: readonly string[];
+  /**
+   * Where each cached file's rows run, read from the files on disk. This is
+   * what replaces "the history API stops at 2025": a year that was wrong the
+   * moment the API gained a current-season row, and wrong again every August.
+   */
+  readonly wpflCacheExtents?: Readonly<Record<string, SourceExtents>>;
 }
 
 /** The cache files this feature knows how to describe, and their table names. */
@@ -162,7 +169,7 @@ export function generateIndex(input: IndexInput): string {
   const sections: string[] = [
     header(meta, news, etag, wpflCacheFetchedAt),
     fileMap(shred),
-    cachedDecade(wpflCacheFetchedAt, input.wpflCacheFiles),
+    cachedDecade(wpflCacheFetchedAt, input.wpflCacheFiles, input.wpflCacheExtents),
     skipped(shred),
     undocumented(shred),
     glossary(),
@@ -234,7 +241,11 @@ function describeFile(relative: string): string {
  * as missing. That is precisely the drift this module exists to make
  * impossible, and it was the one section not generated from what was written.
  */
-function cachedDecade(fetchedAt: Date | null, files: readonly string[] = []): string {
+function cachedDecade(
+  fetchedAt: Date | null,
+  files: readonly string[] = [],
+  extents: Readonly<Record<string, SourceExtents>> = {}
+): string {
   const present = CACHED_DECADE.filter(([file]) => files.includes(file));
   const missing = CACHED_DECADE.filter(([file]) => !files.includes(file));
 
@@ -252,11 +263,15 @@ function cachedDecade(fetchedAt: Date | null, files: readonly string[] = []): st
   lines.push(
     `${fetchedAt === null ? 'Fetched' : `Fetched ${fetchedAt.toISOString().slice(0, 10)}`} from the league's history API and written`,
     'to `wpfl/` as JSONL. Reachable **only through the `sql` tool** — one table each,',
-    'and far too many rows to read as files:',
+    'and far too many rows to read as files. The last column is where each',
+    "table's rows actually end, read from the file:",
     '',
-    '| Table | What it holds |',
-    '| --- | --- |',
-    ...present.map(([, table, description]) => `| \`${table}\` | ${description} |`)
+    '| Table | What it holds | Rows run |',
+    '| --- | --- | --- |',
+    ...present.map(
+      ([file, table, description]) =>
+        `| \`${table}\` | ${description} | ${describeExtents(extents[file])} |`
+    )
   );
 
   if (missing.length > 0) {
@@ -269,6 +284,17 @@ function cachedDecade(fetchedAt: Date | null, files: readonly string[] = []): st
   }
 
   return lines.join('\n');
+}
+
+function describeExtents(extents: SourceExtents | undefined): string {
+  if (extents === undefined) return 'unknown';
+  const seasons: string =
+    extents.seasonMin === extents.seasonMax
+      ? `${extents.seasonMin}`
+      : `${extents.seasonMin}–${extents.seasonMax}`;
+  return extents.latestWeek === null
+    ? seasons
+    : `${seasons}, latest week ${extents.latestWeek} of ${extents.seasonMax}`;
 }
 
 function skipped(shred: ShredResult): string {
@@ -329,7 +355,7 @@ function routing(): string {
     '| Question is about | Source |',
     '| --- | --- |',
     '| The 2026 draft, prices, grades, rosters as drafted | These files |',
-    '| League history through 2025 | These files, or the `sql` tool |',
+    '| League history, past seasons | These files, or the `sql` tool |',
     '| Ten years of prices, matchups or player scores | The `sql` tool |',
     '| Expected wins, optimal coaching, drafted points | `expected_wins`, `optimal_coaching`, `drafted_points` |',
     '| The 2026 season in progress -- records, scores, rosters, transactions | The `espn_*` tools |',
@@ -337,8 +363,10 @@ function routing(): string {
     '',
     'Two hard rules:',
     '',
-    '1. **The WPFL history API stops at 2025.** It returns an empty list for 2026',
-    '   on every endpoint. For anything in the current season, use the ESPN tools.',
+    '1. **The WPFL history API lags the live season.** Its rows end where the cached',
+    '   decade above says, days or weeks behind the games. For anything about the',
+    '   season in progress use the ESPN tools, and treat any current-season rows in',
+    '   the cache as possibly incomplete.',
     '2. **Never compute expected wins, optimal points or drafted points by hand**',
     '   from cached rows. Call `expected_wins`, `optimal_coaching` or',
     '   `drafted_points`. The league already publishes these figures through',

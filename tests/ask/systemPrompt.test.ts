@@ -90,7 +90,9 @@ describe('systemPrompt', () => {
 
     test('says what each source knows and what it does not', () => {
       expect(STATIC_PROMPT).toMatch(/post-draft/i);
-      expect(STATIC_PROMPT).toMatch(/2025/); // the history API's ceiling
+      // No hard-coded year: the history API lags the live season, whatever year it is.
+      expect(STATIC_PROMPT).toMatch(/lags the live season/i);
+      expect(STATIC_PROMPT).not.toMatch(/\b20\d\d\b/);
       expect(STATIC_PROMPT).toContain('sql');
       expect(STATIC_PROMPT).toContain('espn_');
       expect(STATIC_PROMPT).toContain('INDEX.md');

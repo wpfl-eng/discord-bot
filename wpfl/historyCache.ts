@@ -38,6 +38,14 @@ export interface HistoryCacheResult {
 
 type Row = unknown;
 
+/** Where one cached source's rows run, read from the file itself. */
+export interface SourceExtents {
+  readonly seasonMin: number;
+  readonly seasonMax: number;
+  /** The latest week present in the newest season; null for a source without weeks. */
+  readonly latestWeek: number | null;
+}
+
 const DRAFT_HISTORY = 'draft_history.jsonl';
 const MATCHUPS = 'matchups.jsonl';
 const PLAYER_SCORES = 'player_scores.jsonl';
@@ -131,6 +139,53 @@ export async function refreshWpflCache(
   }
 
   return { sources, fetchedAt, failedSeasons, failedSources };
+}
+
+/**
+ * The season range and latest week of each cached source, from the files on
+ * disk rather than from what this run fetched, so a source carried over from
+ * a previous cache is described as accurately as one fetched today. This is
+ * what lets INDEX.md say where the rows actually end instead of naming a
+ * year that was wrong the moment the API gained a current-season row.
+ *
+ * A regex scan, not a parse: player scores alone are ~36,000 lines and 8 MB,
+ * and two fields are all that is needed. The three sources disagree on
+ * whether season and week are strings or numbers, so both forms match.
+ */
+export function cacheExtents(dir: string): Record<string, SourceExtents> {
+  const extents: Record<string, SourceExtents> = {};
+  for (const name of [DRAFT_HISTORY, MATCHUPS, PLAYER_SCORES]) {
+    const file: string = path.join(dir, name);
+    if (!fs.existsSync(file)) continue;
+    const found: SourceExtents | null = scanExtents(fs.readFileSync(file, 'utf8'));
+    if (found !== null) extents[name] = found;
+  }
+  return extents;
+}
+
+const SEASON_FIELD = /"season":"?(\d{4})"?/;
+const WEEK_FIELD = /"week":"?(\d+)"?/;
+
+function scanExtents(text: string): SourceExtents | null {
+  let seasonMin: number = Number.POSITIVE_INFINITY;
+  let seasonMax: number = Number.NEGATIVE_INFINITY;
+  const latestWeekBySeason = new Map<number, number>();
+
+  for (const line of text.split('\n')) {
+    const season: RegExpExecArray | null = SEASON_FIELD.exec(line);
+    if (season === null) continue;
+    const year: number = Number(season[1]);
+    seasonMin = Math.min(seasonMin, year);
+    seasonMax = Math.max(seasonMax, year);
+
+    const week: RegExpExecArray | null = WEEK_FIELD.exec(line);
+    if (week !== null) {
+      latestWeekBySeason.set(year, Math.max(latestWeekBySeason.get(year) ?? 0, Number(week[1])));
+    }
+  }
+
+  if (seasonMax === Number.NEGATIVE_INFINITY) return null;
+  return { seasonMin, seasonMax, latestWeek: latestWeekBySeason.get(seasonMax) ?? null };
 }
 
 /** One source's rows, already serialised. */
