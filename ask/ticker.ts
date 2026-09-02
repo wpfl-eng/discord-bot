@@ -235,9 +235,12 @@ export interface ThrottledEditor {
 }
 
 /**
- * Discord allows roughly 5 edits per 5 s per channel. Edits are coalesced to
- * one per throttle window — whatever arrived in between is dropped, since only
- * the newest state matters.
+ * Edits are coalesced to one per throttle window -- whatever arrived in
+ * between is dropped, since only the newest state matters. The window is a
+ * coalescing budget, not a rate limit: Discord publishes no per-route figure
+ * and says not to hard-code one, and discord.js already sleeps and retries on
+ * a 429. What the window buys is fewer edits in flight when the final post has
+ * to land, and a ticker that reads as motion rather than flicker.
  *
  * `update` takes a thunk rather than a string because the caller is the agent's
  * event stream: a run emits on the order of 1,000-3,000 deltas, of which a

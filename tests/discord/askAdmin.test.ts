@@ -1,5 +1,5 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import { PermissionFlagsBits } from 'discord.js';
+import { MessageFlags, PermissionFlagsBits } from 'discord.js';
 
 jest.unstable_mockModule('../../ask/askDb.js', () => ({
   countUserQuestionsSince: jest.fn(async () => 0),
@@ -183,7 +183,10 @@ describe('/ask-admin', () => {
 
       expect(isAskPaused()).toBe(false);
       expect((i as { reply: jest.Mock }).reply).toHaveBeenCalledWith(
-        expect.objectContaining({ ephemeral: true, content: expect.stringMatching(/commish/i) })
+        expect.objectContaining({
+          flags: MessageFlags.Ephemeral,
+          content: expect.stringMatching(/commish/i),
+        })
       );
       expect((i as { deferReply: jest.Mock }).deferReply).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('999999999999999999'));
@@ -219,7 +222,7 @@ describe('/ask-admin', () => {
       await execute(i);
 
       expect((i as { deferReply: jest.Mock }).deferReply).toHaveBeenCalledWith(
-        expect.objectContaining({ ephemeral: true })
+        expect.objectContaining({ flags: MessageFlags.Ephemeral })
       );
       expect((i as { editReply: jest.Mock }).editReply).toHaveBeenCalled();
     });

@@ -51,6 +51,7 @@ describe('askFeedback', () => {
         user: { id: 'u1' },
         update: jest.fn(async () => undefined),
         deferUpdate: jest.fn(async () => undefined),
+        editReply: jest.fn(async () => undefined),
         ...over,
       }) as never;
 
@@ -60,14 +61,34 @@ describe('askFeedback', () => {
       expect(askDb.recordFeedback).toHaveBeenCalledWith('m1', 't1', 'u1', -1);
     });
 
+    /**
+     * Two serverless round trips used to run before the click was answered.
+     * Discord gives a click three seconds; the first vote of the day, against
+     * a database that had gone to sleep, showed as failed with the vote
+     * recorded.
+     */
+    test('acknowledges the click before the first database round trip', async () => {
+      const interaction = click('up');
+
+      await handleFeedback(interaction);
+
+      const deferUpdate = (interaction as { deferUpdate: jest.Mock }).deferUpdate;
+      const recorded = askDb.recordFeedback as jest.Mock;
+      expect(deferUpdate).toHaveBeenCalledTimes(1);
+      expect(deferUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+        recorded.mock.invocationCallOrder[0]
+      );
+      expect((interaction as { update: jest.Mock }).update).not.toHaveBeenCalled();
+    });
+
     test('rewrites the buttons with the new counts in place', async () => {
       const interaction = click('up');
 
       await handleFeedback(interaction);
 
-      const update = (interaction as { update: jest.Mock }).update;
-      expect(update).toHaveBeenCalledTimes(1);
-      const payload = update.mock.calls[0][0] as { components: { toJSON(): unknown }[] };
+      const editReply = (interaction as { editReply: jest.Mock }).editReply;
+      expect(editReply).toHaveBeenCalledTimes(1);
+      const payload = editReply.mock.calls[0][0] as { components: { toJSON(): unknown }[] };
       const labels: string[] = (
         payload.components[0].toJSON() as { components: { label: string }[] }
       ).components.map((c) => c.label);
@@ -94,6 +115,7 @@ describe('askFeedback', () => {
       await expect(handleFeedback(interaction)).resolves.toBeUndefined();
 
       expect((interaction as { deferUpdate: jest.Mock }).deferUpdate).toHaveBeenCalled();
+      expect((interaction as { editReply: jest.Mock }).editReply).not.toHaveBeenCalled();
       error.mockRestore();
     });
 

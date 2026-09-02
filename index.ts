@@ -49,7 +49,7 @@ registerComponentHandler('trivia_', async (interaction) => {
 });
 
 // When the client is ready, run this code (only once)
-client.once('ready', async () => {
+client.once(Events.ClientReady, async () => {
   console.log('Ready!');
   console.log(`[ROUTER] Component prefixes: ${getRegisteredPrefixes().join(', ')}`);
 
@@ -299,7 +299,7 @@ client.on('messageCreate', async (message) => {
 // aged out fails instead of starting fresh.
 client.on(Events.ThreadUpdate, onThreadArchived);
 
-client.on('ready', () => {
+client.on(Events.ClientReady, () => {
   client.user?.setActivity('Jaguars Highlights', {
     type: ActivityType.Watching,
   });

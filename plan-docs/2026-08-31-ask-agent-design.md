@@ -1001,7 +1001,11 @@ member-facing line both say what happened.
    a suspended database on the first question of the day.
 2. Refuse early if `/ask` is paused or no credential is set; then the caps
    (daily per-user, monthly league-wide). A refusal deletes the placeholder
-   and follows up ephemerally, saying which limit was hit and when it resets;
+   and follows up ephemerally, saying which limit was hit and when it resets.
+   Discord documents only the plain case, where a follow-up straight after a
+   defer edits the placeholder and keeps its public state; deleting first is
+   the standard sequence, undocumented, and the command logs if the follow-up
+   came back public;
    if the delete fails, it edits the placeholder instead, since one stuck on
    "thinking" reads as a broken bot. The thread's session is looked up in
    the same round trip as the usage counts, and only when the command runs
@@ -1116,10 +1120,12 @@ with the first line of why, which is how a hook denial becomes legible.
 **Phase 2 — prose.** When text deltas start arriving, the ticker collapses to a
 one-line summary and the answer streams in beneath it.
 
-**Throttling.** Discord allows roughly 5 edits per 5 s per channel. Edits are
-throttled to one per **1.5 s**, coalescing whatever arrived in between, with the
-final state always flushed. In the thread case each thread is its own bucket, so
-concurrent `/ask` threads don't contend.
+**Throttling.** Edits are throttled to one per **1.5 s**, coalescing whatever
+arrived in between, with the final state always flushed. The window is a
+coalescing budget, not a rate limit: Discord publishes no per-route figure and
+says not to hard-code one, and discord.js sleeps and retries on a 429 by
+default. In the thread case each thread is its own bucket (a thread id is the
+route's `channel_id`), so concurrent `/ask` threads don't contend.
 
 **Length.** Discord's 2,000-character message limit is handled by continuing into
 a follow-up message rather than truncating the answer.

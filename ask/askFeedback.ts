@@ -49,6 +49,13 @@ export async function handleFeedback(interaction: RoutableInteraction): Promise<
   const messageId: string = interaction.message.id;
   const threadId: string | null = interaction.channelId ?? null;
 
+  // Acknowledge before touching the database. Discord gives a click three
+  // seconds, and the two round trips below go to a serverless Postgres that
+  // the first vote of the day can find asleep; past the three seconds the
+  // token was dead and the click showed as failed with the vote recorded. A
+  // deferred update shows the member nothing.
+  await interaction.deferUpdate();
+
   try {
     await recordFeedback(messageId, threadId, interaction.user.id, rating);
     if (rating === -1) {
@@ -61,15 +68,10 @@ export async function handleFeedback(interaction: RoutableInteraction): Promise<
     const counts: FeedbackCounts = await feedbackCounts(messageId);
     // Edits only the components of the message the button sits on: the
     // confirmation is the count changing under the member's finger.
-    await interaction.update({ components: [feedbackRow(counts)] });
+    await interaction.editReply({ components: [feedbackRow(counts)] });
   } catch (error: unknown) {
+    // The click is already answered; a failed write leaves the counts as they were.
     logError('ask', 'Could not record feedback', error);
-    // The click still has to be answered or Discord shows it as failed.
-    try {
-      await interaction.deferUpdate();
-    } catch {
-      // Already acknowledged, or the message is gone. Nothing left to do.
-    }
   }
 }
 

@@ -15,6 +15,7 @@
  */
 
 import {
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
@@ -93,11 +94,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     // without Administrator, so whoever this is holds that and is not the
     // commish.
     console.warn(`[ASK] /ask-admin refused for user ${interaction.user.id}`);
-    await interaction.reply({ content: "That one's for the commish.", ephemeral: true });
+    await interaction.reply({
+      content: "That one's for the commish.",
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   let content: string;
   switch (interaction.options.getSubcommand(true)) {
@@ -125,7 +129,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const [first, ...rest] = pages(content);
   await interaction.editReply({ content: first, allowedMentions: NO_MENTIONS });
   for (const page of rest) {
-    await interaction.followUp({ content: page, ephemeral: true, allowedMentions: NO_MENTIONS });
+    await interaction.followUp({
+      content: page,
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: NO_MENTIONS,
+    });
   }
 }
 

@@ -1,5 +1,5 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { ChannelType } from 'discord.js';
+import { ChannelType, MessageFlags } from 'discord.js';
 
 jest.unstable_mockModule('../../ask/askDb.js', () => ({
   getSession: jest.fn(),
@@ -136,8 +136,11 @@ describe('the /ask command', () => {
         deleteReply: jest.fn(async () => {
           calls.push('delete');
         }),
+        // What Discord hands back: a message whose flags say whether the
+        // ephemeral request held.
         followUp: jest.fn(async () => {
           calls.push('followUp');
+          return { flags: { has: (): boolean => true } };
         }),
         editReply: jest.fn(async () => {
           calls.push('editReply');
@@ -198,9 +201,30 @@ describe('the /ask command', () => {
 
       expect((i as { deleteReply: jest.Mock }).deleteReply).toHaveBeenCalled();
       expect((i as { followUp: jest.Mock }).followUp).toHaveBeenCalledWith(
-        expect.objectContaining({ ephemeral: true, content: expect.stringMatching(/daily limit/) })
+        expect.objectContaining({
+          flags: MessageFlags.Ephemeral,
+          content: expect.stringMatching(/daily limit/),
+        })
       );
       expect((i as { reply: jest.Mock }).reply).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Discord documents only the plain case -- a follow-up straight after a
+     * defer keeps the placeholder's public state -- and nothing about one sent
+     * after the placeholder is deleted. The command reads the flags on what
+     * came back, so a refusal that landed in public is at least in the log.
+     */
+    test('logs when the ephemeral refusal came back public', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const i = interaction({
+        followUp: jest.fn(async () => ({ flags: { has: (): boolean => false } })),
+      });
+
+      await execute(i);
+
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/in public/));
+      warn.mockRestore();
     });
 
     test('falls back to a public edit when the placeholder cannot be deleted', async () => {
@@ -228,7 +252,10 @@ describe('the /ask command', () => {
 
       expect(calls).not.toContain('session');
       expect((i as { followUp: jest.Mock }).followUp).toHaveBeenCalledWith(
-        expect.objectContaining({ ephemeral: true, content: expect.stringMatching(/paused/i) })
+        expect.objectContaining({
+          flags: MessageFlags.Ephemeral,
+          content: expect.stringMatching(/paused/i),
+        })
       );
     });
 

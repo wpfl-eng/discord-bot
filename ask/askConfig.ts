@@ -116,7 +116,7 @@ export const ASK = {
   MCP_TOOL_TIMEOUT_MS: 60 * 1000,
 
   // ---- Discord surface (design §6.3) ----
-  TICKER_EDIT_THROTTLE_MS: 1500, // Discord allows ~5 edits / 5 s per channel
+  TICKER_EDIT_THROTTLE_MS: 1500, // a coalescing window; discord.js handles the real rate limit
   THREAD_AUTO_ARCHIVE: ThreadAutoArchiveDuration.OneDay,
 
   // ---- Who may run /ask-admin ----

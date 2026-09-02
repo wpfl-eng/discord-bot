@@ -14,6 +14,7 @@
  */
 
 import {
+  MessageFlags,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
   type Message,
@@ -42,7 +43,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const channel = interaction.channel;
 
   if (channel === null || !channel.isSendable()) {
-    await interaction.reply({ content: "I can't post here.", ephemeral: true });
+    await interaction.reply({ content: "I can't post here.", flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -97,16 +98,21 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     await interaction.followUp({
       content:
         "_I couldn't post the answer. Check that I can send messages in this channel and its threads._",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
 
 /**
  * A refusal after a public defer: delete the placeholder and follow up
- * ephemerally, which Discord permits. If the delete fails, a public refusal
- * is the lesser cost -- a placeholder stuck on "thinking" reads as a broken
- * bot.
+ * ephemerally. Discord documents only the plain case -- a follow-up straight
+ * after a defer edits the placeholder and keeps its public state -- and says
+ * nothing about one sent after the placeholder is deleted. Deleting first is
+ * the standard sequence for exactly this, and the message that comes back
+ * says whether it held: a refusal that landed in public is logged, so a
+ * change on Discord's side shows up rather than passing unnoticed. If the
+ * delete fails, a public refusal is the lesser cost -- a placeholder stuck on
+ * "thinking" reads as a broken bot.
  */
 async function refuse(interaction: ChatInputCommandInteraction, text: string): Promise<void> {
   try {
@@ -116,7 +122,15 @@ async function refuse(interaction: ChatInputCommandInteraction, text: string): P
     await interaction.editReply({ content: text, allowedMentions: NO_MENTIONS });
     return;
   }
-  await interaction.followUp({ content: text, ephemeral: true });
+  const sent: Message = await interaction.followUp({
+    content: text,
+    flags: MessageFlags.Ephemeral,
+  });
+  if (!sent.flags.has(MessageFlags.Ephemeral)) {
+    console.warn(
+      '[ASK] A refusal after a public defer was posted in public: Discord did not keep the ephemeral flag on a follow-up sent after the placeholder was deleted.'
+    );
+  }
 }
 
 interface Opened {
