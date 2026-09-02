@@ -1022,6 +1022,12 @@ member-facing line both say what happened.
 /ask question:<string>
 ```
 
+Both entry points are for the 14 owners in `constants/wpflMembers.ts`. The
+preflight resolves the caller to a league member before anything else and
+refuses anyone else with one line -- ephemeral under `/ask`, a reply in a
+thread -- before any round trip. The resolved member rides the request from
+there, which is what makes `member` non-null all the way to the system prompt.
+
 1. `await interaction.deferReply()` — the 3-second acknowledgement, first,
    because the checks below are serverless Postgres round trips that can wake
    a suspended database on the first question of the day.
@@ -1170,6 +1176,7 @@ also logs a line with the thread id. Triage, not learning.
 
 | Condition | Behavior |
 | --- | --- |
+| Not one of the 14 owners | Refused from either entry point before anything is looked up: one ephemeral line under `/ask`, a reply in a thread. `constants/wpflMembers.ts` is the gate |
 | No credential configured | `ready` logs it; `/ask` refuses before anything is looked up or spawned, saying the bot isn't configured |
 | `/ask-admin pause` | Every question refused with one line until `resume` or a restart |
 | Expired login, rate limit, overloaded, server error, rejected request, missing model, billing, org, hold | One member-facing line each; the run is not charged to anyone |

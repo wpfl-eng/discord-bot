@@ -13,16 +13,27 @@ import { isAskPaused } from './pause.js';
 import { decideCaps, loadUsage, type CapDecision } from './caps.js';
 import type { AskSession } from './askDb.js';
 import { ensureFresh } from '../wpfl/artifactSync.js';
+import { getWpflMemberByDiscordId, type WpflMember } from '../constants/wpflMembers.js';
 
 export type Preflight =
   | {
       readonly ok: true;
+      /** The owner asking, resolved from the 14-owner table. Nobody else gets this far. */
+      readonly member: WpflMember;
       /** The thread's session, when it has one. */
       readonly session: AskSession | null;
       /** A member-facing nudge to append to the answer. */
       readonly notice?: string;
     }
   | { readonly ok: false; readonly refusal: string };
+
+/**
+ * What a Discord user outside the 14 owners reads, from either entry point.
+ * The identity table is what makes "my team" mean anything, the caps were
+ * sized for fourteen people, and every question is paid for.
+ */
+export const NOT_AN_OWNER =
+  "_/ask answers the league's 14 owners only. If that's you, the commish needs to map your Discord id._";
 
 /**
  * The reasons a question is refused before anything is looked up. Paused is
@@ -45,6 +56,11 @@ export async function preflight(
   userId: string,
   loadSession: () => Promise<AskSession | null>
 ): Promise<Preflight> {
+  // Membership first: it costs nothing, and it is the one refusal that is
+  // about the person rather than the bot's state.
+  const member: WpflMember | undefined = getWpflMemberByDiscordId(userId);
+  if (member === undefined) return { ok: false, refusal: NOT_AN_OWNER };
+
   const early: string | null = earlyRefusal();
   if (early !== null) return { ok: false, refusal: early };
 
@@ -56,5 +72,5 @@ export async function preflight(
   // answer's as-of dates report honestly what it had.
   await ensureFresh();
 
-  return { ok: true, session, notice: decision.notice };
+  return { ok: true, member, session, notice: decision.notice };
 }

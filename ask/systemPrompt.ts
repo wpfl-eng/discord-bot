@@ -19,8 +19,8 @@ import type { AsOf } from '../wpfl/layout.js';
 import type { WpflMember } from '../constants/wpflMembers.js';
 
 export interface PromptContext {
-  /** The league member asking, or null for a Discord user with no mapping. */
-  readonly member: WpflMember | null;
+  /** The owner asking; the preflight admits nobody else. */
+  readonly member: WpflMember;
   readonly now?: Date;
   /**
    * The week and season, resolved once per run by the runner from ESPN with a
@@ -105,10 +105,7 @@ function dynamicHalf(context: PromptContext): string {
   const { asOf } = context;
 
   const { member } = context;
-  const who: string =
-    member === null
-      ? 'The person asking is not mapped to a league member, so you do not know whose team is theirs. If the question depends on that, ask which team they mean.'
-      : `You are answering ${member.owner}, ESPN team ${member.espnId}. "My team", "I" and "me" mean them. Name them in the footer.`;
+  const who: string = `You are answering ${member.owner}, ESPN team ${member.espnId}. "My team", "I" and "me" mean them. Name them in the footer.`;
 
   const { period } = context;
   // The grounding rule asks the agent to say when a source is shaky. The

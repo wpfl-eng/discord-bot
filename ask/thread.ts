@@ -26,11 +26,7 @@ import { runAsk, type AskOutcome, type OpsFailure } from './askRunner.js';
 import { enqueueInThread, type Admitted } from './threadQueue.js';
 import { createTicker, createThrottledEditor, splitForDiscord, type Ticker } from './ticker.js';
 import { getSession, openSession, recordTurn, closeSession, type AskSession } from './askDb.js';
-import {
-  getWpflMemberByDiscordId,
-  wpflMembers,
-  type WpflMember,
-} from '../constants/wpflMembers.js';
+import { wpflMembers, type WpflMember } from '../constants/wpflMembers.js';
 import { truncate } from '../helpers/utils.js';
 import { logError } from '../errors/errorHandler.js';
 import { feedbackRow } from './askFeedback.js';
@@ -142,9 +138,10 @@ export function continuesConversation(message: Addressing, session: AskSession):
 }
 
 /**
- * Continue an /ask thread from an ordinary message in it (§6.2). Anyone may,
- * by addressing the bot; the opener of a thread the bot created just types.
- * Each person's turn counts against their own daily cap.
+ * Continue an /ask thread from an ordinary message in it (§6.2). Any owner
+ * may, by addressing the bot; the opener of a thread the bot created just
+ * types. Anyone else who addresses it is told, in a reply, that it answers
+ * owners. Each owner's turn counts against their own daily cap.
  */
 export async function continueThread(message: Message): Promise<void> {
   if (
@@ -200,6 +197,7 @@ export async function continueThread(message: Message): Promise<void> {
 
   await answer({
     user: message.author,
+    member: flight.member,
     destination: message.channel as SendableChannels,
     question: message.content,
     session,
@@ -236,6 +234,8 @@ export async function onThreadArchived(
 
 export interface AnswerRequest {
   readonly user: User;
+  /** The owner asking, as the preflight resolved them. */
+  readonly member: WpflMember;
   readonly destination: SendableChannels;
   readonly question: string;
   /**
@@ -264,8 +264,7 @@ export const CONTEXT_LOST =
  * the same thread said so.
  */
 export async function answer(request: AnswerRequest): Promise<void> {
-  const { user, destination, question, session, openedThread, notice } = request;
-  const member: WpflMember | undefined = getWpflMemberByDiscordId(user.id);
+  const { user, member, destination, question, session, openedThread, notice } = request;
   const resume: string | null = resumeFrom(session);
 
   if (session !== null && session.closed) {
@@ -293,7 +292,7 @@ export async function answer(request: AnswerRequest): Promise<void> {
         prompt: question,
         userId: user.id,
         threadId: destination.id,
-        member: member ?? null,
+        member,
         messageId: message.id,
         sessionId: resume,
       },

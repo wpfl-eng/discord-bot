@@ -37,8 +37,8 @@ export interface AskRequest {
   readonly userId: string;
   /** The channel or thread the conversation lives in; the ask_sessions key. */
   readonly threadId: string;
-  /** The league member asking, or null for a Discord user with no mapping. */
-  readonly member: WpflMember | null;
+  /** The owner asking. The preflight refuses any Discord user outside the 14. */
+  readonly member: WpflMember;
   /** The SDK session to resume when continuing a thread; null for a fresh one. */
   readonly sessionId: string | null;
   /** The Discord message the answer lands in, so the ledger row can be joined to feedback. */

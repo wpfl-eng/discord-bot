@@ -85,6 +85,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   try {
     await answer({
       user: interaction.user,
+      member: flight.member,
       destination: opened.destination,
       question,
       session: flight.session,

@@ -89,8 +89,10 @@ npm run format:check
 `/ask` opens a thread on the answer and streams a live ticker of what it is doing — which file it
 read, which query it ran, what it is currently reasoning about — then the answer itself, with a
 source footer and 👍/👎 buttons. The member who asked keeps talking to it by just typing in the
-thread; anyone else joins by replying to the bot or mentioning it. Each person's questions count
-against their own daily limit, and only runs that reached the model count. It reasons over five
+thread; any other owner joins by replying to the bot or mentioning it. Both entries answer only
+the 14 owners in `constants/wpflMembers.ts`; anyone else gets one private line saying so, before
+anything is looked up. Each owner's questions count against their own daily limit, and only runs
+that reached the model count. It reasons over five
 sources: the draft-2026 post-draft report (fetched and shredded to disk), a locally cached decade
 of WPFL history queried with read-only SQL, the WPFL history API's computed aggregates, the live
 ESPN season, and the web.

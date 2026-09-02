@@ -37,7 +37,7 @@ const {
   CONTEXT_LOST,
 } = await import('../../ask/thread.js');
 const { execute, data } = await import('../../discordCommands/ask/ask.js');
-const { earlyRefusal } = await import('../../ask/preflight.js');
+const { earlyRefusal, preflight } = await import('../../ask/preflight.js');
 const { NO_MENTIONS } = await import('../../interactions/renderedMessage.js');
 const { setAskPaused } = await import('../../ask/pause.js');
 const { wpflMembers } = await import('../../constants/wpflMembers.js');
@@ -53,6 +53,9 @@ const live = {
   bot_thread: true,
 };
 const closed = { ...live, closed: true };
+
+/** An owner from constants/wpflMembers.ts: the preflight admits nobody else. */
+const OWNER = '120231673722830849';
 
 describe('the /ask command', () => {
   describe('the command definition', () => {
@@ -129,7 +132,7 @@ describe('the /ask command', () => {
       ({
         options: { getString: (): string => 'why did Jimmy get an A+?' },
         channel: { id: 'c1', type: ChannelType.GuildText, isSendable: (): boolean => true },
-        user: { id: 'u1' },
+        user: { id: OWNER },
         deferReply: jest.fn(async () => {
           calls.push('defer');
         }),
@@ -277,6 +280,34 @@ describe('the /ask command', () => {
     });
 
     /**
+     * Both entry points share the preflight, so one check gates both: a
+     * Discord id outside constants/wpflMembers.ts is refused before any round
+     * trip, and an owner comes back resolved for the run.
+     */
+    test('refuses a Discord user who is not one of the 14 owners, before any round trip', async () => {
+      const i = interaction({ user: { id: '999999999999999999' } });
+
+      await execute(i);
+
+      expect(calls).not.toContain('session');
+      expect(askDb.questionCounts).not.toHaveBeenCalled();
+      expect((i as { deleteReply: jest.Mock }).deleteReply).toHaveBeenCalled();
+      expect((i as { followUp: jest.Mock }).followUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          flags: MessageFlags.Ephemeral,
+          content: expect.stringMatching(/14 owners/),
+        })
+      );
+    });
+
+    test('the thread entry point runs the same gate', async () => {
+      const flight = await preflight('999999999999999999', async () => null);
+
+      expect(flight.ok).toBe(false);
+      if (!flight.ok) expect(flight.refusal).toMatch(/14 owners/);
+    });
+
+    /**
      * The runner switched to the SDK result's final text in Stage 14, and the
      * test on the runner passed -- while publish() went on rendering the
      * ticker's own streamed prose, preamble included. Found by the
@@ -319,6 +350,18 @@ describe('the /ask command', () => {
           asked: 0,
           leagueTotal: 0,
         }));
+      });
+
+      test('hands the run the owner the preflight resolved', async () => {
+        scripted('ok');
+        const { interaction: i } = posting();
+
+        await execute(i);
+
+        expect(askRunner.runAsk).toHaveBeenCalledWith(
+          expect.objectContaining({ member: expect.objectContaining({ owner: 'AJ Boorde' }) }),
+          expect.anything()
+        );
       });
 
       test('publishes the answer the runner settled on, not the streamed preamble', async () => {

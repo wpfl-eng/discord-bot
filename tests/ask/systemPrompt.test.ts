@@ -124,13 +124,6 @@ describe('systemPrompt', () => {
       expect(text).toContain('4');
     });
 
-    test('says plainly when the caller is not a league member', () => {
-      const text: string = dynamic({ member: null });
-
-      expect(text).not.toContain('AJ Boorde');
-      expect(text).toMatch(/not.*(mapped|member)|don't know who/i);
-    });
-
     /**
      * The week and season come from the period the runner resolved, not from
      * arithmetic over `now`. Main's helpers/espnPeriod.ts asks ESPN, which
