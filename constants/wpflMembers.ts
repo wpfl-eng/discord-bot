@@ -43,9 +43,10 @@ export const wpflMembers: readonly WpflMember[] = [
 ] as const;
 
 /**
- * Resolve the member who ran a command, so "my team" needs no clarifying round
- * trip. A Discord user with no mapping is not blocked -- they simply get no
- * implicit "my team" and name a team instead.
+ * Resolve the member who ran a command. For /ask this is the gate as well as
+ * the identity: a Discord user with no row here is refused before anything is
+ * looked up (ask/preflight.ts), so a wrong or missing snowflake locks that
+ * owner out rather than costing them the implicit "my team".
  */
 export function getWpflMemberByDiscordId(discordId: string): WpflMember | undefined {
   return wpflMembers.find((m) => m.discordId === discordId);

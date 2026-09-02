@@ -1250,8 +1250,10 @@ Evans** (6). draft-2026's CLAUDE.md warns specifically that ESPN member names
 drift this way, so the file carries the WPFL spelling as canonical and treats
 anything else as an alias.
 
-A Discord user with no mapping is not blocked — they simply get no implicit "my
-team", and the agent asks or they name a team.
+A Discord user with no mapping is refused at the preflight (§6.1, Stage 18):
+`/ask` and the thread continuation both answer the 14 owners in this table
+only. That makes a wrong snowflake a lockout for that owner rather than a
+missing "my team", which is why the startup resolution check stays.
 
 The fork now returns ESPN's `ownerName` too. A startup cross-check of the table
 against it was considered in Stage 14 and declined: it re-verifies the column

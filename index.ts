@@ -96,7 +96,7 @@ async function verifyAskSchema(): Promise<void> {
   }
 }
 
-/** Resolve all 14 league snowflakes. An unresolved one only costs that member their implicit "my team". */
+/** Resolve all 14 league snowflakes. An unresolved one is an owner /ask will refuse until the id is fixed. */
 async function verifyIdentityMapping(bot: Client): Promise<void> {
   const guildId: string | undefined = process.env.DISCORD_GUILD_ID;
   if (guildId === undefined) return;
