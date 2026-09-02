@@ -320,20 +320,29 @@ Generated on every shred, never hand-edited, so it cannot drift. Contains:
 2. **File map** — every path with a one-line description and its size, generated
    from what was actually written, so the map can never describe files that
    aren't there.
-3. **Anything unexpected** — any body shredded generically because the shredder
+3. **The cached decade** — the three `wpfl_*` tables, generated from the files
+   actually present in `wpfl/`, each with where its rows run (season range and
+   the latest week of the newest season), read from the file itself. A source
+   whose fetch failed and was never written is named as unavailable rather
+   than advertised. This section used to name all three unconditionally and
+   to say the API "stops at 2025", a year that was wrong the moment the API
+   gained a current-season row.
+4. **Anything unexpected** — any body shredded generically because the shredder
    did not recognize it, named explicitly and marked undocumented, so the agent
    knows it is reading something nobody wrote a description for.
-4. **Glossary** — what `worth`, `market`, `edge`, `grade.composite`,
+5. **Glossary** — what `worth`, `market`, `edge`, `grade.composite`,
    `skill_luck`, `hindsight`, and `fingerprints` mean. These definitions are
    **copied into this repo as constants**, not read from draft-2026 at runtime —
    the bot host does not have draft-2026 on it. (This list said `mkt` until
    Stage 5 counted keys in both builds and found zero occurrences of it; the
    field the artifact actually carries is `market`.)
-5. **Owner roster** — the 14 canonical names, so the agent never invents a
+6. **Owner roster** — the 14 canonical names, so the agent never invents a
    spelling.
-6. **Source routing** — a short table of which source answers which kind of
-   question, including the two hard rules: the WPFL API stops at 2025, and
-   expected wins / optimal coaching are never to be computed by hand (§4.2).
+7. **Source routing** — a short table of which source answers which kind of
+   question, including the two hard rules: the WPFL API lags the live season
+   by days or weeks, so its rows end where the cached-decade section says and
+   anything current comes from ESPN; and expected wins / optimal coaching are
+   never to be computed by hand (§4.2).
 
 The agent reads this first. It is the single highest-leverage artifact in the
 design: it is what lets the agent open two files instead of forty.
@@ -343,15 +352,36 @@ design: it is what lets the agent open two files instead of forty.
 No timers anywhere. `wpfl/artifactSync.ts`:
 
 ```ts
-export async function ensureFresh(): Promise<void> {
-  const age: number = Date.now() - shredMtime();
-  if (age < ASK.STALE_AFTER_MS) return;             // 6 h
-  const etag: string | null = normalizeEtag(await etagOf(ARTIFACT_URL));
-  if (etag !== null && etag === lastSeenEtag()) { touchShred(); return; }
-  await fetchAndShred();                            // ~1 s, 935 KB
-  await refreshWpflCache();                         // §3.7, ~12 s
+export async function ensureFresh(deps = {}): Promise<SyncOutcome> {
+  // One sync per data directory. A later caller joins the one in flight; a
+  // *forced* caller waits for it and then runs its own (it used to join, and
+  // lose the force).
+  if (!force && ageOf('INDEX.md') < ASK.STALE_AFTER_MS) return { kind: 'fresh' };   // 6 h
+
+  // The stored etag is offered as If-None-Match only when an unchanged build
+  // could actually be served: INDEX.md exists to be touched, and the decade
+  // cache is inside its own window. A 304 carries no body.
+  const stored = canServeUnchanged() ? readEtag() : null;
+  const response = await fetchWithTimeout(ARTIFACT_URL, { headers: ifNoneMatch(stored) });
+  if (response.status === 304 || normalizeEtag(response.etag) === stored) {
+    touch('INDEX.md');                                                            // restart the window
+    return { kind: 'unchanged' };
+  }
+
+  // Build the whole tree beside the live one, then swap with two renames.
+  shred(await response.json(), staging);                                          // ~5 ms
+  await refreshWpflCache(staging/wpfl);                                           // §3.7, ~7-12 s
+  carryAcrossCacheFilesTheRefreshDidNotWrite();
+  write('.etag'); write('INDEX.md', generateIndex(readAsOf(staging), cacheExtents(staging)));
+  swap(dataDir, staging);                                                         // retired dir deleted when its last reader leaves
+  warmSqlDatabase(dataDir);                                                       // the swap retired the materialized DB; it starts the rebuild
+  return { kind: 'reshredded', files, etag };
 }
 ```
+
+**Conditional since Stage 16.** The artifact is ~935 KB and was downloaded
+whole up to four times a day to compare one header. The host answers
+`If-None-Match` with a 304 for both the strong and the weak form (verified).
 
 **Etags must be normalized.** Measured 2026-08-31: Cloudflare returns a *weak*
 validator when it serves the artifact compressed and a *strong* one when it does
@@ -717,29 +747,51 @@ across the two sources — instead of arithmetic over hundreds of rows in-contex
    can neither read arbitrary files nor write any (`COPY ... TO`).
 4. Rebuild the whole in-memory DB whenever the shred or the cache changes.
 
-Tables the agent sees:
+Tables the agent sees, named `<directory>_<file>` so a new body in the
+artifact is queryable with no code change and no collision; a per-owner body
+(the 14 team files) is one table across its files:
 
 ```
 -- from the artifact
-teams, dossiers, board, standings, superlatives, runs, rivalries,
-seasons, record_book, skill_luck, churn, identities, arcs, dynasty,
-spend_race, strip, beeswarm, news_players, ...
+teams, league_board, league_dossiers, league_standings, league_superlatives,
+league_runs, league_rivalries, history_seasons, history_record_book,
+history_skill_luck, history_churn, night_spend_race, night_strip,
+news_players, meta, ...
 
--- from the cached WPFL decade
-wpfl_draft_history    3,130 rows   2010-2025
+-- from the cached WPFL decade (extents as INDEX.md reports them)
+wpfl_draft_history    3,130 rows   2010-2025   (auction values from 2016)
 wpfl_matchups         1,449 rows   2010-2025
 wpfl_player_scores   35,682 rows  2015-2025
 ```
 
-**Statement guard.** Not belt-and-braces: measured, DuckDB executes *every*
-statement it is handed, and dropping an in-memory table is not external access,
-so the lockdown does not cover it. This is the control:
+**One statement, and a SELECT.** Measured, DuckDB executes *every* statement it
+is handed, and dropping an in-memory table is not external access, so the
+lockdown does not cover it. Two layers, since Stage 16:
 
-- Exactly one statement; a single trailing `;` tolerated.
-- Must match `/^\s*(SELECT|WITH)\b/i`.
-- Reject `ATTACH`, `COPY`, `INSTALL`, `LOAD`, `EXPORT`, `PRAGMA`, `SET`,
-  `CREATE`, `INSERT`, `UPDATE`, `DELETE`, `DROP`, `CALL`.
+- **DuckDB's own parser is the control.** `connection.extractStatements(sql)`
+  must yield exactly one statement, and preparing it must classify it as a
+  SELECT (which `DESCRIBE`, `SUMMARIZE` and `SHOW` are to DuckDB). The regex
+  guard that was the control before it was beaten: it strips string literals
+  before comments, so an apostrophe inside a comment paired with a later one
+  and hid `); DROP TABLE ...` between them -- measured, the table dropped.
+- **The regex guard is the fast, legible refusal**: exactly one statement with
+  a single trailing `;` tolerated; must start with `SELECT`, `WITH`, `DESCRIBE`
+  or `SUMMARIZE`; the write, external-access and configuration keywords
+  (`ATTACH`, `DETACH`, `COPY`, `INSTALL`, `LOAD`, `EXPORT`, `IMPORT`, `PRAGMA`,
+  `SET`, `RESET`, `CREATE`, `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`,
+  `TRUNCATE`, `CALL`, `GRANT`, `REVOKE`) refused as whole words outside
+  literals and comments.
 - Row cap and a wall-clock timeout, with an explicit truncation notice.
+
+**A connection per query.** Queries on one connection run one after another,
+and `interrupt()` stops whichever is running -- so on a shared connection a
+member's 20 s clock included time queued behind somebody else's join, and the
+timer that fired killed the wrong query (measured). The materialized instance
+is kept; each `runSql` opens its own connection on it and closes it in
+`finally`. The lockdown is instance-wide, so a later connection inherits it
+(verified). The instance is rebuilt when `meta.json`'s mtime changes -- not
+`INDEX.md`'s, which the unchanged path touches -- and the retired instance is
+closed when its last reader leaves (§5.3's generations).
 
 *Confirmed 2026-08-31 against DuckDB 1.5.5-r.4: both setting names are real, both
 apply at runtime, and the lockdown holds across connections (§15.4). Results are
@@ -943,7 +995,13 @@ gets a line naming it, not "Something went wrong".
    (daily per-user, monthly league-wide). A refusal deletes the placeholder
    and follows up ephemerally, saying which limit was hit and when it resets;
    if the delete fails, it edits the placeholder instead, since one stuck on
-   "thinking" reads as a broken bot.
+   "thinking" reads as a broken bot. The thread's session is looked up in
+   the same round trip as the usage counts, and only when the command runs
+   inside a thread -- a text channel gets a thread of its own, so whatever
+   session the channel holds is beside the point. A preflight that *throws*
+   (migration 014 not applied, a cold database timing out) is refused the
+   same way, rather than left to the generic handler, which only followed up
+   and stranded the public placeholder.
 3. `ensureFresh()` — §3.5.
 4. **Branch on channel type.** `Message.startThread()` throws
    `MessageThreadParent` unless the channel is `GuildText` or `GuildAnnouncement`
@@ -988,16 +1046,24 @@ message is in a thread
   → continue the session
 ```
 
-- A message continues the thread when it **mentions the bot** (user or role),
-  **replies to one of its messages**, or comes from **the opener in a thread the
-  bot created**; a reply to a person never does unless it also mentions the
-  bot. In a thread the bot did not create, everyone has to address it, so
-  `/ask` typed once into a trade discussion does not capture it. The first
-  answer of a bot-created thread carries the one hint: "reply or @ me to
-  follow up". `ask_sessions.bot_thread` records which kind of thread it is.
-  Each person's message counts against their own daily cap.
+- A message continues the thread when it **mentions the bot explicitly**
+  (`@CommishBot` or its managed role -- not `@everyone`, `@here`, or a role the
+  bot merely holds, all of which discord.js's `mentions.has()` counts by
+  default), **replies to one of its messages**, or comes from **the opener in
+  a thread the bot created**; a reply to a person never does unless it also
+  mentions the bot. System messages -- a rename, a pin, a join -- are never
+  questions, even though Discord fills `content` for some of them. In a
+  thread the bot did not create, everyone has to address it, so `/ask` typed
+  once into a trade discussion does not capture it. The first answer of a
+  bot-created thread carries the one hint, "reply or @ me to follow up" --
+  only when the run produced a session, since a thread with no session row
+  ignores every message. `ask_sessions.bot_thread` records which kind of
+  thread it is. Each person's message counts against their own daily cap.
 - Continuation passes `resume: <session_id>`; the SDK reloads the transcript from
-  its on-disk store.
+  its on-disk store. A resume that never reaches the SDK's init -- the
+  transcript pruned or moved -- closes the session, so the next message
+  starts fresh and says so instead of failing the same way until the thread
+  archives.
 - At `SOFT_TURN_CAP` (15) the bot appends a note that the thread is getting long
   and suggests a fresh `/ask`. At `HARD_TURN_CAP` (20) it declines further turns
   in that thread and says why.
@@ -1076,7 +1142,10 @@ also logs a line with the thread id. Triage, not learning.
 | Queue full | Ticker shows queue position; the run proceeds when a slot frees |
 | Daily cap hit | Ephemeral reply naming the limit and the reset time |
 | Monthly cap hit | Ephemeral reply saying the feature is paused for the month |
-| Session pruned on revival | Fresh session in the same thread, one line of explanation |
+| Session pruned on revival | Fresh session in the same thread, one line of explanation -- from the slash command and from a typed message alike |
+| Preflight throws (migration 014 missing, cold database) | Ephemeral refusal, placeholder deleted, error logged; `ready` also logs which `/ask` tables are missing and the command to apply |
+| Cannot post in the destination (no Send Messages in Threads) | Ephemeral note to check the bot's permissions; the anchor keeps the question |
+| Resume never reaches the SDK | Session closed; the next message starts fresh with the context-lost line |
 
 Errors route through the existing `errors/BotError.ts` and `errors/errorHandler.ts`.
 
@@ -1324,7 +1393,10 @@ escape) and denies anything that does not sit under `ASK.DATA_DIR`. Glob's
 honours an absolute pattern, and `/etc/host*` came back with seven `/etc`
 paths through a guard that read only `path` and `file_path`. The pattern's
 static prefix is now checked, a `~` or `..` refused on sight, and an absolute
-pattern that stays inside still passes.
+pattern that stays inside still passes. Brace patterns are refused outright,
+with their own reason: expansion happens before a base directory is chosen,
+so `{/etc/host*,INDEX.md}` has an empty static prefix and every alternative
+would be honoured. The shred is flat; nothing in it needs one.
 
 ```ts
 return {
@@ -1395,7 +1467,9 @@ ask/
   leagueTime.ts         every date the feature shows, in ASK.LEAGUE_TZ
   hooks.ts              PreToolUse path guard, PreToolUse WebFetch guard, PostToolUse audit
   pause.ts              the in-memory kill switch behind /ask-admin pause
-  mentions.ts           NO_MENTIONS, for every send carrying foreign text
+  thread.ts             the answer pipeline, the messages that continue a thread, the session's
+                        lifetime -- shared by the slash command and the gateway handlers
+  askFeedback.ts        the 👍/👎 buttons and their handler (moved here from discordCommands/ask/)
 
 wpfl/
   layout.ts             every path and marker in the data directory; the as-of reader
@@ -1405,17 +1479,20 @@ wpfl/
   indexGenerator.ts     INDEX.md, including the glossary constants (§3.4)
   historyCache.ts       the cached WPFL decade (§3.7)
   wpflHttp.ts           the one WPFL history API fetch helper
-  sqlTool.ts            in-memory DuckDB + statement guard
+  sqlTool.ts            in-memory DuckDB, one connection per query, parser-checked statements
   wpflApiTools.ts       the three computed-aggregate endpoints
   espnTools.ts          ESPN 2026 live — four tools (§4.2)
+  toolResult.ts         the one tool-collection type and the result builders
   mcpServer.ts          createSdkMcpServer wiring all of the above
+
+interactions/
+  renderedMessage.ts    NO_MENTIONS lives here, beside the casino payload type that shares it
 
 constants/
   wpflMembers.ts        NEW — Discord ↔ ESPN id ↔ canonical owner
 
 discordCommands/ask/
-  ask.ts                the slash command (folder name must match file name)
-  askFeedback.ts        the 👍/👎 buttons and their handler
+  ask.ts                the slash transport only (folder name must match file name)
 discordCommands/askadmin/
   askadmin.ts           /ask-admin: status, resync, usage, pause, resume
 
@@ -1426,15 +1503,22 @@ scripts/
   makeAskFixtures.ts    NEW — regenerates the trimmed fixtures (§13.2)
 
 tests/
-  ask/shredder.test.ts       ask/caps.test.ts        ask/ticker.test.ts
-  ask/systemPrompt.test.ts   ask/hooks.test.ts       ask/concurrency.test.ts
-  ask/askAuth.test.ts
-  services/askRunner.test.ts
-  wpfl/sqlTool.test.ts       wpfl/indexGenerator.test.ts
-  wpfl/historyCache.test.ts  wpfl/shredder.test.ts
-  wpfl/artifactSync.test.ts  wpfl/artifactShape.test.ts   (live; skipped in CI)
-  fixtures/postdraft-published.json   ~30 KB, generated
-  fixtures/postdraft-next.json        ~30 KB, generated
+  ask/askAuth.test.ts             ask/askConfig.test.ts
+  ask/askDb.test.ts               ask/caps.test.ts
+  ask/concurrency.test.ts         ask/generations.test.ts
+  ask/hooks.test.ts               ask/migration014.test.ts
+  ask/systemPrompt.test.ts        ask/threadQueue.test.ts
+  ask/ticker.test.ts              discord/askAdmin.test.ts
+  discord/askCommand.test.ts      discord/askFeedback.test.ts
+  services/askRunner.test.ts      wpfl/artifactSync.test.ts
+  wpfl/espnTools.test.ts          wpfl/historyCache.test.ts
+  wpfl/indexGenerator.test.ts     wpfl/layout.test.ts
+  wpfl/mcpServer.test.ts          wpfl/shredder.test.ts
+  wpfl/sqlTool.test.ts            wpfl/wpflApiTools.test.ts
+  wpfl/support.ts                   the fixture loader and fake response the wpfl suites share
+  fixtures/postdraft-published.json   ~76 KB, generated
+  fixtures/postdraft-next.json        ~86 KB, generated
+  fixtures/espn-*.json, wpfl-*.json   recorded tool responses (§13.3)
 ```
 
 **17 source files, not 20.** Two directories collapsed into one during the
@@ -1453,7 +1537,10 @@ existed for symmetry rather than for its contents:
 `discordCommands/ask/ask.ts` follows the loader rule documented in `CLAUDE.md`:
 both `index.ts` and `deploy-commands.ts` import **only** the file whose basename
 matches its folder (`index.ts:78`), which is why the helper modules live outside
-`discordCommands/`.
+`discordCommands/`. Since Stage 16 the gateway handlers do too: `index.ts`
+imports `continueThread`, `onThreadArchived` and `checkIdentityMapping` from
+`ask/thread.ts`, and the command module is transport only -- a module that is
+both loader-discovered and statically imported as a library was neither.
 
 ---
 
@@ -1467,6 +1554,14 @@ New environment variables:
 | `ANTHROPIC_API_KEY` | one of | Metered API key; takes precedence if set |
 | `WPFL_DATA_DIR` | no | Overrides `$HOME/wpfl-data` |
 
+Not an environment variable, on purpose: `ASK.ADMIN_USER_IDS` in
+`askConfig.ts` is the one Discord user id `/ask-admin` answers
+(`120231673722830849`, the same id `constants/wpflMembers.ts` maps to the
+commissioner). Discord's Administrator permission only hides the command and
+any server admin can widen that from the UI; this is the check nothing in the
+UI can change. A constant rather than a variable because a variable missing on
+the host would lock out the pause switch exactly when an incident needed it.
+
 Dependency changes:
 
 | Package | Change | Purpose |
@@ -1477,8 +1572,7 @@ Dependency changes:
 | `zod` | add | Tool input schemas for `tool()` |
 | `espn-fantasy-football-api` | fork `@b8c2e61` (`2.1.0-wpfl.0`), repinned on main | Generated types; real team and owner names; slot-label positions worked around (§4.2) |
 
-`.env.sample` and `README.md` both need updating. `CLAUDE.md`'s claim that the
-fork is already in use becomes true once the dependency change lands.
+`.env.sample`, `README.md` and `CLAUDE.md` describe all of the above.
 
 ---
 
