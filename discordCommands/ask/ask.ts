@@ -44,6 +44,7 @@ import {
   type WpflMember,
 } from '../../constants/wpflMembers.js';
 import { logError } from '../../errors/errorHandler.js';
+import { feedbackRow } from './askFeedback.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ask')
@@ -550,10 +551,21 @@ async function publish(
   const full: string = [ticker.render(), ...suffix].join('\n\n').trim();
   const parts: string[] = splitForDiscord(full);
 
+  // The buttons ride on the last part, under the end of the answer.
+  const buttons = { components: [feedbackRow({ up: 0, down: 0 })] };
+
   try {
-    await message.edit({ content: parts[0], allowedMentions: NO_MENTIONS });
-    for (const part of parts.slice(1)) {
-      await destination.send({ content: part, allowedMentions: NO_MENTIONS });
+    await message.edit({
+      content: parts[0],
+      allowedMentions: NO_MENTIONS,
+      ...(parts.length === 1 ? buttons : {}),
+    });
+    for (const [index, part] of parts.slice(1).entries()) {
+      await destination.send({
+        content: part,
+        allowedMentions: NO_MENTIONS,
+        ...(index === parts.length - 2 ? buttons : {}),
+      });
     }
   } catch (error: unknown) {
     logError('ask', 'Could not post the answer', error);

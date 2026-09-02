@@ -10,6 +10,8 @@ jest.unstable_mockModule('../../ask/askDb.js', () => ({
   recordToolException: jest.fn(),
   countUserQuestionsSince: jest.fn(),
   countAllQuestionsSince: jest.fn(),
+  recordFeedback: jest.fn(),
+  feedbackCounts: jest.fn(),
 }));
 
 // Neither the network nor a model: execute() is exercised up to the point a
