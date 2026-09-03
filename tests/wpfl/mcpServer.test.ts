@@ -1,10 +1,14 @@
 import { describe, test, expect } from '@jest/globals';
-import { wpflServer, wpflTools, WPFL_SERVER } from '../../wpfl/mcpServer.js';
+import { createWpflServer, wpflTools, WPFL_SERVER } from '../../wpfl/mcpServer.js';
+import { createCollector } from '../../pictures/collector.js';
 import { STATIC_PROMPT } from '../../ask/systemPrompt.js';
 import { generateIndex } from '../../wpfl/indexGenerator.js';
 import { CACHE_SOURCES, tableName } from '../../wpfl/layout.js';
 
 describe('mcpServer', () => {
+  // A server per run: the picture tools close over the run's collector.
+  const wpflServer = createWpflServer(createCollector('AJ Boorde'));
+
   /**
    * The prompt and INDEX.md route the agent to tools by name, in prose, and
    * nothing else ties those names to the registrations. A renamed tool would
@@ -47,7 +51,25 @@ describe('mcpServer', () => {
     });
   });
 
-  test('registers exactly the eight tools the design specifies', () => {
+  test('a server carries the eight league tools plus chart and table, ten in all', () => {
+    const registered = (
+      wpflServer.instance as unknown as { _registeredTools: Record<string, unknown> }
+    )._registeredTools;
+    expect(Object.keys(registered).sort()).toEqual([
+      'chart',
+      'drafted_points',
+      'espn_boxscores',
+      'espn_free_agents',
+      'espn_teams',
+      'espn_transactions',
+      'expected_wins',
+      'optimal_coaching',
+      'sql',
+      'table',
+    ]);
+  });
+
+  test('the eight league tools are the static list the design specifies', () => {
     expect(wpflTools.map((t) => t.name).sort()).toEqual([
       'drafted_points',
       'espn_boxscores',

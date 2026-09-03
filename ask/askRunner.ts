@@ -25,7 +25,8 @@ import { createHooks, toolResultText } from './hooks.js';
 import { requestSlot, startDeadline, type Slot } from './concurrency.js';
 import { recordUsage } from './askDb.js';
 import { errorMessage, logError } from '../errors/errorHandler.js';
-import { wpflServer, WPFL_SERVER } from '../wpfl/mcpServer.js';
+import { createWpflServer, WPFL_SERVER } from '../wpfl/mcpServer.js';
+import { createCollector, type Picture, type PictureCollector } from '../pictures/collector.js';
 import { liveShred } from '../wpfl/liveShred.js';
 import { readAsOf } from '../wpfl/layout.js';
 import { getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
@@ -120,6 +121,11 @@ export interface AskOutcome {
   /** One of OPS_FAILURE_CODES when the SDK reported it, else null. */
   readonly opsFailure: OpsFailure | null;
   readonly error?: string;
+  /**
+   * Every picture the run drew, in order. Which of them ship is decided by
+   * the tokens in `text`; thread.ts resolves them (pictures/collector.ts).
+   */
+  readonly pictures: readonly Picture[];
 }
 
 /**
@@ -157,6 +163,9 @@ export async function runAsk(
   // open that it has not started reading.
   const shred: Release = liveShred.enter();
   const started: number = Date.now();
+  // The run's own: the picture tools close over it, and its contents ride
+  // back in the outcome. Nothing global, nothing to expire.
+  const collector: PictureCollector = createCollector(request.member.owner);
 
   const state: StreamState = { text: '', thinking: '' };
   let sessionId: string | null = request.sessionId;
@@ -170,7 +179,7 @@ export async function runAsk(
   try {
     for await (const message of queryFn({
       prompt: request.prompt,
-      options: buildOptions(request, deadline.controller, period),
+      options: buildOptions(request, deadline.controller, period, collector),
     })) {
       const result: TerminalResult | null = consume(message, sink, state);
       if (message.session_id !== undefined) {
@@ -205,6 +214,7 @@ export async function runAsk(
     counted: sessionObserved && opsFailure === null,
     opsFailure,
     error: failure ?? terminal?.error,
+    pictures: collector.pictures,
   };
 
   await writeLedger(request, outcome);
@@ -343,7 +353,8 @@ function firstLine(content: unknown): string {
 function buildOptions(
   request: AskRequest,
   controller: AbortController,
-  period: NFLPeriod
+  period: NFLPeriod,
+  collector: PictureCollector
 ): Options {
   // Typed as Options rather than asserted into it. A blanket `as Options` on
   // the whole object would let a renamed or removed SDK field typecheck clean
@@ -380,7 +391,7 @@ function buildOptions(
     ],
 
     systemPrompt: buildSystemPrompt({ member: request.member, period, asOf: readAsOf() }),
-    mcpServers: { [WPFL_SERVER]: wpflServer },
+    mcpServers: { [WPFL_SERVER]: createWpflServer(collector) },
     strictMcpConfig: true,
 
     includePartialMessages: true,
