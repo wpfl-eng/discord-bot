@@ -3,6 +3,7 @@ import {
   createTicker,
   createThrottledEditor,
   splitForDiscord,
+  wrapPipeTables,
   type Ticker,
 } from '../../ask/ticker.js';
 import { ASK } from '../../ask/askConfig.js';
@@ -434,6 +435,73 @@ describe('ticker', () => {
       ticker.onText('answer');
 
       expect(changes).toBe(6);
+    });
+  });
+
+  /**
+   * The final post's trace used to be every call in order -- "Read → sql →
+   * sql → sql → sql → sql → sql → sql → sql" -- which is a third of a line
+   * saying "nine calls, mostly sql". Grouped by tool for the final render
+   * only: the live ticker keeps its arrows, because while a member is
+   * watching, the order is the progress.
+   */
+  describe('the final trace', () => {
+    test('groups the calls by tool, in first-seen order, keeping the failure count', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onToolCall('Read', 't1');
+      ticker.onToolSettled('t1');
+      for (const id of ['a', 'b', 'c']) ticker.onToolCall('mcp__wpfl__sql', id);
+      ticker.onToolSettled('a', 'Parser Error');
+      ticker.onToolSettled('b');
+      ticker.onToolSettled('c');
+      ticker.onText('The answer.');
+
+      expect(ticker.renderFinal('The answer.')).toMatch(/4 tool calls: Read, 3 sql \(1 ✗\)/);
+      // The live render is unchanged.
+      expect(ticker.render()).toMatch(/Read → sql ✗ → sql → sql/);
+    });
+
+    test('a tool called once is named without a count', () => {
+      const ticker: Ticker = createTicker();
+      ticker.onToolCall('Read', 't1');
+      ticker.onToolSettled('t1');
+
+      expect(ticker.renderFinal('x')).toMatch(/1 tool call: Read_/);
+    });
+  });
+
+  /**
+   * Discord renders no markdown tables: a pipe table reaches the channel as
+   * raw pipes. The prompt bans them, and this is the net under the prompt --
+   * a table that arrives anyway is wrapped in a code block so it at least
+   * lines up. The ledger has the raw text either way.
+   */
+  describe('wrapPipeTables', () => {
+    test('wraps a block of pipe rows in a code block, leaving the prose around it alone', () => {
+      const text: string =
+        '**Answer.**\n\n| Owner | $ |\n|---|---|\n| Mims | 21 |\n| Black | 15 |\n\nSources: sql.';
+
+      expect(wrapPipeTables(text)).toBe(
+        '**Answer.**\n\n```\n| Owner | $ |\n|---|---|\n| Mims | 21 |\n| Black | 15 |\n```\n\nSources: sql.'
+      );
+    });
+
+    test('leaves text with no table untouched', () => {
+      const text = '**Answer.**\n- one\n- two\n\nSources: sql.';
+
+      expect(wrapPipeTables(text)).toBe(text);
+    });
+
+    test('leaves a table that is already inside a code block alone', () => {
+      const text = 'x\n```\n| a | b |\n|---|---|\n```\ny';
+
+      expect(wrapPipeTables(text)).toBe(text);
+    });
+
+    test('a lone pipe line is not a table', () => {
+      const text = 'The score was 100 | 90 on the night.\n| odd line\nnext';
+
+      expect(wrapPipeTables(text)).toBe(text);
     });
   });
 

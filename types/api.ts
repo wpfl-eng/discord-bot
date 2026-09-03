@@ -85,6 +85,31 @@ export interface PlayerScoreResponse {
 }
 
 /**
+ * Transactions API Response
+ * Endpoint: /api/transactions
+ *
+ * The wire shape. The /ask cache (wpfl/historyCache.ts) writes these rows with
+ * `manager` renamed to `owner`, the key every other cached table joins on.
+ * `result` is "Processed" for a bid that went through; every other value
+ * ("Outbid", "Roster Limit", "Budget Exceeded", ...) is a failed bid that
+ * still carries its `bidAmount`. `percentOfBudget` is the bid against that
+ * season's FAAB budget, which has changed over the years.
+ */
+export interface TransactionResponse {
+  readonly id: number;
+  readonly season: number;
+  readonly week: number;
+  readonly manager: string;
+  readonly addedPlayer: string;
+  readonly addedPlayerNflPosition: string;
+  readonly droppedPlayer: string;
+  readonly bidAmount: number;
+  readonly percentOfBudget: number;
+  readonly processedTime: string;
+  readonly result: string;
+}
+
+/**
  * Drafted Points API Response
  * Endpoint: /api/draft/draftedpoints
  */

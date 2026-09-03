@@ -22,11 +22,12 @@ export const cacheDir = (dataDir: string): string => path.join(dataDir, 'wpfl');
 export const CACHE_MARKER = '.fetched';
 export const cacheMarker = (dataDir: string): string => path.join(cacheDir(dataDir), CACHE_MARKER);
 
-/** The decade cache's three files, each one `sql` table. */
+/** The decade cache's four files, each one `sql` table. */
 export const CACHE_SOURCES = {
   draftHistory: 'draft_history.jsonl',
   matchups: 'matchups.jsonl',
   playerScores: 'player_scores.jsonl',
+  transactions: 'transactions.jsonl',
 } as const;
 
 /**

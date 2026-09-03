@@ -165,7 +165,7 @@ await write('postdraft-next.json', {
 // nowhere -- the blank-team-name finding came only from reading one.
 // ---------------------------------------------------------------------------
 
-const WPFL_RECORDINGS: readonly (readonly [string, string])[] = [
+const WPFL_RECORDINGS: readonly (readonly [string, string, number?])[] = [
   [
     'wpfl-expected-wins.json',
     `${ASK_API}/expectedwins?seasonMin=2024&seasonMax=2024&weekMin=1&weekMax=17&includePlayoffs=false`,
@@ -175,13 +175,28 @@ const WPFL_RECORDINGS: readonly (readonly [string, string])[] = [
     'wpfl-drafted-points.json',
     `${ASK_API}/draft/draftedpoints?seasonMin=2024&seasonMax=2024&weekMax=15`,
   ],
+  // The range and window forms the tools now expose, recorded so the shape the
+  // API sums into -- one row per owner carrying both bounds -- is on file.
+  [
+    'wpfl-expected-wins-range.json',
+    `${ASK_API}/expectedwins?seasonMin=2023&seasonMax=2025&weekMin=1&weekMax=14&includePlayoffs=true`,
+  ],
+  [
+    'wpfl-drafted-points-window.json',
+    `${ASK_API}/draft/draftedpoints?seasonMin=2024&seasonMax=2024&weekMin=5&weekMax=8`,
+  ],
+  // The one row-shaped endpoint recorded: the cache renames `manager` and the
+  // wire type in types/api.ts documents this shape, so a change in it should
+  // show in a diff. Six seasons are ~2,000 rows; a few are kept.
+  ['wpfl-transactions.json', `${ASK_API}/transactions?seasonMin=2024&seasonMax=2024`, KEEP],
 ];
 
-for (const [name, url] of WPFL_RECORDINGS) {
+for (const [name, url, keep] of WPFL_RECORDINGS) {
   // The bot's own fetch path, so a recording is of what the bot would see.
-  // One row per owner, so these are small enough to keep whole.
+  // One row per owner, so these are small enough to keep whole unless told.
   try {
-    await write(name, await fetchJsonArray<Json>(url, {}, fetch));
+    const rows: Json[] = await fetchJsonArray<Json>(url, {}, fetch);
+    await write(name, keep === undefined ? rows : rows.slice(0, keep));
   } catch (error: unknown) {
     console.log(`skipped ${name}: ${errorMessage(error)}`);
   }

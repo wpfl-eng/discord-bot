@@ -66,8 +66,8 @@ export function createTicker(): Ticker {
   let waitingBehind: number | null = null;
   let notify: () => void = (): void => {};
 
-  const compose = (prose: string): string => {
-    if (prose.trim() !== '') return `${trace(steps)}\n\n${prose}`;
+  const composeWith = (line: (steps: Step[]) => string, prose: string): string => {
+    if (prose.trim() !== '') return `${line(steps)}\n\n${prose}`;
     return working(steps, reasoning, queuedAt, waitingBehind);
   };
 
@@ -115,9 +115,11 @@ export function createTicker(): Ticker {
       notify();
     },
 
-    render: (): string => compose(text),
+    render: (): string => composeWith(trace, text),
 
-    renderFinal: compose,
+    // Grouped for the post that stays; the live line keeps its arrows,
+    // because while a member is watching, the order is the progress.
+    renderFinal: (prose: string): string => composeWith(groupedTrace, prose),
 
     onChange(handler: () => void): void {
       notify = handler;
@@ -182,6 +184,31 @@ function working(
 function trace(steps: Step[]): string {
   if (steps.length === 0) return HEADER;
   const names: string = steps.map((s) => (s.error === null ? s.tool : `${s.tool} ✗`)).join(' → ');
+  return `> _${plural(steps.length, 'tool call')}: ${truncate(names, 180)}_`;
+}
+
+/**
+ * The same line grouped by tool, first-seen order, for the final post: "Read
+ * → sql → sql → sql → sql → sql → sql → sql → sql" was a third of a line
+ * saying "nine calls, mostly sql". A tool called once is named bare; the
+ * failure count rides on its group.
+ */
+function groupedTrace(steps: Step[]): string {
+  if (steps.length === 0) return HEADER;
+
+  const groups = new Map<string, { calls: number; failed: number }>();
+  for (const step of steps) {
+    const group = groups.get(step.tool) ?? { calls: 0, failed: 0 };
+    group.calls += 1;
+    if (step.error !== null) group.failed += 1;
+    groups.set(step.tool, group);
+  }
+  const names: string = [...groups]
+    .map(
+      ([tool, { calls, failed }]): string =>
+        `${calls > 1 ? `${calls} ` : ''}${tool}${failed > 0 ? ` (${failed} ✗)` : ''}`
+    )
+    .join(', ');
   return `> _${plural(steps.length, 'tool call')}: ${truncate(names, 180)}_`;
 }
 
@@ -307,6 +334,47 @@ export function createThrottledEditor(
 }
 
 /** Discord caps a message at 2,000 characters. Continue rather than truncate. */
+/**
+ * Discord renders no markdown tables: a pipe table reaches the channel as
+ * raw pipes, which is how a 14-row ranking arrived in front of the league.
+ * The prompt bans them; this is the net under the prompt. A run of two or
+ * more pipe rows outside a code fence is wrapped in one, so it at least
+ * lines up. Nothing else in the text is touched, and the ledger has the raw
+ * answer either way.
+ */
+export function wrapPipeTables(text: string): string {
+  const lines: string[] = text.split('\n');
+  const out: string[] = [];
+  let fenced = false;
+
+  for (let i = 0; i < lines.length; ) {
+    const line: string = lines[i];
+    if (line.trimStart().startsWith('```')) {
+      fenced = !fenced;
+      out.push(line);
+      i += 1;
+      continue;
+    }
+    if (!fenced && isPipeRow(line)) {
+      let end: number = i;
+      while (end < lines.length && isPipeRow(lines[end])) end += 1;
+      if (end - i >= 2) {
+        out.push('```', ...lines.slice(i, end), '```');
+        i = end;
+        continue;
+      }
+    }
+    out.push(line);
+    i += 1;
+  }
+  return out.join('\n');
+}
+
+/** A markdown table row: pipes at both ends. A lone `|` in prose is not one. */
+function isPipeRow(line: string): boolean {
+  return /^\s*\|.*\|\s*$/.test(line);
+}
+
 export function splitForDiscord(text: string, limit: number = DISCORD_LIMIT): string[] {
   if (text.length <= limit) return [text];
 

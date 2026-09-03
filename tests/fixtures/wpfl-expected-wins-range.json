@@ -1,0 +1,128 @@
+[
+  {
+    "owner": "AJ Boorde",
+    "expectedWins": 19.55,
+    "actualWins": 23,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "David Adler",
+    "expectedWins": 26.21,
+    "actualWins": 22,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "David Evans",
+    "expectedWins": 17.37,
+    "actualWins": 14,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Doug Black",
+    "expectedWins": 21,
+    "actualWins": 21,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Forrest Britton",
+    "expectedWins": 22.16,
+    "actualWins": 23,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Jimmy Simpson",
+    "expectedWins": 19.88,
+    "actualWins": 20,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Jonathan Mims",
+    "expectedWins": 19.79,
+    "actualWins": 23,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Michael Hoyle",
+    "expectedWins": 18.53,
+    "actualWins": 17,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Mike Simpson",
+    "expectedWins": 22.94,
+    "actualWins": 24,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Neill Bullock",
+    "expectedWins": 22.24,
+    "actualWins": 18,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Nixon Ball",
+    "expectedWins": 24.85,
+    "actualWins": 27,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Rick Kocher",
+    "expectedWins": 18.84,
+    "actualWins": 19,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Ryan Salchert",
+    "expectedWins": 18.76,
+    "actualWins": 17,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  },
+  {
+    "owner": "Todd Ellis",
+    "expectedWins": 21.88,
+    "actualWins": 26,
+    "seasonMin": 2023,
+    "seasonMax": 2025,
+    "weekMin": 1,
+    "weekMax": 14
+  }
+]

@@ -66,6 +66,22 @@ describe('historyCache', () => {
         true
       );
     });
+
+    // The waiver history: every bid since the API has them (2020), in one
+    // request -- six seasons are ~2,000 rows, nothing like player scores.
+    test('asks the transactions endpoint for the whole history in one request', async () => {
+      const seen: string[] = [];
+      await refreshWpflCache(
+        dir,
+        fakeFetch(() => ({ rows: rows(2, 'x') }), seen),
+        2026
+      );
+
+      const transactions: string[] = seen.filter((u) => u.includes('/transactions'));
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0]).toContain('seasonMin=2010');
+      expect(transactions[0]).toContain('seasonMax=2026');
+    });
   });
 
   describe('concurrency', () => {
@@ -92,8 +108,8 @@ describe('historyCache', () => {
       for (const resolve of release) resolve();
       await done;
 
-      // draft history + matchups + one per season 2015-2017 = 5.
-      expect(started).toBe(5);
+      // draft history + matchups + transactions + one per season 2015-2017 = 6.
+      expect(started).toBe(6);
     });
   });
 
@@ -104,6 +120,7 @@ describe('historyCache', () => {
         fakeFetch((url) => {
           if (url.pathname.includes('draft/history')) return { rows: rows(7, 'draft') };
           if (url.pathname.includes('fantasyMatchupWinners')) return { rows: rows(5, 'match') };
+          if (url.pathname.includes('transactions')) return { rows: rows(4, 'tx') };
           return { rows: rows(3, 'score') };
         }),
         2016
@@ -111,6 +128,7 @@ describe('historyCache', () => {
 
       expect(lines('draft_history.jsonl')).toHaveLength(7);
       expect(lines('matchups.jsonl')).toHaveLength(5);
+      expect(lines('transactions.jsonl')).toHaveLength(4);
       // Two seasons, 2015 and 2016, three rows each.
       expect(lines('player_scores.jsonl')).toHaveLength(6);
     });
@@ -170,12 +188,16 @@ describe('historyCache', () => {
         playerNflTeam: 'PIT',
         points: 87.04,
         isPlayoffs: false,
+        // A matchup row with no scores has no outcome; the columns exist regardless.
+        winner: null,
+        loser: null,
       });
       // The extents scanner reads the numbers back as it did the strings.
       expect(cacheExtents(dir)['matchups.jsonl']).toEqual({
         seasonMin: 2021,
         seasonMax: 2021,
         latestWeek: 3,
+        latestWeekBySeason: { 2021: 3 },
         columns: [
           'week',
           'season',
@@ -184,8 +206,178 @@ describe('historyCache', () => {
           'playerNflTeam',
           'points',
           'isPlayoffs',
+          'winner',
+          'loser',
         ],
       });
+    });
+
+    /**
+     * Every other table joins on `owner`; the transactions endpoint alone
+     * calls the same person `manager`. Renamed at write time under the one
+     * rule that permits a rename: the API naming the same join key
+     * differently across endpoints. `addedPlayer` is a different role, not a
+     * different spelling, and stays.
+     */
+    test("renames a transaction's manager to owner, and nothing else", async () => {
+      const row: Row = {
+        season: 2024,
+        week: 3,
+        manager: 'AJ Boorde',
+        addedPlayer: 'Sam Darnold',
+        droppedPlayer: 'Gardner Minshew',
+        bidAmount: 51,
+        result: 'Processed',
+      };
+      await refreshWpflCache(
+        dir,
+        fakeFetch((url) => ({ rows: url.pathname.includes('transactions') ? [row] : [] })),
+        2015
+      );
+
+      expect(JSON.parse(lines('transactions.jsonl')[0])).toEqual({
+        season: 2024,
+        week: 3,
+        owner: 'AJ Boorde',
+        addedPlayer: 'Sam Darnold',
+        droppedPlayer: 'Gardner Minshew',
+        bidAmount: 51,
+        result: 'Processed',
+      });
+    });
+
+    /**
+     * Written once rather than derived in every query: the bot already
+     * derives a winner separately in two commands, and five real matchups are
+     * ties, where `>` and `>=` disagree. A tie has no winner and no loser.
+     */
+    test('derives winner and loser on a matchup, null on a tie', async () => {
+      const played: Row = {
+        season: 2024,
+        week: 2,
+        teamA: 'Jimmy Simpson',
+        teamAPoints: 123.14,
+        teamB: 'Michael Hoyle',
+        teamBPoints: 117.56,
+      };
+      const tied: Row = {
+        season: 2024,
+        week: 3,
+        teamA: 'Doug Black',
+        teamAPoints: 100,
+        teamB: 'Nixon Ball',
+        teamBPoints: 100,
+      };
+      await refreshWpflCache(
+        dir,
+        fakeFetch((url) => ({
+          rows: url.pathname.includes('fantasyMatchupWinners') ? [played, tied] : [],
+        })),
+        2015
+      );
+
+      const [first, second] = lines('matchups.jsonl').map((line) => JSON.parse(line) as Row);
+      expect(first).toMatchObject({ winner: 'Jimmy Simpson', loser: 'Michael Hoyle' });
+      expect(second).toMatchObject({ winner: null, loser: null });
+    });
+
+    /**
+     * 630 player-score rows and 60 matchups for 2015-2017 sat under
+     * `todd ellis`, so every per-owner figure for him was computed on a
+     * subset. The roster in constants/wpflMembers.ts is what the prompt calls
+     * canonical, so the cache obeys it: a case-insensitive hit on any name
+     * column becomes the roster's spelling, whitespace collapsed.
+     */
+    test('canonicalises a name that matches the roster in all but case and spacing', async () => {
+      const score: Row = {
+        season: 2016,
+        week: 1,
+        owner: 'todd ellis',
+        player: 'Cam Newton',
+        points: 20,
+      };
+      const match: Row = {
+        season: 2016,
+        week: 1,
+        teamA: ' aj   boorde ',
+        teamAPoints: 90,
+        teamB: 'TODD ELLIS',
+        teamBPoints: 80,
+        homeTeam: 'todd ellis',
+      };
+      await refreshWpflCache(
+        dir,
+        fakeFetch((url) => {
+          if (url.pathname.includes('playerscores')) return { rows: [score] };
+          if (url.pathname.includes('fantasyMatchupWinners')) return { rows: [match] };
+          return { rows: [] };
+        }),
+        2016
+      );
+
+      expect(JSON.parse(lines('player_scores.jsonl')[0])).toMatchObject({ owner: 'Todd Ellis' });
+      expect(JSON.parse(lines('matchups.jsonl')[0])).toMatchObject({
+        teamA: 'AJ Boorde',
+        teamB: 'Todd Ellis',
+        homeTeam: 'Todd Ellis',
+        winner: 'AJ Boorde',
+        loser: 'Todd Ellis',
+      });
+    });
+
+    /**
+     * The roster is the 14 people in the league today. If one leaves, their
+     * case variants would re-split on the next refresh -- so within one
+     * source, spellings that differ only by case are one owner whoever is
+     * on the roster, and the capitalised spelling wins. Player scores arrive
+     * one season per request, so the collision has to be found across them.
+     */
+    test('merges two case spellings of a departed owner across seasons, keeping the capitalised one', async () => {
+      await refreshWpflCache(
+        dir,
+        fakeFetch((url) => {
+          if (!url.pathname.includes('playerscores')) return { rows: [] };
+          const season: string | null = url.searchParams.get('seasonMin');
+          const owner: string = season === '2015' ? 'cameron rifkin' : 'Cameron Rifkin';
+          return { rows: [{ season: Number(season), week: 1, owner, points: 1 }] };
+        }),
+        2016
+      );
+
+      const owners: unknown[] = lines('player_scores.jsonl').map(
+        (l) => (JSON.parse(l) as Row).owner
+      );
+      expect(owners).toEqual(['Cameron Rifkin', 'Cameron Rifkin']);
+    });
+
+    test('leaves a departed owner with one spelling as the API sent it', async () => {
+      await refreshWpflCache(
+        dir,
+        fakeFetch((url) => ({
+          rows: url.pathname.includes('draft/history')
+            ? [{ season: 2011, owner: 'david simpson', player: 'x' }]
+            : [],
+        })),
+        2015
+      );
+
+      expect(JSON.parse(lines('draft_history.jsonl')[0])).toMatchObject({ owner: 'david simpson' });
+    });
+
+    // Name columns are enumerated, not guessed from values: an NFL player who
+    // shares an owner's name must not be rewritten into the owner.
+    test("does not touch a player column that happens to hold an owner's name", async () => {
+      await refreshWpflCache(
+        dir,
+        fakeFetch((url) => ({
+          rows: url.pathname.includes('playerscores')
+            ? [{ season: 2015, week: 1, owner: 'Doug Black', player: 'mike simpson', points: 1 }]
+            : [],
+        })),
+        2015
+      );
+
+      expect(JSON.parse(lines('player_scores.jsonl')[0])).toMatchObject({ player: 'mike simpson' });
     });
 
     test('an empty season is not a failure -- the API returns [] for a season not yet played', async () => {
@@ -229,12 +421,16 @@ describe('historyCache', () => {
         seasonMin: 2015,
         seasonMax: 2025,
         latestWeek: 3,
+        // Every season's own last week, so INDEX.md can say where each one
+        // stops rather than only where the newest does.
+        latestWeekBySeason: { 2015: 1, 2024: 17, 2025: 3 },
         columns: ['week', 'season', 'teamA'],
       });
       expect(extents['draft_history.jsonl']).toEqual({
         seasonMin: 2010,
         seasonMax: 2025,
         latestWeek: null,
+        latestWeekBySeason: {},
         columns: ['owner', 'season'],
       });
     });
@@ -249,6 +445,7 @@ describe('historyCache', () => {
         seasonMin: 2015,
         seasonMax: 2025,
         latestWeek: 18,
+        latestWeekBySeason: { 2015: 1, 2025: 18 },
         columns: ['week', 'season'],
       });
     });
@@ -295,6 +492,7 @@ describe('historyCache', () => {
 
       expect(fs.existsSync(path.join(dir, 'draft_history.jsonl'))).toBe(true);
       expect(fs.existsSync(path.join(dir, 'matchups.jsonl'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'transactions.jsonl'))).toBe(true);
       expect(fs.existsSync(path.join(dir, 'player_scores.jsonl'))).toBe(false);
       error.mockRestore();
     });

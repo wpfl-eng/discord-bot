@@ -109,8 +109,9 @@ export const ASK = {
   WPFL_CACHE_STALE_AFTER_MS: 24 * 60 * 60 * 1000,
 
   // ---- WPFL history API (design §3.7) ----
-  // The three row-shaped endpoints are cached locally and reachable only
-  // through SQL, so there is no second path that could disagree with the first.
+  // The four row-shaped endpoints -- draft history, matchups, player scores
+  // and transactions -- are cached locally and reachable only through SQL, so
+  // there is no second path that could disagree with the first.
   WPFL_API_BASE: 'https://wpflapi.azurewebsites.net/api',
   WPFL_FETCH_TIMEOUT_MS: 30 * 1000,
   // Draft history and matchups go back to 2010; player scores start in 2015,
@@ -132,6 +133,14 @@ export const ASK = {
   // ---- Discord surface (design §6.3) ----
   TICKER_EDIT_THROTTLE_MS: 1500, // a coalescing window; discord.js handles the real rate limit
   THREAD_AUTO_ARCHIVE: ThreadAutoArchiveDuration.OneDay,
+  // The answer's length, stated in the prompt as hard limits. "Aim for under
+  // about 1,500 characters" was advice, and a 2,900-character answer with a
+  // 14-row table ignored it. Body plus footer plus the trace line and the
+  // follow-up hint fits one Discord message with room to spare. Nothing
+  // enforces these yet: the runner logs every answer's length, and if the log
+  // shows the cap being blown the enforcement reads these same two numbers.
+  ANSWER_BODY_MAX_CHARS: 1200,
+  ANSWER_FOOTER_MAX_CHARS: 200,
 
   // ---- Who may run /ask-admin ----
   // Discord's Administrator permission only hides the command, and any server

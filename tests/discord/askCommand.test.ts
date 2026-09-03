@@ -378,6 +378,38 @@ describe('the /ask command', () => {
         expect(edits[edits.length - 1]).toContain('Reply or @ me');
       });
 
+      test('wraps a pipe table the model produced anyway in a code block, so it renders', async () => {
+        scripted('**Answer.**\n\n| Owner | $ |\n|---|---|\n| Mims | 21 |\n\nSources: sql.');
+        const { interaction: i, message } = posting();
+
+        await execute(i);
+
+        const last: string = (
+          message.edit.mock.calls[message.edit.mock.calls.length - 1][0] as { content: string }
+        ).content;
+        expect(last).toContain('```\n| Owner | $ |\n|---|---|\n| Mims | 21 |\n```');
+      });
+
+      // The prompt states a length cap that nothing enforces. This line is
+      // how anyone finds out whether it is obeyed, without a schema change: a
+      // forgotten migration would have switched the caps off, since they
+      // count ledger rows.
+      test("logs every answer's length against the thread, so the cap can be measured", async () => {
+        const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+        try {
+          scripted('Jimmy paid $54.');
+          const { interaction: i } = posting();
+
+          await execute(i);
+
+          expect(log.mock.calls.map((call) => String(call[0]))).toContainEqual(
+            expect.stringMatching(/^\[ASK\] answer thread-1: 15 chars/)
+          );
+        } finally {
+          log.mockRestore();
+        }
+      });
+
       test('offers no follow-up hint when the first run never produced a session', async () => {
         (askRunner.runAsk as jest.Mock).mockImplementation((() =>
           Promise.resolve({

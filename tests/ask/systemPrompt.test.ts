@@ -1,7 +1,8 @@
 import type { WpflMember } from '../../constants/wpflMembers.js';
 import { describe, test, expect } from '@jest/globals';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
-import { buildSystemPrompt, STATIC_PROMPT } from '../../ask/systemPrompt.js';
+import { buildSystemPrompt, STATIC_PROMPT, LEAGUE_FACTS } from '../../ask/systemPrompt.js';
+import { ASK } from '../../ask/askConfig.js';
 import type { NFLPeriod } from '../../helpers/espnPeriod.js';
 import type { AsOf } from '../../wpfl/layout.js';
 
@@ -88,12 +89,23 @@ describe('systemPrompt', () => {
 
     test('says what each source knows and what it does not', () => {
       expect(STATIC_PROMPT).toMatch(/post-draft/i);
-      // No hard-coded year: the history API lags the live season, whatever year it is.
+      // No hard-coded year outside the league facts: the history API lags the
+      // live season, whatever year it is. The facts block is the one place a
+      // year may appear, because its years are era boundaries -- when the
+      // auction began, when the budget changed -- and not claims about where
+      // the data stops.
       expect(STATIC_PROMPT).toMatch(/lags the live season/i);
-      expect(STATIC_PROMPT).not.toMatch(/\b20\d\d\b/);
+      expect(STATIC_PROMPT.replace(LEAGUE_FACTS, '')).not.toMatch(/\b20\d\d\b/);
       expect(STATIC_PROMPT).toContain('sql');
       expect(STATIC_PROMPT).toContain('espn_');
       expect(STATIC_PROMPT).toContain('INDEX.md');
+    });
+
+    // The sentence that enumerates what `sql` holds left the waiver history
+    // out, in the one place the agent reads before INDEX.md.
+    test('counts the waiver history among what sql reaches', () => {
+      const sqlLine: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('**`sql`**'));
+      expect(sqlLine.slice(0, 600)).toMatch(/waiver/i);
     });
 
     // The ESPN line said records, scores, rosters, injuries, waivers. Nothing
@@ -120,9 +132,140 @@ describe('systemPrompt', () => {
       expect(STATIC_PROMPT).toMatch(/\$200|auction/i);
     });
 
-    test('asks for a source footer and a Discord-sized answer', () => {
+    /**
+     * The reviewed answer never said the structural thing: one quarterback
+     * starts in a fourteen-team league with four-point passing touchdowns, so
+     * the position is deep and cheap by rule. The agent had no way to know
+     * any of it. Every figure here was read from ESPN's league settings on
+     * 2026-09-03; the eras before that from the cached history.
+     */
+    test('carries the league facts, and says which season they were checked for', () => {
+      expect(STATIC_PROMPT).toContain(LEAGUE_FACTS);
+      expect(LEAGUE_FACTS).toMatch(/2026 season/);
+
+      expect(LEAGUE_FACTS).toMatch(/1 QB/);
+      expect(LEAGUE_FACTS).toMatch(/2 RB/);
+      expect(LEAGUE_FACTS).toMatch(/2 WR/);
+      expect(LEAGUE_FACTS).toMatch(/1 TE/);
+      expect(LEAGUE_FACTS).toMatch(/FLEX/);
+      expect(LEAGUE_FACTS).toMatch(/1 K/);
+      expect(LEAGUE_FACTS).toMatch(/D\/ST/);
+      expect(LEAGUE_FACTS).toMatch(/5 bench/);
+      expect(LEAGUE_FACTS).toMatch(/1 IR/);
+
+      expect(LEAGUE_FACTS).toMatch(/\$200 auction/);
+      expect(LEAGUE_FACTS).toMatch(/2016/);
+      expect(LEAGUE_FACTS).toMatch(/snake/i);
+
+      expect(LEAGUE_FACTS).toMatch(/14 games/);
+      expect(LEAGUE_FACTS).toMatch(/2021/);
+      expect(LEAGUE_FACTS).toMatch(/13 before/);
+      expect(LEAGUE_FACTS).toMatch(/6 playoff teams/i);
+      expect(LEAGUE_FACTS).toMatch(/3 rounds/);
+      expect(LEAGUE_FACTS).toMatch(/no reseeding/i);
+
+      expect(LEAGUE_FACTS).toMatch(/FAAB/);
+      expect(LEAGUE_FACTS).toMatch(/\$1,000/);
+      expect(LEAGUE_FACTS).toMatch(/2023/);
+      expect(LEAGUE_FACTS).toMatch(/\$200 for 2020 to 2022/);
+
+      expect(LEAGUE_FACTS).toMatch(/half-PPR|0\.5 per reception/i);
+      expect(LEAGUE_FACTS).toMatch(/4 points? (a|per) passing touchdown/i);
+      expect(LEAGUE_FACTS).toMatch(/25 passing yards/);
+      expect(LEAGUE_FACTS).toMatch(/interception/i);
+    });
+
+    /**
+     * Four rules, one per defect in the reviewed answer: a correlation on ten
+     * points presented as a finding; a flat correlation read as "nothing"
+     * over a curved bucket pattern, with the last four champions all paying
+     * up at QB; a table of current owners beside a correlation over everyone
+     * who ever played; a proxy caveat in the footer and a threshold invented
+     * outright.
+     */
+    test('states the four analysis rules', () => {
+      const analysis: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# Analysis'));
+
+      expect(analysis).toMatch(/sample size/i);
+      expect(analysis).toMatch(/\b30\b/);
+      expect(analysis).toMatch(/correlation/i);
+      expect(analysis).toMatch(/by group/i);
+      expect(analysis).toMatch(/era/i);
+      expect(analysis).toMatch(/mixed/i);
+      expect(analysis).toMatch(/contradict/i);
+      expect(analysis).toMatch(/one population/i);
+      expect(analysis).toMatch(/proxy/i);
+      expect(analysis).toMatch(/threshold|break-even/i);
+      expect(analysis).toMatch(/tool computed/i);
+    });
+
+    /**
+     * "Aim for under about 1,500 characters" was advice, and a 2,900-character
+     * answer with a 14-row table ignored it. The caps are numbers a model can
+     * count, stated as limits, and read from askConfig so the prompt and any
+     * later enforcement cannot disagree.
+     */
+    test('states the body and footer caps as hard limits, from askConfig', () => {
       expect(STATIC_PROMPT).toMatch(/footer/i);
-      expect(STATIC_PROMPT).toMatch(/1,?500|character/i);
+      expect(STATIC_PROMPT).toContain(ASK.ANSWER_BODY_MAX_CHARS.toLocaleString('en-US'));
+      expect(STATIC_PROMPT).toContain(ASK.ANSWER_FOOTER_MAX_CHARS.toLocaleString('en-US'));
+      expect(STATIC_PROMPT).toMatch(/at most|hard limit|no more than/i);
+      expect(STATIC_PROMPT).not.toMatch(/aim for/i);
+    });
+
+    /**
+     * A fixed skeleton as a maximum: the shape the reviewed answer lacked. A
+     * bold first line carrying the answer, at most five bullets each with a
+     * figure and its sample size, a ranking only when asked and as a numbered
+     * list of at most eight lines, no pipe tables (Discord renders them as
+     * literal pipes), and a footer only when a figure was stated.
+     */
+    test('fixes the skeleton, with counts the model can obey', () => {
+      const how: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# How to answer'));
+
+      expect(how).toMatch(/first line/i);
+      expect(how).toMatch(/bold/i);
+      expect(how).toMatch(/at most five bullets|up to five bullets|five bullets/i);
+      expect(how).toMatch(/sample size/i);
+      expect(how).toMatch(/numbered list/i);
+      expect(how).toMatch(/eight lines|8 lines/i);
+      expect(how).toMatch(/pipe table|markdown table/i);
+      expect(how).toMatch(/Discord (does not|doesn't|cannot) render/i);
+      expect(how).toMatch(/footer.*figure|figure.*footer/i);
+    });
+
+    /**
+     * The structural rules of ASD-STE100, named one by one because a model
+     * cannot check a word against a dictionary it does not have. Each of these
+     * bit on the reviewed answer: "Nothing." was a fragment, "the wire fills
+     * the gap" a metaphor, "finish", "rank" and "final rank" one thing three
+     * ways. Twenty words is a deliberate tightening of the standard's
+     * twenty-five for description, because this is a chat window.
+     */
+    test('states the writing rules one by one', () => {
+      const how: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# How to answer'));
+
+      expect(how).toMatch(/20 words|twenty words/i);
+      expect(how).toMatch(/one idea/i);
+      expect(how).toMatch(/active voice/i);
+      expect(how).toMatch(/present tense/i);
+      expect(how).toMatch(/past tense/i);
+      expect(how).toMatch(/digits/i);
+      expect(how).toMatch(/same word/i);
+      expect(how).toMatch(/idiom/i);
+      expect(how).toMatch(/metaphor/i);
+      expect(how).toMatch(/parenthes/i);
+      expect(how).toMatch(/fragment/i);
+      expect(how).toMatch(/articles/i);
+      // League terms are technical names and stay.
+      expect(how).toMatch(/waiver|FAAB/i);
+    });
+
+    // "Dry" is where the idioms came from; direct and numerate stay.
+    test('keeps the league voice direct and numerate, and drops "dry"', () => {
+      expect(STATIC_PROMPT).toMatch(/direct/i);
+      expect(STATIC_PROMPT).toMatch(/numerate/i);
+      expect(STATIC_PROMPT).not.toMatch(/\bdry\b/i);
     });
   });
 

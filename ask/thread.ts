@@ -24,7 +24,13 @@ import { NO_MENTIONS } from '../interactions/renderedMessage.js';
 import { preflight, type Preflight } from './preflight.js';
 import { runAsk, type AskOutcome, type OpsFailure } from './askRunner.js';
 import { enqueueInThread, type Admitted } from './threadQueue.js';
-import { createTicker, createThrottledEditor, splitForDiscord, type Ticker } from './ticker.js';
+import {
+  createTicker,
+  createThrottledEditor,
+  splitForDiscord,
+  wrapPipeTables,
+  type Ticker,
+} from './ticker.js';
 import { getSession, openSession, recordTurn, closeSession, type AskSession } from './askDb.js';
 import { wpflMembers, type WpflMember } from '../constants/wpflMembers.js';
 import { truncate } from '../helpers/utils.js';
@@ -311,6 +317,12 @@ export async function answer(request: AnswerRequest): Promise<void> {
   if (admitted.position > 0) ticker.onWaiting(admitted.position);
 
   const outcome: AskOutcome = await admitted.result;
+  // The prompt states a length cap that nothing enforces. This is how anyone
+  // finds out whether it is obeyed: one line in the pm2 log per answer, no
+  // schema. A ledger column was the alternative, and in a repo with no
+  // migration runner a forgotten migration would have failed every ledger
+  // insert -- and the caps count ledger rows.
+  console.log(`[ASK] answer ${destination.id}: ${outcome.text.length} chars`);
 
   await editor.settle();
   const trailer: string[] = [];
@@ -419,7 +431,10 @@ async function publish(
   // whatever the model said before its first tool call, and the SDK's result
   // does not. Uncapped on purpose: the final answer is continued into follow-up
   // messages by splitForDiscord rather than truncated (§6.3).
-  const full: string = [ticker.renderFinal(outcome.text), ...suffixLines(outcome, trailer)]
+  const full: string = [
+    ticker.renderFinal(wrapPipeTables(outcome.text)),
+    ...suffixLines(outcome, trailer),
+  ]
     .join('\n\n')
     .trim();
   const parts: string[] = splitForDiscord(full);
