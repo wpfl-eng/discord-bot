@@ -40,24 +40,71 @@ export interface IndexInput {
   readonly wpflCache?: Readonly<Record<string, SourceExtents | null>>;
 }
 
+/** One cached source: its file, the table it becomes, and what the agent is told about it. */
+interface CachedSource {
+  readonly file: string;
+  readonly table: string;
+  readonly description: string;
+  /**
+   * The traps in this table, written as rules rather than figures -- "the
+   * budget has changed", never "$200 to $1,000 in 2023" -- so that nothing
+   * here goes stale the way "the history API stops at 2025" did. Anything
+   * that is a figure is read from the file's extents instead.
+   */
+  readonly notes: (extents: SourceExtents | null | undefined) => readonly string[];
+}
+
 /**
  * The cache files this feature knows how to describe. The table names are
  * derived the way `sql` derives them, so INDEX.md cannot advertise a name the
  * database would not have.
  */
-const CACHED_DECADE: readonly (readonly [file: string, table: string, description: string])[] = (
-  [
-    [CACHE_SOURCES.draftHistory, 'Every auction pick, one row per player per season.'],
-    [
-      CACHE_SOURCES.matchups,
+const CACHED_DECADE: readonly CachedSource[] = [
+  {
+    file: CACHE_SOURCES.draftHistory,
+    table: tableName('wpfl', CACHE_SOURCES.draftHistory),
+    description: 'Every auction pick, one row per player per season.',
+    notes: (): string[] => [
+      '`auctionValue` is null before 2016, the snake-draft years; a spend query starts there.',
+    ],
+  },
+  {
+    file: CACHE_SOURCES.matchups,
+    table: tableName('wpfl', CACHE_SOURCES.matchups),
+    description:
       'Every regular-season head-to-head result, with both scores and the margin. The API publishes no playoff games.',
+    notes: (): string[] => [
+      "`winner` and `loser` are written on every row. A tie has null for both, so `COUNT(winner)` counts wins only; an owner's games are the rows where they are `teamA` or `teamB`.",
     ],
-    [
-      CACHE_SOURCES.playerScores,
+  },
+  {
+    file: CACHE_SOURCES.playerScores,
+    table: tableName('wpfl', CACHE_SOURCES.playerScores),
+    description:
       'Every weekly player score, with roster slot — the only way to ask what a drafted player went on to do.',
+    notes: (extents): string[] => [
+      `Seasons stop at different weeks${coverage(extents)}. Compare seasons per week, not per season, or the comparison is of coverage. \`rosterSlot\` BE is the bench and IR is injured reserve; everything else started.`,
     ],
-  ] as const
-).map(([file, description]) => [file, tableName('wpfl', file), description] as const);
+  },
+  {
+    file: CACHE_SOURCES.transactions,
+    table: tableName('wpfl', CACHE_SOURCES.transactions),
+    description:
+      'Every waiver bid and free-agent move, one row per attempt, with the bid, the result, and the players added and dropped.',
+    notes: (): string[] => [
+      "Spend means `result = 'Processed'`. Every other result is a failed bid that still carries its `bidAmount`, so a sum without that filter overstates spend badly. A processed row with `bidAmount` 0 is a free pickup.",
+      "The FAAB budget has changed between seasons, so dollars do not compare across eras: compare on `percentOfBudget`, and read a season's budget as `bidAmount / percentOfBudget * 100`.",
+      "Week 1 includes pre-season moves. The API's `manager` filter is the `owner` column here.",
+    ],
+  },
+];
+
+/** ": 2015: 13, 2016: 16, …" from the file's own extents, or nothing when there are none to read. */
+function coverage(extents: SourceExtents | null | undefined): string {
+  const seasons: [string, number][] = Object.entries(extents?.latestWeekBySeason ?? {});
+  if (seasons.length === 0) return '';
+  return `: ${seasons.map(([season, week]) => `${season}: ${week}`).join(', ')}`;
+}
 
 /** One line per file, keyed by shred-relative path. Team files share a description. */
 const FILE_DESCRIPTIONS: Record<string, string> = {
@@ -303,10 +350,10 @@ function cachedDecade(
   fetchedAt: string | null,
   cache: Readonly<Record<string, SourceExtents | null>> = {}
 ): string {
-  const present = CACHED_DECADE.filter(([file]) => file in cache);
-  const missing = CACHED_DECADE.filter(([file]) => !(file in cache));
-  const tables = (rows: typeof CACHED_DECADE): string =>
-    rows.map(([, table]) => `\`${table}\``).join(', ');
+  const present: readonly CachedSource[] = CACHED_DECADE.filter(({ file }) => file in cache);
+  const missing: readonly CachedSource[] = CACHED_DECADE.filter(({ file }) => !(file in cache));
+  const tables = (rows: readonly CachedSource[]): string =>
+    rows.map(({ table }) => `\`${table}\``).join(', ');
 
   const lines: string[] = ['## The cached WPFL decade', ''];
 
@@ -330,8 +377,16 @@ function cachedDecade(
     '| Table | What it holds | Rows run | Columns |',
     '| --- | --- | --- | --- |',
     ...present.map(
-      ([file, table, description]) =>
+      ({ file, table, description }) =>
         `| \`${table}\` | ${description} | ${describeExtents(cache[file])} | ${columnsCell(cache[file])} |`
+    ),
+    '',
+    'Reading these tables:',
+    '',
+    // The traps a model falls into silently, one line per table, only for the
+    // tables that are actually there.
+    ...present.flatMap(({ file, table, notes }) =>
+      notes(cache[file]).map((note: string): string => `- \`${table}\`: ${note}`)
     )
   );
 
@@ -422,6 +477,7 @@ function routing(): string {
     '| Ten years of prices, matchups or player scores | The `sql` tool |',
     '| Expected wins, optimal coaching, drafted points | `expected_wins`, `optimal_coaching`, `drafted_points` |',
     '| The 2026 season in progress -- records, scores, rosters, transactions | The `espn_*` tools |',
+    '| Waiver bids, adds and drops in past seasons | `wpfl_transactions` in the `sql` tool; the season in progress is `espn_transactions` |',
     '| NFL news, injuries or results since the news date above | `WebSearch` / `WebFetch` |',
     '',
     'Two hard rules:',

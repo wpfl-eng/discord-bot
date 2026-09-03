@@ -28,6 +28,14 @@ export interface SourceExtents {
   readonly seasonMax: number;
   /** The latest week present in the newest season; null for a source without weeks. */
   readonly latestWeek: number | null;
+  /**
+   * Every season's own latest week, keyed by season. Player scores stop at
+   * week 13 in some seasons and 18 in others, and an answer that compared
+   * "points per season" across them was comparing coverage; INDEX.md says
+   * where each season stops so the agent compares per week. Empty for a
+   * source without weeks.
+   */
+  readonly latestWeekBySeason: Readonly<Record<string, number>>;
   /** The first row's keys: what the `sql` table's columns are, read from the file rather than assumed. */
   readonly columns: readonly string[];
 }
@@ -155,7 +163,7 @@ export async function refreshWpflCache(
  * there and where its rows run are one answer.
  *
  * A regex scan, not a parse: player scores alone are ~36,000 lines and 8 MB,
- * and two fields are all that is needed. The three sources disagree on
+ * and two fields are all that is needed. The sources disagree on
  * whether season and week are strings or numbers, so both forms match.
  */
 export function cacheExtents(dir: string): Record<string, SourceExtents | null> {
@@ -193,6 +201,9 @@ function scanExtents(text: string): SourceExtents | null {
     seasonMin,
     seasonMax,
     latestWeek: latestWeekBySeason.get(seasonMax) ?? null,
+    latestWeekBySeason: Object.fromEntries(
+      [...latestWeekBySeason.entries()].sort(([a], [b]): number => a - b)
+    ),
     columns: firstRowKeys(text),
   };
 }

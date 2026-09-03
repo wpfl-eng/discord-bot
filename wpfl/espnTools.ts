@@ -434,7 +434,7 @@ export const espnTools: AnyTool[] = [
 
   tool(
     'espn_transactions',
-    `Recent adds, drops and trades, with who moved whom, when, and the waiver bid. **Current season only** — ESPN serves this endpoint for the current season and 404s for every prior one, so do not reach for it to answer a historical question; use the sql tool for those. ${CURRENT_SEASON_ONLY}`,
+    `Recent adds, drops and trades, with who moved whom, when, and the waiver bid. **Current season only** — ESPN serves this endpoint for the current season and 404s for every prior one, so do not reach for it to answer a historical question; past seasons' bids, adds and drops are the wpfl_transactions table in the sql tool. ${CURRENT_SEASON_ONLY}`,
     {},
     async (): Promise<CallToolResult> => {
       const period: NFLPeriod = await getCurrentPeriod();

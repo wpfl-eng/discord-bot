@@ -197,6 +197,7 @@ describe('historyCache', () => {
         seasonMin: 2021,
         seasonMax: 2021,
         latestWeek: 3,
+        latestWeekBySeason: { 2021: 3 },
         columns: [
           'week',
           'season',
@@ -420,12 +421,16 @@ describe('historyCache', () => {
         seasonMin: 2015,
         seasonMax: 2025,
         latestWeek: 3,
+        // Every season's own last week, so INDEX.md can say where each one
+        // stops rather than only where the newest does.
+        latestWeekBySeason: { 2015: 1, 2024: 17, 2025: 3 },
         columns: ['week', 'season', 'teamA'],
       });
       expect(extents['draft_history.jsonl']).toEqual({
         seasonMin: 2010,
         seasonMax: 2025,
         latestWeek: null,
+        latestWeekBySeason: {},
         columns: ['owner', 'season'],
       });
     });
@@ -440,6 +445,7 @@ describe('historyCache', () => {
         seasonMin: 2015,
         seasonMax: 2025,
         latestWeek: 18,
+        latestWeekBySeason: { 2015: 1, 2025: 18 },
         columns: ['week', 'season'],
       });
     });

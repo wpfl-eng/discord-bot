@@ -193,6 +193,12 @@ describe('indexGenerator', () => {
       expect(index).toMatch(/2026/);
     });
 
+    // The answer that said "no historical bid dollars exist" had read this
+    // table and found no row that said otherwise.
+    test('routes past-season waivers to the cached table and the live season to ESPN', () => {
+      expect(index).toMatch(/\| .*[Ww]aiver.*\| `wpfl_transactions`.*`espn_transactions`/);
+    });
+
     test('forbids hand-computing expected wins and optimal coaching', () => {
       expect(index).toContain('expected_wins');
       expect(index).toContain('optimal_coaching');
@@ -227,15 +233,73 @@ describe('indexGenerator', () => {
       'draft_history.jsonl': null,
       'matchups.jsonl': null,
       'player_scores.jsonl': null,
+      'transactions.jsonl': null,
     };
 
-    test('names the three cached sources and the table each becomes', () => {
+    test('names the four cached sources and the table each becomes', () => {
       const index: string = generateIndex({ shred: result, asOf, wpflCache: ALL_CACHED });
 
       expect(index).toContain('wpfl_draft_history');
       expect(index).toContain('wpfl_matchups');
       expect(index).toContain('wpfl_player_scores');
+      expect(index).toContain('wpfl_transactions');
       expect(index).toMatch(/only through the `sql` tool/i);
+    });
+
+    /**
+     * The traps a model falls into silently. Summing `bidAmount` without a
+     * `result` filter overstates spend by 84% (measured), because 737 outbid
+     * rows carry the losing bid; the FAAB budget changed, so dollars do not
+     * compare across eras; five matchups are ties. Written as rules rather
+     * than figures -- "the budget has changed", not "$200 to $1,000 in 2023"
+     * -- so nothing here goes stale the way "stops at 2025" did.
+     */
+    test("writes each table's traps as notes under the decade table", () => {
+      const index: string = generateIndex({ shred: result, asOf, wpflCache: ALL_CACHED });
+
+      const notes: string = index.slice(index.indexOf('## The cached WPFL decade'));
+      expect(notes).toMatch(/wpfl_transactions.*result = 'Processed'/);
+      expect(notes).toMatch(/wpfl_transactions.*percentOfBudget/);
+      expect(notes).toMatch(/wpfl_transactions.*pre-season/i);
+      expect(notes).toMatch(/wpfl_matchups.*tie.*null/i);
+      expect(notes).toMatch(/wpfl_draft_history.*auctionValue.*null.*2016/);
+      expect(notes).not.toMatch(/\$1,?000|\$200 /);
+    });
+
+    test('writes no note for a table that is not there', () => {
+      const index: string = generateIndex({
+        shred: result,
+        asOf,
+        wpflCache: { 'draft_history.jsonl': null, 'matchups.jsonl': null },
+      });
+
+      expect(index).not.toMatch(/result = 'Processed'/);
+      expect(index).toMatch(/Not available this run:.*wpfl_transactions/);
+    });
+
+    /**
+     * Player scores stop at week 13 in 2015, 2017 and 2018, at 16 in 2016,
+     * 2019 and 2020, and at 17 or 18 from 2021. An answer that compared
+     * "QB points per year" across those was comparing coverage. Read from
+     * the file, like the rest of the extents, never typed in.
+     */
+    test('says how far each player-scores season runs, from the file, and to compare per week', () => {
+      const index: string = generateIndex({
+        shred: result,
+        asOf,
+        wpflCache: {
+          'player_scores.jsonl': {
+            seasonMin: 2015,
+            seasonMax: 2017,
+            latestWeek: 13,
+            latestWeekBySeason: { 2015: 13, 2016: 16, 2017: 13 },
+            columns: ['owner', 'week', 'season'],
+          },
+        },
+      });
+
+      expect(index).toMatch(/wpfl_player_scores.*2015: 13, 2016: 16, 2017: 13/);
+      expect(index).toMatch(/per week/i);
     });
 
     test("says where each table's rows end, read from the files themselves", () => {
@@ -247,10 +311,23 @@ describe('indexGenerator', () => {
             seasonMin: 2010,
             seasonMax: 2025,
             latestWeek: null,
+            latestWeekBySeason: {},
             columns: [],
           },
-          'matchups.jsonl': { seasonMin: 2015, seasonMax: 2025, latestWeek: 17, columns: [] },
-          'player_scores.jsonl': { seasonMin: 2015, seasonMax: 2026, latestWeek: 3, columns: [] },
+          'matchups.jsonl': {
+            seasonMin: 2015,
+            seasonMax: 2025,
+            latestWeek: 17,
+            latestWeekBySeason: { 2025: 17 },
+            columns: [],
+          },
+          'player_scores.jsonl': {
+            seasonMin: 2015,
+            seasonMax: 2026,
+            latestWeek: 3,
+            latestWeekBySeason: { 2026: 3 },
+            columns: [],
+          },
         },
       });
 
@@ -268,6 +345,7 @@ describe('indexGenerator', () => {
             seasonMin: 2010,
             seasonMax: 2025,
             latestWeek: 14,
+            latestWeekBySeason: { 2025: 14 },
             columns: ['week', 'season', 'teamA'],
           },
         },

@@ -2,6 +2,7 @@ import { describe, test, expect } from '@jest/globals';
 import { wpflServer, wpflTools, WPFL_SERVER } from '../../wpfl/mcpServer.js';
 import { STATIC_PROMPT } from '../../ask/systemPrompt.js';
 import { generateIndex } from '../../wpfl/indexGenerator.js';
+import { CACHE_SOURCES, tableName } from '../../wpfl/layout.js';
 
 describe('mcpServer', () => {
   /**
@@ -30,9 +31,16 @@ describe('mcpServer', () => {
         },
       });
       const routing: string = index.slice(index.indexOf('## Which source'));
-      // Backticked snake_case words are tool names; `espn_*` is a family and
-      // WebSearch, /ewins and the like do not match the pattern.
-      const named: string[] = [...routing.matchAll(/`([a-z][a-z_]*)`/g)].map((m) => m[1]);
+      // Backticked snake_case words are tool names or cached tables; `espn_*`
+      // is a family and WebSearch, /ewins and the like do not match the
+      // pattern. The tables are the ones the cache derives, so a routing row
+      // cannot name a table the database would not have either.
+      const tables: string[] = Object.values(CACHE_SOURCES).map((file: string): string =>
+        tableName('wpfl', file)
+      );
+      const named: string[] = [...routing.matchAll(/`([a-z][a-z_]*)`/g)]
+        .map((m) => m[1])
+        .filter((name: string): boolean => !tables.includes(name));
 
       expect(named.length).toBeGreaterThan(3);
       for (const name of named) expect(registered).toContain(name);

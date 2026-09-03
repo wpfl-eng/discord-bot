@@ -96,6 +96,13 @@ describe('systemPrompt', () => {
       expect(STATIC_PROMPT).toContain('INDEX.md');
     });
 
+    // The sentence that enumerates what `sql` holds left the waiver history
+    // out, in the one place the agent reads before INDEX.md.
+    test('counts the waiver history among what sql reaches', () => {
+      const sqlLine: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('**`sql`**'));
+      expect(sqlLine.slice(0, 600)).toMatch(/waiver/i);
+    });
+
     // The ESPN line said records, scores, rosters, injuries, waivers. Nothing
     // told the agent ESPN also forecasts the week, so a "who's favoured"
     // question went to the draft sim.

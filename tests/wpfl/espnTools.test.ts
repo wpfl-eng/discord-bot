@@ -497,6 +497,14 @@ describe('espnTools', () => {
       expect(transactions?.description).toMatch(/current season/i);
     });
 
+    // It used to send a historical question to "the sql tool", where no
+    // transactions table existed; the agent concluded the data did not exist.
+    test('espn_transactions names the cached table that holds past seasons', () => {
+      const transactions = espnTools.find((t) => t.name === 'espn_transactions');
+
+      expect(transactions?.description).toContain('wpfl_transactions');
+    });
+
     test('espn_teams says it is the live source for the season in progress', () => {
       const teams = espnTools.find((t) => t.name === 'espn_teams');
 
