@@ -21,6 +21,7 @@ import { restoreCasinoTables } from './casino/casinoBoot.js';
 import { continueThread, checkIdentityMapping, onThreadArchived } from './ask/thread.js';
 import { ensureFresh } from './wpfl/artifactSync.js';
 import { warmSqlDatabase } from './wpfl/sqlTool.js';
+import { warmPictures } from './pictures/render.js';
 import { credentialConfigured } from './ask/askAuth.js';
 import { missingAskTables } from './ask/askDb.js';
 import { logError } from './errors/errorHandler.js';
@@ -120,6 +121,13 @@ async function syncArtifactAtBoot(): Promise<void> {
     logError('ask', 'Artifact sync failed at startup', error);
   }
   warmSqlDatabase();
+  // Vega's import and sharp's font-cache build, paid once here rather than
+  // on the first member's question (about 4 s on the pi). A load check, not
+  // a visual one, and it never throws; a host that cannot draw logs it and
+  // the picture tools refuse with the text fallback.
+  void warmPictures().then((ok: boolean): void => {
+    console.log(`[ASK] Pictures: ${ok ? 'ready' : 'unavailable; answers stay text'}`);
+  });
 }
 
 client.commands = new Collection();
