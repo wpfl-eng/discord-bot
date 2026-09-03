@@ -1,0 +1,41 @@
+[
+  {
+    "percentOfBudget": 0,
+    "id": 0,
+    "week": 1,
+    "season": 2024,
+    "manager": "David Adler",
+    "addedPlayer": "Samaje Perine",
+    "droppedPlayer": "NULL",
+    "bidAmount": 0,
+    "processedTime": "2024-09-05T00:00:00",
+    "result": "Outbid",
+    "addedPlayerNflPosition": "RB"
+  },
+  {
+    "percentOfBudget": 0.2,
+    "id": 0,
+    "week": 1,
+    "season": 2024,
+    "manager": "AJ Boorde",
+    "addedPlayer": "Vikings D/ST",
+    "droppedPlayer": "Jaguars D/ST",
+    "bidAmount": 2,
+    "processedTime": "2024-09-05T00:00:00",
+    "result": "Processed",
+    "addedPlayerNflPosition": "D/ST"
+  },
+  {
+    "percentOfBudget": 0,
+    "id": 0,
+    "week": 1,
+    "season": 2024,
+    "manager": "David Adler",
+    "addedPlayer": "Luke Musgrave",
+    "droppedPlayer": "NULL",
+    "bidAmount": 0,
+    "processedTime": "2024-09-05T00:00:00",
+    "result": "Processed",
+    "addedPlayerNflPosition": "TE"
+  }
+]

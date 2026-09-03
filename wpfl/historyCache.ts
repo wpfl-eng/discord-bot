@@ -1,6 +1,7 @@
 /**
- * Cache the WPFL history API's three row-shaped endpoints as JSONL, so the SQL
- * tool can join ten years of prices to what those players went on to score.
+ * Cache the WPFL history API's four row-shaped endpoints as JSONL, so the SQL
+ * tool can join ten years of prices to what those players went on to score,
+ * and what their owners then paid for at the wire.
  *
  * The shredded artifact is under 1 MB across ~40 files -- already sized for
  * Read and Grep. The WPFL decade is not: player scores alone are ~38,000 rows
@@ -19,6 +20,7 @@ import { getCurrentNFLSeason } from '../helpers/utils.js';
 import { errorMessage, logError } from '../errors/errorHandler.js';
 import { fetchJsonArray, type FetchFn } from './wpflHttp.js';
 import { CACHE_MARKER, CACHE_SOURCES } from './layout.js';
+import { wpflMembers, type WpflMember } from '../constants/wpflMembers.js';
 
 /** Where one cached source's rows run, read from the file itself. */
 export interface SourceExtents {
@@ -34,7 +36,21 @@ const {
   draftHistory: DRAFT_HISTORY,
   matchups: MATCHUPS,
   playerScores: PLAYER_SCORES,
+  transactions: TRANSACTIONS,
 } = CACHE_SOURCES;
+
+/**
+ * The columns that name an owner, per source. Enumerated rather than found by
+ * matching values, so an NFL player who shares an owner's name is never
+ * rewritten into the owner. `winner` and `loser` are derived below, after the
+ * roster pass, and listed here for the collision pass that runs on the text.
+ */
+const NAME_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  [DRAFT_HISTORY]: ['owner'],
+  [MATCHUPS]: ['teamA', 'teamB', 'homeTeam', 'winner', 'loser'],
+  [PLAYER_SCORES]: ['owner'],
+  [TRANSACTIONS]: ['owner'],
+};
 
 /**
  * @param targetDir  the `wpfl/` directory inside the shred root
@@ -44,12 +60,14 @@ const {
  *   NFL season rather than the calendar year, so a January refresh still asks
  *   for the season actually being played.
  *
- * The thirteen requests go out together. Run one after another they took 26-70
- * seconds against the live API (measured: ~5.5 s cold, ~2 s warm, x13), and
- * every one of those seconds is paid inside the /ask that triggered the
- * reshred, after deferReply, with nothing on screen. All thirteen at once
- * returned 200 in 7.0 s wall-clock -- the host is latency-bound, not
- * throughput-bound, so concurrency is what helps and it does not throttle.
+ * The fourteen requests go out together. Run one after another the original
+ * thirteen took 26-70 seconds against the live API (measured: ~5.5 s cold,
+ * ~2 s warm, x13), and every one of those seconds is paid inside the /ask
+ * that triggered the reshred, after deferReply, with nothing on screen. All
+ * thirteen at once returned 200 in 7.0 s wall-clock -- the host is
+ * latency-bound, not throughput-bound, so concurrency is what helps and it
+ * does not throttle. Transactions are one more request of ~2,000 rows for the
+ * whole history, nothing like player scores, so they are not split by season.
  *
  * Nothing is returned. What was written is on disk, which is what the sync
  * reads back and INDEX.md describes; a result object restating it had no
@@ -67,7 +85,7 @@ export async function refreshWpflCache(
     seasons.push(season);
   }
 
-  const [draft, matchups, ...scores] = await Promise.all([
+  const [draft, matchups, transactions, ...scores] = await Promise.all([
     fetchJsonl(
       fetchFn,
       `${ASK.WPFL_API_BASE}/draft/history`,
@@ -80,12 +98,22 @@ export async function refreshWpflCache(
       { seasonMin: ASK.HISTORY_MIN_SEASON, seasonMax },
       MATCHUPS
     ),
+    // From the same floor as the rest: the API has bids from 2020 and returns
+    // nothing for earlier seasons, and a floor written here would be a year
+    // that goes wrong the day the API back-fills one.
+    fetchJsonl(
+      fetchFn,
+      `${ASK.WPFL_API_BASE}/transactions`,
+      { seasonMin: ASK.HISTORY_MIN_SEASON, seasonMax },
+      TRANSACTIONS
+    ),
     ...seasons.map(
       (season: number): Promise<string | null> =>
         fetchJsonl(
           fetchFn,
           `${ASK.WPFL_API_BASE}/playerscores`,
           { seasonMin: season, seasonMax: season },
+          PLAYER_SCORES,
           `${PLAYER_SCORES} (${season})`
         )
     ),
@@ -93,7 +121,10 @@ export async function refreshWpflCache(
 
   let wrote = false;
   const write = (name: string, parts: readonly string[]): void => {
-    const body: string = `${parts.filter((part: string): boolean => part !== '').join('\n')}\n`;
+    const joined: string = parts.filter((part: string): boolean => part !== '').join('\n');
+    // On the joined text, so a collision between two seasons' spellings of
+    // one owner -- fetched by separate requests -- is seen as one.
+    const body: string = `${resolveCaseCollisions(joined, NAME_COLUMNS[name] ?? [])}\n`;
     fs.writeFileSync(path.join(targetDir, name), body);
     wrote = true;
   };
@@ -104,6 +135,7 @@ export async function refreshWpflCache(
   // the previous cache by the sync.
   if (draft !== null) write(DRAFT_HISTORY, [draft]);
   if (matchups !== null) write(MATCHUPS, [matchups]);
+  if (transactions !== null) write(TRANSACTIONS, [transactions]);
   if (scores.every((part: string | null): part is string => part !== null)) {
     write(PLAYER_SCORES, scores);
   }
@@ -207,22 +239,143 @@ export function normalizeRow(row: unknown): unknown {
 }
 
 /**
+ * The roster's spelling of every current owner, keyed by the lower-cased,
+ * whitespace-collapsed form. The prompt calls these 14 spellings canonical;
+ * this is what makes the cache obey the same list rather than a second one.
+ */
+const ROSTER: ReadonlyMap<string, string> = new Map(
+  wpflMembers.map((member: WpflMember): [string, string] => [fold(member.owner), member.owner])
+);
+
+function fold(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** The roster's spelling when the name is a current owner's in all but case and spacing; else as sent, spacing collapsed. */
+function canonicalName(value: string): string {
+  const collapsed: string = value.trim().replace(/\s+/g, ' ');
+  return ROSTER.get(collapsed.toLowerCase()) ?? collapsed;
+}
+
+/**
+ * One row as the table will hold it: the API's inconsistencies normalised,
+ * the one key the API names differently from every other endpoint renamed,
+ * owner names on this source's name columns canonicalised, and on matchups
+ * the outcome written once rather than derived in every query. Exported for
+ * its test.
+ *
+ * The rename rule is narrow on purpose: only a column that names the *same*
+ * join key under a different spelling. `manager` is `owner`; `addedPlayer` is
+ * a different role, not a different spelling, and keeps the API's name.
+ */
+export function shapeRow(source: string, row: unknown): unknown {
+  const normalized: unknown = normalizeRow(row);
+  if (!isRecord(normalized)) return normalized;
+
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(normalized)) {
+    out[source === TRANSACTIONS && key === 'manager' ? 'owner' : key] = value;
+  }
+  for (const column of NAME_COLUMNS[source] ?? []) {
+    const value: unknown = out[column];
+    if (typeof value === 'string') out[column] = canonicalName(value);
+  }
+  if (source === MATCHUPS) Object.assign(out, outcome(out));
+  return out;
+}
+
+/**
+ * Who won a matchup, from the canonical team names. Five real matchups are
+ * ties, where `>` and `>=` disagree; a tie has no winner and no loser, and
+ * null is what `COUNT(winner)` and `WHERE winner = ...` both read correctly.
+ */
+function outcome(row: Record<string, unknown>): { winner: unknown; loser: unknown } {
+  const { teamA, teamB, teamAPoints, teamBPoints } = row;
+  if (typeof teamAPoints !== 'number' || typeof teamBPoints !== 'number') {
+    return { winner: null, loser: null };
+  }
+  if (teamAPoints > teamBPoints) return { winner: teamA, loser: teamB };
+  if (teamBPoints > teamAPoints) return { winner: teamB, loser: teamA };
+  return { winner: null, loser: null };
+}
+
+/**
+ * Within one source, spellings that differ only by case are one owner.
+ *
+ * The roster pass above covers the 14 current owners. This is the backstop
+ * that does not depend on who is in the league: the day an owner with a case
+ * variant leaves, the roster stops naming them, and without this their rows
+ * would re-split on the next refresh -- today's defect, back. The
+ * capitalised spelling wins, else the most frequent; a name with only one
+ * spelling is left exactly as the API sent it.
+ *
+ * On the serialised text rather than the rows, because player scores arrive
+ * one season per request and are serialised as each lands; the collision
+ * between 2015's `todd ellis` and 2018's `Todd Ellis` is only visible once the
+ * seasons are joined. A regex over the JSONL costs one scan and, when nothing
+ * collides -- the normal case -- returns the input untouched. Exported for
+ * its test.
+ */
+export function resolveCaseCollisions(jsonl: string, columns: readonly string[]): string {
+  if (columns.length === 0 || jsonl === '') return jsonl;
+  // The value as JSON.stringify wrote it, escapes and all, so what is matched
+  // can be written back verbatim.
+  const pattern = new RegExp(`"(${columns.join('|')})":"((?:[^"\\\\]|\\\\.)*)"`, 'g');
+
+  const spellings = new Map<string, Map<string, number>>();
+  for (const match of jsonl.matchAll(pattern)) {
+    const value: string = match[2];
+    const seen: Map<string, number> = spellings.get(value.toLowerCase()) ?? new Map();
+    seen.set(value, (seen.get(value) ?? 0) + 1);
+    spellings.set(value.toLowerCase(), seen);
+  }
+
+  const canonical = new Map<string, string>();
+  for (const [key, seen] of spellings) {
+    if (seen.size > 1) canonical.set(key, pickSpelling(seen));
+  }
+  if (canonical.size === 0) return jsonl;
+
+  return jsonl.replace(pattern, (whole: string, column: string, value: string): string => {
+    const chosen: string | undefined = canonical.get(value.toLowerCase());
+    return chosen === undefined || chosen === value ? whole : `"${column}":"${chosen}"`;
+  });
+}
+
+function pickSpelling(seen: ReadonlyMap<string, number>): string {
+  const capitalised: string[] = [...seen.keys()].filter((spelling: string): boolean =>
+    spelling.split(' ').every((word: string): boolean => /^[A-Z]/.test(word))
+  );
+  const pool: string[] = capitalised.length > 0 ? capitalised : [...seen.keys()];
+  return pool.sort(
+    (a: string, b: string): number => (seen.get(b) ?? 0) - (seen.get(a) ?? 0) || a.localeCompare(b)
+  )[0];
+}
+
+/**
  * One source's rows as JSONL, serialised as soon as they land so the parsed
- * objects for one season become garbage while the other twelve requests are
+ * objects for one season become garbage while the other thirteen requests are
  * still in flight rather than all being held live until the final join.
  * Player scores alone are ~38,000 objects against ~8.4 MB of text.
  *
+ * @param source the cache file the rows are bound for; picks their shaping.
+ * @param label  names the request in the failure log; defaults to the source.
  * @returns null on any failure -- the caller keeps whatever is already on disk.
  */
 async function fetchJsonl(
   fetchFn: FetchFn,
   endpoint: string,
   params: Record<string, number>,
-  label: string
+  source: string,
+  label: string = source
 ): Promise<string | null> {
   try {
     const rows: unknown[] = await fetchJsonArray<unknown>(endpoint, params, fetchFn);
-    return rows.map((row: unknown): string => JSON.stringify(normalizeRow(row))).join('\n');
+    return rows.map((row: unknown): string => JSON.stringify(shapeRow(source, row))).join('\n');
   } catch (error: unknown) {
     logError(
       'ask',

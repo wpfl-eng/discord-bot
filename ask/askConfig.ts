@@ -109,8 +109,9 @@ export const ASK = {
   WPFL_CACHE_STALE_AFTER_MS: 24 * 60 * 60 * 1000,
 
   // ---- WPFL history API (design §3.7) ----
-  // The three row-shaped endpoints are cached locally and reachable only
-  // through SQL, so there is no second path that could disagree with the first.
+  // The four row-shaped endpoints -- draft history, matchups, player scores
+  // and transactions -- are cached locally and reachable only through SQL, so
+  // there is no second path that could disagree with the first.
   WPFL_API_BASE: 'https://wpflapi.azurewebsites.net/api',
   WPFL_FETCH_TIMEOUT_MS: 30 * 1000,
   // Draft history and matchups go back to 2010; player scores start in 2015,
