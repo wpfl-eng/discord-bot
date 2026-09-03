@@ -27,7 +27,7 @@ describe('wpflApiTools', () => {
     const recording = loadFixture('wpfl-expected-wins.json');
 
     test('returns the rows the API returned, unchanged', async () => {
-      const rows = await fetchExpectedWins({ season: 2024 }, replay(recording));
+      const rows = await fetchExpectedWins({ seasonMin: 2024, seasonMax: 2024 }, replay(recording));
 
       expect(rows).toHaveLength(14);
       expect(rows[0]).toEqual({
@@ -41,19 +41,31 @@ describe('wpflApiTools', () => {
       });
     });
 
-    test('sends the season on both bounds, since the endpoint takes a range', async () => {
+    // Verified live: 2024 alone gives 9.06, 2025 alone 4.62, and the range
+    // 2024-2025 one row of 13.68 -- the API sums, which is what the prompt's
+    // never-by-hand rule needs it to do. Both bounds are required because the
+    // API's own default for a missing bound is the latest season, which
+    // silently widens the window.
+    test('carries both season bounds, so the API sums the range itself', async () => {
+      const range = loadFixture('wpfl-expected-wins-range.json');
       const seen: string[] = [];
-      await fetchExpectedWins({ season: 2024 }, replay(recording, seen));
+      const rows = await fetchExpectedWins(
+        { seasonMin: 2023, seasonMax: 2025 },
+        replay(range, seen)
+      );
 
-      expect(seen[0]).toContain('seasonMin=2024');
-      expect(seen[0]).toContain('seasonMax=2024');
+      expect(seen[0]).toContain('seasonMin=2023');
+      expect(seen[0]).toContain('seasonMax=2025');
       expect(seen[0]).toContain('/expectedwins');
+      // One row per owner for the whole range, both bounds on the row.
+      expect(rows).toHaveLength(14);
+      expect(rows[0]).toMatchObject({ owner: 'AJ Boorde', seasonMin: 2023, seasonMax: 2025 });
     });
 
     test('passes the week window and the playoff flag through', async () => {
       const seen: string[] = [];
       await fetchExpectedWins(
-        { season: 2024, weekMin: 3, weekMax: 5, includePlayoffs: true },
+        { seasonMin: 2024, seasonMax: 2024, weekMin: 3, weekMax: 5, includePlayoffs: true },
         replay(recording, seen)
       );
 
@@ -64,7 +76,7 @@ describe('wpflApiTools', () => {
 
     test('omits the week window entirely when it was not asked for', async () => {
       const seen: string[] = [];
-      await fetchExpectedWins({ season: 2024 }, replay(recording, seen));
+      await fetchExpectedWins({ seasonMin: 2024, seasonMax: 2024 }, replay(recording, seen));
 
       expect(seen[0]).not.toContain('weekMin');
       expect(seen[0]).not.toContain('weekMax');
@@ -133,11 +145,34 @@ describe('wpflApiTools', () => {
       expect(seen[0]).toContain('seasonMax=2024');
       expect(seen[0]).toContain('weekMax=15');
     });
+
+    // Verified live: weeks 5-8 of 2024 return different totals from weeks 1-8,
+    // so the floor is honoured server-side and a window is a real window.
+    test('carries the week floor as well as the ceiling', async () => {
+      const seen: string[] = [];
+      await fetchDraftedPoints(
+        { seasonMin: 2024, seasonMax: 2024, weekMin: 5, weekMax: 8 },
+        replay(recording, seen)
+      );
+
+      expect(seen[0]).toContain('weekMin=5');
+      expect(seen[0]).toContain('weekMax=8');
+    });
+
+    test('omits the week window entirely when it was not asked for', async () => {
+      const seen: string[] = [];
+      await fetchDraftedPoints({ seasonMin: 2024, seasonMax: 2024 }, replay(recording, seen));
+
+      expect(seen[0]).not.toContain('weekMin');
+      expect(seen[0]).not.toContain('weekMax');
+    });
   });
 
   describe('failure', () => {
     test('throws with the status so the agent sees why, not an empty list', async () => {
-      await expect(fetchExpectedWins({ season: 2024 }, failing(503))).rejects.toThrow(/503/);
+      await expect(
+        fetchExpectedWins({ seasonMin: 2024, seasonMax: 2024 }, failing(503))
+      ).rejects.toThrow(/503/);
     });
 
     test('surfaces a timeout as a timeout', async () => {
@@ -147,7 +182,9 @@ describe('wpflApiTools', () => {
         throw error;
       };
 
-      await expect(fetchExpectedWins({ season: 2024 }, abort)).rejects.toThrow(/timed out/i);
+      await expect(fetchExpectedWins({ seasonMin: 2024, seasonMax: 2024 }, abort)).rejects.toThrow(
+        /timed out/i
+      );
     });
   });
 
@@ -182,6 +219,51 @@ describe('wpflApiTools', () => {
         expect(typeof definition.handler).toBe('function');
         expect(Object.keys(definition.inputSchema).length).toBeGreaterThan(0);
       }
+    });
+
+    // The parameter names are the API's own query names, so the league's
+    // endpoint documentation is the tool documentation and the agent learns
+    // one convention rather than one per tool.
+    test('the range tools take seasonMin and seasonMax, named as the API names them', () => {
+      const byName = new Map(wpflApiTools.map((t) => [t.name, Object.keys(t.inputSchema)]));
+
+      expect(byName.get('expected_wins')).toEqual(
+        expect.arrayContaining(['seasonMin', 'seasonMax', 'weekMin', 'weekMax', 'includePlayoffs'])
+      );
+      expect(byName.get('expected_wins')).not.toContain('season');
+      expect(byName.get('drafted_points')).toEqual(
+        expect.arrayContaining(['seasonMin', 'seasonMax', 'weekMin', 'weekMax'])
+      );
+      expect(byName.get('optimal_coaching')).toEqual(['season', 'week']);
+    });
+
+    test('expected_wins says a range comes back as one summed row per owner', () => {
+      const definition = wpflApiTools.find((t) => t.name === 'expected_wins');
+
+      expect(definition?.description).toMatch(/one row per owner/i);
+      expect(definition?.description).toMatch(/per season/i);
+    });
+
+    // A range spanning departed owners returns every owner who played in it;
+    // seasonMax=2024 alone returned 21. "All 14 owners" was true for one
+    // season and wrong for a range.
+    test('no description promises a fixed owner count', () => {
+      for (const definition of wpflApiTools) {
+        expect(definition.description).not.toMatch(/\b14\b/);
+      }
+    });
+
+    test('optimal_coaching says its week is inclusive, and what omitting it means', () => {
+      const definition = wpflApiTools.find((t) => t.name === 'optimal_coaching');
+
+      expect(definition?.description).toMatch(/through and including/i);
+      expect(definition?.description).toMatch(/omit/i);
+    });
+
+    test('drafted_points says its window is inclusive on both ends', () => {
+      const definition = wpflApiTools.find((t) => t.name === 'drafted_points');
+
+      expect(definition?.description).toMatch(/inclusive/i);
     });
 
     // The handlers themselves are two-line adapters over the fetch functions

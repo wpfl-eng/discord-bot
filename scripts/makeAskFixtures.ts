@@ -175,6 +175,16 @@ const WPFL_RECORDINGS: readonly (readonly [string, string])[] = [
     'wpfl-drafted-points.json',
     `${ASK_API}/draft/draftedpoints?seasonMin=2024&seasonMax=2024&weekMax=15`,
   ],
+  // The range and window forms the tools now expose, recorded so the shape the
+  // API sums into -- one row per owner carrying both bounds -- is on file.
+  [
+    'wpfl-expected-wins-range.json',
+    `${ASK_API}/expectedwins?seasonMin=2023&seasonMax=2025&weekMin=1&weekMax=14&includePlayoffs=true`,
+  ],
+  [
+    'wpfl-drafted-points-window.json',
+    `${ASK_API}/draft/draftedpoints?seasonMin=2024&seasonMax=2024&weekMin=5&weekMax=8`,
+  ],
 ];
 
 for (const [name, url] of WPFL_RECORDINGS) {

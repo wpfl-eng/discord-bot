@@ -35,21 +35,29 @@ import type {
 const HISTORY_ONLY =
   'The WPFL history API lags the live season by days or weeks — complete for past seasons, partial or empty for the one in progress. For anything current, use the ESPN tools.';
 
+/**
+ * Both bounds are required, not defaulted. The API sums a range into one row
+ * per owner (verified: 2024 gives 9.06, 2025 gives 4.62, 2024-2025 gives
+ * 13.68), and its own default for a missing bound is the latest season -- so
+ * a tool that defaulted `seasonMax` to `seasonMin` would differ from the same
+ * URL, and one that mirrored the API would hand the agent a two-season sum it
+ * labels as one.
+ */
 export async function fetchExpectedWins(
   params: {
-    season: number;
+    seasonMin: number;
+    seasonMax: number;
     weekMin?: number;
     weekMax?: number;
     includePlayoffs?: boolean;
   },
   fetchFn: FetchFn = fetch
 ): Promise<ExpectedWinsResponse[]> {
-  // The endpoint takes a range; a single season is that season on both bounds.
   return fetchJsonArray<ExpectedWinsResponse>(
     `${ASK.WPFL_API_BASE}/expectedwins`,
     {
-      seasonMin: params.season,
-      seasonMax: params.season,
+      seasonMin: params.seasonMin,
+      seasonMax: params.seasonMax,
       includePlayoffs: params.includePlayoffs ?? false,
       weekMin: params.weekMin,
       weekMax: params.weekMax,
@@ -70,12 +78,17 @@ export async function fetchOptimalCoaching(
 }
 
 export async function fetchDraftedPoints(
-  params: { seasonMin: number; seasonMax: number; weekMax?: number },
+  params: { seasonMin: number; seasonMax: number; weekMin?: number; weekMax?: number },
   fetchFn: FetchFn = fetch
 ): Promise<DraftedPointsResponse[]> {
   return fetchJsonArray<DraftedPointsResponse>(
     `${ASK.WPFL_API_BASE}/draft/draftedpoints`,
-    { seasonMin: params.seasonMin, seasonMax: params.seasonMax, weekMax: params.weekMax },
+    {
+      seasonMin: params.seasonMin,
+      seasonMax: params.seasonMax,
+      weekMin: params.weekMin,
+      weekMax: params.weekMax,
+    },
     fetchFn
   );
 }
@@ -83,9 +96,15 @@ export async function fetchDraftedPoints(
 export const wpflApiTools: AnyTool[] = [
   tool(
     'expected_wins',
-    `Expected wins against actual wins for all 14 owners in one season, computed by the league's own history API from every weekly score. Expected wins is what an owner's scores would have won against an average schedule, so the gap to actual wins is schedule luck. Never compute this yourself from cached scores: /ewins publishes this exact figure to the league. ${HISTORY_ONLY}`,
+    `Expected wins against actual wins for every owner over an inclusive season range, computed by the league's own history API from every weekly score. A range returns one row per owner summed across it, so call once per season for a per-season table. Expected wins is what an owner's scores would have won against an average schedule, so the gap to actual wins is schedule luck. Never compute this yourself from cached scores: /ewins publishes this exact figure to the league. ${HISTORY_ONLY}`,
     {
-      season: z.number().int().describe('Season, e.g. 2024.'),
+      seasonMin: z.number().int().describe('First season in the range, e.g. 2024.'),
+      seasonMax: z
+        .number()
+        .int()
+        .describe(
+          'Last season in the range, inclusive. The same year as seasonMin for one season.'
+        ),
       weekMin: z
         .number()
         .int()
@@ -106,7 +125,7 @@ export const wpflApiTools: AnyTool[] = [
 
   tool(
     'optimal_coaching',
-    `Actual points scored against the best the roster could have scored, for all 14 owners in one season. The gap is lineup-setting skill. The optimal figure needs a lineup solve and cannot be reconstructed from raw scores, so always call this rather than working it out: /optimal publishes this exact figure. ${HISTORY_ONLY}`,
+    `Actual points scored against the best the roster could have scored, for every owner in one season, through and including a week. The gap is lineup-setting skill. The optimal figure needs a lineup solve and cannot be reconstructed from raw scores, so always call this rather than working it out: /optimal publishes this exact figure. Omit the week for the latest week loaded, which for a past season is the whole season. ${HISTORY_ONLY}`,
     {
       season: z.number().int().describe('Season, e.g. 2024.'),
       week: z
@@ -114,7 +133,7 @@ export const wpflApiTools: AnyTool[] = [
         .int()
         .optional()
         .describe(
-          'Cumulative through this week. The API aggregates weeks 1..week, so week 5 is the season to date, not week 5 alone. Omit for the full season.'
+          'Through and including this week. The API aggregates weeks 1..week, so week 5 is the season to date, not week 5 alone. Omit for the latest week loaded, which for a past season is the full season.'
         ),
     },
     async (args): Promise<CallToolResult> => toToolResult(await fetchOptimalCoaching(args))
@@ -122,15 +141,20 @@ export const wpflApiTools: AnyTool[] = [
 
   tool(
     'drafted_points',
-    `Total points scored by the players each owner drafted, across a season range. Answers "did the draft hold up?" Note the API populates only draftedPoints; rosteredOptimalPoints and actualPoints come back as 0 and mean nothing — do not cite them. ${HISTORY_ONLY}`,
+    `Total points scored by the players each owner drafted, over an inclusive season range and, optionally, an inclusive week window. Answers "did the draft hold up?" Note the API populates only draftedPoints; rosteredOptimalPoints and actualPoints come back as 0 and mean nothing — do not cite them. ${HISTORY_ONLY}`,
     {
       seasonMin: z.number().int().describe('First season in the range.'),
       seasonMax: z.number().int().describe('Last season in the range, inclusive.'),
+      weekMin: z
+        .number()
+        .int()
+        .optional()
+        .describe('Only count points from this week on, inclusive. Omit to start at week 1.'),
       weekMax: z
         .number()
         .int()
         .optional()
-        .describe('Only count points through this week. Omit for the whole season.'),
+        .describe('Only count points through this week, inclusive. Omit for the whole season.'),
     },
     async (args): Promise<CallToolResult> => toToolResult(await fetchDraftedPoints(args))
   ),
