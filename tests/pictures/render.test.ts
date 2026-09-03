@@ -34,11 +34,8 @@ describe('render', () => {
 
     expect(svg.startsWith('<svg')).toBe(true);
     expect(svg).toContain('Forrest Britton');
-    // Three bars: Vega draws rect marks as paths inside one mark group.
-    const group: number = svg.indexOf('class="mark-rect role-mark marks"');
-    expect(group).toBeGreaterThan(0);
-    const bars: string = svg.slice(group, svg.indexOf('</g>', group));
-    expect((bars.match(/<path/g) ?? []).length).toBe(3);
+    // Three bars: Vega labels every bar path for accessibility.
+    expect((svg.match(/aria-roledescription="bar"/g) ?? []).length).toBe(3);
   });
 
   test('two renders of one spec draw the same marks', async () => {
