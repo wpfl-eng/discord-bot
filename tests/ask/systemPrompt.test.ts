@@ -102,6 +102,8 @@ describe('systemPrompt', () => {
     test("names ESPN as the source of the current week's projections and win probability", () => {
       expect(STATIC_PROMPT).toMatch(/projected totals/i);
       expect(STATIC_PROMPT).toMatch(/win probability/i);
+      // Scoped the same way the tool description scopes it.
+      expect(STATIC_PROMPT).toMatch(/current week only/i);
     });
 
     test('describes the league as it actually is', () => {

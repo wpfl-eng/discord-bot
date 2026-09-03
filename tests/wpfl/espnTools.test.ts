@@ -178,10 +178,13 @@ describe('espnTools', () => {
       ]).not.toContain(undefined);
       const [matchup] = toBoxscores([pastWeek]);
 
-      expect(matchup.homeProjected).toBeNull();
-      expect(matchup.awayProjected).toBeNull();
-      expect(matchup.homeWinProbability).toBeNull();
-      expect(matchup.awayWinProbability).toBeNull();
+      // toMatchObject does not equate undefined with null, so "not missing" holds.
+      expect(matchup).toMatchObject({
+        homeProjected: null,
+        awayProjected: null,
+        homeWinProbability: null,
+        awayWinProbability: null,
+      });
     });
 
     test('does not leak the raw ESPN matchup into the agent context', () => {

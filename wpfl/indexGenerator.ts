@@ -417,7 +417,7 @@ function routing(): string {
     '| --- | --- |',
     '| The 2026 draft, prices, grades, rosters as drafted | These files |',
     "| Who an owner plays each week, and the draft-night sim's odds for it | `teams.schedule`, a list per owner: UNNEST it in the `sql` tool. Frozen on draft night, like the rest of these files |",
-    "| A matchup this week: ESPN's projected totals, per-player projections and win probability, then the live scores | `espn_boxscores`, which carries the projections for the current week only |",
+    "| A matchup this week: ESPN's projected totals and win probability, current week only, with per-player projections, then the live scores | `espn_boxscores` |",
     '| League history, past seasons | These files, or the `sql` tool |',
     '| Ten years of prices, matchups or player scores | The `sql` tool |',
     '| Expected wins, optimal coaching, drafted points | `expected_wins`, `optimal_coaching`, `drafted_points` |',

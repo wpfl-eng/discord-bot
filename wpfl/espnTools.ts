@@ -26,9 +26,11 @@ import type {
   Client as EspnClient,
   FreeAgentPlayer,
   Player,
+  PlayerStats,
   Team,
 } from 'espn-fantasy-football-api/node.js';
 import { getWpflMemberByEspnId, wpflMembers } from '../constants/wpflMembers.js';
+import { formatNumber } from '../helpers/utils.js';
 // The week and season come from ESPN, with the calendar as the fallback --
 // the same helper /median reads, so the default week here, the week the
 // prompt states and the week /median prints are one number (log Stage 14).
@@ -220,8 +222,8 @@ export function toBoxscores(
         awayScore: matchup.awayScore ?? null,
         homeProjected: roundedOrNull(matchup.homeProjectedScore),
         awayProjected: roundedOrNull(matchup.awayProjectedScore),
-        homeWinProbability: finiteOrNull(matchup.homeWinProbability),
-        awayWinProbability: finiteOrNull(matchup.awayWinProbability),
+        homeWinProbability: roundedOrNull(matchup.homeWinProbability),
+        awayWinProbability: roundedOrNull(matchup.awayWinProbability),
         home: (matchup.homeRoster ?? []).map(toLineupEntry),
         away: (matchup.awayRoster ?? []).map(toLineupEntry),
       })
@@ -303,18 +305,13 @@ function toLineupEntry(slot: BoxscorePlayer): LineupEntry {
   };
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-/** The fork types these as numbers, but for any week ESPN is not scoring they arrive undefined. */
-function finiteOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function roundedOrNull(value: unknown): number | null {
-  const finite: number | null = finiteOrNull(value);
-  return finite === null ? null : round2(finite);
+/**
+ * The fork types these as numbers, but for any week ESPN is not scoring they
+ * arrive undefined -- the same gap `awayScore ?? null` above covers. Rounded
+ * to two places: ESPN sends the totals to eight.
+ */
+function roundedOrNull(value: number | undefined): number | null {
+  return value === undefined ? null : formatNumber(value);
 }
 
 /**
@@ -324,13 +321,12 @@ function roundedOrNull(value: unknown): number | null {
  * lands within a fraction of a point of ESPN's own team total, which the
  * matchup carries separately and which is the authoritative figure.
  */
-function projectedPoints(breakdown: unknown): number {
-  if (typeof breakdown !== 'object' || breakdown === null) return 0;
+function projectedPoints(breakdown: PlayerStats | undefined): number {
   let total: number = 0;
-  for (const value of Object.values(breakdown as Record<string, unknown>)) {
-    if (typeof value === 'number' && Number.isFinite(value)) total += value;
+  for (const value of Object.values(breakdown ?? {})) {
+    if (typeof value === 'number') total += value;
   }
-  return round2(total);
+  return formatNumber(total);
 }
 
 function ownerFor(espnId: number): string {
@@ -385,7 +381,7 @@ export const espnTools: AnyTool[] = [
 
   tool(
     'espn_boxscores',
-    `Head-to-head matchups for one week: both owners, both scores, ESPN's projected total and win probability for each side, and each lineup with per-player points, projection and injury status. Before kickoff every score is 0 and the projections are ESPN's forecast of the week as the lineups are currently set -- the numbers for who is favoured in a game this week, and why. ESPN publishes the projected totals and win probability for the current week only (null for any other week). The draft-night sim's odds for every week are a different figure, in the artifact's \`teams.schedule\`, which is also where a future week's opponent is. The team total is ESPN's own; the per-player figures sum to within a fraction of a point of it. Pass \`owners\` for one matchup rather than the whole slate. ${CURRENT_SEASON_ONLY}`,
+    `Head-to-head matchups for one week: both owners, both scores, ESPN's projected total and win probability for each side, and each lineup with per-player points, projection and injury status. Before kickoff the scores are 0 and the projections are ESPN's forecast of the week as lineups stand: who is favoured in a game this week, and why. ESPN publishes the projected totals and win probability for the current week only (null otherwise); the draft-night sim's odds for every week, and a future week's opponent, are in the artifact's \`teams.schedule\`. Per-player projections sum to within a fraction of a point of ESPN's own team total. Pass \`owners\` for one matchup rather than the whole slate. ${CURRENT_SEASON_ONLY}`,
     {
       owners: OWNERS_ARG,
       week: z.number().int().optional().describe('Week. Defaults to the current NFL week.'),

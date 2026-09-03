@@ -206,7 +206,12 @@ describe('indexGenerator', () => {
     // routing written after it sent every "win odds" question there.
     test("routes the season's sim odds to the artifact and this week's forecast to ESPN", () => {
       expect(index).toMatch(/\| Who an owner plays each week.*sim.*\| `teams\.schedule`/);
-      expect(index).toMatch(/\| .*this week.*projected.*win probability.*\| `espn_boxscores`/i);
+      // The scope rides with the row: the totals and win probability are
+      // current-week-only, the per-player projection is not, and the tool
+      // description says so in those words.
+      expect(index).toMatch(
+        /\| .*this week.*projected.*win probability.*current week only.*\| `espn_boxscores`/i
+      );
       expect(index).not.toMatch(/espn_boxscores` is for scores once a week is played/);
     });
   });
