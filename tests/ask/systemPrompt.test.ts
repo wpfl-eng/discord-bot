@@ -2,6 +2,7 @@ import type { WpflMember } from '../../constants/wpflMembers.js';
 import { describe, test, expect } from '@jest/globals';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
 import { buildSystemPrompt, STATIC_PROMPT } from '../../ask/systemPrompt.js';
+import { ASK } from '../../ask/askConfig.js';
 import type { NFLPeriod } from '../../helpers/espnPeriod.js';
 import type { AsOf } from '../../wpfl/layout.js';
 
@@ -127,9 +128,73 @@ describe('systemPrompt', () => {
       expect(STATIC_PROMPT).toMatch(/\$200|auction/i);
     });
 
-    test('asks for a source footer and a Discord-sized answer', () => {
+    /**
+     * "Aim for under about 1,500 characters" was advice, and a 2,900-character
+     * answer with a 14-row table ignored it. The caps are numbers a model can
+     * count, stated as limits, and read from askConfig so the prompt and any
+     * later enforcement cannot disagree.
+     */
+    test('states the body and footer caps as hard limits, from askConfig', () => {
       expect(STATIC_PROMPT).toMatch(/footer/i);
-      expect(STATIC_PROMPT).toMatch(/1,?500|character/i);
+      expect(STATIC_PROMPT).toContain(ASK.ANSWER_BODY_MAX_CHARS.toLocaleString('en-US'));
+      expect(STATIC_PROMPT).toContain(ASK.ANSWER_FOOTER_MAX_CHARS.toLocaleString('en-US'));
+      expect(STATIC_PROMPT).toMatch(/at most|hard limit|no more than/i);
+      expect(STATIC_PROMPT).not.toMatch(/aim for/i);
+    });
+
+    /**
+     * A fixed skeleton as a maximum: the shape the reviewed answer lacked. A
+     * bold first line carrying the answer, at most five bullets each with a
+     * figure and its sample size, a ranking only when asked and as a numbered
+     * list of at most eight lines, no pipe tables (Discord renders them as
+     * literal pipes), and a footer only when a figure was stated.
+     */
+    test('fixes the skeleton, with counts the model can obey', () => {
+      const how: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# How to answer'));
+
+      expect(how).toMatch(/first line/i);
+      expect(how).toMatch(/bold/i);
+      expect(how).toMatch(/at most five bullets|up to five bullets|five bullets/i);
+      expect(how).toMatch(/sample size/i);
+      expect(how).toMatch(/numbered list/i);
+      expect(how).toMatch(/eight lines|8 lines/i);
+      expect(how).toMatch(/pipe table|markdown table/i);
+      expect(how).toMatch(/Discord (does not|doesn't|cannot) render/i);
+      expect(how).toMatch(/footer.*figure|figure.*footer/i);
+    });
+
+    /**
+     * The structural rules of ASD-STE100, named one by one because a model
+     * cannot check a word against a dictionary it does not have. Each of these
+     * bit on the reviewed answer: "Nothing." was a fragment, "the wire fills
+     * the gap" a metaphor, "finish", "rank" and "final rank" one thing three
+     * ways. Twenty words is a deliberate tightening of the standard's
+     * twenty-five for description, because this is a chat window.
+     */
+    test('states the writing rules one by one', () => {
+      const how: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# How to answer'));
+
+      expect(how).toMatch(/20 words|twenty words/i);
+      expect(how).toMatch(/one idea/i);
+      expect(how).toMatch(/active voice/i);
+      expect(how).toMatch(/present tense/i);
+      expect(how).toMatch(/past tense/i);
+      expect(how).toMatch(/digits/i);
+      expect(how).toMatch(/same word/i);
+      expect(how).toMatch(/idiom/i);
+      expect(how).toMatch(/metaphor/i);
+      expect(how).toMatch(/parenthes/i);
+      expect(how).toMatch(/fragment/i);
+      expect(how).toMatch(/articles/i);
+      // League terms are technical names and stay.
+      expect(how).toMatch(/waiver|FAAB/i);
+    });
+
+    // "Dry" is where the idioms came from; direct and numerate stay.
+    test('keeps the league voice direct and numerate, and drops "dry"', () => {
+      expect(STATIC_PROMPT).toMatch(/direct/i);
+      expect(STATIC_PROMPT).toMatch(/numerate/i);
+      expect(STATIC_PROMPT).not.toMatch(/\bdry\b/i);
     });
   });
 
