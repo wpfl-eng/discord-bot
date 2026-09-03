@@ -141,6 +141,45 @@ export const ASK = {
   // shows the cap being blown the enforcement reads these same two numbers.
   ANSWER_BODY_MAX_CHARS: 1200,
   ANSWER_FOOTER_MAX_CHARS: 200,
+  // A ranking longer than this is a picture, not a list. Read by the prompt
+  // and by the picture tools' descriptions, so the two cannot disagree.
+  RANKING_MAX_LINES: 8,
+
+  // ---- Pictures (design §11) ----
+  // Charts and tables the agent draws through the `chart` and `table` tools,
+  // rendered by Vega-Lite and sharp. Every figure in a picture is a row the
+  // SQL engine returned; the model never types a number into one. Sized for
+  // a phone: Discord fits a picture to about 340 CSS pixels held upright and
+  // caps an inline picture at about 350 tall, so labels are chosen to read at
+  // that scale and the row ceiling is where a tapped picture still reads.
+  PICTURES: {
+    // Off, both tools refuse with the text fallback and nothing else changes.
+    ENABLED: true,
+    PER_ANSWER: 2,
+    // Design units; rendered at DENSITY, which is 2x of 72 dpi.
+    WIDTH: 480,
+    // Total height of a line or scatter chart; a bar chart and a table grow
+    // by ROW_PITCH per row.
+    HEIGHT: 300,
+    ROW_PITCH: 26,
+    LABEL_FONT: 16,
+    TITLE_FONT: 18,
+    DENSITY: 144,
+    // 14 rows, the league, reads inline; past ROWS_MAX a tapped picture no
+    // longer reads either.
+    ROWS_INLINE: 14,
+    ROWS_MAX: 20,
+    COLUMNS_MAX: 5,
+    SERIES_MAX: 6,
+    LABELLED_POINTS_MAX: 20,
+    // The analysis rule about small samples, enforced where the line is drawn.
+    REGRESSION_MIN_POINTS: 30,
+    ALIAS_MAX_CHARS: 18,
+    LABEL_MAX_CHARS: 22,
+    TITLE_MAX_CHARS: 48,
+    // A table grows past WIDTH to fit its columns, up to this; wider is refused.
+    TABLE_MAX_WIDTH: 720,
+  },
 
   // ---- Who may run /ask-admin ----
   // Discord's Administrator permission only hides the command, and any server
