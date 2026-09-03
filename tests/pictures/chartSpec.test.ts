@@ -218,6 +218,20 @@ describe('buildChart', () => {
       ).toMatch(/ORDER BY/);
     });
 
+    test('a null in a drawn column, so a bar cannot vanish while the rows say it was drawn', () => {
+      const text = refusalOf(
+        buildChart(input({ rows: [...ranking(2), { owner: 'Todd Ellis', points: null }] }))
+      );
+      expect(text).toContain('`points`');
+      expect(text).toMatch(/empty in 1 row/);
+      expect(text).toContain(FALLBACK);
+
+      const category = refusalOf(
+        buildChart(input({ rows: [...ranking(1), { owner: null, points: '1' }] }))
+      );
+      expect(category).toContain('`owner`');
+    });
+
     test('a category that appears twice, so a forgotten GROUP BY cannot stack silently', () => {
       const rows = [...ranking(3), { owner: 'AJ Boorde', points: '1' }];
       const text = refusalOf(buildChart(input({ rows })));

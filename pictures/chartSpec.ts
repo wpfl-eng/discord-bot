@@ -87,8 +87,17 @@ export function buildChart(input: ChartInput): Built<TopLevelSpec> {
 
   const columns: string[] = columnsOf(rows);
   for (const name of [request.x, request.y, request.series, request.label]) {
-    if (name !== undefined && !columns.includes(name)) {
+    if (name === undefined) continue;
+    if (!columns.includes(name)) {
       return refuse(`Column \`${name}\` is not in the result. Columns: ${columns.join(', ')}.`);
+    }
+    // Vega drops a row whose value is missing, and the rows handed back with
+    // the token would still count it. Never a picture that quietly omits a row.
+    const empty: number = rows.filter((row: Row): boolean => row[name] == null).length;
+    if (empty > 0) {
+      return refuse(
+        `Column \`${name}\` is empty in ${empty} ${empty === 1 ? 'row' : 'rows'}, and a chart would drop them. COALESCE or filter in SQL.`
+      );
     }
   }
   if (columnKind(rows, request.y) !== 'number') {
