@@ -3,19 +3,23 @@
  * ground, so a chart and a roulette result read as one bot.
  */
 
-import { CASINO_COLORS } from '../casino/casinoTheme.js';
+import { CASINO_COLORS, GROUND, SVG_FONT } from '../casino/casinoTheme.js';
 
 const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`;
 
 export const THEME = {
-  background: '#1B2027',
-  ink: '#FAFAF7',
-  muted: '#9AA3AF',
+  background: GROUND.bg,
+  ink: GROUND.ink,
+  muted: GROUND.muted,
+  stripe: GROUND.panel,
   grid: '#2E333B',
-  stripe: '#23262D',
   accent: hex(CASINO_COLORS.gold),
-  /** The families the pi and the dev box both have, in fontconfig's order of preference. */
-  font: 'DejaVu Sans, Liberation Sans, Noto Sans, sans-serif',
+  font: SVG_FONT,
+  /**
+   * Average glyph advance as a fraction of the font size, DejaVu Sans
+   * measured by eye. Every width estimated from a character count uses it.
+   */
+  glyph: 0.56,
   /** Series colours, in the order series appear. */
   series: [
     CASINO_COLORS.gold,

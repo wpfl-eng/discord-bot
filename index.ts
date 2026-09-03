@@ -121,13 +121,6 @@ async function syncArtifactAtBoot(): Promise<void> {
     logError('ask', 'Artifact sync failed at startup', error);
   }
   warmSqlDatabase();
-  // Vega's import and sharp's font-cache build, paid once here rather than
-  // on the first member's question (about 4 s on the pi). A load check, not
-  // a visual one, and it never throws; a host that cannot draw logs it and
-  // the picture tools refuse with the text fallback.
-  void warmPictures().then((ok: boolean): void => {
-    console.log(`[ASK] Pictures: ${ok ? 'ready' : 'unavailable; answers stay text'}`);
-  });
 }
 
 client.commands = new Collection();
@@ -225,6 +218,14 @@ try {
 } catch (err) {
   console.error('Error reading command folders:', err);
 }
+// Vega's import and sharp's font-cache build, paid here rather than on the first
+// member's question (about 4 s on the pi). Before login, because the import runs
+// on the main thread and a slash command landing during it could not be
+// acknowledged in time. A load check, not a visual one, and it never throws; a
+// host that cannot draw logs it and the picture tools refuse with the text fallback.
+const pictures: boolean = await warmPictures();
+console.log(`[ASK] Pictures: ${pictures ? 'ready' : 'unavailable; answers stay text'}`);
+
 // Login to Discord with your client's token
 client.login(process.env.DISCORD_TOKEN);
 

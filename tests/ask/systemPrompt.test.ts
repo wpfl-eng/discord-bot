@@ -275,7 +275,7 @@ describe('systemPrompt', () => {
       expect(pictures).toContain('`chart`');
       expect(pictures).toContain('`table`');
       expect(pictures).toContain(`${ASK.RANKING_MAX_LINES} lines`);
-      expect(pictures).toMatch(/3 or more columns/);
+      expect(pictures).toContain(`${ASK.PICTURES.TABLE_MIN_COLUMNS} or more columns`);
       expect(pictures).toMatch(/5 or more seasons or weeks/);
       expect(pictures).toMatch(/relationship/i);
       expect(pictures).toContain(`At most ${ASK.PICTURES.PER_ANSWER} pictures`);

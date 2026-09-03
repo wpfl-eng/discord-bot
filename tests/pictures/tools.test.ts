@@ -5,8 +5,7 @@ import { createCollector, tokenFor, type PictureCollector } from '../../pictures
 import { FALLBACK } from '../../pictures/shared.js';
 import { ASK } from '../../ask/askConfig.js';
 import type { SqlResult } from '../../wpfl/sqlTool.js';
-
-const OWNERS: readonly string[] = ['AJ Boorde', 'Todd Ellis', 'Nixon Ball'];
+import { OWNERS } from './fixtures.js';
 
 const ROWS: Record<string, unknown>[] = [
   { owner: 'Todd Ellis', pts: '1806.16' },
@@ -29,6 +28,7 @@ function harness(over: Partial<PictureDeps> = {}): Harness {
     rasterise: jest.fn(async (): Promise<Buffer | null> => Buffer.from('png-bytes')),
     owners: OWNERS,
     enabled: true,
+    available: (): boolean => true,
     ...over,
   };
   const tools = createPictureTools(collector, deps);
@@ -83,13 +83,15 @@ describe('the chart tool', () => {
     expect(h.collector.pictures).toHaveLength(0);
   });
 
-  test('a truncated result is refused', async () => {
+  test('a truncated result is refused before anything is built', async () => {
     const h = harness({
       runSql: jest.fn(async (): Promise<SqlResult> => ({ rows: ROWS, truncated: true })),
     });
     const result = await h.chart(request);
     expect(result.isError).toBe(true);
     expect(text(result)).toContain(String(ASK.SQL_ROW_LIMIT));
+    expect(text(result)).toContain(FALLBACK);
+    expect(h.deps.renderSvg).not.toHaveBeenCalled();
   });
 
   test('the per-answer ceiling refuses before running any SQL', async () => {
@@ -111,7 +113,16 @@ describe('the chart tool', () => {
     expect(h.deps.runSql).not.toHaveBeenCalled();
   });
 
-  test('a host that cannot draw refuses with the fallback', async () => {
+  test('a host that cannot draw refuses before running any SQL', async () => {
+    const h = harness({ available: (): boolean => false });
+    const result = await h.chart(request);
+    expect(result.isError).toBe(true);
+    expect(text(result)).toMatch(/unavailable/);
+    expect(text(result)).toContain(FALLBACK);
+    expect(h.deps.runSql).not.toHaveBeenCalled();
+  });
+
+  test('an SVG that will not rasterise is a refusal with the fallback', async () => {
     const h = harness({ rasterise: jest.fn(async (): Promise<Buffer | null> => null) });
     const result = await h.chart(request);
     expect(result.isError).toBe(true);
@@ -183,5 +194,6 @@ describe('descriptions', () => {
     expect(chart.description).toMatch(/pie/i);
     expect(table.description).toContain(String(ASK.PICTURES.COLUMNS_MAX));
     expect(table.description).toContain(String(ASK.RANKING_MAX_LINES));
+    expect(table.description).toContain(`${ASK.PICTURES.TABLE_MIN_COLUMNS} or more columns`);
   });
 });

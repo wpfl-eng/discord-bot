@@ -8,7 +8,10 @@
  * reaches them through their declared schemas and nothing else.
  */
 
-import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import {
+  createSdkMcpServer,
+  type McpSdkServerConfigWithInstance,
+} from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from '../ask/askConfig.js';
 import { sqlTool } from './sqlTool.js';
 import { wpflApiTools } from './wpflApiTools.js';
@@ -43,9 +46,7 @@ export const WPFL_SERVER = 'wpfl';
  * run, so the prompt cache still hits; only the picture tools' closure
  * differs.
  */
-export function createWpflServer(
-  collector: PictureCollector
-): ReturnType<typeof createSdkMcpServer> {
+export function createWpflServer(collector: PictureCollector): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: WPFL_SERVER,
     version: '1.0.0',

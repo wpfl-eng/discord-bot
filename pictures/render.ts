@@ -2,11 +2,11 @@
  * The picture renderer: a Vega-Lite spec to SVG through Vega, and SVG to PNG
  * through sharp (design §11).
  *
- * Both engines are imported lazily and a failure to load is remembered, so a
- * host that cannot draw pays one attempt and then refuses every picture with
- * the text fallback -- the stance casinoHero takes with sharp. Vega is pure
- * JavaScript; sharp ships native binaries. Neither is loaded at import time,
- * so a test of the spec builders never pays for them.
+ * Vega is imported lazily and a failure to load is remembered, so a host
+ * that cannot draw pays one attempt and then refuses every picture with the
+ * text fallback -- the stance helpers/svg takes with sharp, which the casino's
+ * hero frames share. Vega is pure JavaScript and is not loaded at import
+ * time, so a test of the spec builders never pays for it.
  *
  * Vega renders without node-canvas and estimates text widths, so every spec
  * fixes its own size and padding rather than letting Vega autosize from those
@@ -16,13 +16,11 @@
 import type { TopLevelSpec } from 'vega-lite';
 import { ASK } from '../ask/askConfig.js';
 import { logError } from '../errors/errorHandler.js';
+import { sharpAvailable, svgToPng } from '../helpers/svg.js';
+import { UNAVAILABLE } from './shared.js';
 
 type VegaModule = typeof import('vega');
 type VegaLiteModule = typeof import('vega-lite');
-/** Vega-Lite does not export its compile options; derived from the function instead. */
-type CompileOptions = NonNullable<Parameters<VegaLiteModule['compile']>[1]>;
-type Logger = NonNullable<CompileOptions['logger']>;
-type SharpFactory = (input: Buffer, options?: { density?: number }) => import('sharp').Sharp;
 
 interface Engines {
   readonly vega: VegaModule;
@@ -30,12 +28,11 @@ interface Engines {
 }
 
 let engines: Engines | null = null;
-let sharpModule: SharpFactory | null = null;
-let unavailable = false;
+let vegaUnavailable = false;
 
 async function loadEngines(): Promise<Engines> {
   if (engines !== null) return engines;
-  if (unavailable) throw new Error('Pictures are unavailable on this host.');
+  if (vegaUnavailable) throw new Error(UNAVAILABLE);
   try {
     // One after the other, not Promise.all: the two share vega-util, and
     // Jest's ESM linker cannot link one module graph from two concurrent
@@ -46,84 +43,28 @@ async function loadEngines(): Promise<Engines> {
     engines = { vega, vegaLite };
     return engines;
   } catch (error: unknown) {
-    unavailable = true;
+    vegaUnavailable = true;
     logError('ask', 'Vega unavailable; pictures will be refused', error);
-    throw new Error('Pictures are unavailable on this host.');
+    throw new Error(UNAVAILABLE);
   }
 }
 
-async function loadSharp(): Promise<SharpFactory> {
-  if (sharpModule !== null) return sharpModule;
-  if (unavailable) throw new Error('Pictures are unavailable on this host.');
-  try {
-    const loaded = (await import('sharp')) as unknown as { default?: SharpFactory };
-    sharpModule = (loaded.default ?? (loaded as unknown as SharpFactory)) as SharpFactory;
-    return sharpModule;
-  } catch (error: unknown) {
-    unavailable = true;
-    logError('ask', 'sharp unavailable; pictures will be refused', error);
-    throw new Error('Pictures are unavailable on this host.');
-  }
-}
-
-/** False once either engine has failed to load. Refusals read this. */
+/** False once either engine has failed to load; the tools then refuse before running any SQL. */
 export function picturesAvailable(): boolean {
-  return !unavailable;
-}
-
-/** Test seam: forget the loaded engines so a fresh attempt is made. */
-export function __resetPicturesForTesting(): void {
-  engines = null;
-  sharpModule = null;
-  unavailable = false;
+  return !vegaUnavailable && sharpAvailable();
 }
 
 /**
  * Compile a Vega-Lite spec and render it to an SVG string. Vega-Lite's
- * warnings go to `warn` when given, so a test can hold a spec to none; the
- * default is the console, which is where a spec defect belongs.
+ * warnings print to the console, which is where a spec defect belongs.
  *
  * Throws when the engines cannot load or the spec is invalid. The tools
  * turn that into a refusal.
  */
-export async function renderSvg(
-  spec: TopLevelSpec,
-  warn?: (message: string) => void
-): Promise<string> {
+export async function renderSvg(spec: TopLevelSpec): Promise<string> {
   const { vega, vegaLite } = await loadEngines();
-  const compiled = vegaLite.compile(spec, warn === undefined ? {} : { logger: logger(warn) }).spec;
-  const view = new vega.View(vega.parse(compiled), { renderer: 'none' });
+  const view = new vega.View(vega.parse(vegaLite.compile(spec).spec), { renderer: 'none' });
   return view.toSVG();
-}
-
-/**
- * A Vega-Lite logger that forwards warnings and errors to one callback.
- * Vega-Lite's default logger prints straight to the console.
- */
-function logger(warn: (message: string) => void): Logger {
-  const forward = (...args: readonly unknown[]): void => {
-    warn(args.map((arg: unknown): string => String(arg)).join(' '));
-  };
-  const instance = {
-    level(): number {
-      return 2;
-    },
-    error(...args: readonly unknown[]) {
-      forward(...args);
-      return instance;
-    },
-    warn(...args: readonly unknown[]) {
-      forward(...args);
-      return instance;
-    },
-    info() {
-      return instance;
-    },
-    debug() {
-      return instance;
-    },
-  };
-  return instance as unknown as Logger;
 }
 
 /**
@@ -132,21 +73,8 @@ function logger(warn: (message: string) => void): Logger {
  * @returns null when sharp is unavailable or the SVG does not parse; the
  *          caller answers in text.
  */
-export async function rasterise(svg: string): Promise<Buffer | null> {
-  let sharp: SharpFactory;
-  try {
-    sharp = await loadSharp();
-  } catch {
-    return null;
-  }
-  try {
-    return await sharp(Buffer.from(svg), { density: ASK.PICTURES.DENSITY })
-      .png({ compressionLevel: 6 })
-      .toBuffer();
-  } catch (error: unknown) {
-    logError('ask', 'Could not rasterise a picture', error);
-    return null;
-  }
+export function rasterise(svg: string): Promise<Buffer | null> {
+  return svgToPng(svg, ASK.PICTURES.DENSITY);
 }
 
 /** The smallest spec that exercises both engines end to end. */

@@ -21,8 +21,8 @@ import { runSql, type SqlResult } from '../wpfl/sqlTool.js';
 import { textResult, type AnyTool } from '../wpfl/toolResult.js';
 import { buildChart, CHART_KINDS } from './chartSpec.js';
 import { buildTable } from './tableSvg.js';
-import { renderSvg, rasterise } from './render.js';
-import { FALLBACK, type Built } from './shared.js';
+import { renderSvg, rasterise, picturesAvailable } from './render.js';
+import { FALLBACK, UNAVAILABLE, type Built } from './shared.js';
 import { tokenFor, type PictureCollector, type PictureKind } from './collector.js';
 
 const P = ASK.PICTURES;
@@ -34,15 +34,19 @@ export interface PictureDeps {
   readonly rasterise: (svg: string) => Promise<Buffer | null>;
   /** Every canonical owner name, for the table's highlight. */
   readonly owners: readonly string[];
+  /** The switch in config. */
   readonly enabled: boolean;
+  /** Whether the host has been able to draw so far; false refuses before any SQL runs. */
+  readonly available: () => boolean;
 }
 
 const DEFAULT_DEPS: PictureDeps = {
-  runSql: (sql: string): Promise<SqlResult> => runSql(sql),
-  renderSvg: (spec: TopLevelSpec): Promise<string> => renderSvg(spec),
+  runSql,
+  renderSvg,
   rasterise,
   owners: wpflMembers.map((member: WpflMember): string => member.owner),
   enabled: P.ENABLED,
+  available: picturesAvailable,
 };
 
 const CHART_DESCRIPTION: string = [
@@ -65,13 +69,17 @@ const TABLE_DESCRIPTION: string = [
   'in query order with the aliases as headers, numbers right-aligned exactly as returned, the',
   `asker's row highlighted. At most ${P.ROWS_MAX} rows (${P.ROWS_INLINE} read without a tap) and`,
   `${P.COLUMNS_MAX} columns; aliases of ${P.ALIAS_MAX_CHARS} characters. Use it for a comparison`,
-  `across 3 or more columns or a ranking longer than ${ASK.RANKING_MAX_LINES} lines; a ranking of`,
-  `${ASK.RANKING_MAX_LINES} or fewer with one measure is a numbered list in the text. The result`,
-  'carries the rows too, so write the prose from them.',
+  `across ${P.TABLE_MIN_COLUMNS} or more columns or a ranking longer than ${ASK.RANKING_MAX_LINES}`,
+  `lines; a ranking of ${ASK.RANKING_MAX_LINES} or fewer with one measure is a numbered list in`,
+  'the text. The result carries the rows too, so write the prose from them.',
 ].join(' ');
 
+const TITLE_ARG = z
+  .string()
+  .describe(`At most ${P.TITLE_MAX_CHARS} characters; drawn on the picture.`);
+
 function refusal(reason: string): CallToolResult {
-  return { content: [{ type: 'text', text: reason }], isError: true };
+  return { ...textResult(reason), isError: true };
 }
 
 export function createPictureTools(
@@ -79,16 +87,18 @@ export function createPictureTools(
   deps: PictureDeps = DEFAULT_DEPS
 ): AnyTool[] {
   /**
-   * The one flow both tools share. `build` turns the rows into a Vega-Lite
-   * spec or, for the table, straight into SVG.
+   * The one flow both tools share. The gates about the run come first, before
+   * any SQL; then `build` turns the rows into a Vega-Lite spec or, for the
+   * table, straight into SVG.
    */
   async function draw(
     kind: PictureKind,
     title: string,
     sql: string,
-    build: (result: SqlResult) => Built<TopLevelSpec | string>
+    build: (rows: SqlResult['rows']) => Built<TopLevelSpec | string>
   ): Promise<CallToolResult> {
     if (!deps.enabled) return refusal(`Pictures are switched off. ${FALLBACK}`);
+    if (!deps.available()) return refusal(`${UNAVAILABLE} ${FALLBACK}`);
     if (collector.full) {
       return refusal(
         `This answer already has ${P.PER_ANSWER} pictures, the most it can carry. ${FALLBACK}`
@@ -98,7 +108,12 @@ export function createPictureTools(
     const started: number = Date.now();
     // Throws on a refused statement, exactly as `sql` does.
     const result: SqlResult = await deps.runSql(sql);
-    const built: Built<TopLevelSpec | string> = build(result);
+    if (result.truncated) {
+      return refusal(
+        `The query hit the ${ASK.SQL_ROW_LIMIT}-row cap, and a picture of a truncated result would omit rows. Narrow the query or aggregate. ${FALLBACK}`
+      );
+    }
+    const built: Built<TopLevelSpec | string> = build(result.rows);
     if (!built.ok) return refusal(built.refusal);
 
     let svg: string;
@@ -108,21 +123,15 @@ export function createPictureTools(
       return refusal(`${errorMessage(error)} ${FALLBACK}`);
     }
     const png: Buffer | null = await deps.rasterise(svg);
-    if (png === null) return refusal(`Pictures are unavailable on this host. ${FALLBACK}`);
+    if (png === null) return refusal(`${UNAVAILABLE} ${FALLBACK}`);
 
-    const picture = collector.add({
-      kind,
-      title,
-      alt: `${title}: ${kind} of ${built.n} rows`,
-      png,
-    });
+    const n: number = result.rows.length;
+    const picture = collector.add({ kind, title, alt: `${title}: ${kind} of ${n} rows`, png });
     // The only record of a render outside the transcript, beside the
     // answer-length line: one line per picture in the pm2 log.
-    console.log(
-      `[ASK] picture ${kind} ${built.n} rows ${png.length} bytes ${Date.now() - started} ms`
-    );
+    console.log(`[ASK] picture ${kind} ${n} rows ${png.length} bytes ${Date.now() - started} ms`);
     return textResult(
-      `Picture ready: ${tokenFor(picture.id)}. Put that token on its own line at the end of the body, before the footer, in the order the pictures should appear. It does not count toward the length limit.\n\nRows drawn: ${JSON.stringify({ n: built.n, rows: result.rows })}`
+      `Picture ready: ${tokenFor(picture.id)}. Put that token on its own line at the end of the body, before the footer, in the order the pictures should appear. It does not count toward the length limit.\n\nRows drawn: ${JSON.stringify({ n, rows: result.rows })}`
     );
   }
 
@@ -134,7 +143,7 @@ export function createPictureTools(
         .string()
         .describe('A single read-only statement; for a bar chart it must carry an ORDER BY.'),
       kind: z.enum(CHART_KINDS),
-      title: z.string().describe(`At most ${P.TITLE_MAX_CHARS} characters; drawn on the picture.`),
+      title: TITLE_ARG,
       x: z.string().describe('The column alias for x.'),
       y: z.string().describe('The column alias for y, always a measure.'),
       series: z.string().optional().describe('A column alias to colour by, and to group bars by.'),
@@ -144,19 +153,18 @@ export function createPictureTools(
         .describe('Scatter only: the column alias drawn beside each point.'),
     },
     async (args): Promise<CallToolResult> =>
-      draw(args.kind, args.title, args.sql, (result: SqlResult) =>
+      draw(args.kind, args.title, args.sql, (rows: SqlResult['rows']) =>
         buildChart({
           request: {
             kind: args.kind,
             title: args.title,
             x: args.x,
             y: args.y,
-            ...(args.series === undefined ? {} : { series: args.series }),
-            ...(args.label === undefined ? {} : { label: args.label }),
+            series: args.series,
+            label: args.label,
           },
           sql: args.sql,
-          rows: result.rows,
-          truncated: result.truncated,
+          rows,
         })
       )
   );
@@ -168,14 +176,13 @@ export function createPictureTools(
       sql: z
         .string()
         .describe('A single read-only statement; its columns and aliases are the table.'),
-      title: z.string().describe(`At most ${P.TITLE_MAX_CHARS} characters; drawn on the picture.`),
+      title: TITLE_ARG,
     },
     async (args): Promise<CallToolResult> =>
-      draw('table', args.title, args.sql, (result: SqlResult) =>
+      draw('table', args.title, args.sql, (rows: SqlResult['rows']) =>
         buildTable({
           title: args.title,
-          rows: result.rows,
-          truncated: result.truncated,
+          rows,
           highlight: collector.owner,
           owners: deps.owners,
         })

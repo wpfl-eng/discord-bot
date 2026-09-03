@@ -11,6 +11,8 @@
  */
 
 import { ASK } from '../ask/askConfig.js';
+import { escapeXml } from '../helpers/svg.js';
+import { truncate } from '../helpers/utils.js';
 import { THEME } from './theme.js';
 import {
   type Built,
@@ -23,7 +25,10 @@ import {
   columnKind,
   toNumber,
   formatFigure,
-  escapeXml,
+  glyphWidth,
+  tooManyRows,
+  MARGIN,
+  TITLE_BAND,
 } from './shared.js';
 
 const P = ASK.PICTURES;
@@ -31,19 +36,14 @@ const P = ASK.PICTURES;
 export interface TableInput {
   readonly title: string;
   readonly rows: readonly Row[];
-  readonly truncated: boolean;
   /** The asker's canonical owner name. */
   readonly highlight: string;
   /** Every canonical owner name, for finding the owner column. */
   readonly owners: readonly string[];
 }
 
-/** Average glyph advance as a fraction of the font size, DejaVu Sans measured by eye. */
-const GLYPH = 0.56;
 const CELL_PAD = 10;
-const MARGIN = 16;
 const HEADER_HEIGHT = 30;
-const TITLE_BAND: number = P.TITLE_FONT + 30;
 const BOTTOM = 12;
 
 interface Column {
@@ -55,13 +55,9 @@ interface Column {
 
 export function buildTable(input: TableInput): Built<string> {
   const { rows } = input;
-  const common: string | null = checkCommon(rows, input.truncated, input.title);
+  const common: string | null = checkCommon(rows, input.title);
   if (common !== null) return refuse(common);
-  if (rows.length > P.ROWS_MAX) {
-    return refuse(
-      `${rows.length} rows is more than the ${P.ROWS_MAX} a picture can hold, and ${P.ROWS_INLINE} is what reads without a tap. Narrow the query.`
-    );
-  }
+  if (rows.length > P.ROWS_MAX) return refuse(tooManyRows(rows.length, 'rows'));
   const names: string[] = columnsOf(rows);
   if (names.length > P.COLUMNS_MAX) {
     return refuse(
@@ -73,7 +69,7 @@ export function buildTable(input: TableInput): Built<string> {
     const kind: ColumnKind = columnKind(rows, name);
     const cells: string[] = rows.map((row: Row): string => cell(row[name], kind));
     const longest: number = Math.max(name.length, ...cells.map((c: string): number => c.length));
-    return { name, kind, cells, width: Math.ceil(longest * P.LABEL_FONT * GLYPH) + 2 * CELL_PAD };
+    return { name, kind, cells, width: glyphWidth(longest, P.LABEL_FONT) + 2 * CELL_PAD };
   });
 
   const needed: number =
@@ -148,15 +144,14 @@ export function buildTable(input: TableInput): Built<string> {
   });
 
   parts.push('</svg>');
-  return ok(parts.join('\n'), rows.length);
+  return ok(parts.join('\n'));
 }
 
 /** A cell's text: a formatted figure, or text cut at the label ceiling. */
 function cell(value: unknown, kind: ColumnKind): string {
   if (value === null || value === undefined) return '';
   if (kind === 'number') return formatFigure(toNumber(value));
-  const text: string = String(value);
-  return text.length > P.LABEL_MAX_CHARS ? `${text.slice(0, P.LABEL_MAX_CHARS - 1)}…` : text;
+  return truncate(String(value), P.LABEL_MAX_CHARS);
 }
 
 function textAt(

@@ -2,8 +2,7 @@ import { describe, test, expect } from '@jest/globals';
 import { buildTable, type TableInput } from '../../pictures/tableSvg.js';
 import { FALLBACK } from '../../pictures/shared.js';
 import { ASK } from '../../ask/askConfig.js';
-
-const OWNERS: readonly string[] = ['Nixon Ball', 'Forrest Britton', 'AJ Boorde', 'Todd Ellis'];
+import { OWNERS, refusalOf, valueOf } from './fixtures.js';
 
 function rows(count: number = 4): Record<string, unknown>[] {
   return OWNERS.slice(0, count).map(
@@ -19,21 +18,15 @@ function input(over: Partial<TableInput> = {}): TableInput {
   return {
     title: 'QB spend by owner',
     rows: rows(),
-    truncated: false,
     highlight: 'AJ Boorde',
     owners: OWNERS,
     ...over,
   };
 }
 
-function svgOf(built: ReturnType<typeof buildTable>): string {
-  if (!built.ok) throw new Error(built.refusal);
-  return built.value;
-}
-
 describe('buildTable', () => {
   test('draws a header from the aliases and one row per result row, in order', () => {
-    const svg: string = svgOf(buildTable(input()));
+    const svg: string = valueOf(buildTable(input()));
 
     expect(svg.startsWith('<svg')).toBe(true);
     for (const header of ['owner', 'avg $', 'titles']) expect(svg).toContain(`>${header}<`);
@@ -42,7 +35,7 @@ describe('buildTable', () => {
   });
 
   test('formats numbers with grouping and at most two decimals, never truncating them', () => {
-    const svg: string = svgOf(
+    const svg: string = valueOf(
       buildTable(input({ rows: [{ owner: 'AJ Boorde', pts: '1806.164', n: '138' }] }))
     );
     expect(svg).toContain('>1,806.16<');
@@ -50,7 +43,7 @@ describe('buildTable', () => {
   });
 
   test('right-aligns numeric columns and left-aligns text', () => {
-    const svg: string = svgOf(buildTable(input()));
+    const svg: string = valueOf(buildTable(input()));
     const cell = (text: string): string =>
       svg.slice(svg.lastIndexOf('<text', svg.indexOf(`>${text}<`)), svg.indexOf(`>${text}<`));
     expect(cell('Nixon Ball')).toContain('text-anchor="start"');
@@ -58,24 +51,24 @@ describe('buildTable', () => {
   });
 
   test('highlights the asker when exactly one column holds owner names and one row is theirs', () => {
-    const svg: string = svgOf(buildTable(input()));
+    const svg: string = valueOf(buildTable(input()));
     expect(svg).toContain('class="highlight"');
     expect((svg.match(/class="highlight"/g) ?? []).length).toBe(1);
   });
 
   test('does not highlight when the asker is absent, appears twice, or two columns hold owners', () => {
-    expect(svgOf(buildTable(input({ highlight: 'Doug Black' })))).not.toContain('highlight');
+    expect(valueOf(buildTable(input({ highlight: 'Doug Black' })))).not.toContain('highlight');
 
     const twice = [...rows(2), { owner: 'AJ Boorde', 'avg $': '1', titles: '0' }, rows(3)[2]];
-    expect(svgOf(buildTable(input({ rows: twice })))).not.toContain('highlight');
+    expect(valueOf(buildTable(input({ rows: twice })))).not.toContain('highlight');
 
     const matchups = [{ winner: 'AJ Boorde', loser: 'Todd Ellis', margin: '4.8' }];
-    expect(svgOf(buildTable(input({ rows: matchups })))).not.toContain('highlight');
+    expect(valueOf(buildTable(input({ rows: matchups })))).not.toContain('highlight');
   });
 
   test('cuts a long text cell with an ellipsis and escapes markup', () => {
     const long = 'x'.repeat(ASK.PICTURES.LABEL_MAX_CHARS + 5);
-    const svg: string = svgOf(
+    const svg: string = valueOf(
       buildTable(input({ rows: [{ owner: long, note: '<b>&"', pts: '1' }] }))
     );
     expect(svg).toContain('…');
@@ -84,10 +77,10 @@ describe('buildTable', () => {
   });
 
   test('grows past the design width to fit its columns, up to the table ceiling', () => {
-    const narrow = svgOf(buildTable(input()));
+    const narrow = valueOf(buildTable(input()));
     expect(narrow).toContain(`width="${ASK.PICTURES.WIDTH}"`);
 
-    const wide = svgOf(
+    const wide = valueOf(
       buildTable(
         input({
           rows: [
@@ -107,13 +100,9 @@ describe('buildTable', () => {
   });
 
   describe('refusals, each naming the fallback', () => {
-    const refusal = (built: ReturnType<typeof buildTable>): string => {
-      expect(built.ok).toBe(false);
-      return built.ok ? '' : built.refusal;
-    };
-
-    test('a truncated result is never drawn', () => {
-      const text = refusal(buildTable(input({ truncated: true })));
+    test('no rows', () => {
+      const text = refusalOf(buildTable(input({ rows: [] })));
+      expect(text).toMatch(/no rows/i);
       expect(text).toContain(FALLBACK);
     });
 
@@ -122,20 +111,20 @@ describe('buildTable', () => {
         owner: `o${i}`,
         n: '1',
       }));
-      expect(refusal(buildTable(input({ rows: tall })))).toContain(String(ASK.PICTURES.ROWS_MAX));
+      expect(refusalOf(buildTable(input({ rows: tall })))).toContain(String(ASK.PICTURES.ROWS_MAX));
 
       const wide: Record<string, unknown> = { owner: 'AJ Boorde' };
       for (let i = 0; i < ASK.PICTURES.COLUMNS_MAX; i += 1) wide[`c${i}`] = '1';
-      expect(refusal(buildTable(input({ rows: [wide] })))).toContain(
+      expect(refusalOf(buildTable(input({ rows: [wide] })))).toContain(
         String(ASK.PICTURES.COLUMNS_MAX)
       );
     });
 
     test('a long alias and a long title', () => {
       const alias = 'a'.repeat(ASK.PICTURES.ALIAS_MAX_CHARS + 1);
-      expect(refusal(buildTable(input({ rows: [{ [alias]: '1' }] })))).toMatch(/alias/i);
+      expect(refusalOf(buildTable(input({ rows: [{ [alias]: '1' }] })))).toMatch(/alias/i);
       expect(
-        refusal(buildTable(input({ title: 't'.repeat(ASK.PICTURES.TITLE_MAX_CHARS + 1) })))
+        refusalOf(buildTable(input({ title: 't'.repeat(ASK.PICTURES.TITLE_MAX_CHARS + 1) })))
       ).toMatch(/title/i);
     });
 
@@ -144,7 +133,7 @@ describe('buildTable', () => {
       for (let i = 0; i < ASK.PICTURES.COLUMNS_MAX; i += 1) {
         row[`alias number ${i}xx`] = 'x'.repeat(ASK.PICTURES.LABEL_MAX_CHARS);
       }
-      expect(refusal(buildTable(input({ rows: [row] })))).toMatch(/wide/i);
+      expect(refusalOf(buildTable(input({ rows: [row] })))).toMatch(/wide/i);
     });
   });
 });

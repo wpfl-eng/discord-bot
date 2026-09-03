@@ -133,9 +133,10 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `pictures/` - the `chart` and `table` tools behind `/ask`: `chartSpec.ts` (Vega-Lite specs for
   bar, line and scatter), `tableSvg.ts` (the SVG grid), `render.ts` (Vega to SVG, sharp to PNG,
   the boot warm-up), `collector.ts` (the per-run collector and the `[[picture:id]]` tokens that
-  `ask/thread.ts` resolves into attachments), `tools.ts`, `shared.ts` (refusals and column
-  reading), `theme.ts`. Every value in a picture is a row `runSql` returned; the model authors
-  SQL, a kind, aliases and a title, never a spec. The ceilings are `ASK.PICTURES` in
+  `ask/thread.ts` resolves into attachments), `tools.ts`, `shared.ts` (refusals, layout and column
+  reading), `theme.ts`. sharp and XML escaping are `helpers/svg.ts`, shared with the casino
+  heroes. Every value in a picture is a row `runSql` returned; the model authors SQL, a kind,
+  aliases and a title, never a spec. The ceilings are `ASK.PICTURES` in
   `askConfig.ts`, and `PICTURES.ENABLED` is the switch: off, both tools refuse with the text
   fallback and nothing else changes
 - `errors/`, `helpers/`, `constants/`, `types/` - shared support code
@@ -167,9 +168,10 @@ and `mypredictions/` registers `/my-predictions`.
   WPFL decade on its own 24h window; `/ask-admin resync` forces both. Messages in an `/ask`
   thread continue that agent session through `messageCreate` when they address the bot, or
   come from the opener in a thread the bot created
-- **Picture warm-up** - after `ready`, one tiny chart is rendered through Vega and sharp so the
-  import and font-cache cost (about 4 s on the pi) is paid once, not on the first question. A
-  host that cannot draw logs it and the picture tools refuse; answers stay text
+- **Picture warm-up** - before login, one tiny chart is rendered through Vega and sharp so the
+  import and font-cache cost (about 4 s on the pi, on the main thread) is paid once, off the live
+  gateway, not on the first question. A host that cannot draw logs it and the picture tools
+  refuse before running any SQL; answers stay text
 - **Trivia scheduler** (`trivia/triviaService.ts:150`) - cron in `America/New_York`; posts at 9/11/13/15/17/19/21, auto-closes each 2h later, season rollover at midnight on the 1st
 - **Trivia DMs** - `messageCreate` handler accepts answers sent to the bot directly
 - **Roulette auto-spin** - rounds spin on a timer in `discordCommands/roulette/rouletteState.ts`

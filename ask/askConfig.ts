@@ -170,6 +170,9 @@ export const ASK = {
     ROWS_INLINE: 14,
     ROWS_MAX: 20,
     COLUMNS_MAX: 5,
+    // A comparison across this many columns is a table. Read by the prompt and
+    // by the table tool's description, so the two cannot disagree.
+    TABLE_MIN_COLUMNS: 3,
     SERIES_MAX: 6,
     LABELLED_POINTS_MAX: 20,
     // The analysis rule about small samples, enforced where the line is drawn.

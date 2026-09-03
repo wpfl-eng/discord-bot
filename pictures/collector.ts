@@ -42,9 +42,7 @@ export function createCollector(owner: string): PictureCollector {
   const pictures: Picture[] = [];
   return {
     owner,
-    get pictures(): readonly Picture[] {
-      return pictures;
-    },
+    pictures,
     get full(): boolean {
       return pictures.length >= ASK.PICTURES.PER_ANSWER;
     },
@@ -58,6 +56,8 @@ export function createCollector(owner: string): PictureCollector {
 
 /** What the model writes; unlikely in prose, and the id is what it resolves by. */
 const TOKEN = /\[\[picture:([a-f0-9]{8})\]\]/g;
+/** The same match without the global flag, so testing a line never carries state into the next. */
+const HAS_TOKEN = new RegExp(TOKEN.source);
 
 export function tokenFor(id: string): string {
   return `[[picture:${id}]]`;
@@ -110,11 +110,10 @@ export function hideTokens(text: string): string {
 function rewriteTokens(text: string, replacement: (id: string) => string): string {
   const lines: string[] = [];
   for (const line of text.split('\n')) {
-    if (!TOKEN.test(line)) {
+    if (!HAS_TOKEN.test(line)) {
       lines.push(line);
       continue;
     }
-    TOKEN.lastIndex = 0;
     const rewritten: string = line
       .replace(TOKEN, (_match: string, id: string): string => replacement(id))
       .replace(/ {2,}/g, ' ')
@@ -122,6 +121,5 @@ function rewriteTokens(text: string, replacement: (id: string) => string): strin
     // A line that was only tokens goes; one that still says something stays.
     if (rewritten !== '') lines.push(rewritten);
   }
-  TOKEN.lastIndex = 0;
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
 }

@@ -59,3 +59,20 @@ export function bar(fraction: number, width: number = 10): string {
   const filled: number = Math.round(clamped * width);
   return '█'.repeat(filled) + '░'.repeat(width - filled);
 }
+
+// ============ RENDERED GROUND ============
+
+/**
+ * The dark ground every rendered image sits on, as SVG hex: the casino's hero
+ * frames and the /ask pictures alike, so a chart and a roulette result read as
+ * one bot.
+ */
+export const GROUND = {
+  bg: '#1B2027',
+  panel: '#23262D',
+  ink: '#FAFAF7',
+  muted: '#9AA3AF',
+} as const;
+
+/** The families the pi and the dev box both have, in fontconfig's order of preference. */
+export const SVG_FONT = 'DejaVu Sans, Liberation Sans, Noto Sans, sans-serif';

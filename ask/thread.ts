@@ -16,10 +16,9 @@ import {
   AttachmentBuilder,
   ChannelType,
   Constants,
-  type ActionRowBuilder,
+  type BaseMessageOptions,
   type Guild,
   type Message,
-  type MessageActionRowComponentBuilder,
   type SendableChannels,
   type User,
 } from 'discord.js';
@@ -471,9 +470,8 @@ async function publish(
         ...(index === last ? buttons : {}),
       };
       await post(
-        index === 0
-          ? (p: AnswerPayload): Promise<unknown> => message.edit(p)
-          : (p: AnswerPayload): Promise<unknown> => destination.send(p),
+        (p: AnswerPayload): Promise<unknown> =>
+          index === 0 ? message.edit(p) : destination.send(p),
         payload,
         files
       );
@@ -484,12 +482,7 @@ async function publish(
 }
 
 /** What one part of an answer carries; the same shape edits and sends. */
-interface AnswerPayload {
-  readonly content: string;
-  readonly allowedMentions: typeof NO_MENTIONS;
-  readonly components?: ActionRowBuilder<MessageActionRowComponentBuilder>[];
-  readonly files?: AttachmentBuilder[];
-}
+type AnswerPayload = BaseMessageOptions & { readonly content: string };
 
 /** The description is the alt text: what a screen reader gets, and the hover. */
 function attachment(picture: Picture): AttachmentBuilder {
