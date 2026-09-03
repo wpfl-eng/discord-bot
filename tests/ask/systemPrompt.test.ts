@@ -1,7 +1,7 @@
 import type { WpflMember } from '../../constants/wpflMembers.js';
 import { describe, test, expect } from '@jest/globals';
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
-import { buildSystemPrompt, STATIC_PROMPT } from '../../ask/systemPrompt.js';
+import { buildSystemPrompt, STATIC_PROMPT, LEAGUE_FACTS } from '../../ask/systemPrompt.js';
 import { ASK } from '../../ask/askConfig.js';
 import type { NFLPeriod } from '../../helpers/espnPeriod.js';
 import type { AsOf } from '../../wpfl/layout.js';
@@ -89,9 +89,13 @@ describe('systemPrompt', () => {
 
     test('says what each source knows and what it does not', () => {
       expect(STATIC_PROMPT).toMatch(/post-draft/i);
-      // No hard-coded year: the history API lags the live season, whatever year it is.
+      // No hard-coded year outside the league facts: the history API lags the
+      // live season, whatever year it is. The facts block is the one place a
+      // year may appear, because its years are era boundaries -- when the
+      // auction began, when the budget changed -- and not claims about where
+      // the data stops.
       expect(STATIC_PROMPT).toMatch(/lags the live season/i);
-      expect(STATIC_PROMPT).not.toMatch(/\b20\d\d\b/);
+      expect(STATIC_PROMPT.replace(LEAGUE_FACTS, '')).not.toMatch(/\b20\d\d\b/);
       expect(STATIC_PROMPT).toContain('sql');
       expect(STATIC_PROMPT).toContain('espn_');
       expect(STATIC_PROMPT).toContain('INDEX.md');
@@ -126,6 +130,73 @@ describe('systemPrompt', () => {
     test('describes the league as it actually is', () => {
       expect(STATIC_PROMPT).toMatch(/14/);
       expect(STATIC_PROMPT).toMatch(/\$200|auction/i);
+    });
+
+    /**
+     * The reviewed answer never said the structural thing: one quarterback
+     * starts in a fourteen-team league with four-point passing touchdowns, so
+     * the position is deep and cheap by rule. The agent had no way to know
+     * any of it. Every figure here was read from ESPN's league settings on
+     * 2026-09-03; the eras before that from the cached history.
+     */
+    test('carries the league facts, and says which season they were checked for', () => {
+      expect(STATIC_PROMPT).toContain(LEAGUE_FACTS);
+      expect(LEAGUE_FACTS).toMatch(/2026 season/);
+
+      expect(LEAGUE_FACTS).toMatch(/1 QB/);
+      expect(LEAGUE_FACTS).toMatch(/2 RB/);
+      expect(LEAGUE_FACTS).toMatch(/2 WR/);
+      expect(LEAGUE_FACTS).toMatch(/1 TE/);
+      expect(LEAGUE_FACTS).toMatch(/FLEX/);
+      expect(LEAGUE_FACTS).toMatch(/1 K/);
+      expect(LEAGUE_FACTS).toMatch(/D\/ST/);
+      expect(LEAGUE_FACTS).toMatch(/5 bench/);
+      expect(LEAGUE_FACTS).toMatch(/1 IR/);
+
+      expect(LEAGUE_FACTS).toMatch(/\$200 auction/);
+      expect(LEAGUE_FACTS).toMatch(/2016/);
+      expect(LEAGUE_FACTS).toMatch(/snake/i);
+
+      expect(LEAGUE_FACTS).toMatch(/14 games/);
+      expect(LEAGUE_FACTS).toMatch(/2021/);
+      expect(LEAGUE_FACTS).toMatch(/13 before/);
+      expect(LEAGUE_FACTS).toMatch(/6 playoff teams/i);
+      expect(LEAGUE_FACTS).toMatch(/3 rounds/);
+      expect(LEAGUE_FACTS).toMatch(/no reseeding/i);
+
+      expect(LEAGUE_FACTS).toMatch(/FAAB/);
+      expect(LEAGUE_FACTS).toMatch(/\$1,000/);
+      expect(LEAGUE_FACTS).toMatch(/2023/);
+      expect(LEAGUE_FACTS).toMatch(/\$200 for 2020 to 2022/);
+
+      expect(LEAGUE_FACTS).toMatch(/half-PPR|0\.5 per reception/i);
+      expect(LEAGUE_FACTS).toMatch(/4 points? (a|per) passing touchdown/i);
+      expect(LEAGUE_FACTS).toMatch(/25 passing yards/);
+      expect(LEAGUE_FACTS).toMatch(/interception/i);
+    });
+
+    /**
+     * Four rules, one per defect in the reviewed answer: a correlation on ten
+     * points presented as a finding; a flat correlation read as "nothing"
+     * over a curved bucket pattern, with the last four champions all paying
+     * up at QB; a table of current owners beside a correlation over everyone
+     * who ever played; a proxy caveat in the footer and a threshold invented
+     * outright.
+     */
+    test('states the four analysis rules', () => {
+      const analysis: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# Analysis'));
+
+      expect(analysis).toMatch(/sample size/i);
+      expect(analysis).toMatch(/\b30\b/);
+      expect(analysis).toMatch(/correlation/i);
+      expect(analysis).toMatch(/by group/i);
+      expect(analysis).toMatch(/era/i);
+      expect(analysis).toMatch(/mixed/i);
+      expect(analysis).toMatch(/contradict/i);
+      expect(analysis).toMatch(/one population/i);
+      expect(analysis).toMatch(/proxy/i);
+      expect(analysis).toMatch(/threshold|break-even/i);
+      expect(analysis).toMatch(/tool computed/i);
     });
 
     /**
