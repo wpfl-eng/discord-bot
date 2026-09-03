@@ -8,16 +8,22 @@ import path from 'node:path';
 import { ThreadAutoArchiveDuration } from 'discord.js';
 
 /**
- * The data directory as an absolute path.
+ * A directory the feature owns, as an absolute path: the data directory, and
+ * the agent's own HOME.
  *
- * It feeds three things that must agree -- the agent's cwd, the path guard's
- * root and the `Read(//…)` allow rule -- and it used to be WPFL_DATA_DIR
- * verbatim. dotenv expands neither `~` nor `$HOME`, so an override written
- * the way .env.sample describes the default put the cwd in a literal `~`
- * directory relative to wherever pm2 started the bot. Exported for its test.
+ * The data directory feeds three things that must agree -- the agent's cwd,
+ * the path guard's root and the `Read(//…)` allow rule -- and it used to be
+ * WPFL_DATA_DIR verbatim. dotenv expands neither `~` nor `$HOME`, so an
+ * override written the way .env.sample describes the default put the cwd in
+ * a literal `~` directory relative to wherever pm2 started the bot. Exported
+ * for its test.
  */
-export function resolveDataDir(raw: string | undefined, home: string): string {
-  const value: string = raw === undefined || raw.trim() === '' ? '~/wpfl-data' : raw.trim();
+export function resolveDataDir(
+  raw: string | undefined,
+  home: string,
+  fallback: string = '~/wpfl-data'
+): string {
+  const value: string = raw === undefined || raw.trim() === '' ? fallback : raw.trim();
   const expanded: string =
     value === '~' ? home : value.startsWith('~/') ? path.join(home, value.slice(2)) : value;
   return path.resolve(expanded);
@@ -85,6 +91,14 @@ export const ASK = {
   // Outside the bot's repo: cwd points here and the PreToolUse hook confines
   // every file tool to it.
   DATA_DIR: resolveDataDir(process.env.WPFL_DATA_DIR, homedir()),
+  // The Claude Code subprocess's HOME: where it keeps its sessions, and where
+  // it looks for a login profile. Found, that profile's email is appended to
+  // every turn's context as the user's, and the agent read it as the member
+  // it was answering. So the subprocess gets a HOME that is nobody's: not the
+  // bot user's (a dev box is logged in), and outside the data directory
+  // (askAuth refuses otherwise), where the path guard would let any member
+  // Read every other member's sessions.
+  AGENT_HOME: resolveDataDir(process.env.WPFL_AGENT_HOME, homedir(), '~/wpfl-agent-home'),
   ARTIFACT_URL: 'https://wpfl-receipts-694ed0.pages.dev/postdraft.json',
   STALE_AFTER_MS: 6 * 60 * 60 * 1000,
   // The decade cache has its own window. In season its rows land weekly, so

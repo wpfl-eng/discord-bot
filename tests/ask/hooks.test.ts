@@ -151,6 +151,16 @@ describe('hooks', () => {
         );
       });
 
+      // `<data dir>*\/**` passed: its static prefix is the data directory
+      // itself, and the wildcard then extends the directory's own name to
+      // every sibling that shares it -- the retired shreds beside it today,
+      // anything else tomorrow. The directory a glob searches from ends at
+      // the last separator before its first wildcard, not at the wildcard.
+      test("denies a pattern whose wildcard extends the data directory's own name", async () => {
+        expect(denied(await call(guard(), 'Glob', { pattern: `${dataDir}*/**` }))).toBe(true);
+        expect(denied(await call(guard(), 'Glob', { pattern: `${dataDir}?/*.json` }))).toBe(true);
+      });
+
       test('allows relative patterns, which cannot leave a confined search root', async () => {
         expect(denied(await call(guard(), 'Glob', { pattern: 'teams/*.json' }))).toBe(false);
         expect(denied(await call(guard(), 'Glob', { pattern: '**/*.jsonl' }))).toBe(false);

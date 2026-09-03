@@ -192,7 +192,9 @@ Required environment variables (create `.env` from `.env.sample`):
 - Sleeper: `SLEEPER_LEAGUE_ID`
 - Database: PostgreSQL connection variables (`POSTGRES_*`)
 - `/ask`: `ANTHROPIC_API_KEY` **or** `CLAUDE_CODE_OAUTH_TOKEN` (the key wins if both are set);
-  optional `WPFL_DATA_DIR` (defaults to `$HOME/wpfl-data`)
+  optional `WPFL_DATA_DIR` (defaults to `$HOME/wpfl-data`) and `WPFL_AGENT_HOME` (defaults to
+  `$HOME/wpfl-agent-home`: the agent subprocess's own HOME, where its session transcripts live;
+  never the bot user's home, whose login profile would put an account email into every run)
 - Stock: `FINNHUB_API_KEY`
 - Trivia: `TRIVIA_CHANNEL_ID`, `TRIVIA_ADMIN_USER_IDS` (comma-separated; gates `/triviaquestion`)
 - Channels: `ECONOMY_TOWN_SQUARE_CHANNEL_ID`, `ECONOMY_CASINO_CHANNEL_ID` (casino hub),

@@ -7,7 +7,10 @@
  * code change (design §2, §10.1).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { APIError } from '../errors/BotError.js';
+import { ASK } from './askConfig.js';
 
 /**
  * Whether a run could authenticate at all. Cheap, so both entry points check
@@ -28,9 +31,18 @@ export function credentialConfigured(): boolean {
  * reason for them to be in that process at all, and a future change that adds a
  * shell would otherwise quietly become a credential leak.
  *
- * @throws {APIError} when no Claude credential, PATH or HOME is set.
+ * HOME is the agent's own directory, not the bot user's. The runtime reads
+ * HOME for a login profile and, finding one, appends that account's email to
+ * every turn's context as "the user's" -- and the agent attributed it to the
+ * member it was answering. The production host has no such profile; a dev box
+ * does, and one `claude login` on the host would have made it so there too.
+ *
+ * @param home where the subprocess keeps its sessions; created if missing.
+ * @throws {APIError} when no Claude credential or PATH is set, or `home` is
+ *   the data directory or inside it, where the path guard would let any member
+ *   Read every other member's sessions.
  */
-export function agentEnv(): Record<string, string> {
+export function agentEnv(home: string = ASK.AGENT_HOME): Record<string, string> {
   const apiKey: string | undefined = process.env.ANTHROPIC_API_KEY;
   const credential: Record<string, string> = apiKey
     ? { ANTHROPIC_API_KEY: apiKey }
@@ -45,7 +57,7 @@ export function agentEnv(): Record<string, string> {
 
   return {
     PATH: required('PATH'),
-    HOME: required('HOME'),
+    HOME: agentHome(home),
     // Correct the moment auth moves to ANTHROPIC_API_KEY; a no-op on a
     // subscription token, which already gets the 1h TTL on its own turns.
     ENABLE_PROMPT_CACHING_1H: '1',
@@ -56,6 +68,23 @@ export function agentEnv(): Record<string, string> {
 /** What a member reads when there is no credential: the refusal and the thrown error say the same thing. */
 export const NOT_CONFIGURED =
   "I'm not configured to answer questions yet — nobody has given me a Claude credential.";
+
+/** The agent's HOME, existing and outside the data directory. */
+function agentHome(home: string): string {
+  const resolved: string = path.resolve(home);
+  const dataDir: string = path.resolve(ASK.DATA_DIR);
+  if (resolved === dataDir || resolved.startsWith(`${dataDir}${path.sep}`)) {
+    throw new APIError(
+      "I'm not configured to answer questions yet.",
+      { step: 'agentEnv' },
+      new Error(
+        `WPFL_AGENT_HOME (${resolved}) must not be the data directory (${dataDir}) or inside it`
+      )
+    );
+  }
+  fs.mkdirSync(resolved, { recursive: true, mode: 0o700 });
+  return resolved;
+}
 
 /**
  * @param message what the member reads; never names a variable.

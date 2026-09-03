@@ -31,7 +31,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { DuckDBInstance, StatementType, type DuckDBConnection } from '@duckdb/node-api';
 import { ASK } from '../ask/askConfig.js';
 import { createGenerations, type Generations, type Release } from '../ask/generations.js';
-import { logError } from '../errors/errorHandler.js';
+import { errorMessage, logError } from '../errors/errorHandler.js';
 import { liveShred } from './liveShred.js';
 import { metaFile, tableName } from './layout.js';
 import { PER_OWNER_BODIES } from './shredder.js';
@@ -90,6 +90,24 @@ const FORBIDDEN: readonly (readonly [string, RegExp])[] = FORBIDDEN_WORDS.map(
 const READ_ONLY_STARTERS: readonly string[] = ['SELECT', 'WITH', 'DESCRIBE', 'SUMMARIZE'];
 
 const MUST_START_WITH = new RegExp(`^\\s*(${READ_ONLY_STARTERS.join('|')})\\b`, 'i');
+
+/**
+ * What the agent reads when DuckDB refuses to reach outside the database.
+ * DuckDB's own refusal names the path it was asked for, and for a probe like
+ * `duckdb_extensions()` that path is under the bot user's home -- so one query
+ * handed the agent the host's username. The refusal is the answer; the path
+ * is not.
+ */
+const EXTERNAL_ACCESS_DISABLED =
+  'File and network access are disabled in this database. Only the tables INDEX.md lists exist.';
+
+function sqlErrorMessage(error: unknown): string {
+  // Not errorMessage(): the native binding's errors fail `instanceof Error`,
+  // and stringified they arrive as "Error: Permission Error: ...".
+  const raw: unknown = (error as { message?: unknown } | null)?.message;
+  const message: string = typeof raw === 'string' ? raw : errorMessage(error);
+  return /^(Error: )?Permission Error/.test(message) ? EXTERNAL_ACCESS_DISABLED : message;
+}
 
 /** `SELECT, WITH, DESCRIBE or SUMMARIZE`, for anything a human or the agent reads. */
 const STARTERS_PROSE: string = `${READ_ONLY_STARTERS.slice(0, -1).join(', ')} or ${READ_ONLY_STARTERS[READ_ONLY_STARTERS.length - 1]}`;
@@ -257,6 +275,8 @@ export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promi
     const rows = reader.getRowObjectsJson() as Record<string, unknown>[];
     const truncated: boolean = rows.length > ASK.SQL_ROW_LIMIT;
     return { rows: truncated ? rows.slice(0, ASK.SQL_ROW_LIMIT) : rows, truncated };
+  } catch (error: unknown) {
+    throw new Error(sqlErrorMessage(error));
   } finally {
     clearTimeout(timer);
     connection.closeSync();

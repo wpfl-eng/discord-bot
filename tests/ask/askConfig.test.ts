@@ -1,4 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
+import os from 'node:os';
 import path from 'node:path';
 import { ASK, resolveDataDir } from '../../ask/askConfig.js';
 
@@ -40,5 +41,29 @@ describe('resolveDataDir', () => {
 
   test('never returns a path with a leading double slash, which the rule builder relies on', () => {
     expect(resolveDataDir('//srv//wpfl', home)).toBe('/srv/wpfl');
+  });
+});
+
+/**
+ * The subprocess's HOME decides what the Claude Code runtime finds there: a
+ * login profile puts the account's email into every turn's context, and the
+ * sessions it writes must not sit where the path guard lets the agent read.
+ * So the agent gets a HOME of its own -- outside the data directory, and not
+ * the bot user's.
+ */
+describe('AGENT_HOME', () => {
+  test('resolves like the data directory, with its own default', () => {
+    expect(resolveDataDir(undefined, '/home/tester', '~/wpfl-agent-home')).toBe(
+      '/home/tester/wpfl-agent-home'
+    );
+    expect(resolveDataDir('~/elsewhere', '/home/tester', '~/wpfl-agent-home')).toBe(
+      '/home/tester/elsewhere'
+    );
+  });
+
+  test("is neither the data directory, inside it, nor the bot user's own home", () => {
+    expect(ASK.AGENT_HOME).not.toBe(ASK.DATA_DIR);
+    expect(ASK.AGENT_HOME.startsWith(`${ASK.DATA_DIR}${path.sep}`)).toBe(false);
+    expect(ASK.AGENT_HOME).not.toBe(os.homedir());
   });
 });

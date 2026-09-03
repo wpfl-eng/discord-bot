@@ -106,6 +106,15 @@ describe('systemPrompt', () => {
       expect(STATIC_PROMPT).toMatch(/current week only/i);
     });
 
+    // The Claude Code runtime appends the logged-in account's email to every
+    // turn when the subprocess's HOME holds a login profile, and the agent
+    // read it as the member's. The HOME is now the agent's own; this is the
+    // belt to that brace.
+    test("says any account identifier in context is the bot's, never the member's", () => {
+      expect(STATIC_PROMPT).toMatch(/never repeat account identifiers/i);
+      expect(STATIC_PROMPT).toMatch(/email/i);
+    });
+
     test('describes the league as it actually is', () => {
       expect(STATIC_PROMPT).toMatch(/14/);
       expect(STATIC_PROMPT).toMatch(/\$200|auction/i);

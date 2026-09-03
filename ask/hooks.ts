@@ -207,10 +207,23 @@ function pathArguments(toolName: string, toolInput: unknown): string[] | null {
   return found;
 }
 
-/** The part of a glob before its first wildcard; empty for `**\/*.json`. */
+/**
+ * The directory a glob searches from: everything up to the last separator
+ * before its first wildcard. Empty for `**\/*.json`.
+ *
+ * Not simply everything before the wildcard. `<data dir>*\/**` has the data
+ * directory itself as that prefix and passed, while the wildcard extended the
+ * directory's own name to every sibling sharing it -- the retired shreds
+ * beside it today, anything else tomorrow.
+ */
 function globPrefix(pattern: string): string {
   const wildcard: number = pattern.search(/[*?[{]/);
-  return wildcard === -1 ? pattern : pattern.slice(0, wildcard);
+  if (wildcard === -1) return pattern;
+  const separator: number = Math.max(
+    pattern.lastIndexOf('/', wildcard),
+    pattern.lastIndexOf('\\', wildcard)
+  );
+  return separator === -1 ? '' : pattern.slice(0, separator + 1);
 }
 
 /** The deepest existing ancestor's real path, plus whatever does not exist yet. */

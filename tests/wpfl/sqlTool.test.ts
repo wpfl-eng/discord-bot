@@ -296,6 +296,19 @@ describe('sqlTool', () => {
           /disabled|permission/i
         );
       });
+
+      // DuckDB's refusal names the path it was asked for -- and for a probe
+      // like duckdb_extensions() that path is under the bot user's home, so
+      // one query handed the agent the host's username. The refusal is the
+      // answer; the path is not.
+      test('a refusal does not echo the path that was asked for', async () => {
+        const probe = "SELECT * FROM read_text('/etc/hostname')";
+        await expect(runSql(probe, dataDir)).rejects.toThrow(/disabled/i);
+        await expect(runSql(probe, dataDir)).rejects.not.toThrow(/\/etc\/hostname|\/home\//);
+        await expect(
+          runSql('SELECT extension_name FROM duckdb_extensions()', dataDir)
+        ).rejects.not.toThrow(/\/home\/|\.duckdb/);
+      });
     });
   });
 
