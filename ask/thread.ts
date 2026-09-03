@@ -13,10 +13,13 @@
  */
 
 import {
+  AttachmentBuilder,
   ChannelType,
   Constants,
+  type ActionRowBuilder,
   type Guild,
   type Message,
+  type MessageActionRowComponentBuilder,
   type SendableChannels,
   type User,
 } from 'discord.js';
@@ -36,6 +39,7 @@ import { wpflMembers, type WpflMember } from '../constants/wpflMembers.js';
 import { truncate } from '../helpers/utils.js';
 import { logError } from '../errors/errorHandler.js';
 import { feedbackRow } from './askFeedback.js';
+import { hideTokens, resolvePictures, type Picture } from '../pictures/collector.js';
 
 const THREAD_TYPES: readonly ChannelType[] = Constants.ThreadChannelTypes;
 
@@ -262,6 +266,9 @@ export const FOLLOW_UP_HINT = '_Reply or @ me to follow up._';
 export const CONTEXT_LOST =
   "_This thread had gone quiet long enough that I've lost the earlier context. Starting fresh._";
 
+/** Under an answer whose pictures Discord refused; the text still went out. */
+export const PICTURE_FAILED = '_The picture did not upload._';
+
 /**
  * Post the ticker, run the question, publish the answer, record the session.
  *
@@ -322,7 +329,8 @@ export async function answer(request: AnswerRequest): Promise<void> {
   // schema. A ledger column was the alternative, and in a repo with no
   // migration runner a forgotten migration would have failed every ledger
   // insert -- and the caps count ledger rows.
-  console.log(`[ASK] answer ${destination.id}: ${outcome.text.length} chars`);
+  // Without the picture tokens, which do not count toward the cap.
+  console.log(`[ASK] answer ${destination.id}: ${hideTokens(outcome.text).length} chars`);
 
   await editor.settle();
   const trailer: string[] = [];
@@ -442,14 +450,72 @@ async function publish(
   // The buttons ride on the last part, under the end of the answer.
   const buttons = { components: [feedbackRow({ up: 0, down: 0 })] };
   const last: number = parts.length - 1;
+  // Each picture attaches to the part its token was in, once. The tokens
+  // sit at the end of the body, which under the cap is the first part.
+  const attached = new Set<string>();
 
   try {
-    for (const [index, content] of parts.entries()) {
-      const payload = { content, allowedMentions: NO_MENTIONS, ...(index === last ? buttons : {}) };
-      if (index === 0) await message.edit(payload);
-      else await destination.send(payload);
+    for (const [index, part] of parts.entries()) {
+      const resolved = resolvePictures(part, outcome.pictures);
+      for (const id of resolved.unresolved) {
+        console.warn(`[ASK] picture token ${id} in ${destination.id} matched nothing`);
+      }
+      const files: AttachmentBuilder[] = resolved.pictures
+        .filter((picture: Picture): boolean => !attached.has(picture.id))
+        .map(attachment);
+      for (const picture of resolved.pictures) attached.add(picture.id);
+
+      const payload: AnswerPayload = {
+        content: resolved.text,
+        allowedMentions: NO_MENTIONS,
+        ...(index === last ? buttons : {}),
+      };
+      await post(
+        index === 0
+          ? (p: AnswerPayload): Promise<unknown> => message.edit(p)
+          : (p: AnswerPayload): Promise<unknown> => destination.send(p),
+        payload,
+        files
+      );
     }
   } catch (error: unknown) {
     logError('ask', 'Could not post the answer', error);
+  }
+}
+
+/** What one part of an answer carries; the same shape edits and sends. */
+interface AnswerPayload {
+  readonly content: string;
+  readonly allowedMentions: typeof NO_MENTIONS;
+  readonly components?: ActionRowBuilder<MessageActionRowComponentBuilder>[];
+  readonly files?: AttachmentBuilder[];
+}
+
+/** The description is the alt text: what a screen reader gets, and the hover. */
+function attachment(picture: Picture): AttachmentBuilder {
+  return new AttachmentBuilder(picture.png, {
+    name: `picture-${picture.id}.png`,
+    description: picture.alt,
+  });
+}
+
+/**
+ * Post one part. A rejected upload -- a size limit, an attachment cap -- must
+ * not lose the answer: the part goes out again without its files and says so.
+ */
+async function post(
+  send: (payload: AnswerPayload) => Promise<unknown>,
+  payload: AnswerPayload,
+  files: AttachmentBuilder[]
+): Promise<void> {
+  if (files.length === 0) {
+    await send(payload);
+    return;
+  }
+  try {
+    await send({ ...payload, files });
+  } catch (error: unknown) {
+    logError('ask', 'Could not post the answer with its pictures; posting without them', error);
+    await send({ ...payload, content: `${payload.content}\n\n${PICTURE_FAILED}` });
   }
 }

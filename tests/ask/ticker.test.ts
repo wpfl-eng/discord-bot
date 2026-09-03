@@ -189,6 +189,19 @@ describe('ticker', () => {
       expect(rendered).not.toContain('thinking about it');
     });
 
+    test('hides picture tokens while the prose streams; they are for the final post', () => {
+      const ticker: Ticker = createTicker();
+
+      ticker.onToolCall('chart', 't1');
+      ticker.onToolSettled('t1');
+      ticker.onText('**Answer.**\n- one\n[[picture:0123abcd]]\n_footer_');
+
+      const rendered: string = ticker.render();
+
+      expect(rendered).not.toContain('[[picture');
+      expect(rendered).toContain('**Answer.**\n- one\n_footer_');
+    });
+
     test('keeps a one-line trace of what it did', () => {
       const ticker: Ticker = createTicker();
 
