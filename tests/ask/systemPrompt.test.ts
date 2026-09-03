@@ -96,6 +96,14 @@ describe('systemPrompt', () => {
       expect(STATIC_PROMPT).toContain('INDEX.md');
     });
 
+    // The ESPN line said records, scores, rosters, injuries, waivers. Nothing
+    // told the agent ESPN also forecasts the week, so a "who's favoured"
+    // question went to the draft sim.
+    test("names ESPN as the source of the current week's projections and win probability", () => {
+      expect(STATIC_PROMPT).toMatch(/projected totals/i);
+      expect(STATIC_PROMPT).toMatch(/win probability/i);
+    });
+
     test('describes the league as it actually is', () => {
       expect(STATIC_PROMPT).toMatch(/14/);
       expect(STATIC_PROMPT).toMatch(/\$200|auction/i);

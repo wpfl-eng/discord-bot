@@ -68,6 +68,13 @@ export interface LineupEntry {
    * the eighteen players in its one matchup.
    */
   readonly injuryStatus: string | null;
+  /**
+   * ESPN's projection for the player this week, summed over the scoring items
+   * the fork maps (it hands back the per-item breakdown and nothing totals
+   * it). This is what says why one side is favoured and which starter the gap
+   * turns on. 0 for a player ESPN has nothing for: IR, a bye.
+   */
+  readonly projected: number;
 }
 
 export interface MatchupSummary {
@@ -75,6 +82,18 @@ export interface MatchupSummary {
   readonly awayOwner: string | null;
   readonly homeScore: number;
   readonly awayScore: number | null;
+  /**
+   * ESPN's own projected total for the lineup as set, and its win probability
+   * from 0 to 1. ESPN publishes both for the current matchup period only, so
+   * they are null for any other week. Null rather than absent: the first live
+   * matchup question was answered from the draft-night sim, and the agent
+   * wrote "no per-week win probability is published" while the fork had
+   * ESPN's at 0.53 and this projection dropped it.
+   */
+  readonly homeProjected: number | null;
+  readonly awayProjected: number | null;
+  readonly homeWinProbability: number | null;
+  readonly awayWinProbability: number | null;
   readonly home: LineupEntry[];
   readonly away: LineupEntry[];
 }
@@ -199,6 +218,10 @@ export function toBoxscores(
         awayOwner: matchup.awayTeamId === undefined ? null : ownerFor(matchup.awayTeamId),
         homeScore: matchup.homeScore,
         awayScore: matchup.awayScore ?? null,
+        homeProjected: roundedOrNull(matchup.homeProjectedScore),
+        awayProjected: roundedOrNull(matchup.awayProjectedScore),
+        homeWinProbability: finiteOrNull(matchup.homeWinProbability),
+        awayWinProbability: finiteOrNull(matchup.awayWinProbability),
         home: (matchup.homeRoster ?? []).map(toLineupEntry),
         away: (matchup.awayRoster ?? []).map(toLineupEntry),
       })
@@ -276,7 +299,38 @@ function toLineupEntry(slot: BoxscorePlayer): LineupEntry {
     position: slot.rosteredPosition,
     points: slot.totalPoints,
     injuryStatus: slot.injuryStatus ?? null,
+    projected: projectedPoints(slot.projectedPointBreakdown),
   };
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** The fork types these as numbers, but for any week ESPN is not scoring they arrive undefined. */
+function finiteOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function roundedOrNull(value: unknown): number | null {
+  const finite: number | null = finiteOrNull(value);
+  return finite === null ? null : round2(finite);
+}
+
+/**
+ * A player's projected points: the fork's `projectedPointBreakdown` is one
+ * number per scoring item plus a `usesPoints` flag, and ESPN's per-player
+ * total is not mapped. Summed here the way the Book prices from it; the sum
+ * lands within a fraction of a point of ESPN's own team total, which the
+ * matchup carries separately and which is the authoritative figure.
+ */
+function projectedPoints(breakdown: unknown): number {
+  if (typeof breakdown !== 'object' || breakdown === null) return 0;
+  let total: number = 0;
+  for (const value of Object.values(breakdown as Record<string, unknown>)) {
+    if (typeof value === 'number' && Number.isFinite(value)) total += value;
+  }
+  return round2(total);
 }
 
 function ownerFor(espnId: number): string {
@@ -331,7 +385,7 @@ export const espnTools: AnyTool[] = [
 
   tool(
     'espn_boxscores',
-    `Head-to-head matchups for one week: both owners, both scores, and each lineup with per-player points and injury status. Before a week's games are played every score is 0 and each lineup is the roster as currently set; for who plays whom and the sim's win odds, the artifact's \`teams.schedule\` already has every week. Pass \`owners\` for one matchup rather than the whole slate. ${CURRENT_SEASON_ONLY}`,
+    `Head-to-head matchups for one week: both owners, both scores, ESPN's projected total and win probability for each side, and each lineup with per-player points, projection and injury status. Before kickoff every score is 0 and the projections are ESPN's forecast of the week as the lineups are currently set -- the numbers for who is favoured in a game this week, and why. ESPN publishes the projected totals and win probability for the current week only (null for any other week). The draft-night sim's odds for every week are a different figure, in the artifact's \`teams.schedule\`, which is also where a future week's opponent is. The team total is ESPN's own; the per-player figures sum to within a fraction of a point of it. Pass \`owners\` for one matchup rather than the whole slate. ${CURRENT_SEASON_ONLY}`,
     {
       owners: OWNERS_ARG,
       week: z.number().int().optional().describe('Week. Defaults to the current NFL week.'),

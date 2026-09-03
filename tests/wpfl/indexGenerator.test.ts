@@ -199,12 +199,15 @@ describe('indexGenerator', () => {
       expect(index).toMatch(/never|do not|don't/i);
     });
 
-    // The first live matchup question pulled the whole week's boxscores --
-    // seven matchups of zeroes, before kickoff -- for an opponent and a win
-    // probability that sit in the artifact's schedule.
-    test('routes the schedule and the sim odds to the artifact, not to ESPN', () => {
-      expect(index).toMatch(/\| Who an owner plays each week.*\| `teams\.schedule`/);
-      expect(index).toMatch(/espn_boxscores` is for scores once a week is played/);
+    // Two different numbers answer "who's favoured". The draft-night sim's
+    // odds for every week sit in the artifact's schedule; ESPN's projection
+    // and win probability for the current week ride on the boxscores. The
+    // first live matchup question was answered from the sim alone, and the
+    // routing written after it sent every "win odds" question there.
+    test("routes the season's sim odds to the artifact and this week's forecast to ESPN", () => {
+      expect(index).toMatch(/\| Who an owner plays each week.*sim.*\| `teams\.schedule`/);
+      expect(index).toMatch(/\| .*this week.*projected.*win probability.*\| `espn_boxscores`/i);
+      expect(index).not.toMatch(/espn_boxscores` is for scores once a week is played/);
     });
   });
   /**

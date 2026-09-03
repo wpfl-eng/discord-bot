@@ -104,7 +104,9 @@ describe('espnTools', () => {
 
     // The status rides on the lineup so a matchup question is one call. The
     // first live one fetched all fourteen rosters to learn eighteen statuses.
-    test('projects each lineup to name, slot, points and injury status', () => {
+    // The projection rides on the lineup too: it is what says why one side is
+    // favoured and which starter the gap turns on.
+    test('projects each lineup to name, slot, points, injury status and projection', () => {
       const matchups = toBoxscores(recording);
 
       expect(matchups[0].home[0]).toEqual({
@@ -112,6 +114,7 @@ describe('espnTools', () => {
         position: 'WR',
         points: 0,
         injuryStatus: 'QUESTIONABLE',
+        projected: 17.38,
       });
     });
 
@@ -121,6 +124,81 @@ describe('espnTools', () => {
       const matchups = toBoxscores([{ ...recording[0], homeRoster: [noStatus] }]);
 
       expect(matchups[0].home[0].injuryStatus).toBeNull();
+    });
+
+    // ESPN sends a player's projection as a per-item breakdown; the fork maps
+    // the items and nothing totals them. A player it has nothing for -- IR, a
+    // bye -- comes back as an empty breakdown, or none at all.
+    test('a player ESPN has no projection for projects 0, not NaN or undefined', () => {
+      const { projectedPointBreakdown, ...noBreakdown } = recording[0].homeRoster[0];
+      expect(projectedPointBreakdown).toBeDefined();
+      const matchups = toBoxscores([
+        {
+          ...recording[0],
+          homeRoster: [
+            noBreakdown,
+            { ...noBreakdown, projectedPointBreakdown: { usesPoints: true } },
+          ],
+        },
+      ]);
+
+      expect(matchups[0].home.map((p) => p.projected)).toEqual([0, 0]);
+    });
+
+    // The run that prompted this answered "who's favoured" from the draft sim
+    // and wrote "no per-week win probability is published" -- while the fork
+    // had ESPN's at 0.53 for that game and this projection dropped it.
+    test("carries ESPN's projected total and win probability for each side", () => {
+      const matchups = toBoxscores(recording);
+
+      expect(matchups[0]).toMatchObject({
+        homeProjected: 105.66,
+        awayProjected: 103.26,
+        homeWinProbability: 0.51,
+        awayWinProbability: 0.49,
+      });
+    });
+
+    // ESPN publishes those for the current matchup period only. For any other
+    // week the fork leaves them undefined, which JSON.stringify would drop, and
+    // the agent could not tell "not published" from "not a field this tool has".
+    test('a week ESPN publishes no projection for is null, not missing', () => {
+      const {
+        homeProjectedScore,
+        awayProjectedScore,
+        homeWinProbability,
+        awayWinProbability,
+        ...pastWeek
+      } = recording[0];
+      expect([
+        homeProjectedScore,
+        awayProjectedScore,
+        homeWinProbability,
+        awayWinProbability,
+      ]).not.toContain(undefined);
+      const [matchup] = toBoxscores([pastWeek]);
+
+      expect(matchup.homeProjected).toBeNull();
+      expect(matchup.awayProjected).toBeNull();
+      expect(matchup.homeWinProbability).toBeNull();
+      expect(matchup.awayWinProbability).toBeNull();
+    });
+
+    test('does not leak the raw ESPN matchup into the agent context', () => {
+      const matchups = toBoxscores(recording);
+
+      expect(Object.keys(matchups[0]).sort()).toEqual([
+        'away',
+        'awayOwner',
+        'awayProjected',
+        'awayScore',
+        'awayWinProbability',
+        'home',
+        'homeOwner',
+        'homeProjected',
+        'homeScore',
+        'homeWinProbability',
+      ]);
     });
   });
 
@@ -429,9 +507,21 @@ describe('espnTools', () => {
 
       expect(teams?.description).toContain('`owners`');
       expect(boxscores?.description).toContain('`owners`');
-      // Before kickoff the slate is fourteen lineups of zeroes; the schedule
-      // and the sim odds are in the artifact.
+      // A future week's opponent, and the sim's odds for every week, are in
+      // the artifact; ESPN has nothing for a week it is not yet scoring.
       expect(boxscores?.description).toContain('teams.schedule');
+    });
+
+    // The description used to send "who's favoured" to the artifact's sim.
+    // That is a season forecast frozen on draft night; the week's forecast is
+    // ESPN's, and it is in this tool's own result.
+    test('espn_boxscores says it carries the projections and win probability, and for which week', () => {
+      const boxscores = espnTools.find((t) => t.name === 'espn_boxscores');
+
+      expect(boxscores?.description).toMatch(/projected total/i);
+      expect(boxscores?.description).toMatch(/win probability/i);
+      expect(boxscores?.description).toMatch(/current week only/i);
+      expect(boxscores?.description).toMatch(/draft-night sim/i);
     });
 
     test('every ESPN description distinguishes itself from the historical sources', () => {
