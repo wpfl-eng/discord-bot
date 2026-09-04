@@ -105,6 +105,18 @@ describe('the chart tool', () => {
     expect(h.deps.runSql).not.toHaveBeenCalled();
   });
 
+  test('two calls in flight at once cannot draw past the ceiling', async () => {
+    const h = harness();
+    for (let i = 0; i < ASK.PICTURES.PER_ANSWER - 1; i += 1) await h.chart(request);
+
+    // Both pass the gate before either has added; the ceiling still holds.
+    const results = await Promise.all([h.chart(request), h.chart(request)]);
+
+    expect(h.collector.pictures).toHaveLength(ASK.PICTURES.PER_ANSWER);
+    expect(results.filter((r) => r.isError === true)).toHaveLength(1);
+    expect(text(results.find((r) => r.isError === true) as CallToolResult)).toContain(FALLBACK);
+  });
+
   test('the switch refuses before running any SQL', async () => {
     const h = harness({ enabled: false });
     const result = await h.chart(request);

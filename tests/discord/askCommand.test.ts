@@ -36,6 +36,7 @@ const {
   onThreadArchived,
   suffixLines,
   CONTEXT_LOST,
+  FOLLOW_UP_HINT,
   PICTURE_FAILED,
 } = await import('../../ask/thread.js');
 const { execute, data } = await import('../../discordCommands/ask/ask.js');
@@ -483,6 +484,37 @@ describe('the /ask command', () => {
           expect(last.files ?? []).toHaveLength(0);
           expect(last.content).toContain('**Answer.**');
           expect(last.content).toContain(PICTURE_FAILED);
+        });
+
+        test('the retry never pushes a part past the Discord limit to say so', async () => {
+          // The final post is the ticker's header, a blank line, the answer, a
+          // blank line and the follow-up hint. Sized so all of that fits in one
+          // message with the token line in it, and the notice would not once
+          // the token line is gone: the retry has to choose.
+          const header: number = '🤖 **CommishBot**'.length + 2;
+          const token: string = tokenFor(PICTURE.id);
+          const room: number = 2000 - header - token.length - 1 - 2 - FOLLOW_UP_HINT.length;
+          const body: string = 'x'.repeat(room - 4);
+          scripted(`${body}\n${token}`, [PICTURE]);
+          const { interaction: i, message } = posting();
+          message.edit.mockImplementation(async (...args: unknown[]) => {
+            const payload = args[0] as { content: string; files?: unknown[] };
+            if ((payload.files?.length ?? 0) > 0) throw new Error('413 Payload Too Large');
+            if (payload.content.length > 2000) throw new Error('400 Must be 2000 or fewer');
+            return undefined;
+          });
+
+          await execute(i);
+
+          const withFiles = message.edit.mock.calls.filter(
+            (call) => ((call[0] as { files?: unknown[] }).files?.length ?? 0) > 0
+          );
+          expect(withFiles).toHaveLength(1);
+          const last = lastEdit(message);
+          expect(last.files ?? []).toHaveLength(0);
+          expect(last.content.length).toBeLessThanOrEqual(2000);
+          expect(last.content).toContain(body);
+          expect(last.content).not.toContain(PICTURE_FAILED);
         });
       });
 

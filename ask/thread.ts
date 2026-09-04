@@ -30,6 +30,7 @@ import {
   createTicker,
   createThrottledEditor,
   splitForDiscord,
+  DISCORD_LIMIT,
   wrapPipeTables,
   type Ticker,
 } from './ticker.js';
@@ -509,6 +510,9 @@ async function post(
     await send({ ...payload, files });
   } catch (error: unknown) {
     logError('ask', 'Could not post the answer with its pictures; posting without them', error);
-    await send({ ...payload, content: `${payload.content}\n\n${PICTURE_FAILED}` });
+    // The notice only where it fits: a part within a line of the limit goes
+    // out as it is, rather than fail again over the line that says so.
+    const noted: string = `${payload.content}\n\n${PICTURE_FAILED}`;
+    await send({ ...payload, content: noted.length <= DISCORD_LIMIT ? noted : payload.content });
   }
 }

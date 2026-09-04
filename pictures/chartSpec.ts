@@ -145,6 +145,17 @@ function distinct(rows: readonly Row[], column: string | undefined): string[] {
   return [...new Set(rows.map((row: Row): string => String(row[column])))];
 }
 
+/** The first datum whose x already appeared in its series, or null when every (x, series) is one row. */
+function repeatedX(data: readonly Datum[]): Datum | null {
+  const seen = new Set<string>();
+  for (const d of data) {
+    const key: string = JSON.stringify([d.k0, d.k2 ?? '']);
+    if (seen.has(key)) return d;
+    seen.add(key);
+  }
+  return null;
+}
+
 // ---- bar ----
 
 function bar(
@@ -170,13 +181,11 @@ function bar(
       `Label \`${long}\` is longer than ${P.LABEL_MAX_CHARS} characters. Shorten it in SQL.`
     );
   }
-  const seen = new Set<string>();
-  for (const d of data) {
-    const key: string = JSON.stringify([d.k0, d.k2 ?? '']);
-    if (seen.has(key)) {
-      return refuse(`\`${d.k0}\` appears more than once. Aggregate in SQL so each bar is one row.`);
-    }
-    seen.add(key);
+  const twice: Datum | null = repeatedX(data);
+  if (twice !== null) {
+    return refuse(
+      `\`${twice.k0}\` appears more than once. Aggregate in SQL so each bar is one row.`
+    );
   }
 
   const grouped: boolean = request.series !== undefined;
@@ -242,6 +251,14 @@ function line(
 ): Built<TopLevelSpec> {
   const { request } = input;
   if (data.length < 2) return refuse('A line needs at least 2 points.');
+  // Vega joins the points of one series in x order; two rows at one x draw a
+  // vertical step that reads as a swing. Unaggregated rows are not a series.
+  const twice: Datum | null = repeatedX(data);
+  if (twice !== null) {
+    return refuse(
+      `\`${twice.k0}\` appears more than once. Aggregate in SQL so each point is one row, or name the column that tells the rows apart as series.`
+    );
+  }
 
   return ok(
     toSpec({

@@ -97,13 +97,13 @@ export function createPictureTools(
     sql: string,
     build: (rows: SqlResult['rows']) => Built<TopLevelSpec | string>
   ): Promise<CallToolResult> {
-    if (!deps.enabled) return refusal(`Pictures are switched off. ${FALLBACK}`);
-    if (!deps.available()) return refusal(`${UNAVAILABLE} ${FALLBACK}`);
-    if (collector.full) {
-      return refusal(
+    const atCeiling = (): CallToolResult =>
+      refusal(
         `This answer already has ${P.PER_ANSWER} pictures, the most it can carry. ${FALLBACK}`
       );
-    }
+    if (!deps.enabled) return refusal(`Pictures are switched off. ${FALLBACK}`);
+    if (!deps.available()) return refusal(`${UNAVAILABLE} ${FALLBACK}`);
+    if (collector.full) return atCeiling();
 
     const started: number = Date.now();
     // Throws on a refused statement, exactly as `sql` does.
@@ -125,6 +125,8 @@ export function createPictureTools(
     const png: Buffer | null = await deps.rasterise(svg);
     if (png === null) return refusal(`${UNAVAILABLE} ${FALLBACK}`);
 
+    // Two calls in flight can both pass the gate above; the ceiling holds here.
+    if (collector.full) return atCeiling();
     const n: number = result.rows.length;
     const picture = collector.add({ kind, title, alt: `${title}: ${kind} of ${n} rows`, png });
     // The only record of a render outside the transcript, beside the

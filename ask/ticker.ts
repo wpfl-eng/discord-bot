@@ -19,7 +19,7 @@ import { truncate } from '../helpers/utils.js';
 import { plural } from '../casino/casinoFormat.js';
 import { logError } from '../errors/errorHandler.js';
 
-const DISCORD_LIMIT = 2000;
+export const DISCORD_LIMIT = 2000;
 const HEADER = '🤖 **CommishBot**';
 
 export interface Ticker extends AskSink {

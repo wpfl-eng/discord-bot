@@ -232,6 +232,31 @@ describe('buildChart', () => {
       expect(category).toContain('`owner`');
     });
 
+    test('a line whose x repeats in one series, so unaggregated rows cannot zigzag as a trend', () => {
+      const rows = [
+        { season: '2021', points: '100' },
+        { season: '2021', points: '80' },
+        { season: '2022', points: '90' },
+      ];
+      const text = refusalOf(
+        buildChart(input({ rows, sql: 'SELECT 1' }, { kind: 'line', x: 'season', y: 'points' }))
+      );
+      expect(text).toContain('2021');
+      expect(text).toMatch(/aggregate/i);
+      expect(text).toMatch(/series/);
+
+      // The same seasons under two series names are two lines, not a repeat.
+      const bySeries = rows.map((row, i) => ({ ...row, who: i === 1 ? 'b' : 'a' }));
+      expect(
+        buildChart(
+          input(
+            { rows: bySeries, sql: 'SELECT 1' },
+            { kind: 'line', x: 'season', y: 'points', series: 'who' }
+          )
+        ).ok
+      ).toBe(true);
+    });
+
     test('a category that appears twice, so a forgotten GROUP BY cannot stack silently', () => {
       const rows = [...ranking(3), { owner: 'AJ Boorde', points: '1' }];
       const text = refusalOf(buildChart(input({ rows })));

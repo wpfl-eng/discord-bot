@@ -2,11 +2,12 @@
  * The picture renderer: a Vega-Lite spec to SVG through Vega, and SVG to PNG
  * through sharp (design §11).
  *
- * Vega is imported lazily and a failure to load is remembered, so a host
- * that cannot draw pays one attempt and then refuses every picture with the
- * text fallback -- the stance helpers/svg takes with sharp, which the casino's
- * hero frames share. Vega is pure JavaScript and is not loaded at import
- * time, so a test of the spec builders never pays for it.
+ * Vega is imported lazily, and a failure to load -- or a warm-up that could
+ * not draw -- is remembered, so a host that cannot draw pays one attempt and
+ * then refuses every picture with the text fallback before any SQL runs: the
+ * stance helpers/svg takes with sharp, which the casino's hero frames share.
+ * Vega is pure JavaScript and is not loaded at import time, so a test of the
+ * spec builders never pays for it.
  *
  * Vega renders without node-canvas and estimates text widths, so every spec
  * fixes its own size and padding rather than letting Vega autosize from those
@@ -29,6 +30,8 @@ interface Engines {
 
 let engines: Engines | null = null;
 let vegaUnavailable = false;
+/** Set by a warm-up that could not draw. sharp can load and still not rasterise. */
+let warmUpFailed = false;
 
 async function loadEngines(): Promise<Engines> {
   if (engines !== null) return engines;
@@ -49,9 +52,9 @@ async function loadEngines(): Promise<Engines> {
   }
 }
 
-/** False once either engine has failed to load; the tools then refuse before running any SQL. */
+/** False once an engine has failed to load or the warm-up could not draw; the tools then refuse before running any SQL. */
 export function picturesAvailable(): boolean {
-  return !vegaUnavailable && sharpAvailable();
+  return !vegaUnavailable && !warmUpFailed && sharpAvailable();
 }
 
 /**
@@ -102,9 +105,10 @@ export async function warmPictures(): Promise<boolean> {
   try {
     const svg: string = await renderSvg(WARM_UP);
     const png: Buffer | null = await rasterise(svg);
-    return png !== null;
+    warmUpFailed = png === null;
   } catch (error: unknown) {
     logError('ask', 'Picture warm-up failed; pictures will be refused', error);
-    return false;
+    warmUpFailed = true;
   }
+  return !warmUpFailed;
 }
