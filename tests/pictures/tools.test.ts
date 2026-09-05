@@ -24,6 +24,7 @@ function harness(over: Partial<PictureDeps> = {}): Harness {
   const collector = createCollector('AJ Boorde');
   const deps: PictureDeps = {
     runSql: jest.fn(async (): Promise<SqlResult> => ({ rows: ROWS, truncated: false })),
+    readsCatalogTable: jest.fn(async (): Promise<boolean | null> => true),
     renderSvg: jest.fn(async (): Promise<string> => '<svg/>'),
     rasterise: jest.fn(async (): Promise<Buffer | null> => Buffer.from('png-bytes')),
     owners: OWNERS,
@@ -153,6 +154,60 @@ describe('the chart tool', () => {
     expect(text(result)).toContain('unavailable');
   });
 
+  /**
+   * Every value in a picture is a row the query returned, and a statement
+   * made of literals satisfies that to the letter while the model typed every
+   * figure. The gate asks the engine's parser whether a catalogue table is
+   * read, before any SQL runs; the engine's answer is a dependency here.
+   */
+  describe('the provenance gate', () => {
+    const literal = {
+      ...request,
+      sql: "SELECT * FROM (VALUES ('AJ', 108.03), ('Forrest', 102.73)) t(owner, pts) ORDER BY pts DESC",
+    };
+
+    test('a statement that reads no table is refused before any SQL runs', async () => {
+      const h = harness({ readsCatalogTable: jest.fn(async (): Promise<boolean | null> => false) });
+      const result = await h.chart(literal);
+
+      expect(result.isError).toBe(true);
+      expect(text(result)).toMatch(/reads no table/);
+      expect(text(result)).toMatch(/never carries a figure you typed/);
+      expect(text(result)).toMatch(/live_\*/);
+      expect(text(result)).toContain(FALLBACK);
+      expect(h.deps.runSql).not.toHaveBeenCalled();
+      expect(h.collector.pictures).toHaveLength(0);
+    });
+
+    test('the table tool applies the same gate', async () => {
+      const h = harness({ readsCatalogTable: jest.fn(async (): Promise<boolean | null> => false) });
+      const result = await h.table({ sql: literal.sql, title: 'Typed' });
+
+      expect(result.isError).toBe(true);
+      expect(text(result)).toMatch(/reads no table/);
+      expect(h.deps.runSql).not.toHaveBeenCalled();
+    });
+
+    test('a statement the parser cannot read falls through, so the engine reports the real error', async () => {
+      const h = harness({
+        readsCatalogTable: jest.fn(async (): Promise<boolean | null> => null),
+        runSql: jest.fn(async (): Promise<SqlResult> => {
+          throw new Error('Parser Error: syntax error at or near "SELEC"');
+        }),
+      });
+
+      await expect(h.chart({ ...request, sql: 'SELEC owner FROM t' })).rejects.toThrow(/Parser/);
+      expect(h.deps.runSql).toHaveBeenCalled();
+    });
+
+    test('the gate runs after the cheap gates, so a switched-off host never parses anything', async () => {
+      const h = harness({ enabled: false });
+      await h.chart(request);
+
+      expect(h.deps.readsCatalogTable).not.toHaveBeenCalled();
+    });
+  });
+
   test("a refused statement is the sql engine's own refusal, thrown the way sql throws it", async () => {
     const h = harness({
       runSql: jest.fn(async (): Promise<SqlResult> => {
@@ -225,5 +280,16 @@ describe('descriptions', () => {
       /line \(x is a season or week number with one row per x per series/
     );
     expect(chart.description).toMatch(/aggregate first/);
+  });
+
+  test('both tools state the provenance rule and where a live figure lives', () => {
+    const tools = createPictureTools(createCollector('AJ Boorde'), harness().deps);
+    for (const name of ['chart', 'table']) {
+      const definition = tools.find((t) => t.name === name);
+      if (definition === undefined) throw new Error('missing tool');
+      expect(definition.description).toMatch(/never carries a figure you typed/);
+      expect(definition.description).toMatch(/literals alone is refused/);
+      expect(definition.description).toMatch(/live_\* table this run/);
+    }
   });
 });

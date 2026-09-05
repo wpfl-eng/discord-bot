@@ -448,6 +448,76 @@ function shredStamp(dataDir: string): number {
   return fs.statSync(metaFile(dataDir), { throwIfNoEntry: false })?.mtimeMs ?? 0;
 }
 
+/**
+ * Whether a statement reads at least one table the database has, by DuckDB's
+ * own parser: the picture tools' provenance gate.
+ *
+ * Every value in a picture is a row the query returned, and a literal-only
+ * statement satisfies that to the letter while the model typed every figure.
+ * A keyword check does not close it: VALUES, a UNION ALL of literal SELECTs,
+ * unnest over array literals and from_json over a literal string are four
+ * doors, and CASE bolted onto a real table a fifth. The parser lists every
+ * base-table reference a statement makes; a CTE name appears there too, so a
+ * literal-only CTE would pass a bare count and the names are checked against
+ * the catalogue instead. The six live names count whether or not this run
+ * has filled them: a query over an unfilled one must reach the engine, whose
+ * error names the tool to call, not stop here with the wrong message.
+ *
+ * @returns true when a catalogue table is read, false when none is, null when
+ *   the statement does not parse -- the caller runs it and gets the real error.
+ */
+export async function readsCatalogTable(
+  sql: string,
+  dataDir: string = ASK.DATA_DIR
+): Promise<boolean | null> {
+  const held: Held = await database(dataDir);
+  const connection: DuckDBConnection = await held.materialized.instance.connect();
+  try {
+    const serialised = await connection.runAndReadAll(
+      'SELECT json_serialize_sql(?::VARCHAR) AS ast',
+      [sql]
+    );
+    const raw: unknown = (serialised.getRowObjectsJson()[0] as { ast?: unknown } | undefined)?.ast;
+    const ast: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!isRecord(ast) || ast.error === true) return null;
+
+    const read = new Set<string>();
+    collectBaseTables(ast, read);
+    if (read.size === 0) return false;
+
+    const tables = await connection.runAndReadAll('SELECT table_name FROM duckdb_tables()');
+    const catalogue = new Set<string>([
+      ...tables
+        .getRowObjectsJson()
+        .map((row: Record<string, unknown>): string => String(row.table_name).toLowerCase()),
+      ...LIVE_TABLE_NAMES,
+    ]);
+    return [...read].some((name: string): boolean => catalogue.has(name));
+  } catch {
+    return null;
+  } finally {
+    connection.closeSync();
+    held.release();
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** Every `BASE_TABLE` node's name, lower-cased, anywhere in the serialised statement. */
+function collectBaseTables(node: unknown, into: Set<string>): void {
+  if (Array.isArray(node)) {
+    for (const item of node) collectBaseTables(item, into);
+    return;
+  }
+  if (!isRecord(node)) return;
+  if (node.type === 'BASE_TABLE' && typeof node.table_name === 'string') {
+    into.add(node.table_name.toLowerCase());
+  }
+  for (const value of Object.values(node)) collectBaseTables(value, into);
+}
+
 /** "live_matchups and live_lineups (espn_boxscores), ..." for the description, from the declaration. */
 function liveTablesByTool(): string {
   const byTool = new Map<string, LiveTableName[]>();

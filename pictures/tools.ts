@@ -17,7 +17,7 @@ import type { TopLevelSpec } from 'vega-lite';
 import { ASK } from '../ask/askConfig.js';
 import { wpflMembers, type WpflMember } from '../constants/wpflMembers.js';
 import { errorMessage } from '../errors/errorHandler.js';
-import { runSql, type SqlResult } from '../wpfl/sqlTool.js';
+import { runSql, readsCatalogTable, type SqlResult } from '../wpfl/sqlTool.js';
 import { textResult, type AnyTool } from '../wpfl/toolResult.js';
 import { buildChart, CHART_KINDS } from './chartSpec.js';
 import { buildTable } from './tableSvg.js';
@@ -30,6 +30,12 @@ const P = ASK.PICTURES;
 /** Injected so the tools are tested without DuckDB, Vega or sharp. */
 export interface PictureDeps {
   readonly runSql: (sql: string) => Promise<SqlResult>;
+  /**
+   * The provenance gate: true when the statement reads a table the database
+   * has, false when it reads none, null when it does not parse (then `runSql`
+   * produces the real error). See `readsCatalogTable` in wpfl/sqlTool.ts.
+   */
+  readonly readsCatalogTable: (sql: string) => Promise<boolean | null>;
   readonly renderSvg: (spec: TopLevelSpec) => Promise<string>;
   readonly rasterise: (svg: string) => Promise<Buffer | null>;
   /** Every canonical owner name, for the table's highlight. */
@@ -42,12 +48,17 @@ export interface PictureDeps {
 
 const DEFAULT_DEPS: PictureDeps = {
   runSql,
+  readsCatalogTable,
   renderSvg,
   rasterise,
   owners: wpflMembers.map((member: WpflMember): string => member.owner),
   enabled: P.ENABLED,
   available: picturesAvailable,
 };
+
+/** The provenance rule, in both descriptions and in the refusal that enforces it. */
+const NO_TYPED_FIGURES =
+  "A picture never carries a figure you typed: the query must read a table, and a statement made of literals alone is refused. Figures from an espn_* result are in that tool's live_* table this run.";
 
 const CHART_DESCRIPTION: string = [
   'Draw a chart from one read-only SQL statement and get a token to place in the answer. Every',
@@ -62,7 +73,7 @@ const CHART_DESCRIPTION: string = [
   'points or more). series names a column that colours the marks and groups the bars, at most',
   `${P.SERIES_MAX} values. At most ${P.PER_ANSWER} pictures an answer, aliases of`,
   `${P.ALIAS_MAX_CHARS} characters, titles of ${P.TITLE_MAX_CHARS}. Never a pie chart: it cannot`,
-  'show a ranking. A refusal says why and what to do instead.',
+  `show a ranking. ${NO_TYPED_FIGURES} A refusal says why and what to do instead.`,
 ].join(' ');
 
 const TABLE_DESCRIPTION: string = [
@@ -72,7 +83,7 @@ const TABLE_DESCRIPTION: string = [
   `${P.COLUMNS_MAX} columns; aliases of ${P.ALIAS_MAX_CHARS} characters. Use it for a comparison`,
   `across ${P.TABLE_MIN_COLUMNS} or more columns or a ranking longer than ${ASK.RANKING_MAX_LINES}`,
   `lines; a ranking of ${ASK.RANKING_MAX_LINES} or fewer with one measure is a numbered list in`,
-  'the text. The result carries the rows too, so write the prose from them.',
+  `the text. The result carries the rows too, so write the prose from them. ${NO_TYPED_FIGURES}`,
 ].join(' ');
 
 const TITLE_ARG = z
@@ -110,6 +121,11 @@ export function createPictureTools(
     if (!deps.enabled) return refusal(`Pictures are switched off. ${FALLBACK}`);
     if (!deps.available()) return refusal(`${UNAVAILABLE} ${FALLBACK}`);
     if (collector.full) return atCeiling();
+    // The provenance gate, before any SQL runs. Null means the statement did
+    // not parse, and `runSql` below is what says why.
+    if ((await deps.readsCatalogTable(sql)) === false) {
+      return refusal(`This query reads no table. ${NO_TYPED_FIGURES} ${FALLBACK}`);
+    }
 
     const started: number = Date.now();
     // Throws on a refused statement, exactly as `sql` does.

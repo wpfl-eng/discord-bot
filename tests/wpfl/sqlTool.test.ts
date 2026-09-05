@@ -7,6 +7,7 @@ import { loadFixture } from './support.js';
 import {
   guardStatement,
   runSql,
+  readsCatalogTable,
   resetSqlDatabase,
   createSqlTool,
   type SqlResult,
@@ -508,6 +509,65 @@ describe('sqlTool', () => {
       );
 
       expect(result.rows).toEqual([{ n: '0', top: null }]);
+    });
+
+    /**
+     * The picture tools' provenance gate. A keyword check on VALUES closed one
+     * of at least four literal-only shapes; the parser's list of base tables,
+     * checked against the catalogue, closes them all with one rule. Measured
+     * against the engine rather than reasoned about.
+     */
+    describe('readsCatalogTable', () => {
+      test('a statement over a catalogue table reads one', async () => {
+        expect(await readsCatalogTable('SELECT owner FROM teams ORDER BY owner', dataDir)).toBe(
+          true
+        );
+        expect(
+          await readsCatalogTable(
+            'WITH s AS (SELECT owner, spent FROM teams) SELECT owner FROM s ORDER BY spent DESC',
+            dataDir
+          )
+        ).toBe(true);
+      });
+
+      test('every literal-only shape reads none', async () => {
+        const shapes: string[] = [
+          "SELECT * FROM (VALUES ('AJ', 108.03), ('Forrest', 102.73)) t(owner, pts) ORDER BY pts DESC",
+          "SELECT 'AJ' AS owner, 108.03 AS pts UNION ALL SELECT 'Forrest', 102.73 ORDER BY pts DESC",
+          "SELECT unnest(['AJ', 'Forrest']) AS owner, unnest([108.03, 102.73]) AS pts ORDER BY pts DESC",
+          `SELECT * FROM (SELECT unnest(from_json('[{"o":"AJ","p":108.03}]', '[{"o":"VARCHAR","p":"DOUBLE"}]'), recursive := true)) ORDER BY p`,
+          // A CTE is listed like a table, so a bare count would pass this one.
+          "WITH s AS (SELECT 'AJ' AS owner, 108.03 AS pts) SELECT owner, pts FROM s ORDER BY pts DESC",
+        ];
+        for (const sql of shapes) {
+          expect(await readsCatalogTable(sql, dataDir)).toBe(false);
+        }
+      });
+
+      // A query over an unfilled live table must reach the engine, whose error
+      // names the tool to call; stopping it here would give the wrong message.
+      test('a live table counts whether or not this run has filled it', async () => {
+        expect(
+          await readsCatalogTable(
+            'SELECT owner FROM live_matchups ORDER BY projected DESC',
+            dataDir
+          )
+        ).toBe(true);
+      });
+
+      test('a statement that does not parse is null, so the engine reports the real error', async () => {
+        expect(await readsCatalogTable('SELEC owner FROM teams', dataDir)).toBeNull();
+      });
+
+      test('a CASE bolted onto a real table still reads that table', async () => {
+        // The residual the gate accepts: the motive is gone once live rows have a table.
+        expect(
+          await readsCatalogTable(
+            "SELECT owner, CASE owner WHEN 'AJ Boorde' THEN 108.03 END AS pts FROM teams ORDER BY pts",
+            dataDir
+          )
+        ).toBe(true);
+      });
     });
   });
 
