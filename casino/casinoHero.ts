@@ -13,51 +13,17 @@
 // WHY IT MUST NEVER THROW
 //
 // `sharp` ships native binaries, so it can fail to load on a host where the rest of the
-// bot is perfectly healthy. It is imported lazily and every failure degrades to "no
-// image" - the text frame alone is a complete, playable result. This mirrors the
+// bot is perfectly healthy. helpers/svg imports it lazily and every failure degrades to
+// "no image" - the text frame alone is a complete, playable result. This mirrors the
 // emoji registry's stance that art is an upgrade, never a dependency.
 
 import { AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } from 'discord.js';
-
-// ============ LAZY SHARP ============
-
-// sharp's namespace type is not itself callable, so the factory signature is named
-// explicitly rather than inferred from `typeof import('sharp')`.
-type SharpFactory = (input: Buffer) => import('sharp').Sharp;
-
-let sharpModule: SharpFactory | null = null;
-let sharpUnavailable = false;
-
-/**
- * Load sharp once, remembering failure so a broken install costs one attempt rather
- * than one per round.
- */
-async function loadSharp(): Promise<SharpFactory | null> {
-  if (sharpModule) return sharpModule;
-  if (sharpUnavailable) return null;
-
-  try {
-    const loaded = (await import('sharp')) as unknown as {
-      default?: SharpFactory;
-    };
-    sharpModule = (loaded.default ?? (loaded as unknown as SharpFactory)) as SharpFactory;
-    return sharpModule;
-  } catch (error: unknown) {
-    sharpUnavailable = true;
-    console.warn('[HERO] sharp unavailable; result frames will be text only:', error);
-    return null;
-  }
-}
+import { escapeXml, sharpAvailable, svgToPng } from '../helpers/svg.js';
+import { GROUND, SVG_FONT as FONT } from './casinoTheme.js';
 
 /** Whether hero rendering is currently possible. Used by tests and boot logging. */
 export function heroAvailable(): boolean {
-  return !sharpUnavailable;
-}
-
-/** Test seam: forget the cached module so a fresh attempt is made. */
-export function __resetHeroForTesting(): void {
-  sharpModule = null;
-  sharpUnavailable = false;
+  return sharpAvailable();
 }
 
 // ============ PALETTE ============
@@ -65,10 +31,7 @@ export function __resetHeroForTesting(): void {
 const HERO = {
   width: 640,
   height: 300,
-  bg: '#1B2027',
-  panel: '#23262D',
-  ink: '#FAFAF7',
-  muted: '#9AA3AF',
+  ...GROUND,
   red: '#D0342C',
   black: '#23262D',
   green: '#1E8E4F',
@@ -76,16 +39,6 @@ const HERO = {
   dieFace: '#FAFAF7',
   diePip: '#1B2027',
 } as const;
-
-const FONT = 'DejaVu Sans, Liberation Sans, Noto Sans, sans-serif';
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 // ============ SVG BUILDERS ============
 
@@ -213,22 +166,15 @@ export interface Hero {
  *          simply sends its text frame unchanged
  */
 export async function renderHero(svg: string, altText: string): Promise<Hero | null> {
-  const sharp = await loadSharp();
-  if (!sharp) return null;
+  const png: Buffer | null = await svgToPng(svg);
+  if (png === null) return null;
 
-  try {
-    const png: Buffer = await sharp(Buffer.from(svg)).png({ compressionLevel: 6 }).toBuffer();
+  const file = new AttachmentBuilder(png, { name: HERO_FILENAME });
+  const gallery = new MediaGalleryBuilder().addItems(
+    new MediaGalleryItemBuilder()
+      .setURL(`attachment://${HERO_FILENAME}`)
+      .setDescription(altText.slice(0, 1024))
+  );
 
-    const file = new AttachmentBuilder(png, { name: HERO_FILENAME });
-    const gallery = new MediaGalleryBuilder().addItems(
-      new MediaGalleryItemBuilder()
-        .setURL(`attachment://${HERO_FILENAME}`)
-        .setDescription(altText.slice(0, 1024))
-    );
-
-    return { gallery, file };
-  } catch (error: unknown) {
-    console.error('[HERO] Failed to render result image; falling back to text:', error);
-    return null;
-  }
+  return { gallery, file };
 }

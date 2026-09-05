@@ -261,6 +261,45 @@ describe('systemPrompt', () => {
       expect(how).toMatch(/waiver|FAAB/i);
     });
 
+    /**
+     * Counts and shapes are what a model obeys; "when appropriate" is not.
+     * Four trigger shapes, a ceiling, where the token goes, and the rule that
+     * makes a dropped attachment cosmetic: the first line still carries the
+     * number. "Trend" is avoided on purpose: the analysis rules forbid calling
+     * fewer than 30 points a trend, and a trigger using the word invited it.
+     */
+    test('states when to draw a picture, with counts from askConfig, and where the token goes', () => {
+      const pictures: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# Pictures'));
+
+      expect(pictures.length).toBeGreaterThan(200);
+      expect(pictures).toContain('`chart`');
+      expect(pictures).toContain('`table`');
+      expect(pictures).toContain(`${ASK.RANKING_MAX_LINES} lines`);
+      expect(pictures).toContain(`${ASK.PICTURES.TABLE_MIN_COLUMNS} or more columns`);
+      expect(pictures).toMatch(/5 or more seasons or weeks/);
+      expect(pictures).toMatch(/relationship/i);
+      expect(pictures).toContain(`At most ${ASK.PICTURES.PER_ANSWER} pictures`);
+      expect(pictures).toMatch(/end of the body/);
+      expect(pictures).toMatch(/do not count/);
+      expect(pictures).toMatch(/sample size/);
+      expect(pictures).toMatch(/reads whole without/);
+      expect(pictures).toMatch(/restate/);
+      expect(pictures).toMatch(/refus/);
+      expect(pictures).not.toMatch(/trend/i);
+    });
+
+    test('a ranking longer than the list ceiling is a picture, and the ceiling comes from askConfig', () => {
+      const how: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# How to answer'));
+      expect(how).toContain(`at most ${ASK.RANKING_MAX_LINES} lines`);
+    });
+
+    // `table` is now a tool as well as a thing in the database.
+    test('says "SQL table" wherever the word could mean the tool', () => {
+      const how: string = STATIC_PROMPT.slice(STATIC_PROMPT.indexOf('# How to answer'));
+      expect(how).toMatch(/SQL tables/);
+      expect(how).not.toMatch(/naming the tables and tools/);
+    });
+
     // "Dry" is where the idioms came from; direct and numerate stay.
     test('keeps the league voice direct and numerate, and drops "dry"', () => {
       expect(STATIC_PROMPT).toMatch(/direct/i);

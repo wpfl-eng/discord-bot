@@ -8,20 +8,29 @@
  * reaches them through their declared schemas and nothing else.
  */
 
-import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import {
+  createSdkMcpServer,
+  type McpSdkServerConfigWithInstance,
+} from '@anthropic-ai/claude-agent-sdk';
 import { ASK } from '../ask/askConfig.js';
 import { sqlTool } from './sqlTool.js';
 import { wpflApiTools } from './wpflApiTools.js';
 import { espnTools } from './espnTools.js';
+import { createPictureTools } from '../pictures/tools.js';
+import type { PictureCollector } from '../pictures/collector.js';
 import type { AnyTool } from './toolResult.js';
 
 /**
- * All eight schemas ride in the initial prompt. Tool search is on by default
+ * The eight league tools, the same on every run. The two picture tools are
+ * built per run, because they close over that run's collector.
+ *
+ * All ten schemas ride in the initial prompt. Tool search is on by default
  * and defers any MCP schema it is not told to keep; loading a deferred one
  * costs a model round trip on a ticker somebody is watching. The SDK's own
- * guidance is to load everything upfront under ten tools, and the eight
- * together serialise to about two thousand tokens, cached after the first
- * turn. Declared once, on the server, rather than per tool (log Stage 14).
+ * guidance is to load everything upfront at ten tools or fewer, and the ten
+ * together serialise to about twenty-five hundred tokens, cached after the
+ * first turn. Declared once, on the server, rather than per tool (log
+ * Stage 14).
  */
 export const wpflTools: AnyTool[] = [sqlTool, ...wpflApiTools, ...espnTools];
 
@@ -32,12 +41,19 @@ export const wpflTools: AnyTool[] = [sqlTool, ...wpflApiTools, ...espnTools];
  */
 export const WPFL_SERVER = 'wpfl';
 
-export const wpflServer = createSdkMcpServer({
-  name: WPFL_SERVER,
-  version: '1.0.0',
-  alwaysLoad: true,
-  timeout: ASK.MCP_TOOL_TIMEOUT_MS,
-  instructions:
-    "Tools for the WPFL fantasy football league. `sql` reaches ten years of rows and the 2026 draft artifact; the espn_* tools are the only source for the season in progress; expected_wins, optimal_coaching and drafted_points are computed by the league's own history API and must never be worked out by hand.",
-  tools: wpflTools,
-});
+/**
+ * A server for one run. The tool schemas are identical text from run to
+ * run, so the prompt cache still hits; only the picture tools' closure
+ * differs.
+ */
+export function createWpflServer(collector: PictureCollector): McpSdkServerConfigWithInstance {
+  return createSdkMcpServer({
+    name: WPFL_SERVER,
+    version: '1.0.0',
+    alwaysLoad: true,
+    timeout: ASK.MCP_TOOL_TIMEOUT_MS,
+    instructions:
+      "Tools for the WPFL fantasy football league. `sql` reaches ten years of rows and the 2026 draft artifact; the espn_* tools are the only source for the season in progress; expected_wins, optimal_coaching and drafted_points are computed by the league's own history API and must never be worked out by hand; `chart` and `table` draw a query's rows as a picture and hand back a token for the answer.",
+    tools: [...wpflTools, ...createPictureTools(collector)],
+  });
+}

@@ -1,5 +1,6 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { ChannelType, MessageFlags } from 'discord.js';
+import { ChannelType, MessageFlags, type AttachmentBuilder } from 'discord.js';
+import { tokenFor, UNAVAILABLE_LINE, type Picture } from '../../pictures/collector.js';
 
 jest.unstable_mockModule('../../ask/askDb.js', () => ({
   getSession: jest.fn(),
@@ -35,6 +36,8 @@ const {
   onThreadArchived,
   suffixLines,
   CONTEXT_LOST,
+  FOLLOW_UP_HINT,
+  PICTURE_FAILED,
 } = await import('../../ask/thread.js');
 const { execute, data } = await import('../../discordCommands/ask/ask.js');
 const { earlyRefusal, preflight } = await import('../../ask/preflight.js');
@@ -314,7 +317,7 @@ describe('the /ask command', () => {
      * simplification review, which noticed `outcome.text` had no consumer.
      */
     describe('what gets published', () => {
-      const scripted = (text: string): void => {
+      const scripted = (text: string, pictures: readonly Picture[] = []): void => {
         (askRunner.runAsk as jest.Mock).mockImplementation(((
           _request: unknown,
           sink: { onText(chunk: string): void }
@@ -331,9 +334,26 @@ describe('the /ask command', () => {
             timedOut: false,
             counted: true,
             opsFailure: null,
+            pictures,
           });
         }) as never);
       };
+
+      const PICTURE: Picture = {
+        id: '0123abcd',
+        kind: 'bar',
+        title: 'Points for',
+        alt: 'Points for: bar of 3 rows',
+        png: Buffer.from('png-bytes'),
+      };
+
+      const lastEdit = (message: {
+        edit: jest.Mock;
+      }): { content: string; files?: AttachmentBuilder[] } =>
+        message.edit.mock.calls[message.edit.mock.calls.length - 1][0] as {
+          content: string;
+          files?: AttachmentBuilder[];
+        };
 
       const posting = (): {
         interaction: never;
@@ -390,6 +410,114 @@ describe('the /ask command', () => {
         expect(last).toContain('```\n| Owner | $ |\n|---|---|\n| Mims | 21 |\n```');
       });
 
+      describe('pictures', () => {
+        test('attaches the pictures the answer references, with alt text, and strips the tokens', async () => {
+          scripted(`**Answer.**\n- one\n${tokenFor(PICTURE.id)}\n_footer_`, [PICTURE]);
+          const { interaction: i, message } = posting();
+
+          await execute(i);
+
+          const last = lastEdit(message);
+          expect(last.content).toContain('**Answer.**\n- one\n_footer_');
+          expect(last.content).not.toContain('[[picture');
+          expect(last.files).toHaveLength(1);
+          expect(last.files?.[0].name).toBe('picture-0123abcd.png');
+          expect(last.files?.[0].description).toBe(PICTURE.alt);
+        });
+
+        test('a picture the answer never referenced is not attached', async () => {
+          scripted('**Answer with no picture.**', [PICTURE]);
+          const { interaction: i, message } = posting();
+
+          await execute(i);
+
+          expect(lastEdit(message).files ?? []).toHaveLength(0);
+        });
+
+        test('a token that matches nothing becomes a visible line, and is logged', async () => {
+          const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+          try {
+            scripted(`**Answer.**\n${tokenFor('deadbeef')}\n_footer_`, [PICTURE]);
+            const { interaction: i, message } = posting();
+
+            await execute(i);
+
+            const last = lastEdit(message);
+            expect(last.content).toContain(UNAVAILABLE_LINE);
+            expect(last.files ?? []).toHaveLength(0);
+            expect(warn.mock.calls.map((call) => String(call[0]))).toContainEqual(
+              expect.stringMatching(/deadbeef/)
+            );
+          } finally {
+            warn.mockRestore();
+          }
+        });
+
+        test('logs the answer length without the tokens, which do not count toward the cap', async () => {
+          const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+          try {
+            scripted(`Jimmy paid $54.\n${tokenFor(PICTURE.id)}`, [PICTURE]);
+            const { interaction: i } = posting();
+
+            await execute(i);
+
+            expect(log.mock.calls.map((call) => String(call[0]))).toContainEqual(
+              expect.stringMatching(/^\[ASK\] answer thread-1: 15 chars/)
+            );
+          } finally {
+            log.mockRestore();
+          }
+        });
+
+        test('retries the final edit without files when the upload is rejected, and says so', async () => {
+          scripted(`**Answer.**\n${tokenFor(PICTURE.id)}`, [PICTURE]);
+          const { interaction: i, message } = posting();
+          message.edit.mockImplementation(async (...args: unknown[]) => {
+            const payload = args[0] as { files?: unknown[] };
+            if ((payload.files?.length ?? 0) > 0) throw new Error('413 Payload Too Large');
+            return undefined;
+          });
+
+          await execute(i);
+
+          const last = lastEdit(message);
+          expect(last.files ?? []).toHaveLength(0);
+          expect(last.content).toContain('**Answer.**');
+          expect(last.content).toContain(PICTURE_FAILED);
+        });
+
+        test('the retry never pushes a part past the Discord limit to say so', async () => {
+          // The final post is the ticker's header, a blank line, the answer, a
+          // blank line and the follow-up hint. Sized so all of that fits in one
+          // message with the token line in it, and the notice would not once
+          // the token line is gone: the retry has to choose.
+          const header: number = '🤖 **CommishBot**'.length + 2;
+          const token: string = tokenFor(PICTURE.id);
+          const room: number = 2000 - header - token.length - 1 - 2 - FOLLOW_UP_HINT.length;
+          const body: string = 'x'.repeat(room - 4);
+          scripted(`${body}\n${token}`, [PICTURE]);
+          const { interaction: i, message } = posting();
+          message.edit.mockImplementation(async (...args: unknown[]) => {
+            const payload = args[0] as { content: string; files?: unknown[] };
+            if ((payload.files?.length ?? 0) > 0) throw new Error('413 Payload Too Large');
+            if (payload.content.length > 2000) throw new Error('400 Must be 2000 or fewer');
+            return undefined;
+          });
+
+          await execute(i);
+
+          const withFiles = message.edit.mock.calls.filter(
+            (call) => ((call[0] as { files?: unknown[] }).files?.length ?? 0) > 0
+          );
+          expect(withFiles).toHaveLength(1);
+          const last = lastEdit(message);
+          expect(last.files ?? []).toHaveLength(0);
+          expect(last.content.length).toBeLessThanOrEqual(2000);
+          expect(last.content).toContain(body);
+          expect(last.content).not.toContain(PICTURE_FAILED);
+        });
+      });
+
       // The prompt states a length cap that nothing enforces. This line is
       // how anyone finds out whether it is obeyed, without a schema change: a
       // forgotten migration would have switched the caps off, since they
@@ -424,6 +552,7 @@ describe('the /ask command', () => {
             counted: false,
             opsFailure: null,
             error: 'spawn failed',
+            pictures: [],
           })) as never);
         const { interaction: i, message } = posting();
 
@@ -455,6 +584,7 @@ describe('the /ask command', () => {
             counted: false,
             opsFailure: null,
             error: 'No conversation found with session ID: s1',
+            pictures: [],
           })) as never);
         (askDb.getSession as jest.Mock).mockImplementation(async () => live);
         const message = { id: 'm1', edit: jest.fn(async () => undefined) };
@@ -523,6 +653,7 @@ describe('the /ask command', () => {
         timedOut: false,
         counted: true,
         opsFailure: null,
+        pictures: [],
         ...over,
       }) as never;
 

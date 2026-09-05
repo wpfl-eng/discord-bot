@@ -14,11 +14,12 @@
 
 import type { AskSink } from './askRunner.js';
 import { ASK } from './askConfig.js';
+import { hideTokens } from '../pictures/collector.js';
 import { truncate } from '../helpers/utils.js';
 import { plural } from '../casino/casinoFormat.js';
 import { logError } from '../errors/errorHandler.js';
 
-const DISCORD_LIMIT = 2000;
+export const DISCORD_LIMIT = 2000;
 const HEADER = '🤖 **CommishBot**';
 
 export interface Ticker extends AskSink {
@@ -115,7 +116,10 @@ export function createTicker(): Ticker {
       notify();
     },
 
-    render: (): string => composeWith(trace, text),
+    // A picture token is for the final post, where thread.ts turns it into
+    // the picture; a member watching the stream should not see it. Only
+    // here: the final render is handed text whose tokens are already resolved.
+    render: (): string => composeWith(trace, hideTokens(text)),
 
     // Grouped for the post that stays; the live line keeps its arrows,
     // because while a member is watching, the order is the progress.

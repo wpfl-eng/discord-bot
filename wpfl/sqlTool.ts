@@ -36,6 +36,7 @@ import { liveShred } from './liveShred.js';
 import { metaFile, tableName } from './layout.js';
 import { PER_OWNER_BODIES } from './shredder.js';
 import { textResult } from './toolResult.js';
+import { stripLiteralsAndComments } from './sqlText.js';
 
 export interface SqlResult {
   readonly rows: Record<string, unknown>[];
@@ -143,18 +144,6 @@ export function guardStatement(sql: string): string | null {
   }
 
   return null;
-}
-
-/**
- * Remove string literals and comments so the guard reasons about statement
- * structure rather than about text the query happens to contain.
- */
-function stripLiteralsAndComments(sql: string): string {
-  return sql
-    .replace(/'(?:''|[^'])*'/g, "''") // single-quoted strings
-    .replace(/"(?:""|[^"])*"/g, '""') // quoted identifiers
-    .replace(/--[^\n]*/g, ' ') // line comments
-    .replace(/\/\*[\s\S]*?\*\//g, ' '); // block comments
 }
 
 interface Materialized {

@@ -129,7 +129,16 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `wpfl/` - the data layer behind `/ask`: `layout.ts` (every path and marker in the data
   directory, and the as-of reader), artifact fetch and shred, `INDEX.md` generation, the cached
   WPFL decade, the read-only DuckDB SQL tool, the ESPN and WPFL API tools, and the in-process
-  MCP server that exposes all eight
+  MCP server, built per run by `createWpflServer`, that exposes all ten tools
+- `pictures/` - the `chart` and `table` tools behind `/ask`: `chartSpec.ts` (Vega-Lite specs for
+  bar, line and scatter), `tableSvg.ts` (the SVG grid), `render.ts` (Vega to SVG, sharp to PNG,
+  the boot warm-up), `collector.ts` (the per-run collector and the `[[picture:id]]` tokens that
+  `ask/thread.ts` resolves into attachments), `tools.ts`, `shared.ts` (refusals, layout and column
+  reading), `theme.ts`. sharp and XML escaping are `helpers/svg.ts`, shared with the casino
+  heroes. Every value in a picture is a row `runSql` returned; the model authors SQL, a kind,
+  aliases and a title, never a spec. The ceilings are `ASK.PICTURES` in
+  `askConfig.ts`, and `PICTURES.ENABLED` is the switch: off, both tools refuse with the text
+  fallback and nothing else changes
 - `errors/`, `helpers/`, `constants/`, `types/` - shared support code
 
 Some features keep their config next to the command instead: `discordCommands/roulette/`,
@@ -159,6 +168,10 @@ and `mypredictions/` registers `/my-predictions`.
   WPFL decade on its own 24h window; `/ask-admin resync` forces both. Messages in an `/ask`
   thread continue that agent session through `messageCreate` when they address the bot, or
   come from the opener in a thread the bot created
+- **Picture warm-up** - before login, one tiny chart is rendered through Vega and sharp so the
+  import and font-cache cost (about 4 s on the pi, on the main thread) is paid once, off the live
+  gateway, not on the first question. A host that cannot draw logs it and the picture tools
+  refuse before running any SQL; answers stay text
 - **Trivia scheduler** (`trivia/triviaService.ts:150`) - cron in `America/New_York`; posts at 9/11/13/15/17/19/21, auto-closes each 2h later, season rollover at midnight on the 1st
 - **Trivia DMs** - `messageCreate` handler accepts answers sent to the bot directly
 - **Roulette auto-spin** - rounds spin on a timer in `discordCommands/roulette/rouletteState.ts`
@@ -209,14 +222,18 @@ Required environment variables (create `.env` from `.env.sample`):
   optional dependency; never install with `--omit=optional`)
 - `@duckdb/node-api` - read-only SQL over the shredded artifact and the cached WPFL decade
   (also a native optional dependency)
+- `vega` and `vega-lite` - the `/ask` picture renderer, pure JavaScript, pinned exact; `sharp`
+  (native, already used by the casino heroes) rasterises the SVG. No node-canvas: Vega estimates
+  text widths, so every spec fixes its own size and padding
 - `zod` - tool input schemas for the MCP server
 - `@vercel/postgres` - database access
 - Custom ESPN API fork: `git+https://github.com/aboorde/ESPN-Fantasy-Football-API.git`
 - Direct Sleeper API calls to `api.sleeper.app`
 
 ### Testing
-Uses Jest for unit testing. Tests are in `/tests`, organized as `config/`, `helpers/`, `services/`,
-`trivia/` and `utils/`. They cover pure config and utility modules plus mocked services; external
+Uses Jest for unit testing. Tests are in `/tests`, organized as `ask/`, `casino/`, `config/`,
+`discord/`, `helpers/`, `pictures/`, `services/`, `trivia/`, `utils/` and `wpfl/`. Run them
+through `npm test` (bare `npx jest` fails the suites that import the Agent SDK or Vega). They cover pure config and utility modules plus mocked services; external
 dependencies like the ESPN client and the database are mocked.
 
 ## APIs you have access to 

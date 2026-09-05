@@ -21,6 +21,7 @@ import { restoreCasinoTables } from './casino/casinoBoot.js';
 import { continueThread, checkIdentityMapping, onThreadArchived } from './ask/thread.js';
 import { ensureFresh } from './wpfl/artifactSync.js';
 import { warmSqlDatabase } from './wpfl/sqlTool.js';
+import { warmPictures } from './pictures/render.js';
 import { credentialConfigured } from './ask/askAuth.js';
 import { missingAskTables } from './ask/askDb.js';
 import { logError } from './errors/errorHandler.js';
@@ -217,6 +218,14 @@ try {
 } catch (err) {
   console.error('Error reading command folders:', err);
 }
+// Vega's import and sharp's font-cache build, paid here rather than on the first
+// member's question (about 4 s on the pi). Before login, because the import runs
+// on the main thread and a slash command landing during it could not be
+// acknowledged in time. A load check, not a visual one, and it never throws; a
+// host that cannot draw logs it and the picture tools refuse with the text fallback.
+const pictures: boolean = await warmPictures();
+console.log(`[ASK] Pictures: ${pictures ? 'ready' : 'unavailable; answers stay text'}`);
+
 // Login to Discord with your client's token
 client.login(process.env.DISCORD_TOKEN);
 
