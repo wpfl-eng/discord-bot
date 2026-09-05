@@ -208,4 +208,22 @@ describe('descriptions', () => {
     expect(table.description).toContain(String(ASK.RANKING_MAX_LINES));
     expect(table.description).toContain(`${ASK.PICTURES.TABLE_MIN_COLUMNS} or more columns`);
   });
+
+  /**
+   * Five of the seven week 1 rivalries met twice in some season, so a line
+   * of margin by season refuses on the first try unless the model aggregates
+   * or names a series. The description states the rule the builder enforces
+   * where the model reads it while choosing the tool, so the refusal is the
+   * backstop rather than the instruction.
+   */
+  test('the line kind says one row per x per series, and to aggregate first', () => {
+    const tools = createPictureTools(createCollector('AJ Boorde'), harness().deps);
+    const chart = tools.find((t) => t.name === 'chart');
+    if (chart === undefined) throw new Error('missing tool');
+
+    expect(chart.description).toMatch(
+      /line \(x is a season or week number with one row per x per series/
+    );
+    expect(chart.description).toMatch(/aggregate first/);
+  });
 });
