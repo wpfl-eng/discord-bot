@@ -129,16 +129,26 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `wpfl/` - the data layer behind `/ask`: `layout.ts` (every path and marker in the data
   directory, and the as-of reader), artifact fetch and shred, `INDEX.md` generation, the cached
   WPFL decade, the read-only DuckDB SQL tool, the ESPN and WPFL API tools, and the in-process
-  MCP server, built per run by `createWpflServer`, that exposes all ten tools
+  MCP server, built per run by `createWpflServer`, that exposes all ten tools. `liveTables.ts`
+  is the season in progress as SQL: each `espn_*` call fills a run-scoped store (six `live_*`
+  tables, declared once, filled from the whole fetch before the tool's `owners` filter), and
+  every `sql`, `chart` and `table` call creates the filled ones as temp tables on its own
+  connection, so live rows join to the artifact and the decade and can be drawn. `sql` and the
+  ESPN tools are therefore per-run factories like the picture tools; the tool text is identical
+  every run. The decade cache's marker carries a `format N` line (`CACHE_FORMAT` in
+  `historyCache.ts`): bump it when the normaliser changes, and the first question after the
+  deploy refetches; a fixture test fails if the output changes without a bump
 - `pictures/` - the `chart` and `table` tools behind `/ask`: `chartSpec.ts` (Vega-Lite specs for
   bar, line and scatter), `tableSvg.ts` (the SVG grid), `render.ts` (Vega to SVG, sharp to PNG,
   the boot warm-up), `collector.ts` (the per-run collector and the `[[picture:id]]` tokens that
   `ask/thread.ts` resolves into attachments), `tools.ts`, `shared.ts` (refusals, layout and column
   reading), `theme.ts`. sharp and XML escaping are `helpers/svg.ts`, shared with the casino
-  heroes. Every value in a picture is a row `runSql` returned; the model authors SQL, a kind,
-  aliases and a title, never a spec. The ceilings are `ASK.PICTURES` in
-  `askConfig.ts`, and `PICTURES.ENABLED` is the switch: off, both tools refuse with the text
-  fallback and nothing else changes
+  heroes. Every value in a picture is a row `runSql` returned, and the query must read a table
+  the database has: `readsCatalogTable` (in `wpfl/sqlTool.ts`) asks DuckDB's parser for the
+  base tables a statement references and refuses a literal-only statement before any SQL runs,
+  whatever shape the literals take. The model authors SQL, a kind, aliases and a title, never a
+  spec. The ceilings are `ASK.PICTURES` in `askConfig.ts`, and `PICTURES.ENABLED` is the
+  switch: off, both tools refuse with the text fallback and nothing else changes
 - `errors/`, `helpers/`, `constants/`, `types/` - shared support code
 
 Some features keep their config next to the command instead: `discordCommands/roulette/`,
@@ -165,9 +175,11 @@ and `mypredictions/` registers `/my-predictions`.
 ### Background Behavior
 - **`/ask` freshness and continuation** - no timers. The published artifact is re-fetched lazily
   (etag check, 6h staleness window) on `ready` and at the top of every `/ask`, and the cached
-  WPFL decade on its own 24h window; `/ask-admin resync` forces both. Messages in an `/ask`
-  thread continue that agent session through `messageCreate` when they address the bot, or
-  come from the opener in a thread the bot created
+  WPFL decade on its own 24h window, or at once when its marker's `format` line is not the
+  build's `CACHE_FORMAT`; `/ask-admin resync` forces both. Messages in an `/ask` thread
+  continue that agent session through `messageCreate` when they address the bot, or come from
+  the opener in a thread the bot created. The live ESPN tables live only as long as one run: a
+  follow-up in a thread refetches, so its rows are as fresh as its own fetch
 - **Picture warm-up** - before login, one tiny chart is rendered through Vega and sharp so the
   import and font-cache cost (about 4 s on the pi, on the main thread) is paid once, off the live
   gateway, not on the first question. A host that cannot draw logs it and the picture tools
