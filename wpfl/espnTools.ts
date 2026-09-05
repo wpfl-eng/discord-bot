@@ -37,6 +37,16 @@ import { formatNumber } from '../helpers/utils.js';
 import { espnClientFromEnv, getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
 import { toToolResult, type AnyTool } from './toolResult.js';
 import { leagueInstant } from '../ask/leagueTime.js';
+import {
+  columnsProse,
+  freeAgentRows,
+  lineupRows,
+  matchupRows,
+  rosterRows,
+  standingsRows,
+  transactionRows,
+  type LiveStore,
+} from './liveTables.js';
 
 export interface RosterEntry {
   readonly name: string;
@@ -341,8 +351,20 @@ function espnClient(): EspnClient {
   return client;
 }
 
+/** Injected so the tools are tested without credentials or the network. */
+export interface EspnDeps {
+  readonly client: () => EspnClient;
+  readonly period: () => Promise<NFLPeriod>;
+}
+
+const DEFAULT_DEPS: EspnDeps = { client: espnClient, period: getCurrentPeriod };
+
 const CURRENT_SEASON_ONLY =
   'This is the live ESPN league and the only source of truth for the season in progress — the WPFL history API returns nothing for it and the draft artifact froze on draft night.';
+
+/** The sentence every ESPN tool ends with: what it fills for `sql`, `chart` and `table`. */
+const FILLS_FOR_SQL =
+  'for `sql`, `chart` and `table` in this run, whole league regardless of `owners`.';
 
 const OWNERS_ARG = z
   .array(z.string())
@@ -351,96 +373,115 @@ const OWNERS_ARG = z
     'Only these owners, by canonical spelling (INDEX.md lists all 14). Omit for the whole league.'
   );
 
-export const espnTools: AnyTool[] = [
-  tool(
-    'espn_teams',
-    `Every team in the live ESPN league: owner, record, playoff seed, points for and against, and the full roster with each player's injury status. Use this for standings, for who owns a player right now, and for injuries on a roster. Pass \`owners\` to get only the rosters a question is about: the whole league is fourteen rosters, the largest result any tool returns. ${CURRENT_SEASON_ONLY}`,
-    {
-      owners: OWNERS_ARG,
-      week: z
-        .number()
-        .int()
-        .optional()
-        .describe('Scoring period. Defaults to the current NFL week.'),
-    },
-    async (args): Promise<CallToolResult> => {
-      // Validated before the network call, so a misspelling fails fast.
-      const owners: ReadonlySet<string> | undefined = resolveOwners(args.owners);
-      const period: NFLPeriod = await getCurrentPeriod();
-      return toToolResult(
-        toTeams(
-          await espnClient().getTeamsAtWeek({
+/**
+ * The four ESPN tools for one run. Each fetch also fills the run's live
+ * tables (wpfl/liveTables.ts) from the whole league, and only then applies the
+ * `owners` filter to what the model reads, so the tables never hold a subset
+ * because the question was about two teams. The tool text is identical from
+ * run to run, so the prompt cache still hits; only the store differs.
+ */
+export function createEspnTools(store: LiveStore, deps: EspnDeps = DEFAULT_DEPS): AnyTool[] {
+  return [
+    tool(
+      'espn_teams',
+      `Every team in the live ESPN league: owner, record, playoff seed, points for and against, and the full roster with each player's injury status. Use this for standings, for who owns a player right now, and for injuries on a roster. Pass \`owners\` to get only the rosters a question is about: the whole league is fourteen rosters, the largest result any tool returns. Also fills the tables live_standings (${columnsProse('live_standings')}) and live_rosters (${columnsProse('live_rosters')}; about 210 rows, so filter by owner or position) ${FILLS_FOR_SQL} ${CURRENT_SEASON_ONLY}`,
+      {
+        owners: OWNERS_ARG,
+        week: z
+          .number()
+          .int()
+          .optional()
+          .describe('Scoring period. Defaults to the current NFL week.'),
+      },
+      async (args): Promise<CallToolResult> => {
+        // Validated before the network call, so a misspelling fails fast.
+        const owners: ReadonlySet<string> | undefined = resolveOwners(args.owners);
+        const period: NFLPeriod = await deps.period();
+        const league: TeamSummary[] = toTeams(
+          await deps.client().getTeamsAtWeek({
             seasonId: period.seasonId,
             scoringPeriodId: args.week ?? period.scoringPeriodId,
-          }),
-          owners
-        )
-      );
-    }
-  ),
+          })
+        );
+        store.replace('live_standings', standingsRows(league));
+        store.replace('live_rosters', rosterRows(league));
+        return toToolResult(
+          league.filter((team: TeamSummary): boolean => wanted(owners, team.owner))
+        );
+      }
+    ),
 
-  tool(
-    'espn_boxscores',
-    `Head-to-head matchups for one week: both owners, both scores, ESPN's projected total and win probability for each side, and each lineup with per-player points, projection and injury status. Before kickoff the scores are 0 and the projections are ESPN's forecast of the week as lineups stand: who is favoured in a game this week, and why. ESPN publishes the projected totals and win probability for the current week only (null otherwise); the draft-night sim's odds for every week, and a future week's opponent, are in the artifact's \`teams.schedule\`. Per-player projections sum to within a fraction of a point of ESPN's own team total. Pass \`owners\` for one matchup rather than the whole slate. ${CURRENT_SEASON_ONLY}`,
-    {
-      owners: OWNERS_ARG,
-      week: z.number().int().optional().describe('Week. Defaults to the current NFL week.'),
-    },
-    async (args): Promise<CallToolResult> => {
-      const owners: ReadonlySet<string> | undefined = resolveOwners(args.owners);
-      const period: NFLPeriod = await getCurrentPeriod();
-      // ESPN reports both periods; with one-week matchups they agree, and an
-      // explicit week from the agent names both.
-      return toToolResult(
-        toBoxscores(
-          await espnClient().getBoxscoreForWeek({
+    tool(
+      'espn_boxscores',
+      `Head-to-head matchups for one week: both owners, both scores, ESPN's projected total and win probability for each side, and each lineup with per-player points, projection and injury status. Before kickoff the scores are 0 and the projections are ESPN's forecast of the week as lineups stand: who is favoured in a game this week, and why. ESPN publishes the projected totals and win probability for the current week only (null otherwise); the draft-night sim's odds for every week, and a future week's opponent, are in the artifact's \`teams.schedule\`. Per-player projections sum to within a fraction of a point of ESPN's own team total. Pass \`owners\` for one matchup rather than the whole slate. Also fills the tables live_matchups (${columnsProse('live_matchups')}; one row per side, so filter home = true for one row per game) and live_lineups (${columnsProse('live_lineups')}; slot is the lineup slot, not the position) ${FILLS_FOR_SQL} ${CURRENT_SEASON_ONLY}`,
+      {
+        owners: OWNERS_ARG,
+        week: z.number().int().optional().describe('Week. Defaults to the current NFL week.'),
+      },
+      async (args): Promise<CallToolResult> => {
+        const owners: ReadonlySet<string> | undefined = resolveOwners(args.owners);
+        const period: NFLPeriod = await deps.period();
+        // ESPN reports both periods; with one-week matchups they agree, and an
+        // explicit week from the agent names both.
+        const week: number = args.week ?? period.matchupPeriodId;
+        const slate: MatchupSummary[] = toBoxscores(
+          await deps.client().getBoxscoreForWeek({
             seasonId: period.seasonId,
-            matchupPeriodId: args.week ?? period.matchupPeriodId,
+            matchupPeriodId: week,
             scoringPeriodId: args.week ?? period.scoringPeriodId,
-          }),
-          owners
-        )
-      );
-    }
-  ),
+          })
+        );
+        store.replaceWeek('live_matchups', week, matchupRows(week, slate));
+        store.replaceWeek('live_lineups', week, lineupRows(week, slate));
+        return toToolResult(
+          slate.filter(
+            (matchup: MatchupSummary): boolean =>
+              wanted(owners, matchup.homeOwner) || wanted(owners, matchup.awayOwner)
+          )
+        );
+      }
+    ),
 
-  tool(
-    'espn_free_agents',
-    `Players nobody owns, with percent owned, weekly ownership change, and average auction value. Use this for waiver-wire questions. Returns the ${FREE_AGENT_LIMIT} most-owned available players, so filter by position to see the useful end of a specific pool. ${CURRENT_SEASON_ONLY}`,
-    {
-      position: z
-        .string()
-        .optional()
-        .describe("Filter to one position, e.g. 'RB', 'WR', 'QB', 'TE', 'D/ST'. Omit for all."),
-      week: z
-        .number()
-        .int()
-        .optional()
-        .describe('Scoring period. Defaults to the current NFL week.'),
-    },
-    async (args): Promise<CallToolResult> => {
-      const period: NFLPeriod = await getCurrentPeriod();
-      return toToolResult(
-        toFreeAgents(
-          await espnClient().getFreeAgents({
+    tool(
+      'espn_free_agents',
+      `Players nobody owns, with percent owned, weekly ownership change, and average auction value. Use this for waiver-wire questions. Returns the ${FREE_AGENT_LIMIT} most-owned available players, so filter by position to see the useful end of a specific pool. Also fills the table live_free_agents (${columnsProse('live_free_agents')}) ${FILLS_FOR_SQL} ${CURRENT_SEASON_ONLY}`,
+      {
+        position: z
+          .string()
+          .optional()
+          .describe("Filter to one position, e.g. 'RB', 'WR', 'QB', 'TE', 'D/ST'. Omit for all."),
+        week: z
+          .number()
+          .int()
+          .optional()
+          .describe('Scoring period. Defaults to the current NFL week.'),
+      },
+      async (args): Promise<CallToolResult> => {
+        const period: NFLPeriod = await deps.period();
+        const agents: FreeAgentSummary[] = toFreeAgents(
+          await deps.client().getFreeAgents({
             seasonId: period.seasonId,
             scoringPeriodId: args.week ?? period.scoringPeriodId,
           }),
           args.position
-        )
-      );
-    }
-  ),
+        );
+        store.replace('live_free_agents', freeAgentRows(agents));
+        return toToolResult(agents);
+      }
+    ),
 
-  tool(
-    'espn_transactions',
-    `Recent adds, drops and trades, with who moved whom, when, and the waiver bid. **Current season only** — ESPN serves this endpoint for the current season and 404s for every prior one, so do not reach for it to answer a historical question; past seasons' bids, adds and drops are the wpfl_transactions table in the sql tool. ${CURRENT_SEASON_ONLY}`,
-    {},
-    async (): Promise<CallToolResult> => {
-      const period: NFLPeriod = await getCurrentPeriod();
-      return toToolResult(
-        toTransactions(await espnClient().getRecentActivity({ seasonId: period.seasonId }))
-      );
-    }
-  ),
-];
+    tool(
+      'espn_transactions',
+      `Recent adds, drops and trades, with who moved whom, when, and the waiver bid. **Current season only** — ESPN serves this endpoint for the current season and 404s for every prior one, so do not reach for it to answer a historical question; past seasons' bids, adds and drops are the wpfl_transactions table in the sql tool. Also fills the table live_transactions (${columnsProse('live_transactions')}) ${FILLS_FOR_SQL} ${CURRENT_SEASON_ONLY}`,
+      {},
+      async (): Promise<CallToolResult> => {
+        const period: NFLPeriod = await deps.period();
+        const moves: TransactionSummary[] = toTransactions(
+          await deps.client().getRecentActivity({ seasonId: period.seasonId })
+        );
+        store.replace('live_transactions', transactionRows(moves));
+        return toToolResult(moves);
+      }
+    ),
+  ];
+}

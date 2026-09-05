@@ -220,6 +220,16 @@ describe('indexGenerator', () => {
       );
       expect(index).not.toMatch(/espn_boxscores` is for scores once a week is played/);
     });
+
+    // The season in progress is reachable from SQL once an ESPN tool has run
+    // in the same run (wpfl/liveTables.ts). The row is generated from the
+    // table declaration, so a renamed table cannot leave it behind.
+    test('routes the season in progress as rows to the live tables, naming the tool that fills each', () => {
+      expect(index).toMatch(
+        /\| The season in progress as rows to join or draw \| .*`live_matchups` and `live_lineups` from `espn_boxscores`.*`live_standings` and `live_rosters` from `espn_teams`.*`live_free_agents` from `espn_free_agents`.*`live_transactions` from `espn_transactions`/
+      );
+      expect(index).toMatch(/empty until then/);
+    });
   });
   /**
    * The cached WPFL decade is written into `wpfl/` inside the shred root, but

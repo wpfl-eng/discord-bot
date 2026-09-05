@@ -17,6 +17,7 @@ import path from 'node:path';
 import { PER_OWNER_BODIES, type ShredResult } from './shredder.js';
 import type { SourceExtents } from './historyCache.js';
 import { CACHE_SOURCES, tableName, type AsOf } from './layout.js';
+import { LIVE_TABLES, LIVE_TABLE_NAMES, type LiveTableName } from './liveTables.js';
 import { wpflMembers } from '../constants/wpflMembers.js';
 
 export interface IndexInput {
@@ -464,6 +465,21 @@ function roster(): string {
   ].join('\n');
 }
 
+/** "`live_matchups` and `live_lineups` from `espn_boxscores`, ..." -- from the declaration, so a rename cannot leave this behind. */
+function liveTablesProse(): string {
+  const byTool = new Map<string, LiveTableName[]>();
+  for (const name of LIVE_TABLE_NAMES) {
+    const tool: string = LIVE_TABLES[name].tool;
+    byTool.set(tool, [...(byTool.get(tool) ?? []), name]);
+  }
+  return [...byTool.entries()]
+    .map(
+      ([tool, names]: [string, LiveTableName[]]): string =>
+        `${names.map((name: LiveTableName): string => `\`${name}\``).join(' and ')} from \`${tool}\``
+    )
+    .join(', ');
+}
+
 function routing(): string {
   return [
     '## Which source answers which question',
@@ -477,6 +493,7 @@ function routing(): string {
     '| Ten years of prices, matchups or player scores | The `sql` tool |',
     '| Expected wins, optimal coaching, drafted points | `expected_wins`, `optimal_coaching`, `drafted_points` |',
     '| The 2026 season in progress -- records, scores, rosters, transactions | The `espn_*` tools |',
+    `| The season in progress as rows to join or draw | The live tables, each filled by its \`espn_*\` call in the same run and empty until then: ${liveTablesProse()} |`,
     '| Waiver bids, adds and drops in past seasons | `wpfl_transactions` in the `sql` tool; the season in progress is `espn_transactions` |',
     '| NFL news, injuries or results since the news date above | `WebSearch` / `WebFetch` |',
     '',

@@ -35,8 +35,16 @@ import { errorMessage, logError } from '../errors/errorHandler.js';
 import { liveShred } from './liveShred.js';
 import { metaFile, tableName } from './layout.js';
 import { PER_OWNER_BODIES } from './shredder.js';
-import { textResult } from './toolResult.js';
+import { textResult, type AnyTool } from './toolResult.js';
 import { stripLiteralsAndComments } from './sqlText.js';
+import {
+  isLiveTableName,
+  materializeLive,
+  LIVE_TABLES,
+  LIVE_TABLE_NAMES,
+  type LiveStore,
+  type LiveTableName,
+} from './liveTables.js';
 
 export interface SqlResult {
   readonly rows: Record<string, unknown>[];
@@ -107,7 +115,23 @@ function sqlErrorMessage(error: unknown): string {
   // and stringified they arrive as "Error: Permission Error: ...".
   const raw: unknown = (error as { message?: unknown } | null)?.message;
   const message: string = typeof raw === 'string' ? raw : errorMessage(error);
-  return /^(Error: )?Permission Error/.test(message) ? EXTERNAL_ACCESS_DISABLED : message;
+  if (/^(Error: )?Permission Error/.test(message)) return EXTERNAL_ACCESS_DISABLED;
+  return missingLiveTable(message) ?? message;
+}
+
+/**
+ * A live table exists only once its ESPN tool has run this run. The engine's
+ * "does not exist" is true but unhelpful; the useful message names the tool.
+ * A near miss on the prefix lists the six, so a guessed name is one turn.
+ */
+function missingLiveTable(message: string): string | null {
+  const match: RegExpExecArray | null = /Table with name (live_\w*) does not exist/.exec(message);
+  if (match === null) return null;
+  const name: string = match[1];
+  if (isLiveTableName(name)) {
+    return `${name} is empty in this run: nothing has fetched it yet. Call the ${LIVE_TABLES[name].tool} tool first, then run this query again.`;
+  }
+  return `There is no table ${name}. The live tables are ${LIVE_TABLE_NAMES.join(', ')}, each filled by its espn_* tool in this run.`;
 }
 
 /** `SELECT, WITH, DESCRIBE or SUMMARIZE`, for anything a human or the agent reads. */
@@ -236,7 +260,16 @@ export function warmSqlDatabase(dataDir: string = ASK.DATA_DIR): void {
     });
 }
 
-export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promise<SqlResult> {
+/**
+ * @param live  the run's live tables, created as temp tables on this query's
+ *   connection before the statement runs, so a query can read what the ESPN
+ *   tools fetched in the same run. Omitted, only the materialized tables exist.
+ */
+export async function runSql(
+  sql: string,
+  dataDir: string = ASK.DATA_DIR,
+  live?: LiveStore
+): Promise<SqlResult> {
   const refusal: string | null = guardStatement(sql);
   if (refusal !== null) throw new Error(refusal);
 
@@ -249,6 +282,8 @@ export async function runSql(sql: string, dataDir: string = ASK.DATA_DIR): Promi
 
   const timer = setTimeout(() => connection.interrupt(), ASK.SQL_TIMEOUT_MS);
   try {
+    // Before the parse below: a statement over a live table binds against it.
+    if (live !== undefined) await materializeLive(connection, live);
     await assertSingleSelect(connection, sql);
 
     // One row past the cap, so truncation is detected rather than guessed at.
@@ -413,18 +448,37 @@ function shredStamp(dataDir: string): number {
   return fs.statSync(metaFile(dataDir), { throwIfNoEntry: false })?.mtimeMs ?? 0;
 }
 
-export const sqlTool: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(
-  'sql',
-  `Read-only SQL (DuckDB) over every WPFL dataset. This is the only way to reach ten years of rows: wpfl_draft_history (every auction pick since 2010), wpfl_matchups (every regular-season head-to-head result; the API publishes no playoff games), and wpfl_player_scores (weekly player scores since 2015); INDEX.md says where each table's rows end. Join those to the 2026 draft artifact, whose bodies are tables too — teams, league_board, league_dossiers, league_standings, history_seasons, history_skill_luck, night_spend_race, news_players and the rest, one table per shredded file named <directory>_<file>. INDEX.md lists every table and its columns -- use those names exactly, and DESCRIBE <table> rather than guess when one is not listed; a guessed column is a failed call. One statement, and it must start with ${STARTERS_PROSE}; integers come back as strings to keep full precision. Results are capped at ${ASK.SQL_ROW_LIMIT} rows — aggregate rather than asking for everything.`,
-  { query: z.string().describe(`A single read-only statement starting with ${STARTERS_PROSE}.`) },
-  async (args): Promise<CallToolResult> => {
-    const result: SqlResult = await runSql(args.query);
-    const notice: string = result.truncated
-      ? `\n\n(Truncated at ${ASK.SQL_ROW_LIMIT} rows. Narrow the query or aggregate.)`
-      : '';
-    return textResult(
-      // Compact, like every other tool result (wpfl/toolResult.ts says why).
-      result.rows.length === 0 ? 'No rows.' : `${JSON.stringify(result.rows)}${notice}`
-    );
+/** "live_matchups and live_lineups (espn_boxscores), ..." for the description, from the declaration. */
+function liveTablesByTool(): string {
+  const byTool = new Map<string, LiveTableName[]>();
+  for (const name of LIVE_TABLE_NAMES) {
+    const tool: string = LIVE_TABLES[name].tool;
+    byTool.set(tool, [...(byTool.get(tool) ?? []), name]);
   }
-);
+  return [...byTool.entries()]
+    .map(([tool, names]: [string, LiveTableName[]]): string => `${names.join(' and ')} (${tool})`)
+    .join(', ');
+}
+
+/**
+ * The `sql` tool for one run. Built per run because the statement can read
+ * that run's live tables; the description is identical text every time.
+ */
+export function createSqlTool(live: LiveStore): AnyTool {
+  const definition: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(
+    'sql',
+    `Read-only SQL (DuckDB) over every WPFL dataset. This is the only way to reach ten years of rows: wpfl_draft_history (every auction pick since 2010), wpfl_matchups (every regular-season head-to-head result; the API publishes no playoff games), and wpfl_player_scores (weekly player scores since 2015); INDEX.md says where each table's rows end. Join those to the 2026 draft artifact, whose bodies are tables too — teams, league_board, league_dossiers, league_standings, history_seasons, history_skill_luck, night_spend_race, news_players and the rest, one table per shredded file named <directory>_<file>. The season in progress is here too, once fetched: each espn_* call in this run also fills its live tables, ${liveTablesByTool()}, which join to teams and the decade on owner and exist only after that call. INDEX.md lists every table and its columns -- use those names exactly, and DESCRIBE <table> rather than guess when one is not listed; a guessed column is a failed call. One statement, and it must start with ${STARTERS_PROSE}; integers come back as strings to keep full precision. Results are capped at ${ASK.SQL_ROW_LIMIT} rows — aggregate rather than asking for everything.`,
+    { query: z.string().describe(`A single read-only statement starting with ${STARTERS_PROSE}.`) },
+    async (args): Promise<CallToolResult> => {
+      const result: SqlResult = await runSql(args.query, ASK.DATA_DIR, live);
+      const notice: string = result.truncated
+        ? `\n\n(Truncated at ${ASK.SQL_ROW_LIMIT} rows. Narrow the query or aggregate.)`
+        : '';
+      return textResult(
+        // Compact, like every other tool result (wpfl/toolResult.ts says why).
+        result.rows.length === 0 ? 'No rows.' : `${JSON.stringify(result.rows)}${notice}`
+      );
+    }
+  );
+  return definition;
+}

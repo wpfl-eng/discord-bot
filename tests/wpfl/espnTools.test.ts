@@ -1,16 +1,25 @@
 import { describe, test, expect } from '@jest/globals';
 import fs from 'node:fs';
 import path from 'node:path';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { Client as EspnClient } from 'espn-fantasy-football-api/node.js';
 import {
   toTeams,
   toBoxscores,
   toFreeAgents,
   toTransactions,
   resolveOwners,
-  espnTools,
+  createEspnTools,
   FREE_AGENT_LIMIT,
+  type EspnDeps,
 } from '../../wpfl/espnTools.js';
+import { createLiveStore, type LiveStore } from '../../wpfl/liveTables.js';
+import type { AnyTool } from '../../wpfl/toolResult.js';
 import { fixturePath, loadFixture } from './support.js';
+
+// The definitions are the same text on every run; any store will do for
+// reading them.
+const espnTools: AnyTool[] = createEspnTools(createLiveStore());
 
 describe('espnTools', () => {
   describe('espn_teams', () => {
@@ -539,6 +548,147 @@ describe('espnTools', () => {
       for (const definition of espnTools) {
         expect(definition.description).toMatch(/history API|draft artifact|historical|sql tool/i);
       }
+    });
+
+    test('every ESPN description names the live tables it fills', () => {
+      const fills: Record<string, string[]> = {
+        espn_teams: ['live_standings', 'live_rosters'],
+        espn_boxscores: ['live_matchups', 'live_lineups'],
+        espn_free_agents: ['live_free_agents'],
+        espn_transactions: ['live_transactions'],
+      };
+      for (const definition of espnTools) {
+        for (const table of fills[definition.name]) {
+          expect(definition.description).toContain(table);
+        }
+      }
+    });
+  });
+
+  /**
+   * Each fetch fills the run's live tables (wpfl/liveTables.ts) so `sql`,
+   * `chart` and `table` can read the season in progress. Filled from the
+   * whole fetch, before the `owners` filter is applied to what the model
+   * reads: a "rank the league" over a live table must never be a two-row
+   * ranking because the question named two teams.
+   */
+  describe('the live tables the tools fill', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teams = loadFixture<any[]>('espn-teams.json');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const boxscores = loadFixture<any[]>('espn-boxscores.json');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const freeAgents = loadFixture<any[]>('espn-free-agents.json');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const transactions = loadFixture<any[][]>('espn-transactions.json');
+
+    const asked: Record<string, unknown>[] = [];
+    const fakeClient = {
+      getTeamsAtWeek: async (args: unknown) => {
+        asked.push({ getTeamsAtWeek: args });
+        return teams;
+      },
+      getBoxscoreForWeek: async (args: unknown) => {
+        asked.push({ getBoxscoreForWeek: args });
+        return boxscores;
+      },
+      getFreeAgents: async () => freeAgents,
+      getRecentActivity: async () => transactions,
+    } as unknown as EspnClient;
+    const deps: EspnDeps = {
+      client: () => fakeClient,
+      period: async () => ({
+        seasonId: 2026,
+        scoringPeriodId: 1,
+        matchupPeriodId: 1,
+        source: 'espn' as const,
+      }),
+    };
+
+    const call = async (
+      store: LiveStore,
+      name: string,
+      args: Record<string, unknown>
+    ): Promise<unknown[]> => {
+      const definition = createEspnTools(store, deps).find((t) => t.name === name);
+      if (definition === undefined) throw new Error(`no tool ${name}`);
+      const result = (await definition.handler(args as never, {} as never)) as CallToolResult;
+      const text: string = result.content
+        .map((block) => (block.type === 'text' ? block.text : ''))
+        .join('');
+      return JSON.parse(text) as unknown[];
+    };
+    const rowsOf = (store: LiveStore, table: string): readonly Record<string, unknown>[] =>
+      store.filled().find((t) => t.name === table)?.rows ?? [];
+
+    test('espn_teams fills standings and rosters for the whole league while the result is filtered', async () => {
+      const store: LiveStore = createLiveStore();
+
+      const result: unknown[] = await call(store, 'espn_teams', { owners: ['Forrest Britton'] });
+
+      expect(result).toHaveLength(1);
+      const league = toTeams(teams);
+      expect(rowsOf(store, 'live_standings')).toHaveLength(league.length);
+      expect(rowsOf(store, 'live_rosters')).toHaveLength(
+        league.reduce((n: number, team): number => n + team.roster.length, 0)
+      );
+      expect(rowsOf(store, 'live_standings')[0]).toMatchObject({ owner: 'Nixon Ball', espn_id: 1 });
+    });
+
+    test('espn_boxscores fills matchups and lineups for the whole slate, under the week it asked ESPN for', async () => {
+      const store: LiveStore = createLiveStore();
+      asked.length = 0;
+
+      const result: unknown[] = await call(store, 'espn_boxscores', {
+        owners: ['Nixon Ball'],
+        week: 3,
+      });
+
+      expect(result).toHaveLength(1);
+      const matchups = rowsOf(store, 'live_matchups');
+      expect(matchups).toHaveLength(toBoxscores(boxscores).length * 2);
+      expect(matchups.every((row) => row.week === 3)).toBe(true);
+      expect(asked[0]).toEqual({
+        getBoxscoreForWeek: { seasonId: 2026, matchupPeriodId: 3, scoringPeriodId: 3 },
+      });
+      expect(rowsOf(store, 'live_lineups').length).toBeGreaterThan(0);
+      expect(rowsOf(store, 'live_lineups').every((row) => row.week === 3)).toBe(true);
+    });
+
+    test('a second week lands beside the first rather than over it', async () => {
+      const store: LiveStore = createLiveStore();
+
+      await call(store, 'espn_boxscores', { week: 1 });
+      await call(store, 'espn_boxscores', { week: 2 });
+      await call(store, 'espn_boxscores', { week: 2 });
+
+      const weeks: unknown[] = rowsOf(store, 'live_matchups').map((row) => row.week);
+      expect(weeks.filter((w) => w === 1)).toHaveLength(toBoxscores(boxscores).length * 2);
+      expect(weeks.filter((w) => w === 2)).toHaveLength(toBoxscores(boxscores).length * 2);
+    });
+
+    test('the week defaults to the current period', async () => {
+      const store: LiveStore = createLiveStore();
+
+      await call(store, 'espn_boxscores', {});
+
+      expect(rowsOf(store, 'live_matchups').every((row) => row.week === 1)).toBe(true);
+    });
+
+    test('espn_free_agents and espn_transactions fill their tables', async () => {
+      const store: LiveStore = createLiveStore();
+
+      await call(store, 'espn_free_agents', {});
+      await call(store, 'espn_transactions', {});
+
+      expect(rowsOf(store, 'live_free_agents')).toHaveLength(toFreeAgents(freeAgents).length);
+      expect(rowsOf(store, 'live_transactions')).toHaveLength(toTransactions(transactions).length);
+      expect(rowsOf(store, 'live_transactions')[0]).toMatchObject({
+        action: 'FA ADDED',
+        owner: 'Jimmy Simpson',
+        player: 'Jaylen Wright',
+        bid_amount: 0,
+      });
     });
   });
 });

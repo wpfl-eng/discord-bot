@@ -8,10 +8,15 @@ import {
   guardStatement,
   runSql,
   resetSqlDatabase,
-  sqlTool,
+  createSqlTool,
   type SqlResult,
 } from '../../wpfl/sqlTool.js';
+import { createLiveStore, type LiveStore } from '../../wpfl/liveTables.js';
+import type { AnyTool } from '../../wpfl/toolResult.js';
 import { ASK } from '../../ask/askConfig.js';
+
+// The definition is the same text on every run; any store will do for reading it.
+const sqlTool: AnyTool = createSqlTool(createLiveStore());
 
 describe('sqlTool', () => {
   describe('the statement guard', () => {
@@ -395,6 +400,114 @@ describe('sqlTool', () => {
 
     test('the description says the decade is here and the artifact is not the whole story', () => {
       expect(sqlTool.description).toMatch(/read-only|SELECT/i);
+    });
+
+    test('the description names the live tables and the tool that fills each', () => {
+      expect(sqlTool.description).toContain('live_matchups and live_lineups (espn_boxscores)');
+      expect(sqlTool.description).toContain('live_standings and live_rosters (espn_teams)');
+      expect(sqlTool.description).toMatch(/exist only after that call/);
+    });
+  });
+
+  /**
+   * The season in progress used to be unreachable from SQL: nothing an ESPN
+   * tool returned could be joined to the artifact or drawn. The ESPN tools now
+   * fill a run-scoped store, and every query creates the filled tables as temp
+   * tables on its own connection first (wpfl/liveTables.ts).
+   */
+  describe('the live tables', () => {
+    let dataDir: string;
+
+    beforeAll(() => {
+      dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-sql-live-'));
+      const artifact: unknown = loadFixture('postdraft-published.json');
+      shred(artifact, dataDir);
+      resetSqlDatabase();
+    });
+
+    afterAll(() => {
+      resetSqlDatabase();
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+
+    const filled = (): LiveStore => {
+      const store: LiveStore = createLiveStore();
+      store.replaceWeek('live_matchups', 1, [
+        {
+          week: 1,
+          owner: 'AJ Boorde',
+          opponent: 'Forrest Britton',
+          home: true,
+          score: 0,
+          opponent_score: 0,
+          projected: 108.03,
+          opponent_projected: 102.73,
+          win_prob: 0.53,
+        },
+        {
+          week: 1,
+          owner: 'Forrest Britton',
+          opponent: 'AJ Boorde',
+          home: false,
+          score: 0,
+          opponent_score: 0,
+          projected: 102.73,
+          opponent_projected: 108.03,
+          win_prob: 0.47,
+        },
+      ]);
+      return store;
+    };
+
+    test('a query reads the rows the run fetched, typed, and joins them to the artifact', async () => {
+      const result: SqlResult = await runSql(
+        'SELECT m.owner, t.spent, m.projected, m.win_prob FROM live_matchups m JOIN teams t USING (owner) WHERE m.home ORDER BY m.owner',
+        dataDir,
+        filled()
+      );
+
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0]).toMatchObject({
+        owner: 'AJ Boorde',
+        projected: 108.03,
+        win_prob: 0.53,
+      });
+      expect(typeof result.rows[0].spent).not.toBe('undefined');
+    });
+
+    test('a live table is visible only to the query that carried the store', async () => {
+      await runSql('SELECT count(*) AS n FROM live_matchups', dataDir, filled());
+
+      await expect(runSql('SELECT count(*) AS n FROM live_matchups', dataDir)).rejects.toThrow(
+        /espn_boxscores/
+      );
+    });
+
+    // The engine's "does not exist" is true and useless; the useful message
+    // names the tool whose call fills the table.
+    test('a live table nothing has fetched names the tool to call first', async () => {
+      await expect(
+        runSql('SELECT * FROM live_standings', dataDir, createLiveStore())
+      ).rejects.toThrow(/live_standings is empty in this run.*espn_teams tool first/);
+    });
+
+    test('a guessed live_ name lists the six that exist', async () => {
+      await expect(runSql('SELECT * FROM live_scores', dataDir, createLiveStore())).rejects.toThrow(
+        /no table live_scores.*live_matchups.*live_transactions/
+      );
+    });
+
+    test('a filled table with no rows still has its columns', async () => {
+      const store: LiveStore = createLiveStore();
+      store.replace('live_transactions', []);
+
+      const result: SqlResult = await runSql(
+        'SELECT count(*) AS n, max(bid_amount) AS top FROM live_transactions',
+        dataDir,
+        store
+      );
+
+      expect(result.rows).toEqual([{ n: '0', top: null }]);
     });
   });
 

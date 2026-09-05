@@ -118,6 +118,13 @@ describe('systemPrompt', () => {
       expect(STATIC_PROMPT).toMatch(/current week only/i);
     });
 
+    // Nothing an ESPN tool returned could be joined or drawn until the live
+    // tables existed; the prompt says they do, so a live ranking is a picture.
+    test('says each ESPN call also fills a live table that sql and the picture tools read', () => {
+      expect(STATIC_PROMPT).toMatch(/fills a `live_\*` table/);
+      expect(STATIC_PROMPT).toMatch(/`sql`, `chart` and `table` read in the same run/);
+    });
+
     // The Claude Code runtime appends the logged-in account's email to every
     // turn when the subprocess's HOME holds a login profile, and the agent
     // read it as the member's. The HOME is now the agent's own; this is the

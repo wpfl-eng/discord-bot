@@ -27,6 +27,7 @@ import { recordUsage } from './askDb.js';
 import { errorMessage, logError } from '../errors/errorHandler.js';
 import { createWpflServer, WPFL_SERVER } from '../wpfl/mcpServer.js';
 import { createCollector, type Picture, type PictureCollector } from '../pictures/collector.js';
+import { createLiveStore, type LiveStore } from '../wpfl/liveTables.js';
 import { liveShred } from '../wpfl/liveShred.js';
 import { readAsOf } from '../wpfl/layout.js';
 import { getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
@@ -166,6 +167,10 @@ export async function runAsk(
   // The run's own: the picture tools close over it, and its contents ride
   // back in the outcome. Nothing global, nothing to expire.
   const collector: PictureCollector = createCollector(request.member.owner);
+  // Also the run's own: the ESPN tools fill it and `sql` and the picture
+  // tools read it. A follow-up in the thread starts empty on purpose -- live
+  // scores move during games, and the tables must be as fresh as the fetch.
+  const store: LiveStore = createLiveStore();
 
   const state: StreamState = { text: '', thinking: '' };
   let sessionId: string | null = request.sessionId;
@@ -179,7 +184,7 @@ export async function runAsk(
   try {
     for await (const message of queryFn({
       prompt: request.prompt,
-      options: buildOptions(request, deadline.controller, period, collector),
+      options: buildOptions(request, deadline.controller, period, collector, store),
     })) {
       const result: TerminalResult | null = consume(message, sink, state);
       if (message.session_id !== undefined) {
@@ -354,7 +359,8 @@ function buildOptions(
   request: AskRequest,
   controller: AbortController,
   period: NFLPeriod,
-  collector: PictureCollector
+  collector: PictureCollector,
+  store: LiveStore
 ): Options {
   // Typed as Options rather than asserted into it. A blanket `as Options` on
   // the whole object would let a renamed or removed SDK field typecheck clean
@@ -391,7 +397,7 @@ function buildOptions(
     ],
 
     systemPrompt: buildSystemPrompt({ member: request.member, period, asOf: readAsOf() }),
-    mcpServers: { [WPFL_SERVER]: createWpflServer(collector) },
+    mcpServers: { [WPFL_SERVER]: createWpflServer(collector, store) },
     strictMcpConfig: true,
 
     includePartialMessages: true,

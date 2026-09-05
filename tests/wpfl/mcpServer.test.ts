@@ -1,13 +1,17 @@
 import { describe, test, expect } from '@jest/globals';
-import { createWpflServer, wpflTools, WPFL_SERVER } from '../../wpfl/mcpServer.js';
+import { createWpflServer, createLeagueTools, WPFL_SERVER } from '../../wpfl/mcpServer.js';
 import { createCollector } from '../../pictures/collector.js';
+import { createLiveStore, LIVE_TABLE_NAMES } from '../../wpfl/liveTables.js';
+import type { AnyTool } from '../../wpfl/toolResult.js';
 import { STATIC_PROMPT } from '../../ask/systemPrompt.js';
 import { generateIndex } from '../../wpfl/indexGenerator.js';
 import { CACHE_SOURCES, tableName } from '../../wpfl/layout.js';
 
 describe('mcpServer', () => {
-  // A server per run: the picture tools close over the run's collector.
-  const wpflServer = createWpflServer(createCollector('AJ Boorde'));
+  // A server per run: the picture tools close over the run's collector, and
+  // sql and the ESPN tools over its live tables.
+  const wpflServer = createWpflServer(createCollector('AJ Boorde'), createLiveStore());
+  const wpflTools: AnyTool[] = createLeagueTools(createLiveStore());
 
   /**
    * The prompt and INDEX.md route the agent to tools by name, in prose, and
@@ -35,13 +39,15 @@ describe('mcpServer', () => {
         },
       });
       const routing: string = index.slice(index.indexOf('## Which source'));
-      // Backticked snake_case words are tool names or cached tables; `espn_*`
-      // is a family and WebSearch, /ewins and the like do not match the
-      // pattern. The tables are the ones the cache derives, so a routing row
-      // cannot name a table the database would not have either.
-      const tables: string[] = Object.values(CACHE_SOURCES).map((file: string): string =>
-        tableName('wpfl', file)
-      );
+      // Backticked snake_case words are tool names, cached tables or live
+      // tables; `espn_*` is a family and WebSearch, /ewins and the like do not
+      // match the pattern. The tables are the ones the cache and the live
+      // store derive, so a routing row cannot name a table the database would
+      // not have either.
+      const tables: string[] = [
+        ...Object.values(CACHE_SOURCES).map((file: string): string => tableName('wpfl', file)),
+        ...LIVE_TABLE_NAMES,
+      ];
       const named: string[] = [...routing.matchAll(/`([a-z][a-z_]*)`/g)]
         .map((m) => m[1])
         .filter((name: string): boolean => !tables.includes(name));
@@ -69,7 +75,7 @@ describe('mcpServer', () => {
     ]);
   });
 
-  test('the eight league tools are the static list the design specifies', () => {
+  test('the eight league tools are the list the design specifies', () => {
     expect(wpflTools.map((t) => t.name).sort()).toEqual([
       'drafted_points',
       'espn_boxscores',

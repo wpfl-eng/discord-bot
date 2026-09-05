@@ -83,10 +83,15 @@ function refusal(reason: string): CallToolResult {
   return { ...textResult(reason), isError: true };
 }
 
+/**
+ * @param over  the dependencies a caller replaces; the runner binds `runSql`
+ *   to the run's live tables, and the tests replace everything.
+ */
 export function createPictureTools(
   collector: PictureCollector,
-  deps: PictureDeps = DEFAULT_DEPS
+  over: Partial<PictureDeps> = {}
 ): AnyTool[] {
+  const deps: PictureDeps = { ...DEFAULT_DEPS, ...over };
   /**
    * The one flow both tools share. The gates about the run come first, before
    * any SQL; then `build` turns the rows into a Vega-Lite spec or, for the
