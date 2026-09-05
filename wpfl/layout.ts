@@ -18,9 +18,19 @@ export const metaFile = (dataDir: string): string => path.join(dataDir, 'meta.js
 const newsAsOfFile = (dataDir: string): string => path.join(dataDir, 'news', 'as_of.json');
 export const etagFile = (dataDir: string): string => path.join(dataDir, '.etag');
 export const cacheDir = (dataDir: string): string => path.join(dataDir, 'wpfl');
-/** Written by the cache refresh into the cache directory; holds the ISO instant of the last fetch. */
+/**
+ * Written by the cache refresh into the cache directory. Line one is the ISO
+ * instant of the last fetch; line two is `format N`, the version of the
+ * normaliser that wrote the rows (`CACHE_FORMAT` in historyCache.ts). A
+ * marker from before the format line reads as format 0.
+ */
 export const CACHE_MARKER = '.fetched';
 export const cacheMarker = (dataDir: string): string => path.join(cacheDir(dataDir), CACHE_MARKER);
+
+/** The marker's text, so the writer and the two readers below cannot disagree. */
+export function cacheMarkerText(fetchedAt: Date, format: number): string {
+  return `${fetchedAt.toISOString()}\nformat ${format}\n`;
+}
 
 /** The decade cache's four files, each one `sql` table. */
 export const CACHE_SOURCES = {
@@ -61,8 +71,21 @@ export function readEtag(dataDir: string): string | null {
 export function readCacheFetchedAt(dataDir: string): Date | null {
   const raw: string | null = readText(cacheMarker(dataDir));
   if (raw === null) return null;
-  const at: number = Date.parse(raw);
+  const at: number = Date.parse(raw.split('\n')[0].trim());
   return Number.isFinite(at) ? new Date(at) : null;
+}
+
+/**
+ * The normaliser version that wrote the cache, or 0 when the marker predates
+ * the format line or is missing. The sync treats anything but the current
+ * `CACHE_FORMAT` as stale, so a cache written by an older normaliser is
+ * refetched on the first question after the deploy that changed it, rather
+ * than serving mis-normalised rows until its window lapses.
+ */
+export function readCacheFormat(dataDir: string): number {
+  const raw: string | null = readText(cacheMarker(dataDir));
+  const match: RegExpExecArray | null = raw === null ? null : /^format (\d+)$/m.exec(raw);
+  return match === null ? 0 : Number(match[1]);
 }
 
 /** The dates the shred actually carries. Null where the shred does not say. */

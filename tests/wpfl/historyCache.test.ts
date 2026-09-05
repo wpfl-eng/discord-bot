@@ -2,7 +2,13 @@ import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globa
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { refreshWpflCache, cacheExtents } from '../../wpfl/historyCache.js';
+import {
+  refreshWpflCache,
+  cacheExtents,
+  shapeRow,
+  resolveCaseCollisions,
+  CACHE_FORMAT,
+} from '../../wpfl/historyCache.js';
 import type { FetchFn, HttpResponse } from '../../wpfl/wpflHttp.js';
 import { fakeResponse } from './support.js';
 
@@ -153,9 +159,21 @@ describe('historyCache', () => {
         2015
       );
 
-      const marker: string = fs.readFileSync(path.join(dir, '.fetched'), 'utf8').trim();
-      expect(Date.parse(marker)).toBeGreaterThanOrEqual(before);
-      expect(Date.parse(marker)).toBeLessThanOrEqual(Date.now());
+      // Line one is the instant; layout.ts owns the parsing and is tested there.
+      const [instant] = fs.readFileSync(path.join(dir, '.fetched'), 'utf8').trim().split('\n');
+      expect(Date.parse(instant)).toBeGreaterThanOrEqual(before);
+      expect(Date.parse(instant)).toBeLessThanOrEqual(Date.now());
+    });
+
+    test('records the normaliser format beside the instant', async () => {
+      await refreshWpflCache(
+        dir,
+        fakeFetch(() => ({ rows: rows(1, 'x') })),
+        2015
+      );
+
+      const [, format] = fs.readFileSync(path.join(dir, '.fetched'), 'utf8').trim().split('\n');
+      expect(format).toBe(`format ${CACHE_FORMAT}`);
     });
 
     /**
@@ -390,6 +408,145 @@ describe('historyCache', () => {
       );
 
       expect(lines('player_scores.jsonl')).toHaveLength(2);
+    });
+  });
+
+  /**
+   * The sync refetches a cache whose marker carries a different CACHE_FORMAT,
+   * so a change to the normaliser reaches the rows on disk on the first
+   * question after the deploy. That only works if the number is bumped, and
+   * this is what makes forgetting impossible: the probe set below exercises
+   * every rule the normaliser applies, and its output is recorded per format.
+   *
+   * If this test fails, the normaliser's output changed. Bump CACHE_FORMAT in
+   * wpfl/historyCache.ts and record the new output under the new number. Do
+   * not edit the entry for the old number.
+   */
+  describe('the cache format tracks the normaliser', () => {
+    const probes: Record<string, Row[]> = {
+      'draft_history.jsonl': [
+        {
+          season: '2015',
+          owner: 'todd ellis',
+          player: "Le'Veon Bell",
+          playerNflTeam: 'Pit',
+          playerNflPosition: 'RB  ',
+          auctionValue: null,
+        },
+      ],
+      'matchups.jsonl': [
+        {
+          week: '3',
+          season: '2016',
+          teamA: ' aj   boorde ',
+          teamAPoints: 90.5,
+          teamB: 'TODD ELLIS',
+          teamBPoints: 80,
+          homeTeam: 'todd ellis',
+        },
+        {
+          week: '4',
+          season: '2016',
+          teamA: 'Mike Simpson',
+          teamAPoints: 70,
+          teamB: 'Nixon Ball',
+          teamBPoints: 70,
+          homeTeam: 'Nixon Ball',
+        },
+      ],
+      'player_scores.jsonl': [
+        {
+          season: 2016,
+          week: 1,
+          owner: 'todd ellis',
+          player: 'mike simpson',
+          points: 20,
+          playerNflTeam: 'Jax',
+          playerNflPosition: 'qb',
+        },
+      ],
+      'transactions.jsonl': [
+        { season: '2021', manager: 'david  adler', addedPlayer: ' Some Guy ' },
+      ],
+    };
+    const collisions: string = [
+      '{"owner":"cameron rifkin","points":1}',
+      '{"owner":"Cameron Rifkin","points":2}',
+      '{"owner":"david simpson","points":3}',
+    ].join('\n');
+
+    const recorded: Record<number, { shaped: Record<string, unknown[]>; collided: string }> = {
+      1: {
+        shaped: {
+          'draft_history.jsonl': [
+            {
+              season: 2015,
+              owner: 'Todd Ellis',
+              player: "Le'Veon Bell",
+              playerNflTeam: 'PIT',
+              playerNflPosition: 'RB',
+              auctionValue: null,
+            },
+          ],
+          'matchups.jsonl': [
+            {
+              week: 3,
+              season: 2016,
+              teamA: 'AJ Boorde',
+              teamAPoints: 90.5,
+              teamB: 'Todd Ellis',
+              teamBPoints: 80,
+              homeTeam: 'Todd Ellis',
+              winner: 'AJ Boorde',
+              loser: 'Todd Ellis',
+            },
+            {
+              week: 4,
+              season: 2016,
+              teamA: 'Mike Simpson',
+              teamAPoints: 70,
+              teamB: 'Nixon Ball',
+              teamBPoints: 70,
+              homeTeam: 'Nixon Ball',
+              winner: null,
+              loser: null,
+            },
+          ],
+          'player_scores.jsonl': [
+            {
+              season: 2016,
+              week: 1,
+              owner: 'Todd Ellis',
+              player: 'mike simpson',
+              points: 20,
+              playerNflTeam: 'JAX',
+              playerNflPosition: 'QB',
+            },
+          ],
+          'transactions.jsonl': [{ season: 2021, owner: 'David Adler', addedPlayer: 'Some Guy' }],
+        },
+        collided: [
+          '{"owner":"Cameron Rifkin","points":1}',
+          '{"owner":"Cameron Rifkin","points":2}',
+          '{"owner":"david simpson","points":3}',
+        ].join('\n'),
+      },
+    };
+
+    test('the current format has a recorded output', () => {
+      expect(recorded[CACHE_FORMAT]).toBeDefined();
+    });
+
+    test('the normaliser produces exactly the output recorded for CACHE_FORMAT', () => {
+      const shaped: Record<string, unknown[]> = Object.fromEntries(
+        Object.entries(probes).map(([source, rows]) => [
+          source,
+          rows.map((row) => shapeRow(source, row)),
+        ])
+      );
+      const collided: string = resolveCaseCollisions(collisions, ['owner']);
+
+      expect({ shaped, collided }).toEqual(recorded[CACHE_FORMAT]);
     });
   });
 

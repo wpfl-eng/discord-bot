@@ -13,7 +13,7 @@ import path from 'node:path';
 import { ASK } from '../ask/askConfig.js';
 import { shred, type ShredResult } from './shredder.js';
 import { generateIndex } from './indexGenerator.js';
-import { refreshWpflCache, cacheExtents } from './historyCache.js';
+import { refreshWpflCache, cacheExtents, CACHE_FORMAT } from './historyCache.js';
 import { fetchWithTimeout, type FetchFn, type HttpResponse } from './wpflHttp.js';
 import {
   cacheDir,
@@ -22,6 +22,7 @@ import {
   normalizeEtag,
   readAsOf,
   readCacheFetchedAt,
+  readCacheFormat,
   readEtag,
 } from './layout.js';
 import { liveShred } from './liveShred.js';
@@ -272,8 +273,13 @@ function sweepLitter(dataDir: string): void {
   }
 }
 
-/** The decade cache is fresh while its marker is inside its own window. */
+/**
+ * The decade cache is fresh while its marker is inside its own window *and*
+ * was written by the normaliser this build carries. A marker from an older
+ * format, or from before the format line existed, is stale however young.
+ */
 function cacheIsFresh(dataDir: string, now: number): boolean {
+  if (readCacheFormat(dataDir) !== CACHE_FORMAT) return false;
   const fetchedAt: Date | null = readCacheFetchedAt(dataDir);
   return fetchedAt !== null && now - fetchedAt.getTime() < ASK.WPFL_CACHE_STALE_AFTER_MS;
 }

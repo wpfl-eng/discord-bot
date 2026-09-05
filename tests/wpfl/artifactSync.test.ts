@@ -8,6 +8,8 @@ import { fakeResponse, fixturePath } from './support.js';
 import { liveShred } from '../../wpfl/liveShred.js';
 import type { Release } from '../../ask/generations.js';
 import { ASK } from '../../ask/askConfig.js';
+import { cacheMarkerText } from '../../wpfl/layout.js';
+import { CACHE_FORMAT } from '../../wpfl/historyCache.js';
 
 // A reshred starts the DuckDB build for the swapped directory; here that is a
 // temp dir per test, and the build is sqlTool's own test's business.
@@ -70,7 +72,7 @@ describe('artifactSync', () => {
       fs.mkdirSync(path.join(dataDir, 'wpfl'), { recursive: true });
       fs.writeFileSync(
         path.join(dataDir, 'wpfl', '.fetched'),
-        `${new Date(stale).toISOString()}\n`
+        cacheMarkerText(new Date(stale), CACHE_FORMAT)
       );
 
       const outcome: SyncOutcome = await ensureFresh(deps({ now: () => stale }));
@@ -98,7 +100,7 @@ describe('artifactSync', () => {
       fs.mkdirSync(path.join(dataDir, 'wpfl'), { recursive: true });
       fs.writeFileSync(
         path.join(dataDir, 'wpfl', '.fetched'),
-        `${new Date(stale).toISOString()}\n`
+        cacheMarkerText(new Date(stale), CACHE_FORMAT)
       );
 
       const outcome: SyncOutcome = await ensureFresh(
@@ -124,7 +126,7 @@ describe('artifactSync', () => {
       fs.mkdirSync(path.join(dataDir, 'wpfl'), { recursive: true });
       fs.writeFileSync(
         path.join(dataDir, 'wpfl', '.fetched'),
-        `${new Date(stale).toISOString()}\n`
+        cacheMarkerText(new Date(stale), CACHE_FORMAT)
       );
       const offered: (Readonly<Record<string, string>> | undefined)[] = [];
       const fetchFn: FetchFn = async (_url, init): Promise<HttpResponse> => {
@@ -375,9 +377,9 @@ describe('artifactSync', () => {
      */
     describe('the decade cache has its own window', () => {
       const cacheMarker = (): string => path.join(dataDir, 'wpfl', '.fetched');
-      const cacheAt = (iso: string): void => {
+      const cacheAt = (iso: string, format: number = CACHE_FORMAT): void => {
         fs.mkdirSync(path.dirname(cacheMarker()), { recursive: true });
-        fs.writeFileSync(cacheMarker(), `${iso}\n`);
+        fs.writeFileSync(cacheMarker(), cacheMarkerText(new Date(iso), format));
       };
 
       test('an unchanged etag with a fresh cache is still unchanged', async () => {
@@ -400,8 +402,48 @@ describe('artifactSync', () => {
         cacheAt(new Date(stale - 2 * ASK.WPFL_CACHE_STALE_AFTER_MS).toISOString());
         const refresh = jest.fn(async (target: string): Promise<void> => {
           fs.mkdirSync(target, { recursive: true });
-          fs.writeFileSync(path.join(target, '.fetched'), `${new Date(stale).toISOString()}\n`);
+          fs.writeFileSync(
+            path.join(target, '.fetched'),
+            cacheMarkerText(new Date(stale), CACHE_FORMAT)
+          );
         });
+
+        const outcome: SyncOutcome = await ensureFresh(
+          deps({ now: () => stale, refreshCache: refresh as never })
+        );
+
+        expect(outcome.kind).toBe('reshredded');
+        expect(refresh).toHaveBeenCalledTimes(1);
+      });
+
+      /**
+       * The owner-name canonicalisation shipped on 2026-09-03 and a cache
+       * fetched the day before kept splitting one owner across two spellings
+       * for the rest of its window, because the marker knew only when the
+       * rows were fetched and not by which normaliser. A marker from another
+       * format, or a bare instant from before the line existed, is stale
+       * however young, so the first question after the deploy refetches.
+       */
+      test('a cache written by another normaliser format is stale inside its window', async () => {
+        await ensureFresh(deps());
+        const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+        cacheAt(new Date(stale - 60 * 60 * 1000).toISOString(), CACHE_FORMAT - 1);
+        const refresh = jest.fn(async (): Promise<void> => {});
+
+        const outcome: SyncOutcome = await ensureFresh(
+          deps({ now: () => stale, refreshCache: refresh as never })
+        );
+
+        expect(outcome.kind).toBe('reshredded');
+        expect(refresh).toHaveBeenCalledTimes(1);
+      });
+
+      test('a bare-instant marker from before the format line is stale inside its window', async () => {
+        await ensureFresh(deps());
+        const stale: number = Date.now() + 7 * 60 * 60 * 1000;
+        fs.mkdirSync(path.dirname(cacheMarker()), { recursive: true });
+        fs.writeFileSync(cacheMarker(), `${new Date(stale - 60 * 60 * 1000).toISOString()}\n`);
+        const refresh = jest.fn(async (): Promise<void> => {});
 
         const outcome: SyncOutcome = await ensureFresh(
           deps({ now: () => stale, refreshCache: refresh as never })

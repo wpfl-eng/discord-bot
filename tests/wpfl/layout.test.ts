@@ -6,10 +6,12 @@ import {
   normalizeEtag,
   readAsOf,
   readCacheFetchedAt,
+  readCacheFormat,
   readEtag,
   tableName,
   cacheDir,
   cacheMarker,
+  cacheMarkerText,
   etagFile,
   type AsOf,
 } from '../../wpfl/layout.js';
@@ -70,7 +72,10 @@ describe('layout', () => {
       fs.writeFileSync(path.join(dataDir, 'news', 'as_of.json'), '"2026-08-28"');
       // Weak on disk, as it would be if anything ever wrote the wire's value raw.
       fs.writeFileSync(etagFile(dataDir), 'W/"abc123"\n');
-      fs.writeFileSync(cacheMarker(dataDir), '2026-08-31T13:17:32.028Z\n');
+      fs.writeFileSync(
+        cacheMarker(dataDir),
+        cacheMarkerText(new Date('2026-08-31T13:17:32.028Z'), 7)
+      );
     });
 
     afterAll(() => {
@@ -84,6 +89,32 @@ describe('layout', () => {
 
     test('the cache marker is an instant', () => {
       expect(readCacheFetchedAt(dataDir)?.toISOString()).toBe('2026-08-31T13:17:32.028Z');
+    });
+
+    test('the cache marker carries the normaliser format that wrote it', () => {
+      expect(readCacheFormat(dataDir)).toBe(7);
+    });
+
+    /**
+     * The marker was a bare instant before the format line existed. Such a
+     * marker still reads its instant, and reads as format 0 so the sync
+     * treats the rows as written by an unknown normaliser and refetches.
+     */
+    test('a marker from before the format line reads its instant and format 0', () => {
+      const old: string = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-layout-old-'));
+      try {
+        fs.mkdirSync(cacheDir(old), { recursive: true });
+        fs.writeFileSync(cacheMarker(old), '2026-09-02T21:50:00.000Z\n');
+
+        expect(readCacheFetchedAt(old)?.toISOString()).toBe('2026-09-02T21:50:00.000Z');
+        expect(readCacheFormat(old)).toBe(0);
+      } finally {
+        fs.rmSync(old, { recursive: true, force: true });
+      }
+    });
+
+    test('a missing marker reads as format 0', () => {
+      expect(readCacheFormat(path.join(empty, 'nope'))).toBe(0);
     });
 
     test('reads the dates out of the shred it was given', () => {

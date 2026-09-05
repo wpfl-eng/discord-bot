@@ -19,8 +19,22 @@ import { ASK } from '../ask/askConfig.js';
 import { getCurrentNFLSeason } from '../helpers/utils.js';
 import { errorMessage, logError } from '../errors/errorHandler.js';
 import { fetchJsonArray, type FetchFn } from './wpflHttp.js';
-import { CACHE_MARKER, CACHE_SOURCES } from './layout.js';
+import { CACHE_MARKER, CACHE_SOURCES, cacheMarkerText } from './layout.js';
 import { wpflMembers, type WpflMember } from '../constants/wpflMembers.js';
+
+/**
+ * The version of the normalisation below, written into the cache marker.
+ *
+ * Bump it whenever `shapeRow`, `normalizeRow`, `canonicalName`, `outcome` or
+ * `resolveCaseCollisions` changes what it writes. The sync counts a cache
+ * whose marker carries any other version as stale, so the rows on disk are
+ * refetched through the new code on the first question after the deploy.
+ * Without this, the owner-name canonicalisation shipped on 2026-09-03 left a
+ * cache fetched the day before splitting one owner across two spellings until
+ * its 24-hour window lapsed. A fixture test over a probe set fails when the
+ * output changes and this number does not, so the bump cannot be forgotten.
+ */
+export const CACHE_FORMAT = 1;
 
 /** Where one cached source's rows run, read from the file itself. */
 export interface SourceExtents {
@@ -149,7 +163,7 @@ export async function refreshWpflCache(
   }
 
   if (wrote) {
-    fs.writeFileSync(path.join(targetDir, CACHE_MARKER), `${new Date().toISOString()}\n`);
+    fs.writeFileSync(path.join(targetDir, CACHE_MARKER), cacheMarkerText(new Date(), CACHE_FORMAT));
   }
 }
 
