@@ -36,7 +36,11 @@ import { formatNumber } from '../helpers/utils.js';
 // prompt states and the week /median prints are one number (log Stage 14).
 import { espnClientFromEnv, getCurrentPeriod, type NFLPeriod } from '../helpers/espnPeriod.js';
 import { toToolResult, type AnyTool } from './toolResult.js';
-import { leagueInstant } from '../ask/leagueTime.js';
+import { leagueInstant, nflWeekWindow } from '../ask/leagueTime.js';
+import { logError } from '../errors/index.js';
+// Runtime values from the fork come through the shim, as in helpers/espnPeriod.ts.
+import { NFLGame, WINNING_TEAM } from '../espnClient.cjs';
+import { LINEUP_SLOTS, optimalPoints, type SolveEntry } from './lineupSolve.js';
 import {
   columnsProse,
   freeAgentRows,
@@ -68,9 +72,23 @@ export interface TeamSummary {
   readonly roster: RosterEntry[];
 }
 
+/**
+ * Where a player's NFL game stands this week. `bye` is a team with no game in
+ * the week's schedule; `unknown` is a week the schedule was not fetched for,
+ * or could not be. Why it exists is on `MatchupSummary.decided`.
+ */
+export type GameStatus = 'final' | 'in_progress' | 'not_started' | 'bye' | 'unknown';
+
+/** A player's game status this week, by the pro team abbreviation ESPN puts on the player. */
+export type StatusLookup = (proTeam: string | undefined) => GameStatus;
+
+export type SideResult = 'win' | 'loss' | 'tie';
+
 export interface LineupEntry {
   readonly name: string;
-  /** Lineup slot, e.g. 'WR' or 'Bench' — not necessarily the player's position. */
+  /** Lineup slot, e.g. 'WR', 'RB/WR/TE' or 'Bench' — not the player's position. */
+  readonly slot: string;
+  /** The player's bare position, e.g. 'RB', whatever slot they sit in. */
   readonly position: string;
   readonly points: number;
   /**
@@ -87,6 +105,7 @@ export interface LineupEntry {
    * turns on. 0 for a player ESPN has nothing for: IR, a bye.
    */
   readonly projected: number;
+  readonly gameStatus: GameStatus;
 }
 
 export interface MatchupSummary {
@@ -106,6 +125,36 @@ export interface MatchupSummary {
   readonly awayProjected: number | null;
   readonly homeWinProbability: number | null;
   readonly awayWinProbability: number | null;
+  /**
+   * True once ESPN has settled the matchup, or once no starter on either side
+   * has a game left. ESPN settles a week only after its last game, so on a
+   * Monday morning every matchup reads UNDECIDED from it even where both
+   * sides are done, and a starter in the Monday game reads 0 -- the same 0 as
+   * a player who took the field and scored nothing. The game status on each
+   * lineup entry, and the second test here, are what a Monday question needs.
+   */
+  readonly decided: boolean;
+  /** The result for each side, null until decided. */
+  readonly homeResult: SideResult | null;
+  readonly awayResult: SideResult | null;
+  /**
+   * Starters whose game is not final, and the sum of their projections. Null
+   * when a starter's status is unknown, so an unfetched schedule never reads
+   * as "nobody left to play".
+   */
+  readonly homePendingStarters: number | null;
+  readonly homePendingProjected: number | null;
+  readonly awayPendingStarters: number | null;
+  readonly awayPendingProjected: number | null;
+  /**
+   * The best lineup the roster could have started from the points as they
+   * stand (wpfl/lineupSolve.ts), and the gap to the score. Provisional while
+   * starters are pending: a player who has not played counts 0.
+   */
+  readonly homeOptimalPoints: number;
+  readonly homePointsLeft: number;
+  readonly awayOptimalPoints: number | null;
+  readonly awayPointsLeft: number | null;
   readonly home: LineupEntry[];
   readonly away: LineupEntry[];
 }
@@ -150,13 +199,20 @@ export interface TransactionSummary {
  */
 const BARE_POSITIONS: readonly string[] = ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST'];
 
+/** ESPN's eligible slots for a player, with the nulls the fork can leave in the list dropped. */
+function eligibleSlots(player: {
+  readonly eligiblePositions?: readonly (string | null)[];
+}): string[] {
+  return (player.eligiblePositions ?? []).filter(
+    (slot): slot is string => typeof slot === 'string'
+  );
+}
+
 function positionOf(player: {
   readonly defaultPosition: string;
   readonly eligiblePositions?: readonly (string | null)[];
 }): string {
-  const eligible = new Set<string>(
-    (player.eligiblePositions ?? []).filter((slot): slot is string => typeof slot === 'string')
-  );
+  const eligible = new Set<string>(eligibleSlots(player));
   return BARE_POSITIONS.find((position) => eligible.has(position)) ?? player.defaultPosition;
 }
 
@@ -219,25 +275,102 @@ export function toTeams(teams: readonly Team[], owners?: ReadonlySet<string>): T
     .filter((team: TeamSummary): boolean => wanted(owners, team.owner));
 }
 
+/** One status for everyone: a past week is final, a future one not started. */
+export function constantStatus(status: GameStatus): StatusLookup {
+  return (): GameStatus => status;
+}
+
+/** Every game status is unknown: the schedule was not fetched. */
+export const UNKNOWN_STATUS: StatusLookup = constantStatus('unknown');
+
+/** What this reads of an NFL game from the fork's schedule lookup. */
+export type NflGame = Pick<NFLGame, 'gameStatus' | 'homeTeam' | 'awayTeam'>;
+
+/** The fork's own three game statuses, so a rewording there cannot leave every game unknown here. */
+const GAME_STATUS: Readonly<Record<string, GameStatus>> = {
+  [NFLGame.GAME_STATUSES.pre]: 'not_started',
+  [NFLGame.GAME_STATUSES.in]: 'in_progress',
+  [NFLGame.GAME_STATUSES.post]: 'final',
+};
+
+/**
+ * A status per pro team from the week's schedule. A team with no game in the
+ * window is on bye. Keyed on the abbreviation ESPN puts on both the game and
+ * the player, so the two agree by construction (`WSH` on both).
+ */
+/** Where one scheduled game stands, in this module's terms. */
+export function gameStatusOf(game: Pick<NFLGame, 'gameStatus'>): GameStatus {
+  return GAME_STATUS[game.gameStatus] ?? 'unknown';
+}
+
+export function statusLookupFromGames(games: readonly NflGame[]): StatusLookup {
+  const byTeam = new Map<string, GameStatus>();
+  for (const game of games) {
+    const status: GameStatus = gameStatusOf(game);
+    byTeam.set(game.homeTeam.teamAbbrev, status);
+    byTeam.set(game.awayTeam.teamAbbrev, status);
+  }
+  return (proTeam: string | undefined): GameStatus =>
+    proTeam === undefined ? 'unknown' : (byTeam.get(proTeam) ?? 'bye');
+}
+
+/** ESPN's call on a matchup, as each side's result. Absent while ESPN has it UNDECIDED. */
+const ESPN_RESULT: Readonly<Record<string, readonly [SideResult, SideResult]>> = {
+  [WINNING_TEAM.HOME]: ['win', 'loss'],
+  [WINNING_TEAM.AWAY]: ['loss', 'win'],
+  [WINNING_TEAM.TIE]: ['tie', 'tie'],
+};
+
+function byScore(home: number, away: number): readonly [SideResult, SideResult] {
+  if (home > away) return ['win', 'loss'];
+  if (home < away) return ['loss', 'win'];
+  return ['tie', 'tie'];
+}
+
 export function toBoxscores(
   matchups: readonly Boxscore[],
+  status: StatusLookup = UNKNOWN_STATUS,
   owners?: ReadonlySet<string>
 ): MatchupSummary[] {
   return matchups
-    .map(
-      (matchup): MatchupSummary => ({
+    .map((matchup): MatchupSummary => {
+      const awayOwner: string | null =
+        matchup.awayTeamId === undefined ? null : ownerFor(matchup.awayTeamId);
+      const home: Side = sideOf(matchup.homeRoster ?? [], matchup.homeScore, status);
+      const away: Side | null =
+        awayOwner === null || matchup.awayScore === undefined
+          ? null
+          : sideOf(matchup.awayRoster ?? [], matchup.awayScore, status);
+      const settled: readonly [SideResult, SideResult] | undefined = ESPN_RESULT[matchup.winner];
+      const decided: boolean =
+        settled !== undefined ||
+        (home.pending?.starters === 0 && (away === null || away.pending?.starters === 0));
+      const [homeResult, awayResult] =
+        !decided || away === null ? [null, null] : (settled ?? byScore(home.score, away.score));
+      return {
         homeOwner: ownerFor(matchup.homeTeamId),
-        awayOwner: matchup.awayTeamId === undefined ? null : ownerFor(matchup.awayTeamId),
-        homeScore: matchup.homeScore,
-        awayScore: matchup.awayScore ?? null,
+        awayOwner,
+        homeScore: home.score,
+        awayScore: away?.score ?? null,
         homeProjected: roundedOrNull(matchup.homeProjectedScore),
         awayProjected: roundedOrNull(matchup.awayProjectedScore),
         homeWinProbability: roundedOrNull(matchup.homeWinProbability),
         awayWinProbability: roundedOrNull(matchup.awayWinProbability),
-        home: (matchup.homeRoster ?? []).map(toLineupEntry),
-        away: (matchup.awayRoster ?? []).map(toLineupEntry),
-      })
-    )
+        decided,
+        homeResult,
+        awayResult,
+        homePendingStarters: home.pending?.starters ?? null,
+        homePendingProjected: home.pending?.projected ?? null,
+        awayPendingStarters: away?.pending?.starters ?? null,
+        awayPendingProjected: away?.pending?.projected ?? null,
+        homeOptimalPoints: home.optimal,
+        homePointsLeft: home.pointsLeft,
+        awayOptimalPoints: away?.optimal ?? null,
+        awayPointsLeft: away?.pointsLeft ?? null,
+        home: home.lineup,
+        away: away?.lineup ?? [],
+      };
+    })
     .filter(
       (matchup: MatchupSummary): boolean =>
         wanted(owners, matchup.homeOwner) || wanted(owners, matchup.awayOwner)
@@ -305,13 +438,73 @@ function toRosterEntry(player: Player): RosterEntry {
 
 // A BoxscorePlayer extends Player on the fork: the name is `fullName` directly
 // and the lineup slot is `rosteredPosition`.
-function toLineupEntry(slot: BoxscorePlayer): LineupEntry {
+function toLineupEntry(slot: BoxscorePlayer, status: StatusLookup): LineupEntry {
   return {
     name: slot.fullName,
-    position: slot.rosteredPosition,
+    slot: slot.rosteredPosition,
+    position: positionOf(slot),
     points: slot.totalPoints,
     injuryStatus: slot.injuryStatus ?? null,
     projected: projectedPoints(slot.projectedPointBreakdown),
+    gameStatus: status(slot.proTeamAbbreviation),
+  };
+}
+
+/** One side of a matchup: its lineup and everything the summary derives from it. */
+interface Side {
+  readonly lineup: LineupEntry[];
+  readonly score: number;
+  readonly pending: Pending | null;
+  readonly optimal: number;
+  readonly pointsLeft: number;
+}
+
+function sideOf(roster: readonly BoxscorePlayer[], score: number, status: StatusLookup): Side {
+  const lineup: LineupEntry[] = roster.map((p: BoxscorePlayer) => toLineupEntry(p, status));
+  const optimal: number = optimalPoints(roster.map(toSolveEntry));
+  return {
+    lineup,
+    score,
+    pending: pendingOf(lineup),
+    optimal,
+    pointsLeft: formatNumber(optimal - score),
+  };
+}
+
+/** A lineup slot that scores: one of the league's starting slots, not the bench or IR. */
+function isStarterSlot(slot: string): boolean {
+  return LINEUP_SLOTS.includes(slot);
+}
+
+interface Pending {
+  readonly starters: number;
+  readonly projected: number;
+}
+
+/**
+ * Starters with a game left, and what ESPN projects for them. Null when any
+ * starter's status is unknown: "none pending" must never be a default.
+ */
+function pendingOf(lineup: readonly LineupEntry[]): Pending | null {
+  const starters: LineupEntry[] = lineup.filter((entry: LineupEntry) => isStarterSlot(entry.slot));
+  if (starters.some((entry: LineupEntry): boolean => entry.gameStatus === 'unknown')) return null;
+  const pending: LineupEntry[] = starters.filter(
+    (entry: LineupEntry): boolean =>
+      entry.gameStatus === 'not_started' || entry.gameStatus === 'in_progress'
+  );
+  return {
+    starters: pending.length,
+    projected: formatNumber(
+      pending.reduce((sum: number, entry: LineupEntry): number => sum + entry.projected, 0)
+    ),
+  };
+}
+
+function toSolveEntry(player: BoxscorePlayer): SolveEntry {
+  return {
+    points: player.totalPoints,
+    eligible: eligibleSlots(player),
+    slot: player.rosteredPosition,
   };
 }
 
@@ -355,9 +548,33 @@ function espnClient(): EspnClient {
 export interface EspnDeps {
   readonly client: () => EspnClient;
   readonly period: () => Promise<NFLPeriod>;
+  /** The clock, for the week's schedule window. Defaults to now. */
+  readonly now?: () => Date;
 }
 
 const DEFAULT_DEPS: EspnDeps = { client: espnClient, period: getCurrentPeriod };
+
+/**
+ * Game statuses for the week a boxscore call is about. Only the current
+ * scoring period has games in flight, so only it costs a schedule call: a
+ * past week is final and a future one has not started, by definition. If the
+ * schedule cannot be fetched the boxscore still returns with every status
+ * unknown -- which the description defines -- rather than failing the one
+ * tool a Monday question needs.
+ */
+async function weekStatus(deps: EspnDeps, week: number, period: NFLPeriod): Promise<StatusLookup> {
+  if (week < period.scoringPeriodId) return constantStatus('final');
+  if (week > period.scoringPeriodId) return constantStatus('not_started');
+  try {
+    const games: readonly NflGame[] = await deps
+      .client()
+      .getNFLGamesForPeriod(nflWeekWindow(deps.now?.() ?? new Date()));
+    return statusLookupFromGames(games);
+  } catch (error: unknown) {
+    logError('espnTools', "Could not fetch the week's NFL schedule for game statuses", error);
+    return UNKNOWN_STATUS;
+  }
+}
 
 const CURRENT_SEASON_ONLY =
   'This is the live ESPN league and the only source of truth for the season in progress — the WPFL history API returns nothing for it and the draft artifact froze on draft night.';
@@ -413,7 +630,7 @@ export function createEspnTools(store: LiveStore, deps: EspnDeps = DEFAULT_DEPS)
 
     tool(
       'espn_boxscores',
-      `Head-to-head matchups for one week: both owners, both scores, ESPN's projected total and win probability for each side, and each lineup with per-player points, projection and injury status. Before kickoff the scores are 0 and the projections are ESPN's forecast of the week as lineups stand: who is favoured in a game this week, and why. ESPN publishes the projected totals and win probability for the current week only (null otherwise); the draft-night sim's odds for every week, and a future week's opponent, are in the artifact's \`teams.schedule\`. Per-player projections sum to within a fraction of a point of ESPN's own team total. Pass \`owners\` for one matchup rather than the whole slate. Also fills the tables live_matchups (${columnsProse('live_matchups')}; one row per side, so filter home = true for one row per game) and live_lineups (${columnsProse('live_lineups')}; slot is the lineup slot, not the position) ${FILLS_FOR_SQL} ${CURRENT_SEASON_ONLY}`,
+      `Head-to-head matchups for one week: both owners, both scores, ESPN's projected total and win probability for each side, and each lineup with per-player points, projection, injury status, position and slot. Before kickoff the scores are 0 and the projections are ESPN's forecast of the week as lineups stand: who is favoured in a game this week, and why. During the week each player carries game_status -- final, in_progress, not_started, bye or unknown -- so a starter at 0 whose game has not started has not played. decided is true once ESPN has settled the matchup or no starter on either side has a game left; until then result is null and pending_starters and pending_projected say who is still to play and what ESPN projects for them. optimal_points is the best lineup the roster could have started from the points as they stand and points_left the gap to the score; both are provisional while starters are pending. This is the optimal figure for the week in progress; optimal_coaching publishes it for past seasons, and where both hold the same week the API's figure is the published one. ESPN publishes the projected totals and win probability for the current week only (null otherwise); the draft-night sim's odds for every week, and a future week's opponent, are in the artifact's \`teams.schedule\`. Per-player projections sum to within a fraction of a point of ESPN's own team total. Pass \`owners\` for one matchup rather than the whole slate. Also fills the tables live_matchups (${columnsProse('live_matchups')}; one row per side, so filter home = true for one row per game) and live_lineups (${columnsProse('live_lineups')}; slot is the lineup slot, position the player's) ${FILLS_FOR_SQL} ${CURRENT_SEASON_ONLY}`,
       {
         owners: OWNERS_ARG,
         week: z.number().int().optional().describe('Week. Defaults to the current NFL week.'),
@@ -424,13 +641,17 @@ export function createEspnTools(store: LiveStore, deps: EspnDeps = DEFAULT_DEPS)
         // ESPN reports both periods; with one-week matchups they agree, and an
         // explicit week from the agent names both.
         const week: number = args.week ?? period.matchupPeriodId;
-        const slate: MatchupSummary[] = toBoxscores(
-          await deps.client().getBoxscoreForWeek({
+        const scoringPeriodId: number = args.week ?? period.scoringPeriodId;
+        // Two independent round trips to two ESPN hosts, on a ticker somebody is watching.
+        const [status, boxscores] = await Promise.all([
+          weekStatus(deps, scoringPeriodId, period),
+          deps.client().getBoxscoreForWeek({
             seasonId: period.seasonId,
             matchupPeriodId: week,
-            scoringPeriodId: args.week ?? period.scoringPeriodId,
-          })
-        );
+            scoringPeriodId,
+          }),
+        ]);
+        const slate: MatchupSummary[] = toBoxscores(boxscores, status);
         store.replaceWeek('live_matchups', week, matchupRows(week, slate));
         store.replaceWeek('live_lineups', week, lineupRows(week, slate));
         return toToolResult(

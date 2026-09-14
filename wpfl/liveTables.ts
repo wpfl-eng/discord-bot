@@ -35,6 +35,7 @@ import type {
   TeamSummary,
   TransactionSummary,
 } from './espnTools.js';
+import type { LinesSummary } from './polymarketLines.js';
 
 export type Row = Record<string, unknown>;
 
@@ -50,7 +51,7 @@ export interface LiveTable {
 }
 
 /**
- * The six tables, declared once. The description of each ESPN tool, the
+ * The seven tables, declared once. The description of each tool that fills one, the
  * missing-table error, INDEX.md's routing row and the materializer all read
  * this, so a renamed column cannot leave one of them behind.
  */
@@ -67,6 +68,12 @@ export const LIVE_TABLES = {
       projected: 'DOUBLE',
       opponent_projected: 'DOUBLE',
       win_prob: 'DOUBLE',
+      decided: 'BOOLEAN',
+      result: 'VARCHAR',
+      pending_starters: 'INTEGER',
+      pending_projected: 'DOUBLE',
+      optimal_points: 'DOUBLE',
+      points_left: 'DOUBLE',
     },
     tool: 'espn_boxscores',
     byWeek: true,
@@ -78,9 +85,11 @@ export const LIVE_TABLES = {
       owner: 'VARCHAR',
       player: 'VARCHAR',
       slot: 'VARCHAR',
+      position: 'VARCHAR',
       points: 'DOUBLE',
       projected: 'DOUBLE',
       injury_status: 'VARCHAR',
+      game_status: 'VARCHAR',
     },
     tool: 'espn_boxscores',
     byWeek: true,
@@ -135,6 +144,39 @@ export const LIVE_TABLES = {
     },
     tool: 'espn_transactions',
     byWeek: false,
+  },
+  /** One row per NFL game per week, on ESPN team abbreviations, so it joins `live_rosters` on `nfl_team`. */
+  live_lines: {
+    columns: {
+      week: 'INTEGER',
+      away: 'VARCHAR',
+      home: 'VARCHAR',
+      kickoff: 'VARCHAR',
+      game_status: 'VARCHAR',
+      event: 'VARCHAR',
+      volume: 'DOUBLE',
+      volume_24h: 'DOUBLE',
+      away_price: 'DOUBLE',
+      home_price: 'DOUBLE',
+      away_day_change: 'DOUBLE',
+      away_week_change: 'DOUBLE',
+      moneyline_volume: 'DOUBLE',
+      moneyline_volume_24h: 'DOUBLE',
+      closed: 'BOOLEAN',
+      spread_favorite: 'VARCHAR',
+      spread_line: 'DOUBLE',
+      spread_price: 'DOUBLE',
+      spread_day_change: 'DOUBLE',
+      spread_volume: 'DOUBLE',
+      total_line: 'DOUBLE',
+      over_price: 'DOUBLE',
+      over_day_change: 'DOUBLE',
+      total_volume: 'DOUBLE',
+      away_team_total: 'DOUBLE',
+      home_team_total: 'DOUBLE',
+    },
+    tool: 'polymarket_lines',
+    byWeek: true,
   },
 } as const satisfies Record<string, LiveTable>;
 
@@ -263,6 +305,12 @@ export function matchupRows(week: number, matchups: readonly MatchupSummary[]): 
       projected: matchup.homeProjected,
       opponent_projected: matchup.awayProjected,
       win_prob: matchup.homeWinProbability,
+      decided: matchup.decided,
+      result: matchup.homeResult,
+      pending_starters: matchup.homePendingStarters,
+      pending_projected: matchup.homePendingProjected,
+      optimal_points: matchup.homeOptimalPoints,
+      points_left: matchup.homePointsLeft,
     };
     if (matchup.awayOwner === null) return [home];
     const away: Row = {
@@ -275,6 +323,12 @@ export function matchupRows(week: number, matchups: readonly MatchupSummary[]): 
       projected: matchup.awayProjected,
       opponent_projected: matchup.homeProjected,
       win_prob: matchup.awayWinProbability,
+      decided: matchup.decided,
+      result: matchup.awayResult,
+      pending_starters: matchup.awayPendingStarters,
+      pending_projected: matchup.awayPendingProjected,
+      optimal_points: matchup.awayOptimalPoints,
+      points_left: matchup.awayPointsLeft,
     };
     return [home, away];
   });
@@ -289,10 +343,12 @@ export function lineupRows(week: number, matchups: readonly MatchupSummary[]): R
             week,
             owner,
             player: entry.name,
-            slot: entry.position,
+            slot: entry.slot,
+            position: entry.position,
             points: entry.points,
             projected: entry.projected,
             injury_status: entry.injuryStatus,
+            game_status: entry.gameStatus,
           })
         );
   return matchups.flatMap((matchup: MatchupSummary): Row[] => [
@@ -324,6 +380,39 @@ export function transactionRows(moves: readonly TransactionSummary[]): Row[] {
       to_owner: move.toOwner,
       player: move.player,
       bid_amount: move.bidAmount,
+    })
+  );
+}
+
+export function linesRows(games: readonly LinesSummary[]): Row[] {
+  return games.map(
+    (game: LinesSummary): Row => ({
+      week: game.week,
+      away: game.away,
+      home: game.home,
+      kickoff: game.kickoff,
+      game_status: game.gameStatus,
+      event: game.event,
+      volume: game.volume,
+      volume_24h: game.volume24h,
+      away_price: game.moneyline?.awayPrice ?? null,
+      home_price: game.moneyline?.homePrice ?? null,
+      away_day_change: game.moneyline?.awayChange.day ?? null,
+      away_week_change: game.moneyline?.awayChange.week ?? null,
+      moneyline_volume: game.moneyline?.volume ?? null,
+      moneyline_volume_24h: game.moneyline?.volume24h ?? null,
+      closed: game.moneyline?.closed ?? null,
+      spread_favorite: game.spread?.favorite ?? null,
+      spread_line: game.spread?.line ?? null,
+      spread_price: game.spread?.price ?? null,
+      spread_day_change: game.spread?.favoriteChange.day ?? null,
+      spread_volume: game.spread?.volume ?? null,
+      total_line: game.total?.line ?? null,
+      over_price: game.total?.overPrice ?? null,
+      over_day_change: game.total?.overChange.day ?? null,
+      total_volume: game.total?.volume ?? null,
+      away_team_total: game.awayTeamTotal?.line ?? null,
+      home_team_total: game.homeTeamTotal?.line ?? null,
     })
   );
 }

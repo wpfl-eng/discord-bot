@@ -125,7 +125,7 @@ export const wpflApiTools: AnyTool[] = [
 
   tool(
     'optimal_coaching',
-    `Actual points scored against the best the roster could have scored, for every owner in one season, through and including a week. The gap is lineup-setting skill. The optimal figure needs a lineup solve and cannot be reconstructed from raw scores, so always call this rather than working it out: /optimal publishes this exact figure. Omit the week for the latest week loaded, which for a past season is the whole season. ${HISTORY_ONLY}`,
+    `Actual points scored against the best the roster could have scored, for every owner in one season, through and including a week. The gap is lineup-setting skill. The optimal figure needs a lineup solve and cannot be reconstructed from raw scores, so always call this rather than working it out: /optimal publishes this exact figure. For the week in progress, espn_boxscores carries the optimal figure. Omit the week for the latest week loaded, which for a past season is the whole season. ${HISTORY_ONLY}`,
     {
       season: z.number().int().describe('Season, e.g. 2024.'),
       week: z

@@ -33,7 +33,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import prettier from 'prettier';
 import { ASK } from '../ask/askConfig.js';
-import { espnClientFromEnv } from '../helpers/espnPeriod.js';
+import { espnClientFromEnv, getCurrentPeriod } from '../helpers/espnPeriod.js';
+import { nflWeekWindow } from '../ask/leagueTime.js';
+import { polymarketSlug, type ScheduledGame } from '../wpfl/polymarketLines.js';
 import { getCurrentNFLSeason } from '../helpers/utils.js';
 import { errorMessage } from '../errors/errorHandler.js';
 import { fetchJsonArray, fetchWithTimeout, type HttpResponse } from '../wpfl/wpflHttp.js';
@@ -104,6 +106,30 @@ function redact(value: Json): Json {
   if (value !== null && typeof value === 'object') {
     const out: { [key: string]: Json } = {};
     for (const [key, member] of Object.entries(value)) out[key] = redact(member);
+    return out;
+  }
+  return value;
+}
+
+/**
+ * The three raw stat blocks ESPN puts on every boxscore player. Nothing in
+ * the bot reads them -- the tools read `projectedPointBreakdown` and
+ * `totalPoints` -- and they were three quarters of a recording's bytes.
+ */
+const STAT_BLOCKS: ReadonlySet<string> = new Set([
+  'rawStats',
+  'projectedRawStats',
+  'pointBreakdown',
+]);
+
+/** The same walk as `redact`, dropping the named keys wherever they sit. */
+function omit(value: Json, keys: ReadonlySet<string>): Json {
+  if (Array.isArray(value)) return value.map((member: Json): Json => omit(member, keys));
+  if (value !== null && typeof value === 'object') {
+    const out: { [key: string]: Json } = {};
+    for (const [key, member] of Object.entries(value)) {
+      if (!keys.has(key)) out[key] = omit(member, keys);
+    }
     return out;
   }
   return value;
@@ -223,10 +249,15 @@ if (client === null) {
   );
   await write(
     'espn-boxscores.json',
-    trim(
-      asJson(await client.getBoxscoreForWeek({ seasonId, matchupPeriodId: 1, scoringPeriodId: 1 })),
-      0,
-      KEEP_ESPN
+    omit(
+      trim(
+        asJson(
+          await client.getBoxscoreForWeek({ seasonId, matchupPeriodId: 1, scoringPeriodId: 1 })
+        ),
+        0,
+        KEEP_ESPN
+      ),
+      STAT_BLOCKS
     )
   );
   await write(
@@ -239,5 +270,105 @@ if (client === null) {
   await write(
     'espn-transactions.json',
     trim(asJson(await client.getRecentActivity({ seasonId })), 0, 1)
+  );
+  // The week's NFL schedule, whole: sixteen games of one small shape, keyed by
+  // the team abbreviations the rosters use, recorded through the same window
+  // the boxscore tool asks for (ask/leagueTime.ts).
+  const games: ScheduledGame[] = await client.getNFLGamesForPeriod(nflWeekWindow(new Date()));
+  await write('espn-nfl-games.json', asJson(games));
+  // Polymarket, for the polymarket_lines tool, on the week's last game by
+  // kickoff (the one most likely still open): the moneyline market fetched
+  // alone, whole -- the small per-game fetch -- and the event cut to the
+  // fields the tool reads, the eight most-traded lines of each kind it reads,
+  // and one market of each of a few kinds it must ignore. A whole event is
+  // over a megabyte.
+  const lastGame: ScheduledGame | undefined = [...games].sort(
+    (a: ScheduledGame, b: ScheduledGame): number =>
+      new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+  )[0];
+  if (lastGame !== undefined) {
+    const slug: string = polymarketSlug(lastGame);
+    const gamma = async (path: string): Promise<Json> =>
+      (await (await fetch(`https://gamma-api.polymarket.com${path}`)).json()) as Json;
+    await write('polymarket-moneyline.json', await gamma(`/markets?slug=${slug}`));
+    const READ = new Set([
+      'id',
+      'slug',
+      'question',
+      'outcomes',
+      'outcomePrices',
+      'volume',
+      'liquidity',
+      'closed',
+      'endDate',
+      'startDate',
+      'title',
+      'eventWeek',
+      'ticker',
+      'sportsMarketType',
+      'line',
+      'groupItemTitle',
+      'gameStartTime',
+      'oneDayPriceChange',
+      'oneWeekPriceChange',
+      'oneMonthPriceChange',
+      'volume24hr',
+    ]);
+    const KINDS_READ = ['moneyline', 'spreads', 'totals', 'team_totals'];
+    const KINDS_IGNORED = [
+      'first_half_spreads',
+      'q1_spreads',
+      'second_half_totals',
+      'exact_margin',
+      'first_half_moneyline',
+    ];
+    const pickObject = (value: { [key: string]: Json }): { [key: string]: Json } =>
+      Object.fromEntries(Object.entries(value).filter(([key]) => READ.has(key)));
+    const pickFields = (value: Json): Json =>
+      value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? pickObject(value)
+        : value;
+    const events: Json = await gamma(`/events?slug=${slug}`);
+    const event: Json = Array.isArray(events) ? (events[0] ?? null) : null;
+    if (event !== null && typeof event === 'object' && !Array.isArray(event)) {
+      const markets: Json[] = Array.isArray(event.markets) ? event.markets : [];
+      const kindOf = (m: Json): string =>
+        m !== null && typeof m === 'object' && !Array.isArray(m)
+          ? String(m.sportsMarketType ?? '')
+          : '';
+      const volumeOf = (m: Json): number =>
+        m !== null && typeof m === 'object' && !Array.isArray(m) ? Number(m.volume ?? 0) : 0;
+      const kept: Json[] = KINDS_READ.flatMap((kind: string): Json[] =>
+        markets
+          .filter((m: Json): boolean => kindOf(m) === kind)
+          .sort((a: Json, b: Json): number => volumeOf(b) - volumeOf(a))
+          .slice(0, 8)
+      );
+      const ignored: Json[] = KINDS_IGNORED.flatMap((kind: string): Json[] =>
+        markets.filter((m: Json): boolean => kindOf(m) === kind).slice(0, 1)
+      );
+      const { markets: _all, ...rest } = event;
+      void _all;
+      await write('polymarket-event.json', [
+        { ...pickObject(rest), markets: [...kept, ...ignored].map(pickFields) },
+      ]);
+    }
+  }
+  // Two whole matchups for the current week. Only worth recording mid-week,
+  // after the Sunday games and before the Monday one: that is when a starter
+  // still has a game to play and ESPN has not settled a matchup, which is
+  // what the game-status and optimal-lineup tests cover. The committed
+  // recording was chosen by hand for that; this takes the first two.
+  const { scoringPeriodId } = await getCurrentPeriod();
+  const slate: Json = asJson(
+    await client.getBoxscoreForWeek({
+      seasonId,
+      matchupPeriodId: scoringPeriodId,
+      scoringPeriodId,
+    })
+  );
+  await write(
+    'espn-boxscores-midweek.json',
+    omit(Array.isArray(slate) ? slate.slice(0, KEEP_ESPN) : slate, STAT_BLOCKS)
   );
 }

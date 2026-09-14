@@ -5,6 +5,7 @@ import { buildSystemPrompt, STATIC_PROMPT, LEAGUE_FACTS } from '../../ask/system
 import { ASK } from '../../ask/askConfig.js';
 import type { NFLPeriod } from '../../helpers/espnPeriod.js';
 import type { AsOf } from '../../wpfl/layout.js';
+import { LINEUP_SLOTS } from '../../wpfl/lineupSolve.js';
 
 const SEPT = new Date('2026-09-15T18:00:00Z');
 
@@ -85,6 +86,33 @@ describe('systemPrompt', () => {
       expect(STATIC_PROMPT).toContain('drafted_points');
       expect(STATIC_PROMPT).toContain('/ewins');
       expect(STATIC_PROMPT).toContain('/optimal');
+    });
+
+    // A Monday-morning question (why: MatchupSummary.decided in wpfl/espnTools.ts).
+    // The boxscore tool says which matchups are decided; the prompt must say to believe it.
+    test('says a week in progress is decided only when the tool says so', () => {
+      expect(STATIC_PROMPT).toMatch(/decided only when the tool says so/i);
+      expect(STATIC_PROMPT).toMatch(/still to play/i);
+    });
+
+    test('names espn_boxscores as the live-week source of the optimal figure', () => {
+      const start: number = STATIC_PROMPT.indexOf('**Never compute a published figure by hand.**');
+      const rule: string = STATIC_PROMPT.slice(start, start + 900);
+      expect(rule).toMatch(/season in progress.*`espn_boxscores`/s);
+      expect(rule).toMatch(/`optimal_coaching` remains the\s+source for past seasons/);
+    });
+
+    // The lineup the boxscore tool solves for (wpfl/lineupSolve.ts) and the
+    // one the prompt states are two spellings of one fact; this holds them
+    // to each other, since neither derives from the other.
+    test('states the same lineup the optimal-lineup solve uses', () => {
+      const counts = new Map<string, number>();
+      for (const slot of LINEUP_SLOTS) counts.set(slot, (counts.get(slot) ?? 0) + 1);
+      const line: string = LEAGUE_FACTS.split('\n').find((l) => l.includes('Lineup:')) ?? '';
+      for (const [slot, count] of counts) {
+        const label: string = slot === 'RB/WR/TE' ? 'FLEX' : slot;
+        expect(line).toContain(`${count} ${label}`);
+      }
     });
 
     test('says what each source knows and what it does not', () => {

@@ -219,6 +219,9 @@ describe('indexGenerator', () => {
         /\| .*this week.*projected.*win probability.*current week only.*\| `espn_boxscores`/i
       );
       expect(index).not.toMatch(/espn_boxscores` is for scores once a week is played/);
+      // During a week the same tool says who is still to play and whether a
+      // matchup is decided; the row says so, in the row that routes the week.
+      expect(index).toMatch(/\| .*game status.*decided.*optimal lineup.*\| `espn_boxscores`/i);
     });
 
     // The season in progress is reachable from SQL once an ESPN tool has run
@@ -229,6 +232,13 @@ describe('indexGenerator', () => {
         /\| The season in progress as rows to join or draw \| .*`live_matchups` and `live_lineups` from `espn_boxscores`.*`live_standings` and `live_rosters` from `espn_teams`.*`live_free_agents` from `espn_free_agents`.*`live_transactions` from `espn_transactions`/
       );
       expect(index).toMatch(/empty until then/);
+      expect(index).toMatch(/`live_lines` from `polymarket_lines`/);
+    });
+
+    test("routes a game's line and where the money is to Polymarket, named as not a sportsbook", () => {
+      expect(index).toMatch(
+        /\| .*favoured.*line has moved.*money.*\| `polymarket_lines`.*not a sportsbook/
+      );
     });
   });
   /**

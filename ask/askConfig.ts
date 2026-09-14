@@ -130,6 +130,16 @@ export const ASK = {
   // has no request timeout -- costs the model one tool call, not the slot.
   MCP_TOOL_TIMEOUT_MS: 60 * 1000,
 
+  // ---- Polymarket lines (the polymarket_lines tool) ----
+  // A whole Polymarket event is over a megabyte and the moneyline market alone
+  // six kilobytes, so every game gets the moneyline and only this many games
+  // still to be played get the full lines, unless one game is named.
+  POLYMARKET: {
+    DETAIL_CAP: 4,
+    CONCURRENCY: 4,
+    FETCH_TIMEOUT_MS: 20 * 1000,
+  },
+
   // ---- Discord surface (design §6.3) ----
   TICKER_EDIT_THROTTLE_MS: 1500, // a coalescing window; discord.js handles the real rate limit
   THREAD_AUTO_ARCHIVE: ThreadAutoArchiveDuration.OneDay,

@@ -131,7 +131,7 @@ function missingLiveTable(message: string): string | null {
   if (isLiveTableName(name)) {
     return `${name} is empty in this run: nothing has fetched it yet. Call the ${LIVE_TABLES[name].tool} tool first, then run this query again.`;
   }
-  return `There is no table ${name}. The live tables are ${LIVE_TABLE_NAMES.join(', ')}, each filled by its espn_* tool in this run.`;
+  return `There is no table ${name}. The live tables are ${LIVE_TABLE_NAMES.join(', ')}, each filled by its own tool in this run.`;
 }
 
 /** `SELECT, WITH, DESCRIBE or SUMMARIZE`, for anything a human or the agent reads. */
@@ -537,7 +537,7 @@ function liveTablesByTool(): string {
 export function createSqlTool(live: LiveStore): AnyTool {
   const definition: SdkMcpToolDefinition<{ query: z.ZodString }> = tool(
     'sql',
-    `Read-only SQL (DuckDB) over every WPFL dataset. This is the only way to reach ten years of rows: wpfl_draft_history (every auction pick since 2010), wpfl_matchups (every regular-season head-to-head result; the API publishes no playoff games), and wpfl_player_scores (weekly player scores since 2015); INDEX.md says where each table's rows end. Join those to the 2026 draft artifact, whose bodies are tables too — teams, league_board, league_dossiers, league_standings, history_seasons, history_skill_luck, night_spend_race, news_players and the rest, one table per shredded file named <directory>_<file>. The season in progress is here too, once fetched: each espn_* call in this run also fills its live tables, ${liveTablesByTool()}, which join to teams and the decade on owner and exist only after that call. INDEX.md lists every table and its columns -- use those names exactly, and DESCRIBE <table> rather than guess when one is not listed; a guessed column is a failed call. One statement, and it must start with ${STARTERS_PROSE}; integers come back as strings to keep full precision. Results are capped at ${ASK.SQL_ROW_LIMIT} rows — aggregate rather than asking for everything.`,
+    `Read-only SQL (DuckDB) over every WPFL dataset. This is the only way to reach ten years of rows: wpfl_draft_history (every auction pick since 2010), wpfl_matchups (every regular-season head-to-head result; the API publishes no playoff games), and wpfl_player_scores (weekly player scores since 2015); INDEX.md says where each table's rows end. Join those to the 2026 draft artifact, whose bodies are tables too — teams, league_board, league_dossiers, league_standings, history_seasons, history_skill_luck, night_spend_race, news_players and the rest, one table per shredded file named <directory>_<file>. The season in progress is here too, once fetched: each espn_* or polymarket_lines call in this run also fills its live tables, ${liveTablesByTool()}, which join to teams and the decade on owner and exist only after that call. INDEX.md lists every table and its columns -- use those names exactly, and DESCRIBE <table> rather than guess when one is not listed; a guessed column is a failed call. One statement, and it must start with ${STARTERS_PROSE}; integers come back as strings to keep full precision. Results are capped at ${ASK.SQL_ROW_LIMIT} rows — aggregate rather than asking for everything.`,
     { query: z.string().describe(`A single read-only statement starting with ${STARTERS_PROSE}.`) },
     async (args): Promise<CallToolResult> => {
       const result: SqlResult = await runSql(args.query, ASK.DATA_DIR, live);

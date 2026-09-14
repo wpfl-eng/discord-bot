@@ -6,6 +6,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { HttpResponse } from '../../wpfl/wpflHttp.js';
 
 const FIXTURES: string = path.join(process.cwd(), 'tests', 'fixtures');
@@ -42,4 +43,9 @@ export function fakeResponse({
     },
     json: async (): Promise<unknown> => body,
   };
+}
+
+/** The text a tool handed back, all blocks joined. */
+export function textOf(result: CallToolResult): string {
+  return result.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
 }

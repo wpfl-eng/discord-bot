@@ -41,7 +41,7 @@ describe('liveTables', () => {
   const columnsOf = (name: LiveTableName): string[] => Object.keys(LIVE_TABLES[name].columns);
 
   describe('the declaration', () => {
-    test('names six tables, each owned by one ESPN tool', () => {
+    test('names seven tables, each owned by one tool', () => {
       expect(LIVE_TABLE_NAMES).toEqual([
         'live_matchups',
         'live_lineups',
@@ -49,17 +49,20 @@ describe('liveTables', () => {
         'live_rosters',
         'live_free_agents',
         'live_transactions',
+        'live_lines',
       ]);
       expect(tablesFilledBy('espn_boxscores')).toEqual(['live_matchups', 'live_lineups']);
       expect(tablesFilledBy('espn_teams')).toEqual(['live_standings', 'live_rosters']);
       expect(tablesFilledBy('espn_free_agents')).toEqual(['live_free_agents']);
       expect(tablesFilledBy('espn_transactions')).toEqual(['live_transactions']);
+      expect(tablesFilledBy('polymarket_lines')).toEqual(['live_lines']);
     });
 
     test('only the week-shaped tables are keyed by week', () => {
       expect(LIVE_TABLE_NAMES.filter((name) => LIVE_TABLES[name].byWeek)).toEqual([
         'live_matchups',
         'live_lineups',
+        'live_lines',
       ]);
     });
 
@@ -71,7 +74,7 @@ describe('liveTables', () => {
 
     test('spells the columns for a description in table order', () => {
       expect(columnsProse('live_matchups')).toBe(
-        'week, owner, opponent, home, score, opponent_score, projected, opponent_projected, win_prob'
+        'week, owner, opponent, home, score, opponent_score, projected, opponent_projected, win_prob, decided, result, pending_starters, pending_projected, optimal_points, points_left'
       );
     });
   });
@@ -169,7 +172,7 @@ describe('liveTables', () => {
       expect(lineupRows(1, [bye])).toHaveLength(bye.home.length);
     });
 
-    test('a lineup row names the owner whose lineup it is, and the slot rather than the position', () => {
+    test('a lineup row names the owner whose lineup it is, the slot and the position both, and the game status', () => {
       const rows: Row[] = lineupRows(1, matchups);
 
       expect(rows).toHaveLength(
@@ -180,8 +183,32 @@ describe('liveTables', () => {
         owner: 'Mike Simpson',
         player: 'Puka Nacua',
         slot: 'WR',
+        position: 'WR',
         injury_status: 'QUESTIONABLE',
         projected: 17.38,
+        // No schedule was passed to toBoxscores, so the status is unknown, not final.
+        game_status: 'unknown',
+      });
+    });
+
+    test('a matchup row carries whether it is decided, the result, who is still to play and the optimal figure', () => {
+      const [home, away] = matchupRows(1, matchups);
+      const [matchup] = matchups;
+
+      expect(home).toMatchObject({
+        decided: matchup.decided,
+        result: matchup.homeResult,
+        pending_starters: matchup.homePendingStarters,
+        pending_projected: matchup.homePendingProjected,
+        optimal_points: matchup.homeOptimalPoints,
+        points_left: matchup.homePointsLeft,
+      });
+      expect(away).toMatchObject({
+        decided: matchup.decided,
+        result: matchup.awayResult,
+        pending_starters: matchup.awayPendingStarters,
+        optimal_points: matchup.awayOptimalPoints,
+        points_left: matchup.awayPointsLeft,
       });
     });
 

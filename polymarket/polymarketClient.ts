@@ -1,7 +1,13 @@
 // Polymarket API Client
 // Wrapper for Polymarket Gamma API with caching
 
-import { API_CONFIG, CONFIG, FEATURED_CATEGORIES, TRENDING_SLUG, categoryTagIds } from './polymarketConfig.js';
+import {
+  API_CONFIG,
+  CONFIG,
+  FEATURED_CATEGORIES,
+  TRENDING_SLUG,
+  categoryTagIds,
+} from './polymarketConfig.js';
 import type {
   PolymarketTag,
   PolymarketMarket,
@@ -89,8 +95,9 @@ export async function getTags(): Promise<PolymarketTag[]> {
     if (category.slug === TRENDING_SLUG) continue;
 
     const tag = tagsCache.find(
-      (t) => t.slug.toLowerCase() === category.slug.toLowerCase() ||
-             t.label.toLowerCase() === category.slug.toLowerCase()
+      (t) =>
+        t.slug.toLowerCase() === category.slug.toLowerCase() ||
+        t.label.toLowerCase() === category.slug.toLowerCase()
     );
     if (tag) {
       // API returns id as string, convert to number for consistency
@@ -98,7 +105,9 @@ export async function getTags(): Promise<PolymarketTag[]> {
       categoryTagIds.set(category.slug, tagId);
       console.log(`[Polymarket] Mapped category '${category.slug}' to tag ID ${tagId}`);
     } else {
-      console.warn(`[Polymarket] No tag found for category '${category.slug}' - using fallback if available`);
+      console.warn(
+        `[Polymarket] No tag found for category '${category.slug}' - using fallback if available`
+      );
     }
   }
 
@@ -121,8 +130,9 @@ export async function getTagIdForCategory(categorySlug: string): Promise<number 
 
   // Search in full tag list
   const tag = tagsCache.find(
-    (t) => t.slug.toLowerCase() === categorySlug.toLowerCase() ||
-           t.label.toLowerCase() === categorySlug.toLowerCase()
+    (t) =>
+      t.slug.toLowerCase() === categorySlug.toLowerCase() ||
+      t.label.toLowerCase() === categorySlug.toLowerCase()
   );
 
   if (tag) {
@@ -141,7 +151,7 @@ export async function getTagIdForCategory(categorySlug: string): Promise<number 
  * Parse a market array field that may be a JSON string or already an array
  * The Polymarket API returns these fields as JSON strings, not arrays
  */
-function parseMarketArrayField(field: string | string[] | undefined): string[] {
+export function parseMarketArrayField(field: string | string[] | undefined): string[] {
   if (Array.isArray(field)) return field;
   if (typeof field === 'string') {
     try {
@@ -218,7 +228,9 @@ export async function getMarketsByTag(
     const response = await throttledFetch(url);
 
     if (!response.ok) {
-      console.error(`[Polymarket] Failed to fetch markets: ${response.status} ${response.statusText}`);
+      console.error(
+        `[Polymarket] Failed to fetch markets: ${response.status} ${response.statusText}`
+      );
       return [];
     }
 
@@ -227,7 +239,9 @@ export async function getMarketsByTag(
     const filtered = transformed
       .filter((m) => m.volume >= CONFIG.MIN_MARKET_VOLUME)
       .filter(isCompetitiveMarket);
-    console.log(`[Polymarket] Found ${markets.length} markets for tag_id=${tagId}, ${filtered.length} competitive with volume`);
+    console.log(
+      `[Polymarket] Found ${markets.length} markets for tag_id=${tagId}, ${filtered.length} competitive with volume`
+    );
     return filtered.slice(0, limit);
   } catch (error) {
     console.error('[Polymarket] Error fetching markets by tag:', error);
@@ -355,9 +369,7 @@ export function getWinningOutcome(market: MarketDisplay): MarketResolution {
   }
 
   // Find outcome with price > threshold
-  const winningIndex = market.outcomes.findIndex(
-    (o) => o.price > CONFIG.WINNING_PRICE_THRESHOLD
-  );
+  const winningIndex = market.outcomes.findIndex((o) => o.price > CONFIG.WINNING_PRICE_THRESHOLD);
 
   if (winningIndex >= 0) {
     return {

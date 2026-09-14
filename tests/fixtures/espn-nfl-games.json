@@ -1,0 +1,354 @@
+[
+  {
+    "startTime": "2026-09-15T00:15:00.000Z",
+    "quarter": 0,
+    "clock": "0:00",
+    "broadcaster": "ESPN/ABC",
+    "odds": [],
+    "gameStatus": "Not Started",
+    "homeTeam": {
+      "id": 12,
+      "team": "Kansas City Chiefs",
+      "teamAbbrev": "KC",
+      "record": "0-0",
+      "score": 0
+    },
+    "awayTeam": {
+      "id": 7,
+      "team": "Denver Broncos",
+      "teamAbbrev": "DEN",
+      "record": "0-0",
+      "score": 0
+    }
+  },
+  {
+    "startTime": "2026-09-10T00:20:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "NBC",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 26,
+      "team": "Seattle Seahawks",
+      "teamAbbrev": "SEA",
+      "record": "1-0",
+      "score": 13
+    },
+    "awayTeam": {
+      "id": 17,
+      "team": "New England Patriots",
+      "teamAbbrev": "NE",
+      "record": "0-1",
+      "score": 10
+    }
+  },
+  {
+    "startTime": "2026-09-11T00:35:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "Netflix",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 14,
+      "team": "Los Angeles Rams",
+      "teamAbbrev": "LAR",
+      "record": "0-1",
+      "score": 7
+    },
+    "awayTeam": {
+      "id": 25,
+      "team": "San Francisco 49ers",
+      "teamAbbrev": "SF",
+      "record": "1-0",
+      "score": 27
+    }
+  },
+  {
+    "startTime": "2026-09-13T17:00:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "FOX",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 4,
+      "team": "Cincinnati Bengals",
+      "teamAbbrev": "CIN",
+      "record": "1-0",
+      "score": 33
+    },
+    "awayTeam": {
+      "id": 27,
+      "team": "Tampa Bay Buccaneers",
+      "teamAbbrev": "TB",
+      "record": "0-1",
+      "score": 27
+    }
+  },
+  {
+    "startTime": "2026-09-13T17:00:00.000Z",
+    "quarter": 5,
+    "clock": "0:00",
+    "broadcaster": "FOX",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 8,
+      "team": "Detroit Lions",
+      "teamAbbrev": "DET",
+      "record": "1-0",
+      "score": 31
+    },
+    "awayTeam": {
+      "id": 18,
+      "team": "New Orleans Saints",
+      "teamAbbrev": "NO",
+      "record": "0-1",
+      "score": 30
+    }
+  },
+  {
+    "startTime": "2026-09-13T17:00:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "CBS",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 10,
+      "team": "Tennessee Titans",
+      "teamAbbrev": "TEN",
+      "record": "0-1",
+      "score": 10
+    },
+    "awayTeam": {
+      "id": 20,
+      "team": "New York Jets",
+      "teamAbbrev": "NYJ",
+      "record": "1-0",
+      "score": 23
+    }
+  },
+  {
+    "startTime": "2026-09-13T17:00:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "CBS",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 11,
+      "team": "Indianapolis Colts",
+      "teamAbbrev": "IND",
+      "record": "0-1",
+      "score": 23
+    },
+    "awayTeam": {
+      "id": 33,
+      "team": "Baltimore Ravens",
+      "teamAbbrev": "BAL",
+      "record": "1-0",
+      "score": 41
+    }
+  },
+  {
+    "startTime": "2026-09-13T17:00:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "FOX",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 23,
+      "team": "Pittsburgh Steelers",
+      "teamAbbrev": "PIT",
+      "record": "1-0",
+      "score": 20
+    },
+    "awayTeam": {
+      "id": 1,
+      "team": "Atlanta Falcons",
+      "teamAbbrev": "ATL",
+      "record": "0-1",
+      "score": 13
+    }
+  },
+  {
+    "startTime": "2026-09-13T17:00:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "FOX",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 29,
+      "team": "Carolina Panthers",
+      "teamAbbrev": "CAR",
+      "record": "0-1",
+      "score": 37
+    },
+    "awayTeam": {
+      "id": 3,
+      "team": "Chicago Bears",
+      "teamAbbrev": "CHI",
+      "record": "1-0",
+      "score": 59
+    }
+  },
+  {
+    "startTime": "2026-09-13T17:00:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "CBS",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 30,
+      "team": "Jacksonville Jaguars",
+      "teamAbbrev": "JAX",
+      "record": "1-0",
+      "score": 34
+    },
+    "awayTeam": {
+      "id": 5,
+      "team": "Cleveland Browns",
+      "teamAbbrev": "CLE",
+      "record": "0-1",
+      "score": 10
+    }
+  },
+  {
+    "startTime": "2026-09-13T17:00:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "CBS",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 34,
+      "team": "Houston Texans",
+      "teamAbbrev": "HOU",
+      "record": "0-1",
+      "score": 31
+    },
+    "awayTeam": {
+      "id": 2,
+      "team": "Buffalo Bills",
+      "teamAbbrev": "BUF",
+      "record": "1-0",
+      "score": 36
+    }
+  },
+  {
+    "startTime": "2026-09-13T20:25:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "FOX",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 13,
+      "team": "Las Vegas Raiders",
+      "teamAbbrev": "LV",
+      "record": "1-0",
+      "score": 27
+    },
+    "awayTeam": {
+      "id": 15,
+      "team": "Miami Dolphins",
+      "teamAbbrev": "MIA",
+      "record": "0-1",
+      "score": 13
+    }
+  },
+  {
+    "startTime": "2026-09-13T20:25:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "CBS",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 16,
+      "team": "Minnesota Vikings",
+      "teamAbbrev": "MIN",
+      "record": "1-0",
+      "score": 39
+    },
+    "awayTeam": {
+      "id": 9,
+      "team": "Green Bay Packers",
+      "teamAbbrev": "GB",
+      "record": "0-1",
+      "score": 22
+    }
+  },
+  {
+    "startTime": "2026-09-13T20:25:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "FOX",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 21,
+      "team": "Philadelphia Eagles",
+      "teamAbbrev": "PHI",
+      "record": "1-0",
+      "score": 24
+    },
+    "awayTeam": {
+      "id": 28,
+      "team": "Washington Commanders",
+      "teamAbbrev": "WSH",
+      "record": "0-1",
+      "score": 22
+    }
+  },
+  {
+    "startTime": "2026-09-13T20:25:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "CBS",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 24,
+      "team": "Los Angeles Chargers",
+      "teamAbbrev": "LAC",
+      "record": "0-1",
+      "score": 14
+    },
+    "awayTeam": {
+      "id": 22,
+      "team": "Arizona Cardinals",
+      "teamAbbrev": "ARI",
+      "record": "1-0",
+      "score": 26
+    }
+  },
+  {
+    "startTime": "2026-09-14T00:20:00.000Z",
+    "quarter": 4,
+    "clock": "0:00",
+    "broadcaster": "NBC",
+    "odds": [],
+    "gameStatus": "Final",
+    "homeTeam": {
+      "id": 19,
+      "team": "New York Giants",
+      "teamAbbrev": "NYG",
+      "record": "1-0",
+      "score": 28
+    },
+    "awayTeam": {
+      "id": 6,
+      "team": "Dallas Cowboys",
+      "teamAbbrev": "DAL",
+      "record": "0-1",
+      "score": 20
+    }
+  }
+]

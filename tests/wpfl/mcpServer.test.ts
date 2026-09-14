@@ -57,7 +57,7 @@ describe('mcpServer', () => {
     });
   });
 
-  test('a server carries the eight league tools plus chart and table, ten in all', () => {
+  test('a server carries the nine league tools plus chart and table, eleven in all', () => {
     const registered = (
       wpflServer.instance as unknown as { _registeredTools: Record<string, unknown> }
     )._registeredTools;
@@ -70,12 +70,13 @@ describe('mcpServer', () => {
       'espn_transactions',
       'expected_wins',
       'optimal_coaching',
+      'polymarket_lines',
       'sql',
       'table',
     ]);
   });
 
-  test('the eight league tools are the list the design specifies', () => {
+  test('the nine league tools are the list the design specifies', () => {
     expect(wpflTools.map((t) => t.name).sort()).toEqual([
       'drafted_points',
       'espn_boxscores',
@@ -84,6 +85,7 @@ describe('mcpServer', () => {
       'espn_transactions',
       'expected_wins',
       'optimal_coaching',
+      'polymarket_lines',
       'sql',
     ]);
   });

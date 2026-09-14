@@ -10,16 +10,24 @@ import {
   toTransactions,
   resolveOwners,
   createEspnTools,
+  constantStatus,
+  statusLookupFromGames,
   FREE_AGENT_LIMIT,
+  UNKNOWN_STATUS,
   type EspnDeps,
+  type MatchupSummary,
+  type NflGame,
 } from '../../wpfl/espnTools.js';
 import { createLiveStore, type LiveStore } from '../../wpfl/liveTables.js';
 import type { AnyTool } from '../../wpfl/toolResult.js';
-import { fixturePath, loadFixture } from './support.js';
+import { fixturePath, loadFixture, textOf } from './support.js';
 
 // The definitions are the same text on every run; any store will do for
 // reading them.
 const espnTools: AnyTool[] = createEspnTools(createLiveStore());
+// The week's NFL schedule, recorded the same Monday morning as the mid-week boxscores.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const games = loadFixture<any[]>('espn-nfl-games.json');
 
 describe('espnTools', () => {
   describe('espn_teams', () => {
@@ -115,15 +123,18 @@ describe('espnTools', () => {
     // first live one fetched all fourteen rosters to learn eighteen statuses.
     // The projection rides on the lineup too: it is what says why one side is
     // favoured and which starter the gap turns on.
-    test('projects each lineup to name, slot, points, injury status and projection', () => {
+    test('projects each lineup to name, slot, position, points, injury status, projection and game status', () => {
       const matchups = toBoxscores(recording);
 
       expect(matchups[0].home[0]).toEqual({
         name: 'Puka Nacua',
+        slot: 'WR',
         position: 'WR',
         points: 0,
         injuryStatus: 'QUESTIONABLE',
         projected: 17.38,
+        // No schedule passed: unknown, never a default of final.
+        gameStatus: 'unknown',
       });
     });
 
@@ -201,16 +212,181 @@ describe('espnTools', () => {
 
       expect(Object.keys(matchups[0]).sort()).toEqual([
         'away',
+        'awayOptimalPoints',
         'awayOwner',
+        'awayPendingProjected',
+        'awayPendingStarters',
+        'awayPointsLeft',
         'awayProjected',
+        'awayResult',
         'awayScore',
         'awayWinProbability',
+        'decided',
         'home',
+        'homeOptimalPoints',
         'homeOwner',
+        'homePendingProjected',
+        'homePendingStarters',
+        'homePointsLeft',
         'homeProjected',
+        'homeResult',
         'homeScore',
         'homeWinProbability',
       ]);
+    });
+  });
+
+  /**
+   * A Monday morning (why: MatchupSummary.decided in wpfl/espnTools.ts). The
+   * recording is two whole matchups from one: Mike Simpson v Nixon Ball with
+   * Bo Nix still to play that night, and AJ Boorde v Forrest Britton with
+   * nobody left, both still UNDECIDED at ESPN.
+   */
+  describe('the week in progress', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const midweek = loadFixture<any[]>('espn-boxscores-midweek.json');
+    const status = statusLookupFromGames(games);
+    const [pending, done] = toBoxscores(midweek, status);
+    const byName = (side: MatchupSummary['home'], name: string) => {
+      const entry = side.find((e) => e.name === name);
+      if (entry === undefined) throw new Error(`no ${name}`);
+      return entry;
+    };
+    const team = (abbrev: string): NflGame['homeTeam'] => ({
+      id: 0,
+      team: abbrev,
+      teamAbbrev: abbrev,
+      record: '0-0',
+      score: 0,
+    });
+    const game = (gameStatus: string, home: string, away: string): NflGame => ({
+      gameStatus,
+      homeTeam: team(home),
+      awayTeam: team(away),
+    });
+
+    test('a starter whose game has not started is not_started, not a zero', () => {
+      expect(byName(pending.away, 'Bo Nix')).toMatchObject({
+        slot: 'QB',
+        points: 0,
+        gameStatus: 'not_started',
+      });
+    });
+
+    test('a starter whose game is final and who scored nothing is final at 0', () => {
+      expect(byName(pending.away, 'Kyle Pitts Sr.')).toMatchObject({
+        slot: 'TE',
+        points: 0,
+        gameStatus: 'final',
+      });
+    });
+
+    test('counts the starters still to play, with what ESPN projects for them, on each side', () => {
+      expect(pending).toMatchObject({
+        homePendingStarters: 0,
+        homePendingProjected: 0,
+        awayPendingStarters: 1,
+        awayPendingProjected: 16.12,
+      });
+    });
+
+    test('a bench player with a game left does not make a matchup pending', () => {
+      expect(byName(done.home, 'Xavier Worthy')).toMatchObject({
+        slot: 'Bench',
+        gameStatus: 'not_started',
+      });
+      expect(done.homePendingStarters).toBe(0);
+    });
+
+    test('is undecided while a starter has a game left, whatever the win probability says', () => {
+      expect(pending.awayWinProbability).toBe(0.99);
+      expect(pending).toMatchObject({ decided: false, homeResult: null, awayResult: null });
+    });
+
+    test('is decided once no starter on either side has a game left, before ESPN has settled it', () => {
+      expect(midweek[1].winner).toBe('UNDECIDED');
+      expect(done).toMatchObject({ decided: true, homeResult: 'loss', awayResult: 'win' });
+    });
+
+    test("takes ESPN's call over the scores once it has made one, whatever the statuses", () => {
+      const [settled] = toBoxscores([{ ...midweek[1], winner: 'HOME' }], status);
+      expect(settled).toMatchObject({ decided: true, homeResult: 'win', awayResult: 'loss' });
+      const [tied] = toBoxscores([{ ...midweek[1], winner: 'TIE' }], status);
+      expect(tied).toMatchObject({ homeResult: 'tie', awayResult: 'tie' });
+      const [unknownButSettled] = toBoxscores([{ ...midweek[1], winner: 'AWAY' }], UNKNOWN_STATUS);
+      expect(unknownButSettled).toMatchObject({
+        decided: true,
+        homeResult: 'loss',
+        awayResult: 'win',
+      });
+    });
+
+    // Checked by brute force over every legal assignment of the same roster.
+    test('carries the best lineup each roster could have started, and the gap to the score', () => {
+      expect(pending).toMatchObject({
+        homeScore: 90.24,
+        homeOptimalPoints: 123.7,
+        homePointsLeft: 33.46,
+        awayOptimalPoints: 121.8,
+        awayPointsLeft: 0,
+      });
+    });
+
+    test('leaves a player in the IR slot out of the optimal lineup', () => {
+      expect(byName(done.away, 'Zach Charbonnet').slot).toBe('IR');
+      const [withoutIr] = toBoxscores(
+        [
+          {
+            ...midweek[1],
+            awayRoster: midweek[1].awayRoster.filter(
+              (p: { rosteredPosition: string }) => p.rosteredPosition !== 'IR'
+            ),
+          },
+        ],
+        status
+      );
+      expect(withoutIr.awayOptimalPoints).toBe(done.awayOptimalPoints);
+    });
+
+    test('a team with no game in the window is on bye; a status the fork does not name is unknown', () => {
+      expect(status('KC')).toBe('not_started');
+      expect(status('LAR')).toBe('final');
+      expect(status('XXX')).toBe('bye');
+      expect(status(undefined)).toBe('unknown');
+      expect(statusLookupFromGames([game('Halftime?', 'KC', 'DEN')])('KC')).toBe('unknown');
+      expect(statusLookupFromGames([game('In Progress', 'KC', 'DEN')])('DEN')).toBe('in_progress');
+    });
+
+    test('with no schedule, nobody is countable as pending and nothing is decided unless ESPN settled it', () => {
+      const [unknown] = toBoxscores([midweek[1]], UNKNOWN_STATUS);
+      expect(unknown).toMatchObject({
+        decided: false,
+        homePendingStarters: null,
+        awayPendingStarters: null,
+        homeResult: null,
+      });
+    });
+
+    test('a past week is final for everyone, so it is decided on the scores', () => {
+      const [past] = toBoxscores([midweek[0]], constantStatus('final'));
+      expect(past).toMatchObject({ decided: true, homeResult: 'loss', awayResult: 'win' });
+      expect(byName(past.away, 'Bo Nix').gameStatus).toBe('final');
+    });
+
+    test('a bye week for an owner is decided when their own starters are done, with no result', () => {
+      const [bye] = toBoxscores(
+        [{ ...midweek[1], awayTeamId: undefined, awayScore: undefined, awayRoster: [] }],
+        status
+      );
+      expect(bye).toMatchObject({
+        awayOwner: null,
+        decided: true,
+        homeResult: null,
+        awayResult: null,
+        awayPendingStarters: null,
+        awayOptimalPoints: null,
+        awayPointsLeft: null,
+      });
     });
   });
 
@@ -238,13 +414,13 @@ describe('espnTools', () => {
     });
 
     test('keeps a matchup when either side was asked for', () => {
-      const mine = toBoxscores(boxscores, resolveOwners(['Nixon Ball']));
+      const mine = toBoxscores(boxscores, UNKNOWN_STATUS, resolveOwners(['Nixon Ball']));
 
       expect(mine).toHaveLength(1);
       expect(mine[0]).toMatchObject({ homeOwner: 'Mike Simpson', awayOwner: 'Nixon Ball' });
-      expect(toBoxscores(boxscores, resolveOwners(['Ryan Salchert']))[0].homeOwner).toBe(
-        'Neill Bullock'
-      );
+      expect(
+        toBoxscores(boxscores, UNKNOWN_STATUS, resolveOwners(['Ryan Salchert']))[0].homeOwner
+      ).toBe('Neill Bullock');
     });
 
     test('matches the canonical spelling case-insensitively', () => {
@@ -265,7 +441,7 @@ describe('espnTools', () => {
     test('a matchup with no away team never matches a filter', () => {
       const bye = { ...boxscores[0], awayTeamId: undefined };
 
-      expect(toBoxscores([bye], resolveOwners(['Nixon Ball']))).toEqual([]);
+      expect(toBoxscores([bye], UNKNOWN_STATUS, resolveOwners(['Nixon Ball']))).toEqual([]);
       expect(toBoxscores([bye])).toHaveLength(1);
     });
   });
@@ -592,6 +768,10 @@ describe('espnTools', () => {
         asked.push({ getBoxscoreForWeek: args });
         return boxscores;
       },
+      getNFLGamesForPeriod: async (args: unknown) => {
+        asked.push({ getNFLGamesForPeriod: args });
+        return games;
+      },
       getFreeAgents: async () => freeAgents,
       getRecentActivity: async () => transactions,
     } as unknown as EspnClient;
@@ -603,21 +783,26 @@ describe('espnTools', () => {
         matchupPeriodId: 1,
         source: 'espn' as const,
       }),
+      // A Monday morning in the league timezone: 13:00 UTC.
+      now: () => new Date('2026-09-14T13:00:00Z'),
     };
 
+    const invoke = async (
+      store: LiveStore,
+      name: string,
+      args: Record<string, unknown>,
+      withDeps: EspnDeps = deps
+    ): Promise<string> => {
+      const definition = createEspnTools(store, withDeps).find((t) => t.name === name);
+      if (definition === undefined) throw new Error(`no tool ${name}`);
+      return textOf((await definition.handler(args as never, {} as never)) as CallToolResult);
+    };
     const call = async (
       store: LiveStore,
       name: string,
-      args: Record<string, unknown>
-    ): Promise<unknown[]> => {
-      const definition = createEspnTools(store, deps).find((t) => t.name === name);
-      if (definition === undefined) throw new Error(`no tool ${name}`);
-      const result = (await definition.handler(args as never, {} as never)) as CallToolResult;
-      const text: string = result.content
-        .map((block) => (block.type === 'text' ? block.text : ''))
-        .join('');
-      return JSON.parse(text) as unknown[];
-    };
+      args: Record<string, unknown>,
+      withDeps: EspnDeps = deps
+    ): Promise<unknown[]> => JSON.parse(await invoke(store, name, args, withDeps)) as unknown[];
     const rowsOf = (store: LiveStore, table: string): readonly Record<string, unknown>[] =>
       store.filled().find((t) => t.name === table)?.rows ?? [];
 
@@ -673,6 +858,78 @@ describe('espnTools', () => {
       await call(store, 'espn_boxscores', {});
 
       expect(rowsOf(store, 'live_matchups').every((row) => row.week === 1)).toBe(true);
+    });
+
+    // The schedule is one more ESPN call, so only the week with games in
+    // flight pays for it: a past week is final and a future one not started.
+    test('the current week fetches the schedule for its window and stamps every lineup row with a game status', async () => {
+      const store: LiveStore = createLiveStore();
+      asked.length = 0;
+
+      await call(store, 'espn_boxscores', {});
+
+      expect(asked[0]).toEqual({
+        getNFLGamesForPeriod: { startDate: '20260908', endDate: '20260915' },
+      });
+      const statuses = new Set(rowsOf(store, 'live_lineups').map((row) => row.game_status));
+      expect(statuses.has('unknown')).toBe(false);
+      expect(statuses.has('final')).toBe(true);
+    });
+
+    test('a past week is final for everyone without a schedule call', async () => {
+      const store: LiveStore = createLiveStore();
+      const later: EspnDeps = {
+        ...deps,
+        period: async () => ({
+          seasonId: 2026,
+          scoringPeriodId: 3,
+          matchupPeriodId: 3,
+          source: 'espn' as const,
+        }),
+      };
+      asked.length = 0;
+
+      await call(store, 'espn_boxscores', { week: 1 }, later);
+
+      expect(asked.some((a) => 'getNFLGamesForPeriod' in a)).toBe(false);
+      expect(rowsOf(store, 'live_lineups').every((row) => row.game_status === 'final')).toBe(true);
+      expect(rowsOf(store, 'live_matchups').every((row) => row.decided === true)).toBe(true);
+    });
+
+    test('a future week has not started, without a schedule call', async () => {
+      const store: LiveStore = createLiveStore();
+      asked.length = 0;
+
+      await call(store, 'espn_boxscores', { week: 3 });
+
+      expect(asked.some((a) => 'getNFLGamesForPeriod' in a)).toBe(false);
+      expect(rowsOf(store, 'live_lineups').every((row) => row.game_status === 'not_started')).toBe(
+        true
+      );
+    });
+
+    test('a schedule the fork cannot fetch leaves every status unknown and the boxscore whole', async () => {
+      const store: LiveStore = createLiveStore();
+      const scoreboardDown: EspnDeps = {
+        ...deps,
+        client: () =>
+          ({
+            ...fakeClient,
+            getNFLGamesForPeriod: async () => {
+              throw new Error('scoreboard down');
+            },
+          }) as unknown as EspnClient,
+      };
+
+      const rows: unknown[] = await call(store, 'espn_boxscores', {}, scoreboardDown);
+
+      expect(rows).toHaveLength(toBoxscores(boxscores).length);
+      expect(rowsOf(store, 'live_lineups').every((row) => row.game_status === 'unknown')).toBe(
+        true
+      );
+      expect(rowsOf(store, 'live_matchups').every((row) => row.pending_starters === null)).toBe(
+        true
+      );
     });
 
     test('espn_free_agents and espn_transactions fill their tables', async () => {
