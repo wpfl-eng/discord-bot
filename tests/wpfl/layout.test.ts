@@ -126,6 +126,9 @@ describe('layout', () => {
         newsAsOf: '2026-08-28',
         etag: 'abc123',
         cacheFetchedAt: '2026-08-31',
+        // a draft-only shred: the race body is not published yet
+        raceThruWeek: null,
+        raceUpdated: null,
       });
     });
 
@@ -148,6 +151,8 @@ describe('layout', () => {
         factsAsOf: null,
         newsAsOf: null,
         etag: null,
+        raceThruWeek: null,
+        raceUpdated: null,
         cacheFetchedAt: null,
       });
     });

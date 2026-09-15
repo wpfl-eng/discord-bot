@@ -29,7 +29,7 @@ describe('mcpServer', () => {
 
     test("INDEX.md's routing table names only registered tools", () => {
       const index: string = generateIndex({
-        shred: { files: [], undocumented: [], deadKeys: [], ignored: [] },
+        shred: { files: [], undocumented: [], deadKeys: [], ignored: [], absent: [] },
         asOf: {
           generated: null,
           factsAsOf: null,

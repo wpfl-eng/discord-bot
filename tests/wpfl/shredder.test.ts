@@ -180,16 +180,16 @@ describe('shredder', () => {
   describe('tolerant and loud', () => {
     test('shreds an unknown body generically and flags it instead of throwing', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      const withRace: Artifact = {
+      const withBonus: Artifact = {
         ...published,
-        race: { week: 1, leaders: [{ owner: 'AJ Boorde' }] },
+        bonus: { week: 1, leaders: [{ owner: 'AJ Boorde' }] },
       };
 
-      const result: ShredResult = shred(withRace, dir);
+      const result: ShredResult = shred(withBonus, dir);
 
-      expect(result.undocumented).toContain('race');
-      expect(exists('race/week.json')).toBe(true);
-      expect(exists('race/leaders.json')).toBe(true);
+      expect(result.undocumented).toContain('bonus');
+      expect(exists('bonus/week.json')).toBe(true);
+      expect(exists('bonus/leaders.json')).toBe(true);
       expect(warn).toHaveBeenCalled();
       warn.mockRestore();
     });
@@ -203,6 +203,85 @@ describe('shredder', () => {
       expect(result.undocumented).toContain('ledger');
       expect(exists('ledger.json')).toBe(true);
       warn.mockRestore();
+    });
+  });
+
+  describe('the race body', () => {
+    // The living in-season body, recorded from the published artifact on the
+    // first Tuesday of 2026 and trimmed to a few rows per table.
+    let withRace: Artifact;
+
+    beforeEach(() => {
+      withRace = loadFixture<Artifact>('postdraft-race.json');
+    });
+
+    test('is planned: shredded without a warning and never flagged undocumented', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const result: ShredResult = shred(withRace, dir);
+      expect(result.undocumented).toEqual([]);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    test('flattens each dict of tables to one file per table, so sql sees flat rows', () => {
+      shred(withRace, dir);
+      for (const file of [
+        'race/roi_board.json',
+        'race/roi_teams.json',
+        'race/report_card_benchmark_vs_actual.json',
+        'race/report_card_odds_history.json',
+        'race/ledgers_luck.json',
+        'race/ledgers_coaching.json',
+        'race/attribution_teams.json',
+        'race/shapley_teams.json',
+        'race/wire_trending_add.json',
+        'race/wire_injury_report.json',
+        'race/preview_matchups.json',
+        'race/preview_week.json',
+        'race/weeks.json',
+        'race/schedule_ahead.json',
+        'race/thru_week.json',
+        'race/updated.json',
+      ]) {
+        expect(exists(file)).toBe(true);
+      }
+      expect(exists('race/roi.json')).toBe(false);
+      expect(exists('race/report_card.json')).toBe(false);
+      const board: unknown = JSON.parse(read('race/roi_board.json'));
+      expect(Array.isArray(board)).toBe(true);
+      expect((board as { verdict: string }[])[0].verdict).toBeDefined();
+    });
+
+    test('writes the dossiers as jsonl keyed by player, like the league dossiers', () => {
+      shred(withRace, dir);
+      expect(exists('race/annotations_dossiers.jsonl')).toBe(true);
+      const first: string = read('race/annotations_dossiers.jsonl').split('\n')[0];
+      const parsed = JSON.parse(first) as { key: string; weekly: unknown[] };
+      expect(typeof parsed.key).toBe('string');
+      expect(Array.isArray(parsed.weekly)).toBe(true);
+    });
+
+    test('reports a null key as absent instead of writing four bytes of null', () => {
+      const result: ShredResult = shred(withRace, dir);
+      expect(result.absent).toContain('race.calibration');
+      expect(exists('race/calibration.json')).toBe(false);
+    });
+
+    test('writes the scoreboard once the artifact carries one', () => {
+      const race = withRace.race as Record<string, unknown>;
+      const scored: Artifact = {
+        ...withRace,
+        race: { ...race, calibration: { games: 7, weeks: [2], ours: { brier: 0.2, mae: 12 }, espn: { brier: 0.24, games: 7, mae: 14 } } },
+      };
+      const result: ShredResult = shred(scored, dir);
+      expect(result.absent).not.toContain('race.calibration');
+      expect(exists('race/calibration.json')).toBe(true);
+    });
+
+    test('is optional: an artifact without it shreds with nothing absent', () => {
+      const result: ShredResult = shred(next, dir);
+      expect(result.absent).toEqual([]);
+      expect(exists('race')).toBe(false);
     });
   });
 

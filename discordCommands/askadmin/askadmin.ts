@@ -191,6 +191,7 @@ export function renderStatus(status: AskStatus): string {
     `news as of         ${status.asOf.newsAsOf ?? 'unknown'}`,
     `artifact etag      ${status.asOf.etag ?? 'unknown'}`,
     `cache fetched      ${status.asOf.cacheFetchedAt ?? 'never'}`,
+    `race body          ${status.asOf.raceThruWeek !== null && status.asOf.raceThruWeek !== undefined ? `thru week ${status.asOf.raceThruWeek}, rebuilt ${status.asOf.raceUpdated ?? 'unknown'}` : 'not published'}`,
     ...(extents.length === 0 ? ['  (no cache files)'] : extents),
     `in flight:         ${status.inFlight} (max ${ASK.MAX_CONCURRENT_QUERIES}), threads active: ${status.activeThreads}`,
     `credential set:    ${yesNo(status.credential)}`,

@@ -96,6 +96,9 @@ export interface AsOf {
   readonly etag: string | null;
   /** A league-timezone date; the marker holds a full instant. */
   readonly cacheFetchedAt: string | null;
+  /** The race body's stamp: the last completed week it covers, and when draft-2026 rebuilt it. Absent before Week 1. */
+  readonly raceThruWeek?: number | null;
+  readonly raceUpdated?: string | null;
 }
 
 /** Read from what was written, so INDEX.md, the prompt and /ask-admin agree. */
@@ -103,12 +106,15 @@ export function readAsOf(dataDir: string = ASK.DATA_DIR): AsOf {
   const meta = readJson(metaFile(dataDir)) as { generated?: unknown; facts_as_of?: unknown } | null;
   const fetchedAt: Date | null = readCacheFetchedAt(dataDir);
 
+  const thru: unknown = readJson(path.join(dataDir, 'race', 'thru_week.json'));
   return {
     generated: asString(meta?.generated),
     factsAsOf: asString(meta?.facts_as_of),
     newsAsOf: asString(readJson(newsAsOfFile(dataDir))),
     etag: readEtag(dataDir),
     cacheFetchedAt: fetchedAt === null ? null : leagueDate(fetchedAt),
+    raceThruWeek: typeof thru === 'number' && Number.isFinite(thru) ? thru : null,
+    raceUpdated: asString(readJson(path.join(dataDir, 'race', 'updated.json'))),
   };
 }
 

@@ -80,6 +80,26 @@ describe('systemPrompt', () => {
       expect(STATIC_PROMPT).toMatch(/say you don't have it|say so/i);
     });
 
+    test('names the race body as the season so far, with its page, and keeps live facts on ESPN', () => {
+      expect(STATIC_PROMPT).toContain('race/');
+      expect(STATIC_PROMPT).toContain('https://wpfl-receipts-694ed0.pages.dev/#/race');
+      expect(STATIC_PROMPT).toContain('rebuilt every Tuesday');
+      expect(STATIC_PROMPT).toContain('sealed draft-night forecast, week 0 and the playoff odds');
+    });
+
+    test('stamps the dynamic half with the race week when the body is published', () => {
+      const parts = buildSystemPrompt({
+        member: AJ,
+        now: SEPT,
+        period: WEEK_1,
+        asOf: { ...AS_OF, raceThruWeek: 1, raceUpdated: '2026-09-15 16:01' },
+      });
+      expect(parts[2]).toContain('thru week 1, rebuilt 2026-09-15 16:01');
+      const before = buildSystemPrompt({ member: AJ, now: SEPT, period: WEEK_1, asOf: AS_OF });
+      expect(before[2]).toContain('Race body: not published yet');
+      expect(before[0]).not.toContain('thru week');
+    });
+
     test('forbids hand-computing the three published figures, by tool name', () => {
       expect(STATIC_PROMPT).toContain('expected_wins');
       expect(STATIC_PROMPT).toContain('optimal_coaching');

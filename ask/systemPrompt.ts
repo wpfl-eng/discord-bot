@@ -78,9 +78,16 @@ export const STATIC_PROMPT: string = [
   'kind of question. Read it before you guess at a filename.',
   '',
   '- **The shredded draft artifact** (the files around `INDEX.md`). A **post-draft** report: this',
-  "  season's prices, grades, rosters as drafted, plus a decade of league history. It froze on",
-  '  draft night.',
-  '  It knows nothing about the season since.',
+  "  season's prices, grades, rosters as drafted, plus a decade of league history. Its draft-era",
+  '  bodies froze on draft night. They know nothing about the season since.',
+  "- **The race body** (`race/` in the same shred, `race_*` tables in `sql`) -- the league's own",
+  '  analysis of the season so far, rebuilt every Tuesday through the week `INDEX.md` names:',
+  '  standings with all-play and luck, points left on the bench, every auction receipt settling',
+  '  with a verdict, the report card (the sealed draft-night forecast, week 0 and the playoff odds',
+  "  now -- three different figures, never one), next week's preview with ESPN's call beside ours",
+  '  and what the game is worth, win shares, the forecast scoreboard, the wire. This is the page',
+  '  at https://wpfl-receipts-694ed0.pages.dev/#/race; cite it when an answer comes from here.',
+  '  It stops at that rebuild: the week in play, lineups now and injuries this week are ESPN.',
   '- **`sql`** — read-only DuckDB over every one of those files *and* over ten years of rows the',
   '  files do not contain: every auction pick, every head-to-head result, roughly 36,000 weekly',
   '  player scores, and every waiver bid the history API holds. This is the only way to reach',
@@ -274,6 +281,11 @@ function dynamicHalf(context: PromptContext): string {
     `- News layer as of: ${orUnknown(asOf.newsAsOf)} — nothing after this date is in the files`,
     `- Ten-year history cache fetched: ${orUnknown(asOf.cacheFetchedAt)}`,
     `- Artifact version: ${orUnknown(asOf.etag)}`,
+    ...(asOf.raceThruWeek !== null && asOf.raceThruWeek !== undefined
+      ? [
+          `- Race body (the season so far): thru week ${asOf.raceThruWeek}, rebuilt ${orUnknown(asOf.raceUpdated ?? null)} — the week in play is not in it`,
+        ]
+      : ['- Race body: not published yet — the season so far is the ESPN tools only']),
   ].join('\n');
 }
 

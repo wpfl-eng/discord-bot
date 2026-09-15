@@ -138,15 +138,15 @@ describe('indexGenerator', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
       const fresh: string = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-index-'));
       try {
-        const withRace: Artifact = { ...artifact, race: { week: 1 } };
-        const raceResult: ShredResult = shred(withRace, fresh);
-        const raceIndex: string = generateIndex({
-          shred: raceResult,
+        const withBonus: Artifact = { ...artifact, bonus: { week: 1 } };
+        const bonusResult: ShredResult = shred(withBonus, fresh);
+        const bonusIndex: string = generateIndex({
+          shred: bonusResult,
           asOf: { ...readAsOf(fresh), etag: ETAG },
         });
 
-        expect(raceIndex).toContain('race');
-        expect(raceIndex).toMatch(/undocumented/i);
+        expect(bonusIndex).toContain('bonus');
+        expect(bonusIndex).toMatch(/undocumented/i);
       } finally {
         fs.rmSync(fresh, { recursive: true, force: true });
         warn.mockRestore();
@@ -156,6 +156,60 @@ describe('indexGenerator', () => {
     test('has no undocumented section when everything was recognised', () => {
       expect(result.undocumented).toEqual([]);
       expect(index).not.toMatch(/undocumented/i);
+    });
+  });
+
+  describe('the race body', () => {
+    let raceIndex: string;
+    let raceDir: string;
+
+    beforeEach(() => {
+      raceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ask-index-race-'));
+      const withRace: Artifact = loadFixture<Artifact>('postdraft-race.json');
+      const raceResult: ShredResult = shred(withRace, raceDir);
+      raceIndex = generateIndex({
+        shred: raceResult,
+        asOf: { ...readAsOf(raceDir), etag: ETAG, cacheFetchedAt: '2026-09-15' },
+      });
+    });
+
+    afterEach(() => {
+      fs.rmSync(raceDir, { recursive: true, force: true });
+    });
+
+    test('describes every race file; none is undocumented', () => {
+      const raceLines: string[] = raceIndex.split('\n').filter((l) => l.startsWith('- `race/'));
+      expect(raceLines.length).toBeGreaterThan(15);
+      for (const line of raceLines) expect(line).not.toMatch(/undocumented/i);
+      expect(raceIndex).not.toMatch(/## Undocumented/);
+    });
+
+    test('stamps the header with the week the race body covers and when it was rebuilt', () => {
+      expect(raceIndex).toContain('thru week 1');
+      expect(raceIndex).toContain('rebuilt');
+      expect(raceIndex).toContain('The `race/` files are the season so far');
+    });
+
+    test('routes season-so-far questions to the race files and names the page', () => {
+      expect(raceIndex).toContain('The season so far as analysed each Tuesday');
+      expect(raceIndex).toContain('https://wpfl-receipts-694ed0.pages.dev/#/race');
+    });
+
+    test('names the null scoreboard as absent rather than leaving a gap', () => {
+      expect(raceIndex).toContain('## Absent this week');
+      expect(raceIndex).toContain('race.calibration');
+    });
+
+    test('warns that the three playoff-odds figures are different rulers', () => {
+      expect(raceIndex).toContain('week0_playoff_odds');
+      expect(raceIndex).toContain('benchmark_playoff_odds');
+      expect(raceIndex).toMatch(/different rulers/);
+    });
+
+    test('reads the race stamp through the same reader the prompt uses', () => {
+      const asOf: AsOf = readAsOf(raceDir);
+      expect(asOf.raceThruWeek).toBe(1);
+      expect(typeof asOf.raceUpdated).toBe('string');
     });
   });
 
@@ -169,6 +223,11 @@ describe('indexGenerator', () => {
         'hindsight',
         'fingerprints',
         'market',
+        'week 0',
+        'verdict',
+        'all-play',
+        'swing',
+        'Brier',
       ]) {
         expect(index).toContain(term);
       }

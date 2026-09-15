@@ -25,8 +25,20 @@ interface BodyPlan {
   /** `single` writes one file at the root; `dict` one file per key; `list-by-owner` one file per team. */
   readonly kind: 'single' | 'dict' | 'list-by-owner';
   readonly required: boolean;
-  /** Keys of a `dict` body written as JSONL instead of JSON. */
+  /**
+   * Keys of a `dict` body written as JSONL instead of JSON. A dotted name
+   * (`annotations.dossiers`) reaches a sub-key of a flattened key.
+   */
   readonly jsonl?: readonly string[];
+  /**
+   * Keys of a `dict` body whose value is itself a dict of tables: written one
+   * file per sub-key, named `<key>_<subkey>`, so `race.roi.board` lands as
+   * `race/roi_board.json` and the `sql` tool sees `race_roi_board` -- a flat
+   * table, not one row with a list column. A null sub-key (the race body's
+   * `calibration` before a called week is played) is not written and is
+   * reported in `absent` rather than shredded as the four bytes `null`.
+   */
+  readonly flatten?: readonly string[];
 }
 
 const BODY_PLANS: Record<string, BodyPlan> = {
@@ -37,6 +49,14 @@ const BODY_PLANS: Record<string, BodyPlan> = {
   history: { kind: 'dict', required: true },
   night: { kind: 'dict', required: false },
   market: { kind: 'dict', required: false },
+  // The living body: draft-2026 rebuilds it every Tuesday (its `updated` key
+  // says when). Every table-shaped member is flattened to its own file.
+  race: {
+    kind: 'dict',
+    required: false,
+    flatten: ['roi', 'report_card', 'ledgers', 'attribution', 'shapley', 'wire', 'preview', 'annotations'],
+    jsonl: ['annotations.dossiers'],
+  },
 };
 
 /**
@@ -88,6 +108,8 @@ export interface ShredResult {
   readonly deadKeys: string[];
   /** Keys skipped because they are not bodies at all. */
   readonly ignored: string[];
+  /** Planned keys that were null in the artifact and so were not written (`race.calibration` before week 2). */
+  readonly absent: string[];
 }
 
 class ShredAbort extends Error {}
@@ -107,6 +129,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
   const undocumented: string[] = [];
   const deadKeys: string[] = [];
   const ignored: string[] = [];
+  const absent: string[] = [];
 
   const root: string = path.resolve(targetDir);
 
@@ -174,9 +197,29 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
       case 'dict': {
         requireDict(body, value);
         const asJsonl: ReadonlySet<string> = new Set(plan.jsonl ?? []);
+        const flatten: ReadonlySet<string> = new Set(plan.flatten ?? []);
         for (const [key, member] of Object.entries(value)) {
           if (DEAD_KEYS.has(`${body}.${key}`)) {
             deadKeys.push(`${body}.${key}`);
+            continue;
+          }
+          if (member === null && plan.flatten !== undefined) {
+            absent.push(`${body}.${key}`);
+            continue;
+          }
+          if (flatten.has(key) && isDict(member)) {
+            for (const [sub, inner] of Object.entries(member)) {
+              if (inner === null) {
+                absent.push(`${body}.${key}.${sub}`);
+                continue;
+              }
+              const name: string = `${key}_${sub}`;
+              if (asJsonl.has(`${key}.${sub}`) && isDict(inner)) {
+                write([body, name], 'jsonl', toJsonl(inner), jsonlColumns(inner));
+              } else {
+                write([body, name], 'json', JSON.stringify(inner), columnsOf(inner));
+              }
+            }
             continue;
           }
           if (asJsonl.has(key) && isDict(member)) {
@@ -190,7 +233,7 @@ export function shred(artifact: Json, targetDir: string): ShredResult {
     }
   }
 
-  return { files, undocumented, deadKeys, ignored };
+  return { files, undocumented, deadKeys, ignored, absent };
 }
 
 /** Dict becomes one file per key, anything else a single file (design §3.6). */

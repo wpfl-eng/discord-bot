@@ -129,7 +129,12 @@ Shared logic lives outside `/discordCommands` so multiple commands can use it:
 - `wpfl/` - the data layer behind `/ask`: `layout.ts` (every path and marker in the data
   directory, and the as-of reader), artifact fetch and shred, `INDEX.md` generation, the cached
   WPFL decade, the read-only DuckDB SQL tool, the ESPN and WPFL API tools, and the in-process
-  MCP server, built per run by `createWpflServer`, that exposes all ten tools. `liveTables.ts`
+  MCP server, built per run by `createWpflServer`, that exposes all ten tools. The artifact's
+  `race` body (draft-2026's in-season analysis, rebuilt every Tuesday) has its own shred plan:
+  each dict of tables is flattened to `race/<key>_<subkey>.json` (`race_roi_board`,
+  `race_report_card_benchmark_vs_actual`, …), the dossiers are JSONL, a null key such as
+  `calibration` before Week 2 is reported as absent rather than written, and `readAsOf` carries
+  its `thru_week`/`updated` stamp into INDEX.md, the prompt and `/ask-admin status`. `liveTables.ts`
   is the season in progress as SQL: each `espn_*` call fills a run-scoped store (six `live_*`
   tables, declared once, filled from the whole fetch before the tool's `owners` filter), and
   every `sql`, `chart` and `table` call creates the filled ones as temp tables on its own

@@ -14,7 +14,7 @@
  */
 
 import path from 'node:path';
-import { PER_OWNER_BODIES, type ShredResult } from './shredder.js';
+import { PER_OWNER_BODIES, type ShredFile, type ShredResult } from './shredder.js';
 import type { SourceExtents } from './historyCache.js';
 import { CACHE_SOURCES, tableName, type AsOf } from './layout.js';
 import { LIVE_TABLES, LIVE_TABLE_NAMES, type LiveTableName } from './liveTables.js';
@@ -179,6 +179,45 @@ const FILE_DESCRIPTIONS: Record<string, string> = {
   'market/recalibration.json': 'How widening the player pool changed the model.',
   'market/usage.json': 'Snap share, target share and touches for drafted players.',
   'market/prose.json': 'The written findings of the market study.',
+
+  // The race body: draft-2026's in-season analysis, rebuilt every Tuesday.
+  // The page it renders is https://wpfl-receipts-694ed0.pages.dev/#/race.
+  'race/thru_week.json': 'The last completed NFL week the race body covers. Everything under race/ is as of this week.',
+  'race/updated.json': 'When draft-2026 last rebuilt the race body (league time).',
+  'race/report_card_benchmark_vs_actual.json':
+    'One row per owner: record and points so far, then three playoff-odds figures that must not be confused -- `benchmark_playoff_odds` is the sealed draft-night forecast (the risk model), `week0_playoff_odds` is the same auction rosters re-simulated on the in-season yardstick before a snap, `playoff_odds_now` is this week. The page moves from week 0 to now; a sealed-to-now move mixes two rulers. Also mean wins and title odds at each point.',
+  'race/report_card_odds_history.json':
+    "One row per owner: parallel lists `weeks`, `playoff`, `title`, `mean_wins` -- the odds path week by week, week 0 first. UNNEST with positional joins, or read the file.",
+  'race/roi_board.json':
+    'Every one of the 196 auction receipts settling: price, points banked while the drafter started him, points while rostered, the full-season shadow total, dollars per started point, WAR, and a `verdict` (steal / fair / burning / shelf) with its `verdict_edge`. Shelf means never started.',
+  'race/roi_teams.json': 'Per owner: auction dollars spent and the started points those picks have banked.',
+  'race/ledgers_luck.json':
+    'Per owner: record, all-play expected wins, and `luck` (wins minus expected). `weeks` holds each week\'s points, all-play fraction and result.',
+  'race/ledgers_coaching.json':
+    'Per owner: actual points, the optimal lineup\'s points from what the roster scored, and `bench_left` (the gap). `weeks` per week. Computed from ESPN box scores; the IR slot never counts.',
+  'race/attribution_teams.json':
+    'Per owner: started points split by how each player arrived -- drafted, waiver, fa (free agency), trade -- in `totals` and per week.',
+  'race/weeks.json':
+    'One recap card per completed week: every result with margin, the superlatives (top and low score, closest, blowout, best player week, points left on the bench) and the audited prose (intro, quips, one line per matchup).',
+  'race/preview_week.json': 'The week the preview prices: the next one.',
+  'race/preview_matchups.json':
+    "Next week's games. `win_prob` is the home side's chance, priced from the best legal lineup of ESPN's projections for that week; each side carries `projected` (ours), `espn_projected` and `espn_win_prob` (ESPN's own call as of Tuesday), `playoff_odds` now, `odds_delta` since last week, and `playoff_if_win` / `playoff_if_lose` (what the game is worth).",
+  'race/preview_game_of_the_week.json': 'Index into preview_matchups of the game of the week: stakes times closeness.',
+  'race/preview_fallbacks.json': 'How many rostered players were priced from their season average because ESPN had no week line.',
+  'race/calibration.json':
+    'The forecast scoreboard, once a called week has been played: games scored, `ours` and `espn` each with a Brier score on the home win and a mean absolute error on projected totals. Null until Week 2 is played.',
+  'race/schedule_ahead.json':
+    "Per owner: games left and the mean strength of the remaining opponents against the league average (`vs_league`, points a week, positive is a harder road).",
+  'race/records_watch.json': 'Any 2026 performance entering an all-time top five in the record book. Empty when nothing has.',
+  'race/shapley_teams.json':
+    "Per owner: total wins credited and each player's Shapley share of them -- who is carrying whom. A player earns credit only in weeks he cracked a legal lineup.",
+  'race/wire_week.json': 'The week the wire snapshot was taken.',
+  'race/wire_trending_add.json': 'Sleeper\'s most-added players over the last week, with who owns them here (null is a free agent).',
+  'race/wire_trending_drop.json': 'Sleeper\'s most-dropped players over the last week, with who owns them here.',
+  'race/wire_headlines.json': 'Recent headlines from the news wire, with source and date.',
+  'race/wire_injury_report.json': "Drafted players with an injury designation, ESPN's status exactly.",
+  'race/annotations_dossiers.jsonl':
+    "One line per drafted player, keyed by the board's spelling: his weekly points with the drafter and whether he started, plus a career consistency profile. Grep this by player name.",
 };
 
 /** One line per per-owner body; its files are the 14 owners and share it. */
@@ -211,6 +250,20 @@ const GLOSSARY: readonly (readonly [string, string])[] = [
     'fingerprints',
     'An owner’s decade-long auction style as numbers: early-money share, spend concentration (gini), top bid, dollar-player rate, how often they buy their own nominations.',
   ],
+  [
+    'week 0',
+    'The auction rosters re-simulated the in-season way (raw rest-of-season projections) before a snap was played. The sealed draft-night forecast used the risk model instead, so the two are different rulers; the race page measures every move from week 0 and keeps the sealed number beside it.',
+  ],
+  [
+    'verdict',
+    'On the ROI board: steal, fair or burning by quartiles of `verdict_edge` -- a receipt\'s WAR minus the median among started picks in its price band ($1, $2-3, $4-9, $10-19, $20-39, $40+). Shelf means the drafter never started him.',
+  ],
+  ['banked', 'Points a drafted player scored in weeks his drafter started him. `banked_rostered` counts any week on the roster; `shadow_total` the whole season regardless of roster.'],
+  ['WAR', 'Wins above replacement in this league\'s own currency: how much a started week moved the win probability against the slot\'s replacement level.'],
+  ['all-play', 'A week\'s score against every other team\'s: 13-0 is a clean sweep. `expected_wins` sums the fraction; `luck` is wins minus that.'],
+  ['bench_left', 'Points the optimal lineup would have scored above the lineup actually started -- the coaching ledger\'s burn.'],
+  ['swing', 'In the preview: `playoff_if_win` minus `playoff_if_lose`, what Sunday is worth in playoff odds.'],
+  ['Brier', 'The scoreboard\'s score for a probability call: the mean squared gap between the probability and what happened, 0 perfect, 0.25 a coin flip. Lower is better.'],
 ];
 
 export function generateIndex(input: IndexInput): string {
@@ -222,10 +275,11 @@ export function generateIndex(input: IndexInput): string {
     tables(),
     cachedDecade(asOf.cacheFetchedAt, input.wpflCache),
     skipped(shred),
+    absent(shred),
     undocumented(shred),
     glossary(),
     roster(),
-    routing(),
+    routing(shred),
   ];
 
   return sections.filter((section: string): boolean => section !== '').join('\n\n');
@@ -242,11 +296,25 @@ function header(asOf: AsOf): string {
     `- News as of: **${asOf.newsAsOf ?? 'unknown'}**`,
     `- Artifact etag: **${asOf.etag ?? 'unknown'}**`,
     `- WPFL history cache fetched: **${asOf.cacheFetchedAt ?? 'unknown'}**`,
-    '',
-    'This artifact is a **post-draft** report. It froze on draft night, and the',
-    'news layer stops on the date above. Anything about the 2026 season in',
-    'progress -- results, records, injuries since that date -- must come from the',
-    'ESPN tools or the web, never from these files.',
+    ...(asOf.raceThruWeek !== null && asOf.raceThruWeek !== undefined
+      ? [
+          `- Race body: **thru week ${asOf.raceThruWeek}**, rebuilt **${asOf.raceUpdated ?? 'unknown'}**`,
+          '',
+          'The draft-era bodies of this artifact (teams, league, news, night, history,',
+          'market) froze on draft night, and the news layer stops on the date above.',
+          'The `race/` files are the season so far, rebuilt every Tuesday through the',
+          'week named above: standings, luck, the bench, every auction receipt settling,',
+          "the playoff odds and next week's preview. Anything since that rebuild -- the",
+          'week in play, lineups now, injuries this week -- must come from the ESPN tools',
+          'or the web, never from these files.',
+        ]
+      : [
+          '',
+          'This artifact is a **post-draft** report. It froze on draft night, and the',
+          'news layer stops on the date above. Anything about the 2026 season in',
+          'progress -- results, records, injuries since that date -- must come from the',
+          'ESPN tools or the web, never from these files.',
+        ]),
   ].join('\n');
 }
 
@@ -303,6 +371,8 @@ function columnList(columns: readonly string[]): string {
 const DIRECTORY_NOTES: Record<string, string> = {
   history:
     'Auction era only: these files start with the first auction season, 2016. For anything earlier, `wpfl_matchups` and `wpfl_draft_history` reach back to 2010.',
+  race:
+    'The season in progress as the league\'s own analysis publishes it every Tuesday (draft-2026\'s runbook), rendered at https://wpfl-receipts-694ed0.pages.dev/#/race. As of `race/thru_week.json` and `race/updated.json`: complete for every finished week, silent on the week in play -- this week\'s scores, lineups and injuries are the `espn_*` tools. Three playoff-odds figures live here and must be named for what they are: the sealed draft-night forecast, week 0 (the same rosters on the season\'s ruler), and now.',
 };
 
 /**
@@ -433,6 +503,20 @@ function skipped(shred: ShredResult): string {
   return lines.join('\n');
 }
 
+/** Planned keys that were null in the artifact: named so nobody reads their absence as a missing file. */
+function absent(shred: ShredResult): string {
+  if (shred.absent.length === 0) return '';
+  return [
+    '## Absent this week',
+    '',
+    'Planned keys that were null in the artifact, so no file was written. The',
+    'race body carries `calibration` as null until a called week has been played.',
+    '',
+    ...shred.absent.map((key: string): string => `- \`${key}\``),
+  ].join('\n');
+}
+
+
 function undocumented(shred: ShredResult): string {
   if (shred.undocumented.length === 0) return '';
 
@@ -480,13 +564,21 @@ function liveTablesProse(): string {
     .join(', ');
 }
 
-function routing(): string {
+function routing(shred: ShredResult): string {
+  const hasRace: boolean = shred.files.some((file: ShredFile): boolean =>
+    file.path.startsWith('race/')
+  );
   return [
     '## Which source answers which question',
     '',
     '| Question is about | Source |',
     '| --- | --- |',
     '| The 2026 draft, prices, grades, rosters as drafted | These files |',
+    ...(hasRace
+      ? [
+          "| The season so far as analysed each Tuesday: standings with all-play and luck, points left on the bench, the ROI board and its verdicts, the report card (sealed forecast, week 0, odds now), next week's preview with ESPN's call beside ours and what the game is worth, win shares, the forecast scoreboard, the wire | The `race/` files (`race_*` tables), as of the race stamp in the header; the page is https://wpfl-receipts-694ed0.pages.dev/#/race |",
+        ]
+      : []),
     "| Who an owner plays each week, and the draft-night sim's odds for it | `teams.schedule`, a list per owner: UNNEST it in the `sql` tool. Frozen on draft night, like the rest of these files |",
     "| A matchup this week: ESPN's projected totals and win probability, current week only, with per-player projections, then the live scores, each starter's game status, whether the matchup is decided, and each side's optimal lineup so far | `espn_boxscores` |",
     '| League history, past seasons | These files, or the `sql` tool |',
